@@ -34,7 +34,7 @@ For the clone:
 ### Phase A: Docs Extraction (FAST — bulk download, no UI testing)
 Before touching the UI, extract ALL available documentation. Docs tell you what the product does. UI tells you how it looks. This phase should be FAST — no clicking around.
 
-**Goal:** Download every docs page into `clone-product-docs/` directory, organized to match the original docs structure.
+**Goal:** Download every docs page into `target-docs/` directory, organized to match the original docs structure.
 
 **Steps — try in this order (fastest first):**
 
@@ -44,13 +44,13 @@ curl -s <site-url>/llms.txt          # Index with all doc URLs
 curl -s <site-url>/llms-full.txt     # Full docs in one file (if available)
 curl -s <site-url>/docs/llms.txt     # Some sites put it under /docs/
 ```
-If `llms-full.txt` exists → save it as `clone-product-docs/full-docs.md` and you're done.
+If `llms-full.txt` exists → save it as `target-docs/full-docs.md` and you're done.
 If only the index exists → parse the URLs and fetch each page.
 
 **Method 2: Jina Reader (fast, no install, handles JS)**
 For each docs URL, prepend `r.jina.ai/`:
 ```bash
-curl -s "https://r.jina.ai/<docs-page-url>" > clone-product-docs/<page-name>.md
+curl -s "https://r.jina.ai/<docs-page-url>" > target-docs/<page-name>.md
 ```
 This returns clean markdown. No browser needed. Can be parallelized with `&` in bash.
 
@@ -68,7 +68,7 @@ ever navigate <docs-url> && ever extract
 
 **Directory structure** — mirror the original docs hierarchy:
 ```
-clone-product-docs/
+target-docs/
 ├── INDEX.md              # List of all pages with one-line descriptions
 ├── overview.md
 ├── api-reference/
@@ -82,11 +82,56 @@ clone-product-docs/
 └── changelog.md
 ```
 
-**Create `clone-product-docs/INDEX.md`** listing all extracted pages with one-line descriptions.
+**Create `target-docs/INDEX.md`** listing all extracted pages with one-line descriptions.
 
 **Commit the docs extraction.**
 
 **This phase should take 1-2 iterations MAX.** Bulk download everything, then move on to UI testing. Do NOT read pages one at a time with Ever CLI — that wastes iterations.
+
+### Phase A.1: Onboarding Flow Discovery (during docs phase)
+
+The logged-in user has likely ALREADY COMPLETED the target product's onboarding, so the onboarding UI (setup wizards, first-run guides, empty states) won't be visible during inspection. You MUST discover the onboarding flow from docs.
+
+**Why this matters:** Onboarding is a core product feature, not an auth flow. The clone needs its own onboarding experience so new users know what to do after signing up.
+
+**Step 1: Search the scraped docs**
+Look through `target-docs/` for onboarding-related content:
+- Quickstart / getting-started guides
+- Setup wizards or first-run flows
+- "Welcome" or "getting started" pages
+- Empty state descriptions (what users see before they have data)
+
+**Step 2: Use the docs search bar or AI assistant (if available)**
+Many docs sites have a search bar or AI assistant (e.g., Mintlify's assistant, GitBook's search). If the docs don't have a dedicated onboarding page, use these to ask:
+- "What is the onboarding process?"
+- "What steps does a new user complete after signing up?"
+- "What does the first-run experience look like?"
+
+Use Ever CLI to interact with the search/assistant:
+```bash
+ever snapshot   # Find the search bar or assistant button
+ever click <search-element>
+ever type "onboarding process"
+# Read the results / assistant response
+ever snapshot
+ever extract
+```
+
+Save the assistant's response to `target-docs/onboarding-flow.md`.
+
+**Step 3: Document the onboarding flow**
+Create `target-docs/onboarding-flow.md` (if not already created from Step 2) with:
+- The step-by-step onboarding sequence
+- What data/config the user provides at each step
+- What the product looks like BEFORE the user has set anything up (empty states)
+- Any skippable vs. required steps
+- What "done" looks like (when does the user land on the main dashboard?)
+
+**Step 4: Add onboarding PRD entries**
+Add PRD entries for each onboarding step with category `"onboarding"`, priority P2-P3 (right after core infra/API). These should include:
+- The onboarding wizard/flow UI
+- Empty states for core features (what users see before they have data)
+- Any first-run guided tours or tooltips
 
 ### Iteration 1: Site Map
 1. `ever snapshot` the main dashboard to see all navigation links.
@@ -97,13 +142,13 @@ clone-product-docs/
    - Page type: list view, detail view, form, settings, etc.
 3. Record the overall layout pattern (sidebar + content, top nav + pages, etc.).
 4. Record the tech stack if detectable (check page source, network requests).
-5. Take a screenshot of the main dashboard: `ever screenshot --output screenshots/home.jpg`
+5. Take a screenshot of the main dashboard: `ever screenshot --output ralph/screenshots/home.jpg`
 
 ### Iterations 2-N: Feature-by-Feature Deep Dive (USE Ever CLI to test UI)
 For each page/feature (one per iteration):
 1. Navigate to the page.
 2. `ever snapshot` to see all interactive elements.
-3. `ever screenshot --output screenshots/<page-name>.jpg`
+3. `ever screenshot --output ralph/screenshots/<page-name>.jpg`
 4. **Actively test the feature with Ever CLI:**
    - Click buttons, open modals, expand dropdowns
    - Fill forms with test data, observe validation and responses
@@ -113,7 +158,7 @@ For each page/feature (one per iteration):
    - Test pagination/infinite scroll
    - Note animations, transitions, toasts/notifications
    - Use API keys from `.env` to test API features via `curl`
-5. Screenshot key states: `screenshots/<page-name>-<state>.jpg`
+5. Screenshot key states: `ralph/screenshots/<page-name>-<state>.jpg`
 6. Cross-reference what you see in the UI with what the docs say — the docs describe the feature, the UI shows how it's presented.
 
 ### When to use what:
@@ -193,7 +238,7 @@ Array of feature entries, each with:
 ```json
 {
   "id": "feature-001",
-  "category": "ui|nav|auth|data|crud|search|settings|layout|interaction|sdk|developer-experience",
+  "category": "ui|nav|auth|data|crud|search|settings|layout|interaction|sdk|developer-experience|onboarding",
   "description": "Clear description of the feature",
   "page": "Which page this belongs to",
   "ui_details": "Components, layout, colors, spacing",
@@ -232,7 +277,7 @@ Small PRD items = small commits = tight feedback loops = working product.
 ### build-spec.md
 A comprehensive spec document that gives the build loop everything it needs to clone the product. This is the PRIMARY input for the build phase.
 
-### screenshots/
+### ralph/screenshots/
 Visual reference for every page and key interaction state.
 
 ### inspect-progress.txt

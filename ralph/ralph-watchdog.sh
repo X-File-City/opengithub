@@ -6,10 +6,10 @@
 #   2. Run build loop → restart if it stops before all passed
 #   3. Run QA loop → if bugs found, restart build then QA
 #
-# Usage: ./ralph-watchdog.sh <target-url>
+# Usage: ./ralph/ralph-watchdog.sh <target-url>
 
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 TARGET_URL="${1:?Usage: $0 <target-url>}"
 LOCKFILE=".ralph-watchdog.lock"
@@ -27,7 +27,12 @@ if [ -f "$LOCKFILE" ]; then
   rm -f "$LOCKFILE"
 fi
 echo $$ > "$LOCKFILE"
-trap 'rm -f "$LOCKFILE"; ever stop 2>/dev/null' EXIT
+_BROWSER_AGENT=$(python3 -c "import json; print(json.load(open('ralph-config.json')).get('browserAgent', 'ever'))" 2>/dev/null || echo "ever")
+if [ "$_BROWSER_AGENT" = "ever" ]; then
+  trap 'rm -f "$LOCKFILE"; ever stop 2>/dev/null' EXIT
+else
+  trap 'rm -f "$LOCKFILE"' EXIT
+fi
 
 # ─── Helpers ───
 
@@ -92,7 +97,7 @@ while ! inspect_done; do
   fi
 
   log "Phase 1: Running inspect loop... (attempt $((inspect_restarts + 1)))"
-  ./inspect-ralph.sh "$TARGET_URL" || true
+  ./ralph/inspect-ralph.sh "$TARGET_URL" || true
   cron_backup
 
   if inspect_done; then
@@ -123,7 +128,7 @@ for ((cycle=1; cycle<=MAX_CYCLES; cycle++)); do
     fi
 
     log "Phase 2: Building... $(count_passes)/$(total_tasks) passes (attempt $((build_restarts + 1)))"
-    ./build-ralph.sh || true
+    ./ralph/build-ralph.sh || true
     cron_backup
 
     if all_passed; then
@@ -139,7 +144,7 @@ for ((cycle=1; cycle<=MAX_CYCLES; cycle++)); do
 
   # ─── PHASE 3: QA ───
   log "Phase 3: Starting QA..."
-  ./qa-ralph.sh "$TARGET_URL" || true
+  ./ralph/qa-ralph.sh "$TARGET_URL" || true
   cron_backup
 
   QA_STATUS=$(qa_complete)

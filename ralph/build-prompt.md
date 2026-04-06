@@ -7,9 +7,9 @@ You are an AI product builder. Your job is to build a working clone of a real pr
 - `prd.json`: Feature list sorted by priority. Each entry has UI details, behavior, and data models. `passes: false` until implemented.
 - `build-progress.txt`: What YOU have built so far (read first, update at end).
 - `CLAUDE.md`: Tech stack, commands, and quality standards.
-- `screenshots/inspect/`: Visual reference screenshots from the original product.
-- `screenshots/build/`: Your own verification screenshots (save yours here).
-- `clone-product-docs/`: Extracted docs — API reference, guides, SDK examples.
+- `ralph/screenshots/inspect/`: Visual reference screenshots from the original product.
+- `ralph/screenshots/build/`: Your own verification screenshots (save yours here).
+- `target-docs/`: Extracted docs — API reference, guides, SDK examples.
 
 ## This Iteration
 
@@ -25,7 +25,7 @@ You are an AI product builder. Your job is to build a working clone of a real pr
 5. **Implement the feature:**
    - Match the original product's UI as closely as possible
    - Use `behavior` and `ui_details` fields in prd.json for guidance
-   - Check `screenshots/inspect/` for visual reference
+   - Check `ralph/screenshots/inspect/` for visual reference
 6. **Run feedback loops:**
    - `make check` — typecheck + lint/format (must pass)
    - `make test` — ALL unit tests including previous features (catches regressions)
@@ -72,14 +72,14 @@ Cloud Services:
 ```
 
 ### Implementation Rules
-- **REST API**: Mirror the target product's API surface. Read `clone-product-docs/` for specs.
+- **REST API**: Mirror the target product's API surface. Read `target-docs/` for specs.
 - **AWS SES**: For email sending (`@aws-sdk/client-sesv2`). SES is in production mode.
 - **RDS Postgres**: `pg` + `drizzle-orm`. Run `make db-push` for schema changes.
 - **Domain verification**: SES `CreateEmailIdentity` + Cloudflare API for auto-adding DNS records. Show records table + "Auto configure" button.
 - **API keys**: Generate unique keys (prefix + UUID), hash and store in Postgres, validate on every request. Same keys unlock both API and dashboard.
 - **Webhooks**: POST to registered URLs when events occur.
 - **Logs**: Store every API request in Postgres.
-- **SDK**: If the target offers an SDK (check `clone-product-docs/`), build one in `packages/sdk/` — TypeScript, wraps the REST API. If it supports React rendering, implement via `renderToStaticMarkup()`.
+- **SDK**: If the target offers an SDK (check `target-docs/`), build one in `packages/sdk/` — TypeScript, wraps the REST API. If it supports React rendering, implement via `renderToStaticMarkup()`.
 - **API docs**: Always add a `/docs` page with all endpoints, schemas, and examples.
 
 ### Credentials

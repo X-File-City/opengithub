@@ -17,16 +17,41 @@ This is a **generic product cloning system** — the target could be any SaaS st
 3. Run `ever snapshot` to see the current page state.
 4. Follow the inspection strategy for your current iteration:
 
-### Phase A: Read ALL docs first (if nothing inspected yet)
-- Fetch and save all available documentation to `clone-product-docs/`
-- **Capture the Developer Experience (DX)** — this is just as important as the UI:
+### Phase A: Scrape ALL docs first (if nothing inspected yet)
+
+**This is the most important phase.** Incomplete docs = incomplete clone. The current approach only captures a fraction of available docs. Follow `inspect-spec.md` Phase A strictly — it has the full scraping strategy.
+
+**Save all documentation to `target-docs/`** (NOT `clone-product-docs/`).
+
+**Scraping priority (fastest → slowest):**
+1. **llms.txt** — Fetch `{targetUrl}/llms.txt` or `{targetUrl}/docs/llms.txt`. Parse it as a list of doc URLs. Fetch EVERY linked URL using Jina Reader (`curl -s "https://r.jina.ai/<url>"`). If `llms-full.txt` exists, save it as `target-docs/full-docs.md`.
+2. **sitemap.xml** — Fetch `{targetUrl}/sitemap.xml`. Filter for `/docs/` URLs. Fetch each via Jina Reader.
+3. **Manual crawl** — Only if methods 1-2 both fail.
+
+**File naming — use descriptive names matching the doc path:**
+- `{targetUrl}/docs/api-reference/emails/send` → `target-docs/api-reference/emails/send.md`
+- `{targetUrl}/docs/guides/webhooks` → `target-docs/guides/webhooks.md`
+- Each file MUST include a `<!-- Source: {original-url} -->` comment at the top for reference
+
+**Create `target-docs/INDEX.md`** listing every scraped page with a one-line description.
+
+**Capture the Developer Experience (DX)** — this is just as important as the UI:
   - **SDKs / client libraries**: Does the target offer an npm/pip/gem package? What languages? What's the full API surface? (e.g., `client.emails.send({react: <Component/>})`)
   - **React/template rendering**: Does the API accept React components, templates, or markup that gets rendered server-side?
   - **CLI tools**: Does the target have a CLI?
   - **Code examples**: What does the "getting started" flow look like for a developer?
   - **Webhooks / event model**: How do developers consume events?
 - Include SDK/DX features as PRD entries with category `"sdk"` or `"developer-experience"`.
-- Save to `docs-extract.md`
+- Save DX summary to `docs-extract.md`
+
+### Phase A.1: Onboarding Flow Discovery (during docs phase)
+
+The logged-in user has already completed onboarding, so the onboarding UI won't be visible. Discover it from docs instead:
+
+1. **Search scraped docs** for quickstart/getting-started/setup/welcome content
+2. **Use the docs search bar or AI assistant** (if the site has one) — ask about the onboarding process, first-run experience, and new user setup steps. Use Ever CLI to interact with it (`ever click` the search/assistant → `ever type` your question → `ever extract` the response)
+3. **Save findings** to `target-docs/onboarding-flow.md` — step-by-step sequence, required vs. skippable steps, empty states, what "done" looks like
+4. **Add PRD entries** with category `"onboarding"`, priority P2-P3, for each onboarding step + empty states
 
 ### Iteration 1: Map the site (if docs done but no site map)
 - Navigate all pages, map the complete site structure
@@ -34,7 +59,7 @@ This is a **generic product cloning system** — the target could be any SaaS st
 
 ### Subsequent iterations: Deep dive one page/feature
 - Pick the next uninspected page/feature from `sitemap.md`
-- **Take screenshots**: `ever screenshot --output screenshots/inspect/<page-name>.jpg` for each page
+- **Take screenshots**: `ever screenshot --output ralph/screenshots/inspect/<page-name>.jpg` for each page
 - Inspect thoroughly: click, type, submit, test every interaction
 
 ### Final iteration: Finalize build-spec.md + PRD dependencies
@@ -42,9 +67,9 @@ This is a **generic product cloning system** — the target could be any SaaS st
   - Product overview and branding (`{productname}-clone`)
   - Complete design system (colors, typography, layout, shared components)
   - All data models with field types
-  - **Backend Architecture** — map each feature to the AWS/cloud service that powers it
+  - **Backend Architecture** — map each feature to the cloud service that powers it (read `ralph-config.json` for the chosen provider)
   - **SDK/DX** — what SDK to build, what developer workflow to support
-  - **Deployment** — AWS deployment instructions (App Runner + RDS Postgres)
+  - **Deployment** — deployment instructions for the chosen cloud provider (read `ralph-config.json`)
   - **Build Order** — prioritized list, core features first
 
 - **Add `dependent_on` to every PRD entry** — list the IDs of related features that this feature depends on or shares components/data with. This gives the QA agent context about what else might break. Examples:
@@ -57,20 +82,20 @@ This is a **generic product cloning system** — the target could be any SaaS st
 5. **Build for a REAL Product, Not a Mock:**
    The clone must be a **fully functional, deployable product** with its own backend. When writing `build-spec.md`:
 
-   - **Identify the core infrastructure** the target product needs. Map each feature to the simplest cloud service:
-     - Email sending/receiving? → AWS SES
-     - File storage/uploads? → AWS S3
-     - Database? → RDS Postgres via Drizzle ORM
-     - DNS/domain verification? → AWS SES + Cloudflare API for auto-configuring DNS
+   - **Identify the core infrastructure** the target product needs. Read `ralph-config.json` for the chosen cloud provider, then map each feature to the simplest service on that provider:
+     - Email sending/receiving? → SES (AWS) / SendGrid (GCP) / Azure Communication Services
+     - File storage/uploads? → S3 (AWS) / Cloud Storage (GCP) / Blob Storage (Azure)
+     - Database? → Postgres via Drizzle ORM (provider-managed)
+     - DNS/domain verification? → Provider email service + Cloudflare API
      - Webhooks? → HTTP POST to registered URLs
-     - Queues/async jobs? → SQS or Lambda
+     - Queues/async jobs? → SQS (AWS) / Cloud Tasks (GCP) / Azure Queue Storage
      - Search? → Postgres full-text search
      - Charts/analytics? → Postgres aggregation queries
    - **The clone builds its OWN API** — it does NOT call the target product's API.
    - **No mock data, no SQLite, no fake backends.**
 
    **Pre-configured cloud credentials:**
-   - AWS CLI and `@aws-sdk/*` configured via `~/.aws/credentials` (no env vars needed)
+   - Cloud CLI and SDK configured for the chosen provider (see `ralph-config.json`)
    - `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID` in `.env` — for DNS record management
 
 6. **PRD Entry Priority:**
