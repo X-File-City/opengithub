@@ -5,10 +5,10 @@ A three-phase autonomous system that clones any SaaS product from just a URL.
 Phase 1: Inspect (Claude + Ever CLI) → Phase 2: Build (Claude) → Phase 3: QA (Codex + Ever CLI)
 
 ## Tech Stack
-- **Framework**: Determined during onboarding — installed by Claude based on target product (default: Next.js 16 App Router)
+- **Framework**: Installed during onboarding (see `stackProfile` in `ralph-config.json`)
 - **Language**: TypeScript strict mode, no `any` types
-- **Styling**: Installed during onboarding (default: Tailwind CSS)
-- **UI Components**: Installed during onboarding (default: Radix UI)
+- **Styling**: Installed during onboarding based on stackProfile
+- **UI Components**: Installed during onboarding based on stackProfile
 - **Database**: Installed during onboarding (default: Drizzle ORM + Postgres)
 - **Unit Tests**: Vitest (pre-installed)
 - **E2E Tests**: Playwright (pre-installed)
@@ -30,10 +30,9 @@ Phase 1: Inspect (Claude + Ever CLI) → Phase 2: Build (Claude) → Phase 3: QA
 - Small, focused commits — one feature per commit
 
 ## Architecture
-- `src/app/` — Next.js App Router pages and API routes
-- `src/components/` — React components
+- `src/` — populated by onboarding based on stackProfile (framework entry points, pages, API routes)
 - `src/lib/` — utilities, helpers, API clients
-- `src/lib/db/` — Drizzle ORM schema and client
+- `src/lib/db/` — Drizzle ORM schema and client (pre-configured)
 - `src/types/` — TypeScript types
 - `tests/` — unit tests (Vitest)
 - `tests/e2e/` — E2E tests (Playwright)

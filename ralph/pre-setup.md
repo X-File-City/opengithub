@@ -3,14 +3,15 @@
 Everything listed here is already installed and configured. Do NOT reinstall, reconfigure, or overwrite these.
 
 ## Tooling
-- **Next.js 16** — `next.config.js` (standalone output for Docker, Turbopack)
+- **Framework** — installed during onboarding based on `stackProfile` in `ralph-config.json`
 - **TypeScript** — `tsconfig.json` (strict mode, `@/` path aliases)
-- **Tailwind CSS** — `tailwind.config.ts` + `postcss.config.js` (dark mode, src paths)
 - **Biome** — `biome.json` (lint + format, replaces ESLint/Prettier)
 - **Vitest** — `vitest.config.ts` (jsdom, path aliases, `tests/*.test.ts`)
 - **Playwright** — `playwright.config.ts` + Chromium installed (`tests/e2e/*.spec.ts`)
 - **Drizzle ORM** — `drizzle.config.ts` + `src/lib/db/index.ts` + `src/lib/db/schema.ts`
-- **Docker** — `Dockerfile` (multi-stage, standalone) + `.dockerignore`
+- **Docker** — `Dockerfile` (multi-stage, generic Node.js) + `.dockerignore`
+
+Note: Framework is installed during onboarding based on stackProfile (api-service, dashboard-app, platform, content-app, realtime-app).
 
 ## Commands (use these, don't create new ones)
 - `make check` — typecheck + Biome lint/format
@@ -36,9 +37,7 @@ If you want auto-configure for domain verification, add to `.env`:
 
 ## Project Structure (already scaffolded)
 ```
-src/app/           — Next.js App Router (layout.tsx, page.tsx, globals.css)
-src/app/api/       — API routes (created by build agent)
-src/components/    — React components (created by build agent)
+src/               — empty; populated by onboarding based on stackProfile
 src/lib/           — Utilities and clients
 src/lib/db/        — Drizzle ORM (index.ts + schema.ts ready)
 src/types/         — TypeScript types

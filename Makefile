@@ -70,4 +70,4 @@ db-push:
 
 # Clean build artifacts
 clean:
-	rm -rf .next dist node_modules/.cache
+	rm -rf dist node_modules/.cache
