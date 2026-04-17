@@ -1,9 +1,24 @@
 # Runtime state
 .env
 *.log
+.omc/
+.omx/
+coverage/
+test-results/
+playwright-report/
+drizzle/
+packages/sdk/dist/
+target-docs*/
+.current-feature.json
+tsconfig.tsbuildinfo
 *.lock
 .ralph-setup-done
 node_modules/
+
+# Doc scraper venv (Phase 1 only, not part of the generated clone)
+.venv-scrape/
+__pycache__/
+*.pyc
 
 # Planning docs — internal, not source files
 ONBOARDING-PLAN.md
