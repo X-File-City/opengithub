@@ -485,7 +485,7 @@ for ((cycle=1; cycle<=MAX_CYCLES; cycle++)); do
     cron_backup
 
     if all_passed; then
-      log "Phase 2: All $(total_tasks) features pass!"
+      log "Phase 2: All $(total_tasks) features report build_pass."
       break
     fi
 
