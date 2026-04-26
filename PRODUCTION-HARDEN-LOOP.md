@@ -16,6 +16,8 @@ The **Production Harden Loop** (Phases 4-8) is the post-parity hardening engine.
   - `prod-readiness-auditor`: observability (logs, metrics, sentry), graceful shutdown, health checks.
   - `security-auditor`: rate limiting, validation, RBAC, secret management.
   - `perf-auditor`: N+1 queries, missing indexes, bundle size, caching.
+- **Reference:** `ralph/production-checklist.json` (common SaaS gaps).
+- **Spec:** `ralph/audit-spec.md`.
 - **Output:** `ralph/harden-gap.json` (typed backlog of improvements).
 
 ### Phase 5: RESHAPE (Architecture)
