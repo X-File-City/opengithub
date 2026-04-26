@@ -122,6 +122,11 @@ For features in the `infrastructure` category:
 - The feature is not `build_pass` until the provisioned resource is reachable
 
 ### Implementation Rules
+- **Package Installation Rule:** Before importing ANY package not already in your stack's dependency manifest (e.g., `package.json`, `pyproject.toml`, `go.mod`), you MUST:
+  1. Run the stack-appropriate install command (e.g., `npm install`, `pip install`, `go get`).
+  2. Verify the package appears in the manifest file.
+  3. For Node.js, if install fails with peer dependency conflicts, add `legacy-peer-deps=true` to `.npmrc` and retry.
+  **Do NOT write import statements for packages you haven't installed.** The full build will fail even if the dev server seems to work.
 - **REST API**: Mirror the target product's API surface. Read `target-docs/` for specs.
 - **Cloud services**: Use the provider and service equivalents specified by `ralph-config.json` and `BUILD_GUIDE.md`.
 - **Database**: Use the configured database layer and migration workflow from the installed stack template.
