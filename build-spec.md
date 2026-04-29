@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 2 docs/auth/onboarding plus live public-navigation sitemap discovery.
+Status: partial, iteration 3 docs-backed personal dashboard inspection plus live unauthenticated redirect check.
 
 ## Product Overview
 
@@ -38,7 +38,28 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home.
+Deep page-level screenshots and interaction details remain pending except auth/public home and the docs-backed personal dashboard slice.
+
+## Personal Dashboard
+
+Status: partially inspected in iteration 3. Ever was attempted first but the reusable session was expired, and the prompt forbids `ever start`. The authenticated dashboard could not be visually inspected live. Evidence came from scraped GitHub docs plus a fallback Chrome check of `https://github.com/dashboard`, which confirmed unauthenticated users are redirected to the sign-in page. Fallback screenshot: `ralph/screenshots/inspect/dashboard-redirect.jpg`.
+
+Core dashboard behavior to clone:
+
+- The personal dashboard is the first signed-in page and is reachable by clicking the GitHub mark in the top-left global header.
+- The signed-in dashboard uses the global app shell plus a dashboard-specific layout: a left repository/navigation sidebar and a central feed/activity column.
+- New users with no repositories should see first-run onboarding with Create repository, Import repository, and setup-guide CTAs.
+- The left sidebar exposes top repositories and teams through the global navigation menu, plus recently visited repositories/teams/projects through the global search/jump field.
+- Top repositories are generated automatically from repositories the user has interacted with, including commits, opened issues, issue comments, opened pull requests, and pull request comments. Users cannot manually edit this ranking; inactive repos should age out after one year.
+- Recent activity previews up to four issue/pull-request updates from the last two weeks that involve the user.
+- Feed activity supports a Following feed and a For you/recommendations feed. The feed can be filtered by event type.
+
+Dashboard implementation mapping:
+
+- Next.js owns `/dashboard`, responsive layout, empty states, feed cards, filter dropdowns, and client-side repository filtering.
+- Rust API owns dashboard aggregation endpoints and permission-aware repository/activity queries.
+- Postgres stores dashboard source data in normal product tables plus optional `activity_events`, `feed_events`, `recent_visits`, `follows`, `repository_watches`, `stars`, and `dashboard_hint_dismissals` tables.
+- No GitHub Copilot dashboard/prompt features should be built for opengithub; they are target-specific preview features outside the clone's current scope.
 
 ## Data Models
 
@@ -60,6 +81,13 @@ Initial model set inferred from docs/OpenAPI:
 - `packages`: id, owner_type, owner_id, repository_id, package_type, name, visibility, created_at, updated_at.
 - `webhooks`: id, owner_type, owner_id, url, secret_hash, events, active, created_at, updated_at.
 - `notifications`: id, user_id, subject_type, subject_id, reason, unread, updated_at.
+- `activity_events`: id, actor_id, repository_id, subject_type, subject_id, event_type, title, summary, created_at.
+- `feed_events`: id, actor_id, repository_id, organization_id, event_type, payload_json, visibility, created_at.
+- `recent_visits`: id, user_id, subject_type, subject_id, last_visited_at.
+- `follows`: id, follower_id, subject_type, subject_id, created_at.
+- `repository_watches`: id, user_id, repository_id, watching_level, created_at, updated_at.
+- `stars`: id, user_id, repository_id, created_at.
+- `dashboard_hint_dismissals`: id, user_id, hint_key, dismissed_at.
 
 ## API Architecture
 
@@ -69,6 +97,41 @@ The Rust API should expose opengithub-owned REST endpoints modeled after the Git
 GET /api/user
 Response: { "id": "uuid", "username": "mona", "name": "Mona Lisa", "avatarUrl": "https://..." }
 Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+GET /api/dashboard
+Response: {
+  "topRepositories": [
+    { "owner": "mona", "name": "hello-world", "visibility": "public", "language": "TypeScript", "languageColor": "#3178c6", "updatedAt": "2026-04-30T00:00:00Z" }
+  ],
+  "recentActivity": [
+    { "type": "issue", "repository": "mona/hello-world", "number": 12, "title": "Fix flaky test", "state": "open", "updatedAt": "2026-04-30T00:00:00Z", "actor": { "username": "mona", "avatarUrl": "https://..." } }
+  ],
+  "feed": [],
+  "dismissedHints": ["import-repository"]
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+GET /api/dashboard/feed?mode=following&eventType=release&page=1&pageSize=30
+Response: {
+  "items": [
+    { "id": "uuid", "eventType": "release", "actor": { "username": "octo" }, "repository": "octo/app", "title": "v1.2.0", "createdAt": "2026-04-30T00:00:00Z" }
+  ],
+  "total": 1,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "validation_failed", "message": "Unsupported feed mode" } }
+```
+
+```http
+POST /api/dashboard/dismiss-hint
+Request: { "hintKey": "create-repository" }
+Response: { "hintKey": "create-repository", "dismissed": true }
+Error: { "error": { "code": "validation_failed", "message": "hintKey is required" } }
 ```
 
 ```http
@@ -141,4 +204,19 @@ More endpoint examples must be completed after feature-page inspection.
 
 ## Keyboard Shortcuts
 
-Pending. GitHub has a keyboard shortcut model, but the complete inventory should be captured during page-level inspection.
+Partial inventory from GitHub command palette docs:
+
+| Shortcut | Scope | Behavior |
+| --- | --- | --- |
+| `Cmd+K` / `Ctrl+K` | Global | Open command palette in search/navigation mode. |
+| `Cmd+Option+K` / `Ctrl+Alt+K` | Global, Markdown-safe | Open command palette when normal shortcut conflicts with text editing. |
+| `Cmd+Shift+K` / `Ctrl+Shift+K` | Global | Open command palette in command mode. |
+| `>` | Command palette | Switch from search/navigation mode to command mode. |
+| `#` | Command palette | Search issues, pull requests, discussions, and projects. |
+| `@` | Command palette | Search users, organizations, and repositories. |
+| `/` | Command palette | Search files inside a repository scope or repositories inside an organization scope. |
+| `!` | Command palette | Search projects only. |
+| `Enter` | Command palette | Open highlighted result or run highlighted command. |
+| `Cmd+Enter` / `Ctrl+Enter` | Command palette | Open highlighted search/navigation result in a new tab. |
+| `Esc` | Command palette | Close command palette. |
+| `?` | Command palette | Show command palette help. |

@@ -130,7 +130,7 @@ Template: `/{owner}/{repo}`.
 
 ## Initial Deep-Dive Order
 
-1. Personal dashboard / onboarding empty state.
+1. Personal dashboard / onboarding empty state. Completed in iteration 3 from docs-backed inspection; live authenticated UI remains blocked by expired Ever session.
 2. Repository create form.
 3. Repository code/file browser.
 4. Issues list/detail/create.

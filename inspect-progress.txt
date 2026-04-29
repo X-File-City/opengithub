@@ -54,3 +54,32 @@ Key findings:
 
 Next recommended iteration:
 - Inspect the personal dashboard / onboarding empty state page group. If Ever remains expired, either recover the browser session through the allowed runtime path or use the same documented fallback and capture screenshots.
+
+Iteration 3 completed on 2026-04-30.
+
+Scope inspected: personal dashboard / onboarding empty state page group.
+
+What was done:
+- Read prior progress, inspect strategy, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, and current prd.json.
+- Ran the required `ever snapshot` first; it failed because the session is expired. `ever sessions` showed only about:blank sessions, and `ever use 1 && ever snapshot` also failed as expired. Per prompt, did not run `ever start`.
+- Read scraped GitHub docs for the personal dashboard, dashboard display criteria, repository dashboard, account onboarding, and command palette shortcuts.
+- Used Chrome fallback to check live `https://github.com/dashboard`; unauthenticated users redirect to the sign-in page. Captured fallback screenshot:
+  - ralph/screenshots/inspect/dashboard-redirect.jpg
+- Updated build-spec.md with the personal dashboard behavior, data model additions, dashboard API examples, implementation mapping, and a partial keyboard shortcut table.
+- Updated prd.json:
+  - refined onboarding-001 with more precise dashboard empty-state UI/behavior/data
+  - added dashboard-001 personal dashboard layout/top repository sidebar
+  - added dashboard-002 recent activity preview
+  - added dashboard-003 Following/For you feed and event filtering
+- Updated sitemap.md to mark dashboard inspection as completed with the Ever/auth limitation.
+
+Key findings:
+- The personal dashboard is the first signed-in page and is reached by clicking the GitHub mark in the global header.
+- It combines top repositories/teams, recent activity, and community/recommendation feeds.
+- Recent activity previews up to four issue/PR updates from the last two weeks.
+- Top repositories are automatically ranked from repository interactions and cannot be manually edited; inactive repositories age out after one year.
+- Feed modes include Following and For you/recommendations, with event-type filtering.
+- opengithub should exclude GitHub Copilot dashboard prompt/agent widgets because they are target-specific preview features outside the current clone scope.
+
+Next recommended iteration:
+- Inspect the repository creation form `/new` and repository import entry point `/new/import`.
