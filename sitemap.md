@@ -132,7 +132,7 @@ Template: `/{owner}/{repo}`.
 
 1. Personal dashboard / onboarding empty state. Completed in iteration 3 from docs-backed inspection; live authenticated UI remains blocked by expired Ever session.
 2. Repository create/import form group. Completed in iteration 4 with live `/new` form inspection and docs-backed `/new/import` behavior because Ever could navigate to the import tab but could not snapshot/screenshot/extract it.
-3. Repository code/file browser.
+3. Repository code/file browser. Completed in iteration 5 with live `vercel/next.js` inspection for overview, tree directory, blob view, branch/code controls, and docs-backed clone/raw/blame behavior.
 4. Issues list/detail/create.
 5. Pull request list/detail/diff/review.
 6. Actions workflow runs/logs.

@@ -111,3 +111,38 @@ Key findings:
 
 Next recommended iteration:
 - Inspect the repository code/file browser for an existing repository (`/{owner}/{repo}`, tree/blob views, branch selector, clone controls, README rendering).
+
+Iteration 5 completed on 2026-04-30.
+
+Scope inspected: repository code/file browser page group (`/{owner}/{repo}`, `/tree/{branch}/{path}`, `/blob/{branch}/{path}`).
+
+What was done:
+- Read prior progress, inspect strategy, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and target docs for repository files, clone, raw, blame, code navigation, and branches.
+- Ran the required `ever snapshot`; Ever was authenticated and on the signed-in dashboard.
+- Navigated with Ever to `https://github.com/vercel/next.js` and inspected the live repository Code tab.
+- Captured screenshots:
+  - ralph/screenshots/inspect/repo-code-overview.jpg
+  - ralph/screenshots/inspect/repo-branch-selector.jpg
+  - ralph/screenshots/inspect/repo-code-clone-menu.jpg
+  - ralph/screenshots/inspect/repo-blob-file-view.jpg
+  - ralph/screenshots/inspect/repo-tree-directory.jpg
+- Tested live navigation to a blob file view (`/blob/canary/package.json`) and a nested directory tree (`/tree/canary/packages/next`).
+- Clicked repository branch and Code controls for screenshots; snapshots did not expose the menus clearly, so clone/branch behavior was cross-checked against scraped docs.
+- Updated build-spec.md with repository code/file browser UI, data models, API examples, backend/cloud mapping, known constraints, build order, and keyboard shortcuts.
+- Updated sitemap.md to mark repository code/file browser as completed.
+- Appended focused PRD entries:
+  - repo-003 repository Code tab overview
+  - repo-004 branch/tag selector, Go to file, and tree browsing
+  - repo-005 blob/file view, raw, copy, download, history, blame, symbols
+  - git-001 HTTPS Git clone/fetch/push, raw streaming, source archives
+
+Key findings:
+- Repository pages are a shared workspace with a header action row, horizontal tab bar, and route-specific content inside a `repo-content-turbo-frame`.
+- The Code tab combines repository metadata/actions, branch/tag controls, Go to file, Add file, Code clone/download menu, latest commit summary, file table, README/sidebar metadata, releases/deployments/contributors, and language breakdown.
+- Directory and blob pages use a split-pane layout with collapsible file tree, draggable splitter, branch selector, breadcrumbs, latest commit summary, and History link.
+- Blob view includes Code/Blame toggles, line/loc/size metadata, Raw, copy, download, symbols, more actions, line numbers, syntax highlighting, and accessibility-backed read-only file content.
+- opengithub MVP must prioritize ref resolution, permission checks, tree/blob/raw/archive endpoints, and smart HTTP Git clone/fetch/push before secondary repo features.
+- SSH clone URLs should remain hidden or disabled until SSH keys and SSH git transport are implemented.
+
+Next recommended iteration:
+- Inspect Issues list/detail/create for a repository (`/{owner}/{repo}/issues`, `/issues/new`, `/issues/{number}`), including filters, labels/milestones links, issue form, timeline/comments, reactions, close/reopen, and sidebar metadata.
