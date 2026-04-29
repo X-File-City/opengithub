@@ -1,8 +1,8 @@
 {
-  "observed_at": "2026-04-29T18:19:46.508Z",
+  "observed_at": "2026-04-29T18:32:14.805Z",
   "provider": "claude-code",
   "event_name": "UserPromptSubmit",
   "session_id": "44435799-4492-4a35-8c03-adcfb80aad1f",
   "turn_id": null,
-  "prompt_summary": "the point is that we want codex or claude refer to those docs only when it necessarily needs to then what do we do"
+  "prompt_summary": "yeah let's go"
 }

@@ -157,22 +157,24 @@ for ((i=1; i<=$ITERATIONS; i++)); do
     # REBUILD MODE: Feature failed QA previously — use root-cause analysis prompt
     echo "  → Rebuild mode: QA failures detected, providing root-cause context"
 
-    CONTEXT=$(inline_files \
-      ralph/build-prompt.md \
-      ralph/pre-setup.md \
-      BUILD_GUIDE.md \
-      build-spec.md \
-      prd.json \
-      build-progress.txt \
-      CLAUDE.md \
-      ralph-config.json \
-      qa-report.json)
+    MASTER_PROMPT=$(cat ralph/build-prompt.md)
     result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
-"$CONTEXT
+"$MASTER_PROMPT
 
+== ITERATION CONTEXT ==
 ITERATION: $i of $ITERATIONS
 PROGRESS: $PASSES/$TOTAL features build_pass
-MODE: REBUILD — This feature previously failed QA. Read the failure context below carefully.
+MODE: REBUILD — this feature previously failed QA. Read the failure context below carefully.
+
+== CONTEXT FILES (read with cat / your Read tool only when you need them) ==
+  - ralph/pre-setup.md       — environment + tooling notes
+  - BUILD_GUIDE.md           — authoritative stack reference (Rust + Next.js layout, make targets, ports)
+  - build-spec.md            — primary spec: product overview, design system, data models, build order
+  - prd.json                 — feature list; flip build_pass:true after a successful build
+  - build-progress.txt       — what you've built so far; update at end of iteration
+  - CLAUDE.md                — project tech stack and quality standards
+  - ralph-config.json        — stack config (language, framework, cloud, auth, frontend)
+  - qa-report.json           — failure context for the feature you are rebuilding (READ THIS FIRST)
 STACK_CONTEXT:
 - Read ralph-config.json for language, stackProfile, cloudProvider, authMode, frontend
 - Read BUILD_GUIDE.md before touching commands, file paths, or test frameworks
@@ -200,20 +202,22 @@ Output <promise>COMPLETE</promise> only if ALL features pass.")
 
   else
     # FRESH BUILD MODE: No QA failures — standard build prompt
-    CONTEXT=$(inline_files \
-      ralph/build-prompt.md \
-      ralph/pre-setup.md \
-      BUILD_GUIDE.md \
-      build-spec.md \
-      prd.json \
-      build-progress.txt \
-      CLAUDE.md \
-      ralph-config.json)
+    MASTER_PROMPT=$(cat ralph/build-prompt.md)
     result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
-"$CONTEXT
+"$MASTER_PROMPT
 
+== ITERATION CONTEXT ==
 ITERATION: $i of $ITERATIONS
 PROGRESS: $PASSES/$TOTAL features build_pass
+
+== CONTEXT FILES (read with cat / your Read tool only when you need them) ==
+  - ralph/pre-setup.md       — environment + tooling notes
+  - BUILD_GUIDE.md           — authoritative stack reference (Rust + Next.js layout, make targets, ports)
+  - build-spec.md            — primary spec: product overview, design system, data models, build order
+  - prd.json                 — feature list; flip build_pass:true after a successful build
+  - build-progress.txt       — what you've built so far; update at end of iteration
+  - CLAUDE.md                — project tech stack and quality standards
+  - ralph-config.json        — stack config (language, framework, cloud, auth, frontend)
 STACK_CONTEXT:
 - Read ralph-config.json for language, stackProfile, cloudProvider, authMode, frontend
 - Read BUILD_GUIDE.md before choosing commands, framework paths, or test locations

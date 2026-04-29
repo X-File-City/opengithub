@@ -137,21 +137,24 @@ echo ""
 for ((i=1; i<=$ITERATIONS; i++)); do
   echo "--- Inspection iteration $i/$ITERATIONS ---"
 
-  _BROWSER_REF=""
-  [ "$BROWSER_AGENT" = "ever" ] && _BROWSER_REF="ralph/ever-cli-reference.md"
-  CONTEXT=$(inline_files \
-    ralph/inspect-prompt.md \
-    ralph/inspect-spec.md \
-    "$_BROWSER_REF" \
-    prd.json \
-    inspect-progress.txt \
-    ralph/pre-setup.md \
-    ralph-config.json)
-  result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
-"$CONTEXT
+  _BROWSER_REF_LINE=""
+  [ "$BROWSER_AGENT" = "ever" ] && _BROWSER_REF_LINE=$'\n  - ralph/ever-cli-reference.md      — Ever CLI command reference for browser control'
 
+  MASTER_PROMPT=$(cat ralph/inspect-prompt.md)
+  result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
+"$MASTER_PROMPT
+
+== ITERATION CONTEXT ==
 TARGET URL: $TARGET_URL
 ITERATION: $i of $ITERATIONS
+
+== CONTEXT FILES (read with cat / your Read tool only when you need them) ==
+  - ralph/inspect-spec.md            — full inspection strategy and what to capture${_BROWSER_REF_LINE}
+  - ralph/pre-setup.md               — environment + tooling notes
+  - ralph-config.json                — stack config (language, framework, cloud, auth, frontend)
+  - prd.json                         — current feature list; append new entries here
+  - inspect-progress.txt             — what's been inspected so far; update at end of iteration
+  - target-docs/INDEX.md             — pre-scraped target-product documentation index
 
 Inspect exactly ONE page/feature, then commit, push, and stop.
 Output <promise>NEXT</promise> when done with this page.
