@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 9 global search/code search inspection.
+Status: partial, iteration 10 user and organization profile inspection.
 
 ## Product Overview
 
@@ -38,7 +38,117 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, and global search/code search.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, and user/organization profiles.
+
+## User And Organization Profiles
+
+Status: inspected in iteration 10 with headless Chrome fallback after Ever DOM extraction failed. Screenshots:
+
+- `ralph/screenshots/inspect/profile-user-overview.jpg`
+- `ralph/screenshots/inspect/profile-user-repositories.jpg`
+- `ralph/screenshots/inspect/profile-user-stars.jpg`
+- `ralph/screenshots/inspect/profile-org-overview.jpg`
+- `ralph/screenshots/inspect/profile-org-repositories-filtered.jpg`
+- `ralph/screenshots/inspect/profile-org-people.jpg`
+
+User profile overview:
+
+- Public user profiles use the global public/signed-in header, then a profile shell with a left identity column and a main tabbed content column.
+- The left column shows avatar, display name, username, Follow button, follower/following counts, organization/company, location, achievements/badges, and a block/report menu. Signed-out users see login-gated block/report messaging.
+- Main tabs include Overview, Repositories with count, Projects, Packages, Stars with count, and a More menu. Active tab is underlined and duplicated in responsive mobile layout.
+- Overview content shows a Pinned section with up to six repositories/gists as compact cards: owner/name, visibility, description, language color/name, star count, and fork count. Docs confirm users can customize pins, filter repositories/gists, reorder with a grabber, and save up to six combined pins.
+- The contribution graph shows annual contribution total, per-day accessible labels, month axis, intensity cells, and a contribution-year selector. Contribution counting is based on repository creation, forks, issues, PRs, reviews, discussions, and commits that meet visibility/repository/email/ref criteria.
+- Private profiles hide achievements, activity overview/feed, contribution graph, follower/following counts, follow/sponsor buttons, organization memberships, Stars/Projects/Packages/Sponsoring tabs, and pronouns; README, bio, and profile picture remain public.
+
+User repository and stars tabs:
+
+- `/{user}?tab=repositories` shows repository filters above a list: search box, Type menu (All, Sources, Forks, Archived, Can be sponsored, Mirrors, Templates), Language menu, and Sort menu (Last updated, Name, Stars).
+- Repository rows show name, visibility, archived/fork badges, fork source where applicable, description, language, star/fork counts, license, and last-updated date.
+- `/{user}?tab=stars` reuses the same list shell with a search box, Type, Language, and Sort menu. Sort options include Recently starred, Recently active, and Most stars. Rows show starred repository owner/name, description, language, stars/forks, and updated date.
+
+Organization overview and repositories:
+
+- Organization profiles use a similar tab shell but the identity header spans the top: avatar/logo, display name, description, Verified badge when domain is verified, Sponsor button, follower count, website, and social links.
+- Org tabs include Overview, Repositories, Projects, Packages, People, Sponsoring, and More. Overview shows pinned repositories followed by an inline repository list preview, People preview, Sponsoring preview, top languages, most-used topics, and GitHub Sponsor CTA.
+- `/{org}?tab=repositories` and `/orgs/{org}/repositories` provide stronger repository management filters than user profiles: All, Contributed by me, Admin access, Public, Sources, Forks, Archived, Templates, repository search, type/language/sort filters encoded in the URL, display-density controls, and rows with topics, language/license, forks/stars/issues/PR counts, and updated timestamps.
+
+Organization people:
+
+- `/orgs/{org}/people` shows organization header tabs, an Organization permissions side nav, Members tab, paginated member list, avatar/name/username rows, and Previous/Next pagination.
+- Signed-out/public view exposes public members only. Authenticated organization admins need additional role filters, pending invitations, outside collaborators, and permission management in settings/admin slices.
+
+API examples:
+
+```http
+GET /api/users/{username}
+Response: {
+  "username": "torvalds",
+  "displayName": "Linus Torvalds",
+  "avatarUrl": "https://...",
+  "bio": null,
+  "company": "Linux Foundation",
+  "location": "Portland, OR",
+  "followers": 300000,
+  "following": 0,
+  "viewerIsFollowing": false,
+  "isPrivate": false,
+  "achievements": [{ "key": "arctic-code-vault", "count": 4 }]
+}
+Error: { "error": { "code": "not_found", "message": "User not found" }, "status": 404 }
+```
+
+```http
+GET /api/users/{username}/profile
+Response: {
+  "pinned": [{ "type": "repository", "owner": "torvalds", "name": "linux", "description": "Linux kernel source tree", "language": "C", "stars": 231292, "forks": 61971 }],
+  "contributions": { "year": 2026, "total": 3066, "days": [{ "date": "2026-04-29", "count": 1, "level": 1 }] },
+  "tabs": { "repositories": 11, "projects": 0, "packages": 0, "stars": 2 }
+}
+Error: { "error": { "code": "profile_private", "message": "This profile is private" }, "status": 403 }
+```
+
+```http
+GET /api/users/{username}/repositories?type=sources&language=C&sort=updated&page=1&pageSize=30
+Response: {
+  "items": [{ "name": "linux", "visibility": "public", "description": "Linux kernel source tree", "language": "C", "stars": 231292, "forks": 61971, "license": "Other", "updatedAt": "2026-04-29T00:00:00Z" }],
+  "filters": { "types": ["all", "sources", "forks", "archived", "templates"], "languages": ["C", "OpenSCAD", "C++"] },
+  "total": 11,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "invalid_filter", "message": "Unsupported repository type filter" }, "status": 422 }
+```
+
+```http
+GET /api/orgs/{org}
+Response: {
+  "slug": "vercel",
+  "displayName": "Vercel",
+  "description": "Agentic infrastructure for every app and agent.",
+  "verifiedDomain": "vercel.com",
+  "followers": 27800,
+  "websiteUrl": "https://vercel.com",
+  "tabs": { "repositories": 232, "people": 68, "sponsoring": 4 }
+}
+Error: { "error": { "code": "not_found", "message": "Organization not found" }, "status": 404 }
+```
+
+```http
+GET /api/orgs/{org}/people?page=1&pageSize=30
+Response: {
+  "items": [{ "username": "alex-grover", "displayName": "Alex Grover", "avatarUrl": "https://...", "publicRole": "member" }],
+  "total": 68,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "forbidden", "message": "You do not have permission to view private members" }, "status": 403 }
+```
+
+Implementation mapping:
+
+- Next.js owns profile shells, identity cards, tab routing, pinned repository cards, contribution graph rendering, repository/star/org/member filters, public/private states, and signed-in follow/star/block/report controls.
+- Rust API owns user/org profile reads, follow/star/block/report mutations, pin ordering, contribution aggregation, repository/member filtering, and permission-aware public/private visibility.
+- Postgres stores profile fields, profile README rendered HTML, profile pins, follows, stars, contribution summaries/days/events, achievements, organization verified domains, organization memberships, and repository list denormalizations for profile search/sort.
 
 ## Global Search And Code Search
 
@@ -572,7 +682,16 @@ Initial model set inferred from docs/OpenAPI:
 - `branch_protection_rules`: id, repository_id, pattern, required_reviews_count, dismiss_stale_reviews, require_code_owner_reviews, required_check_contexts, require_linear_history, created_at, updated_at.
 - `labels`: id, repository_id, name, color, description.
 - `organizations`: id, slug, display_name, description, avatar_url, created_at, updated_at.
+- `organization_verified_domains`: id, organization_id, domain, verified_at, verification_token_hash, created_at.
+- `organization_memberships`: id, organization_id, user_id, role, public, state, invited_by_id, created_at, updated_at.
 - `teams`: id, organization_id, slug, name, description, privacy.
+- `user_profile_readmes`: id, user_id, repository_id, commit_sha, rendered_html, rendered_at.
+- `profile_pins`: id, owner_type, owner_id, subject_type, subject_id, position, created_at, updated_at.
+- `profile_contribution_days`: id, user_id, date, contribution_count, contribution_level, public_count, private_count.
+- `profile_contribution_events`: id, user_id, subject_type, subject_id, repository_id, contribution_type, occurred_at, visibility.
+- `achievements`: id, key, name, icon_url, description.
+- `user_achievements`: id, user_id, achievement_id, tier, count, awarded_at.
+- `user_blocks`: id, blocker_id, blocked_user_id, note, created_at.
 - `actions_workflows`: id, repository_id, path, name, state, created_at, updated_at.
 - `workflow_runs`: id, repository_id, workflow_id, run_number, run_attempt, title, status, conclusion, event, head_sha, head_branch, actor_id, started_at, completed_at, queued_at.
 - `workflow_jobs`: id, run_id, name, status, conclusion, runner_label, started_at, completed_at, duration_seconds.

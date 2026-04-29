@@ -288,3 +288,38 @@ Key findings:
 
 Next recommended iteration:
 - Inspect user and organization profiles (`/{user}`, `/{org}`, repository tabs, stars/packages/projects/people/teams), including profile cards, pinned repositories, contribution graph, follow/star interactions, and org membership/team navigation.
+
+Iteration 10 completed on 2026-04-30.
+
+Scope inspected: user and organization profile page group (`/{user}`, `/{user}?tab=repositories`, `/{user}?tab=stars`, `/{org}`, `/orgs/{org}/repositories`, `/orgs/{org}/people`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever CLI reference, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and target docs for personal profiles, organization profiles, pinned profile items, and contribution graph rules.
+- Ran the required `ever snapshot`; Ever failed with `Failed to get DOM document - extraction cannot proceed`. `ever navigate https://github.com/torvalds` also timed out, and a follow-up snapshot failed the same way. Per earlier fallback precedent, used live headless Chrome captures and docs-backed behavior notes.
+- Captured screenshots:
+  - ralph/screenshots/inspect/profile-user-overview.jpg
+  - ralph/screenshots/inspect/profile-user-repositories.jpg
+  - ralph/screenshots/inspect/profile-user-stars.jpg
+  - ralph/screenshots/inspect/profile-org-overview.jpg
+  - ralph/screenshots/inspect/profile-org-repositories-filtered.jpg
+  - ralph/screenshots/inspect/profile-org-people.jpg
+- Tested URL-backed live states for user repositories, user stars, filtered organization repositories (`type=source&language=typescript&sort=stargazers`), and organization people pagination/list.
+- Updated build-spec.md with User And Organization Profiles UI, behavior, API examples, data models, backend/cloud mapping, and profile privacy constraints.
+- Updated sitemap.md to mark user/organization profiles as completed.
+- Appended focused PRD entries:
+  - profiles-001 user profile overview, pins, follow/block/report, achievements, contribution graph
+  - profiles-002 user repositories and stars tabs with filters/sorts
+  - orgs-001 organization overview profile with verified identity and pins
+  - orgs-002 organization repositories and people lists with filters, density controls, pagination, and membership visibility
+
+Key findings:
+- User profiles use a two-column identity/content shell with avatar, display name, username, Follow, follower/following counts, company/location, achievements, block/report, tabs, pinned repository cards, and an accessible annual contribution graph.
+- Profile pins are user-managed, searchable/reorderable, and capped at six repositories/gists combined.
+- Private profiles hide achievements, activity overview/feed, contribution graph, follower/following counts, follow/sponsor buttons, organization memberships, and secondary tabs; README, bio, and avatar remain public.
+- User repository and stars tabs share search, Type, Language, and Sort controls. Repository rows show badges, fork/archive state, description, language, star/fork counts, license, and update dates.
+- Organization profiles show verified-domain badges, Sponsor button, follower count, website/social links, pinned repositories, repository preview, people preview, sponsoring preview, top languages, and topic pills.
+- Organization repository pages add org-specific filters such as Contributed by me, Admin access, Public, Sources, Forks, Archived, Templates, plus display-density controls.
+- Organization people pages expose public members with pagination; admin-only private members, pending invitations, outside collaborators, and role management belong in later org settings/admin inspections.
+
+Next recommended iteration:
+- Inspect repository settings, access/collaborators, branch rules, webhooks, Actions secrets/settings, and Pages settings (`/{owner}/{repo}/settings/*`).
