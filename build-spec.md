@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 7 repository pull requests inspection.
+Status: partial, iteration 8 repository Actions inspection.
 
 ## Product Overview
 
@@ -38,7 +38,119 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, and repository pull requests.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, and repository Actions workflow runs/logs.
+
+## Repository Actions
+
+Status: inspected live in iteration 8 against `https://github.com/vercel/next.js` while authenticated. Screenshots:
+
+- `ralph/screenshots/inspect/actions-runs-list.jpg`
+- `ralph/screenshots/inspect/actions-status-filter.jpg`
+- `ralph/screenshots/inspect/actions-workflow-detail.jpg`
+- `ralph/screenshots/inspect/actions-run-detail.jpg`
+- `ralph/screenshots/inspect/actions-job-log.jpg`
+- `ralph/screenshots/inspect/actions-log-search.jpg`
+
+Actions runs list:
+
+- The Actions tab keeps the repository header/tab bar and replaces the main content with a two-column Actions workspace.
+- Left rail is headed "Actions" and lists All workflows, pinned workflows, additional workflow files/names, a "Show more workflows..." control, then Management links for Caches, Deployments, Attestations, Usage metrics, and Performance metrics.
+- The All workflows view has a filter search input labeled "Filter workflow runs", a run count (`2,500+ workflow runs` in the inspected repository), and compact filter buttons for Workflow, Event, Status, Branch, and Actor.
+- Status filter opens a select-panel dialog with search and single-choice options: action required, cancelled, completed, failure, in progress, neutral, queued, skipped, stale, success, timed out, and waiting.
+- Run rows show status icon and accessible status text, run title, workflow name, run number, triggering event/object, commit or pull request link, actor avatar/name, branch/ref pill, relative time, duration or live state, and a kebab/options menu.
+- Observed statuses include in progress, queued, completed successfully, skipped, cancelled, failed, and action required.
+
+Workflow-specific page:
+
+- Selecting a workflow switches the heading from All workflows to the workflow name and shows the source workflow file link, workflow-level options menu, the same run filter search, and run filters scoped to that workflow.
+- Run list rows are the same component as All workflows but omit the Workflow filter because the workflow is fixed.
+- A workflow with `workflow_dispatch` should show a Run workflow button above runs; docs confirm this opens branch selection and workflow input fields before queueing a run.
+
+Run detail and job logs:
+
+- Run detail header shows workflow name, status icon/conclusion, run title, run number, rerun/action menus, and the triggering commit/PR/branch metadata.
+- Left sidebar has Summary, an All jobs heading, grouped/collapsible job categories, and individual job links. Large workflows can have many matrix jobs; the sidebar must support scrolling and progressive rendering.
+- Summary area includes job summary cards/tables, annotations, artifact sections, and download links. Artifact rows include name, digest copy control, size/metadata columns, and download links that open signed downloads.
+- Job detail/log view keeps the job sidebar and shows job name/status, duration, annotations, log search input with previous/next result buttons, a log options menu, and collapsible step rows.
+- Step rows show pass/fail/cancel status, step name, duration, and expand/collapse behavior. GitHub injects setup/completion steps in addition to user-defined YAML steps.
+- Log options include display settings and download links. Searching logs only searches expanded log content in GitHub; opengithub can initially search indexed stored log chunks for better reliability.
+
+API examples:
+
+```http
+GET /api/repos/{owner}/{repo}/actions/runs?workflow=build-and-test&status=failure&page=1&pageSize=25
+Response: {
+  "items": [{
+    "id": "uuid",
+    "runNumber": 107277,
+    "workflow": { "id": "uuid", "name": "build-and-test", "path": ".github/workflows/build_and_test.yml" },
+    "title": "perf(ecmascript): shrink JsValue 64->40 bytes",
+    "event": "pull_request",
+    "status": "completed",
+    "conclusion": "failure",
+    "headSha": "abc123",
+    "headBranch": "mmastrac/jsvalue-perf-experiment",
+    "actor": { "username": "lukesandberg", "avatarUrl": "https://..." },
+    "startedAt": "2026-04-30T03:10:00Z",
+    "completedAt": "2026-04-30T03:43:37Z",
+    "durationSeconds": 2017
+  }],
+  "total": 2500,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "repo_not_found", "message": "Repository not found" }, "status": 404 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/actions/runs/{runId}
+Response: {
+  "id": "uuid",
+  "runNumber": 107277,
+  "title": "perf(ecmascript): shrink JsValue 64->40 bytes",
+  "status": "completed",
+  "conclusion": "failure",
+  "jobs": [{ "id": "uuid", "name": "lint / build", "status": "completed", "conclusion": "success", "durationSeconds": 336 }],
+  "annotations": [{ "level": "warning", "message": "Deprecated command", "path": ".github/workflows/build_and_test.yml" }],
+  "artifacts": [{ "id": "uuid", "name": "turbo-run-summary-test-unit-20", "sizeBytes": 40213, "digest": "sha256:142dc1...", "downloadUrl": "/api/repos/vercel/next.js/actions/artifacts/uuid/download" }]
+}
+Error: { "error": { "code": "run_not_found", "message": "Workflow run not found" }, "status": 404 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/actions/jobs/{jobId}/logs?query=error&page=1&pageSize=200
+Response: {
+  "job": { "id": "uuid", "name": "lint / build", "status": "completed", "conclusion": "success" },
+  "steps": [{ "number": 13, "name": "Run actions/checkout@v4", "status": "completed", "conclusion": "success", "durationSeconds": 7 }],
+  "lines": [{ "stepNumber": 13, "lineNumber": 42, "timestamp": "2026-04-30T03:12:00Z", "message": "Checking out repository", "match": false }],
+  "total": 2000,
+  "page": 1,
+  "pageSize": 200
+}
+Error: { "error": { "code": "logs_expired", "message": "Logs are no longer available for this run" }, "status": 410 }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/actions/workflows/{workflowId}/dispatches
+Request: { "ref": "canary", "inputs": { "release_type": "patch" } }
+Response: { "queued": true, "runId": "uuid", "status": "queued" }
+Error: { "error": { "code": "workflow_not_dispatchable", "message": "Workflow does not define workflow_dispatch" }, "status": 422 }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/actions/runs/{runId}/rerun
+Request: { "mode": "failed_jobs", "enableDebugLogging": true }
+Response: { "queued": true, "runId": "uuid", "attempt": 2 }
+Error: { "error": { "code": "rerun_limit_exceeded", "message": "Workflow run cannot be re-run more than 50 times" }, "status": 409 }
+```
+
+Implementation mapping:
+
+- Next.js owns `/actions`, `/actions/workflows/{workflow_file}`, `/actions/runs/{run_id}`, job log views, filter panels, run workflow modal, artifact table, annotations panel, and logs search UI.
+- Rust API owns workflow discovery from `.github/workflows/*.yml`, YAML parsing/validation, event matching, run queueing, job orchestration, check-run/status aggregation, log streaming/search, artifact upload/download, cancel/rerun/dispatch endpoints, and permission enforcement.
+- Postgres stores actions_workflows, workflow_runs, workflow_jobs, workflow_steps, workflow_run_attempts, workflow_annotations, workflow_artifacts, workflow_caches, workflow_dispatch_inputs, check_suites, and check_runs.
+- SQS can queue workflow jobs. ECS Fargate worker tasks execute trusted sandboxed jobs in MVP; self-hosted runners, larger runners, ARC, and custom runner images are later features.
+- S3 stores log chunks, artifacts, cache archives, and attestations with short-lived signed download URLs. SES sends run failure/approval notification emails where configured.
 
 ## Repository Pull Requests
 
@@ -367,7 +479,16 @@ Initial model set inferred from docs/OpenAPI:
 - `organizations`: id, slug, display_name, description, avatar_url, created_at, updated_at.
 - `teams`: id, organization_id, slug, name, description, privacy.
 - `actions_workflows`: id, repository_id, path, name, state, created_at, updated_at.
-- `workflow_runs`: id, repository_id, workflow_id, run_number, status, conclusion, event, head_sha, actor_id, started_at, completed_at.
+- `workflow_runs`: id, repository_id, workflow_id, run_number, run_attempt, title, status, conclusion, event, head_sha, head_branch, actor_id, started_at, completed_at, queued_at.
+- `workflow_jobs`: id, run_id, name, status, conclusion, runner_label, started_at, completed_at, duration_seconds.
+- `workflow_steps`: id, job_id, number, name, status, conclusion, started_at, completed_at, duration_seconds, log_cursor.
+- `workflow_logs`: id, job_id, step_id, line_number, timestamp, message, storage_key, indexed_text.
+- `workflow_artifacts`: id, run_id, job_id, name, size_bytes, digest, storage_key, expires_at, created_at.
+- `workflow_annotations`: id, run_id, job_id, step_id, level, message, path, start_line, end_line, raw_json, created_at.
+- `workflow_caches`: id, repository_id, key, version, ref, size_bytes, last_accessed_at, storage_key, created_at.
+- `workflow_dispatch_inputs`: id, workflow_id, name, input_type, required, default_value, options_json.
+- `check_suites`: id, repository_id, workflow_run_id, head_sha, status, conclusion, created_at, updated_at.
+- `check_runs`: id, check_suite_id, workflow_job_id, name, status, conclusion, details_url, started_at, completed_at.
 - `packages`: id, owner_type, owner_id, repository_id, package_type, name, visibility, created_at, updated_at.
 - `webhooks`: id, owner_type, owner_id, url, secret_hash, events, active, created_at, updated_at.
 - `notifications`: id, user_id, subject_type, subject_id, reason, unread, updated_at.
@@ -704,6 +825,12 @@ More endpoint examples must be completed after feature-page inspection.
 - Issue templates/forms are repository content and configuration; invalid YAML/form schemas should not break issue creation. Show a blank issue fallback for malformed templates.
 - Issue search query parsing must be bounded: reject excessive nesting, unsupported qualifiers, and oversized URLs with structured errors.
 - Closing keywords in pull requests must create issue references but should only close issues when the PR is merged.
+- Actions workflow discovery must only read `.github/workflows/*.yml` and `.yaml` from the repository default branch unless a run targets a specific ref.
+- Workflow YAML parsing and expression evaluation must be sandboxed and bounded; invalid workflow files should show an invalid-workflow row instead of crashing the Actions tab.
+- Workflow dispatch is available only when the workflow defines `workflow_dispatch` on the default branch; inputs should be capped at 25 and validated against declared input types/options.
+- Re-runs use the original run actor/ref/SHA privileges and should enforce a 50-attempt limit.
+- Workflow logs and artifacts are private to users with repository read access; S3 downloads must use short-lived signed URLs and should expire old logs/artifacts according to retention policy.
+- MVP runners should execute in isolated ECS Fargate tasks without Docker socket or host credential access. Self-hosted runners, larger runners, ARC, custom images, OIDC federation, and artifact attestations can be added later.
 
 ## Build Order
 

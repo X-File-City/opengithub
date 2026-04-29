@@ -218,8 +218,38 @@ Key findings:
 - Compare/create centers on base/head branch or tag selectors; identical refs render a clear no-diff empty state and sample comparison links.
 - PR detail has Conversation, Commits, Checks, and Files changed tabs with a strong status/merge box near the bottom of the conversation.
 - Mergeability is a composite of review approvals, check runs, draft state, conflicts, branch protection/rulesets, and stacked PR state. The inspected PR was approved and checks passed but blocked by stack merge rules.
-- Files changed uses a resizable file tree, diff settings, file filter, viewed tracking, split/unified hunks, expand context controls, and a submit-review modal with Comment/Approve/Request changes radio options.
-- opengithub should implement PR list/create/conversation/files/review/mergeability before secondary features such as merge queue management, dependency review rich diffs, and Copilot PR summaries.
+
+Iteration 8 completed on 2026-04-30.
+
+Scope inspected: repository Actions workflow runs/logs page group (`/{owner}/{repo}/actions`, `/actions/workflows/{workflow_file}`, `/actions/runs/{run_id}`, job log view).
+
+What was done:
+- Read prior progress, inspect strategy, Ever CLI reference, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and target docs for Actions quickstart, manual workflow dispatch, logs, reruns, cancellation, and artifacts.
+- Ran the required `ever snapshot`; Ever was authenticated on the signed-in GitHub dashboard.
+- Navigated with Ever to `https://github.com/vercel/next.js/actions`, selected the `build-and-test` workflow, opened a failed run, opened a job log, and tested log search with the query `error`.
+- Captured screenshots:
+  - ralph/screenshots/inspect/actions-runs-list.jpg
+  - ralph/screenshots/inspect/actions-status-filter.jpg
+  - ralph/screenshots/inspect/actions-workflow-detail.jpg
+  - ralph/screenshots/inspect/actions-run-detail.jpg
+  - ralph/screenshots/inspect/actions-job-log.jpg
+  - ralph/screenshots/inspect/actions-log-search.jpg
+- Updated build-spec.md with Repository Actions UI, behavior, data models, API examples, backend/cloud mapping, and known constraints.
+- Updated sitemap.md to mark Actions workflow runs/logs as completed.
+- Appended focused PRD entries:
+  - actions-001 repository Actions all-workflows run list
+  - actions-002 workflow-specific run history and manual dispatch controls
+  - actions-003 workflow run detail, jobs, annotations, artifacts, rerun/cancel/delete logs
+  - actions-004 job log viewer, step expansion, log search, log downloads
+  - actions-005 Actions execution backend for workflow discovery, runners, logs, artifacts, caches, and check-run integration
+
+Key findings:
+- Actions uses the repository workspace shell plus a distinct left rail listing All workflows, pinned workflows, additional workflow names/files, and Management links for Caches, Deployments, Attestations, Usage metrics, and Performance metrics.
+- All-workflows run list has filter search plus Workflow, Event, Status, Branch, and Actor filter buttons. Status options include action required, cancelled, completed, failure, in progress, neutral, queued, skipped, stale, success, timed out, and waiting.
+- Workflow-specific pages show source workflow file links, workflow options, scoped run filters, and run rows. Docs confirm Run workflow appears only for workflows with `workflow_dispatch` on the default branch.
+- Run detail pages combine a status header, run action menus, summary, scrollable job sidebar, annotations, job summaries, artifacts with digest copy/download controls, and job log pages.
+- Job log pages include log search, previous/next result buttons, log options, and collapsible step rows with status, duration, and log content. GitHub injects setup/completion steps in addition to YAML-defined steps.
+- opengithub should implement Actions with Rust workflow discovery/runner orchestration, ECS Fargate isolated workers, SQS queueing, Postgres state, S3 log/artifact/cache storage, and check-run records feeding PR mergeability.
 
 Next recommended iteration:
-- Inspect Actions workflow runs/logs (`/{owner}/{repo}/actions`, `/actions/workflows/{workflow_file}`, `/actions/runs/{run_id}`), including workflow list, run detail, jobs/logs, artifacts, re-run/cancel controls, and status checks feeding PRs.
+- Inspect global search/code search (`/search?q=...&type=code`, repository scoped file finder/search, command palette behavior), including filters, result snippets, pagination, and jump-to navigation.
