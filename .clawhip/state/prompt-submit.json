@@ -1,8 +1,8 @@
 {
-  "observed_at": "2026-04-29T20:17:40.159Z",
-  "provider": "codex",
+  "observed_at": "2026-04-29T20:25:01.031Z",
+  "provider": "claude-code",
   "event_name": "UserPromptSubmit",
-  "session_id": "019ddae3-dad9-7ab0-b93d-2ad61a4a2757",
-  "turn_id": "019ddae3-dae3-7cc1-9759-1f4e742486d9",
-  "prompt_summary": "# Inspect Loop Prompt\n\nYou are an AI product inspector. Your job is to thoroughly inspect a target web product and generate a complete build specification for building a **fully functional, production…"
+  "session_id": "44435799-4492-4a35-8c03-adcfb80aad1f",
+  "turn_id": null,
+  "prompt_summary": "<<autonomous-loop-dynamic>>"
 }
