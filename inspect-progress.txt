@@ -27,3 +27,30 @@ Key findings:
 
 Next recommended iteration:
 - Build the complete site map from the live product/navigation and save sitemap.md. Inspect one structurally similar page group only.
+
+Iteration 2 completed on 2026-04-30.
+
+Scope inspected: live public GitHub home/global navigation plus app-wide sitemap synthesis.
+
+What was done:
+- Read prior progress, inspect strategy, stack config, BUILD_GUIDE.md, existing build-spec.md, and prd.json.
+- Attempted the required Ever snapshot first. The active Ever tab was stale (`No tab with given id 1275992265`), then switching to session 1 failed because the session was expired. Per iteration 1 precedent, used browser fallback instead of running `ever start`.
+- Captured a live GitHub home screenshot with Chrome headless:
+  - ralph/screenshots/inspect/home-sitemap.jpg
+- Dumped the live GitHub home DOM and extracted public global navigation/footer links, including product/features, solutions, resources, open source, enterprise, pricing, search, sign-in, and sign-up surfaces.
+- Cross-referenced scraped docs for dashboard, repositories, issues, pull requests, Actions, Packages, Pages, organizations/teams, search, and notifications.
+- Created sitemap.md with public, signed-in, repository, profile/org/team, search, packages, Pages, and settings routes.
+- Expanded build-spec.md Site Map, Design System Notes, and Build Order.
+- Appended focused PRD entries:
+  - layout-001 signed-in app shell
+  - nav-001 route/navigation skeleton
+  - search-001 global search and jump-to navigation
+  - marketing-001 logged-out public home/global marketing nav
+
+Key findings:
+- GitHub’s logged-out public surface is broad and marketing-heavy, but opengithub should build it after the core signed-in product.
+- The signed-in product is organized around a global app shell and repository workspace tabs. Repository routes, global issues/pulls/notifications, settings, search, profiles, organizations, Actions, Packages, and Pages must share the same routing/navigation foundation.
+- The next highest-value inspection is the personal dashboard/onboarding empty state, then repository creation and repository code browsing.
+
+Next recommended iteration:
+- Inspect the personal dashboard / onboarding empty state page group. If Ever remains expired, either recover the browser session through the allowed runtime path or use the same documented fallback and capture screenshots.

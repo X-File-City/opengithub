@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 1 docs/auth/onboarding discovery.
+Status: partial, iteration 2 docs/auth/onboarding plus live public-navigation sitemap discovery.
 
 ## Product Overview
 
@@ -16,34 +16,29 @@ opengithub is a production-grade GitHub clone for code hosting and collaboration
 
 ## Design System Notes
 
-From the public home/auth pages:
+From the public home/auth pages and iteration 2 home-page sitemap screenshot:
 
 - GitHub Primer-like visual language: neutral backgrounds, compact forms, Octocat mark, high-contrast dark text, blue primary buttons, gray secondary surfaces.
 - Auth forms use a centered narrow card, GitHub mark above heading, label-over-input fields, full-width primary action, and small secondary links.
-- Public home uses global top navigation with dropdown megamenus, search/jump control, sign-in/sign-up links, large hero, email signup field, and product demo media.
+- Public home uses global top navigation with dropdown megamenus, search/jump control, sign-in/sign-up links, large hero, email signup field, product demo media, repeated product-section CTAs, customer story cards, and dense multi-column footer.
+- Signed-in app pages should use compact Primer-style controls: 32px-ish header height, subtle gray borders, rounded 6px inputs/buttons, blue primary actions, muted secondary buttons, small badges, horizontal repository tabs, and left settings sidebars.
 
 Detailed repository/app UI design remains to be inspected in later iterations.
 
 ## Site Map
 
-Partial from docs and public home only:
+Full working sitemap lives in `sitemap.md`. Summary:
 
-- `/`: public marketing home with global navigation, search/jump, sign in, sign up.
-- `/login`: sign-in page.
-- `/signup`: signup page.
-- `/password_reset`: password reset page on target; documented as out of scope for opengithub Google-only auth.
-- `/dashboard`: signed-in personal dashboard; docs say this is the first page after sign-in.
-- `/{owner}/{repo}`: repository overview and file browser.
-- `/{owner}/{repo}/issues`: repository issues.
-- `/{owner}/{repo}/pulls`: repository pull requests.
-- `/{owner}/{repo}/actions`: repository Actions workflows and runs.
-- `/{owner}/{repo}/packages`: packages.
-- `/{owner}/{repo}/settings`: repository settings.
-- `/{user}`: user profile and contribution graph.
-- `/orgs/{org}` or `/{org}`: organization profile/dashboard.
-- `/search`: global search.
+- Public unauthenticated: `/`, `/login`, `/signup`, `/features`, `/features/actions`, `/features/issues`, `/features/code-review`, `/features/discussions`, `/pricing`, `/enterprise`, `/team`, `/solutions`, `/resources`, `/marketplace`, `/sponsors`, `/topics`, `/trending`, `/collections`.
+- Signed-in app shell: `/dashboard`, `/notifications`, `/pulls`, `/issues`, `/settings/*`, `/new`, `/new/import`, `/organizations/new`.
+- Repository core: `/{owner}/{repo}`, `/tree/{branch}/{path}`, `/blob/{branch}/{path}`, `/commits/{branch}`, `/commit/{sha}`, `/branches`, `/releases`, `/tags`.
+- Repository collaboration: `/issues`, `/issues/new`, `/issues/{number}`, `/labels`, `/milestones`, `/pulls`, `/compare/{base}...{head}`, `/pull/{number}`, `/pull/{number}/files`, `/pull/{number}/commits`.
+- Repository automation and admin: `/actions`, `/actions/workflows/{workflow_file}`, `/actions/runs/{run_id}`, `/projects`, `/wiki`, `/security`, `/pulse`, `/graphs/contributors`, `/settings`, `/settings/access`, `/settings/branches`, `/settings/actions`, `/settings/hooks`, `/settings/pages`, `/settings/secrets/actions`.
+- Profiles/orgs: `/{user}`, `/{user}?tab=repositories`, `/{user}?tab=stars`, `/{org}`, `/{org}?tab=repositories`, `/{org}?tab=people`, `/{org}?tab=teams`, `/{org}/{team_slug}`, `/orgs/{org}/settings/*`.
+- Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
+- Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Full sitemap is still pending a dedicated iteration.
+Deep page-level screenshots and interaction details remain pending except auth/public home.
 
 ## Data Models
 
@@ -136,14 +131,14 @@ More endpoint examples must be completed after feature-page inspection.
 1. Rust/Next.js scaffolding and shared environment contract.
 2. Database schema and migrations for users, sessions, repositories, Git refs, issues, pull requests.
 3. Better Auth Google login and Rust session verification.
-4. App shell and dashboard empty state.
+4. App shell, global navigation, search/jump bar, and dashboard empty state.
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, file browser.
 7. Issues and pull requests.
 8. Search, Actions, Packages, Pages, organizations, teams, profiles, settings, notifications.
-9. Deployment and production hardening.
+9. Public marketing/home surfaces only after the core app is usable.
+10. Deployment and production hardening.
 
 ## Keyboard Shortcuts
 
 Pending. GitHub has a keyboard shortcut model, but the complete inventory should be captured during page-level inspection.
-
