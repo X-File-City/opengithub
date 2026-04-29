@@ -135,6 +135,14 @@
       "exit_code": 0,
       "category": "unknown",
       "attempt": 17
+    },
+    {
+      "timestamp": "2026-04-29T18:33:05.771968",
+      "phase": "inspect",
+      "feature": "inspect",
+      "exit_code": 0,
+      "category": "unknown",
+      "attempt": 18
     }
   ]
 }
