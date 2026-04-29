@@ -54,28 +54,40 @@ The watchdog auto-restarts failures, pushes commits after every iteration, and r
 
 ## Prerequisites
 
-Install and verify each tool before proceeding. Run the **Verify** command to confirm each is ready.
+You can install these ahead of time, or onboarding will prompt you when it needs them.
 
-| # | Tool | Purpose | Install | Verify | Required For |
-|---|------|---------|---------|--------|-------------|
-| 1 | [Node.js 20+](https://nodejs.org/) | Runtime | `brew install node` or [download](https://nodejs.org/) | `node -v` (expect `v20+`) | All phases |
-| 2 | [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) | Onboarding, Inspect, Build | `npm install -g @anthropic-ai/claude-code` | `claude -v` | Onboarding, Phase 1, Phase 2 |
-| 3 | [Codex CLI](https://github.com/openai/codex) | Independent QA evaluator | `npm install -g @openai/codex` | `codex --version` | Phase 3 only |
-| 4 | [Ever CLI](https://foreverbrowsing.com) | Browser automation for inspection + QA | Install from [foreverbrowsing.com](https://foreverbrowsing.com) | `ever --version` | Phase 1, Phase 3 |
-| 5 | Cloud CLI | Infrastructure provisioning | See [cloud setup](#cloud-cli-setup) below | See [cloud setup](#cloud-cli-setup) below | Onboarding, Phase 2 |
+### Coding CLI
 
-**Which phases need what:** Onboarding needs Claude Code + your cloud CLI. Inspect needs Claude Code + Ever CLI. Build needs Claude Code only. QA needs Codex + Ever CLI. You can run onboarding and build without Ever CLI, but Inspect and QA won't work without it.
+The agent that drives Inspect, Build, and QA. We recommend running **Claude Code for Build** and **Codex for QA** so the QA pass is independent.
 
-### Cloud CLI Setup
+| Tool | Install |
+|------|---------|
+| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) **(recommended)** | `npm install -g @anthropic-ai/claude-code` |
+| [Codex CLI](https://github.com/openai/codex) **(recommended)** | `npm install -g @openai/codex` |
 
-Install and authenticate the CLI for your chosen cloud provider:
+Any other coding CLI works too — the prompts are plain markdown in `ralph/build-prompt.md` and `ralph/qa-prompt.md`. The watchdog shells out to `claude` and `codex` by default; swap the commands in `ralph/build-ralph.sh` / `ralph/qa-ralph.sh` if you're using something else.
 
-| Provider | Install | Authenticate | Verify |
-|----------|---------|-------------|--------|
-| **Vercel** (default) | `npm install -g vercel` | `vercel login` | `vercel whoami` returns a username |
-| **AWS** | `brew install awscli` | `aws configure` | `aws sts get-caller-identity` returns account JSON |
-| **GCP** (experimental) | [Install gcloud](https://cloud.google.com/sdk/docs/install) | `gcloud auth login` | `gcloud auth print-identity-token` returns a token |
-| **Azure** (experimental) | `brew install azure-cli` | `az login` | `az account show` returns subscription JSON |
+### Browser Agent
+
+Used by Inspect and QA to drive the target product and your clone.
+
+| Tool | Install |
+|------|---------|
+| [Ever CLI](https://foreverbrowsing.com) **(recommended — the loop is tuned for this)** | See [foreverbrowsing.com](https://foreverbrowsing.com) |
+| [Agent Browser](https://agent-browser.dev/) | See [agent-browser.dev](https://agent-browser.dev/) |
+| [Playwright](https://playwright.dev/) | `npm install -g playwright && playwright install` |
+
+Anything else with a CLI works, but the inspect and QA prompts are tuned for Ever CLI — expect rougher edges with other agents.
+
+### Cloud CLI
+
+Pick one and authenticate it. Onboarding will ask if it doesn't find one already installed.
+
+| Provider | Install | Authenticate |
+|----------|---------|--------------|
+| **Vercel** (default, personal) | `npm install -g vercel` | `vercel login` |
+| **AWS** (team / production) | `brew install awscli` | `aws configure` |
+| **GCP** | [Install gcloud](https://cloud.google.com/sdk/docs/install) | `gcloud auth login` |
 
 ---
 
@@ -118,7 +130,6 @@ Then set these values in `.env`:
 | `ANTHROPIC_API_KEY` | Yes (if clone has AI features) | [console.anthropic.com](https://console.anthropic.com) |
 | `DASHBOARD_KEY` | Yes | Generate with `openssl rand -hex 32` |
 | `DATABASE_URL` | Set by onboarding | Auto-configured during onboarding |
-| `OPENAI_API_KEY` | Yes (for QA phase) | [platform.openai.com](https://platform.openai.com) |
 | `CLOUDFLARE_API_TOKEN` | Optional (DNS automation) | [Cloudflare dashboard](https://dash.cloudflare.com/profile/api-tokens) |
 | `CLOUDFLARE_ZONE_ID` | Optional (DNS automation) | Cloudflare dashboard → your domain → Overview |
 
@@ -131,32 +142,27 @@ grep -c '=' .env  # Should show number of configured variables
 
 ### Step 3: Onboard a target product
 
-Onboarding researches the target product, configures the stack, installs dependencies, and starts the build loop. Choose one of two paths:
+Onboarding researches the target product, configures the stack, installs dependencies, and starts the build loop.
 
-#### Option A: Script (automated, no interaction after initial prompts)
+#### Recommended: Onboarding skill inside a coding agent
+
+Open this repo in your coding agent and invoke the onboarding skill:
+
+| Agent | Invoke with |
+|-------|-------------|
+| Claude Code | `/ralph-to-ralph-onboard` |
+| Codex | `$ralph-to-ralph-onboard` |
+| Other CLIs | Paste the contents of `.claude/skills/ralph-to-ralph-onboard/SKILL.md` and ask the agent to follow it |
+
+The agent researches the product live, explains what needs to be set up in plain English, walks you through each decision, installs anything missing (browser agent, cloud CLI), and verifies your setup before kicking off the build loop. This is the path we recommend — it adapts to whatever's already on your machine.
+
+#### Alternative: Script
 
 ```bash
 ./ralph/onboard.sh
 ```
 
-The script asks for:
-1. Target product URL
-2. Clone name
-3. Cloud provider (Vercel / AWS / GCP / Azure / Custom)
-4. Deploy after build? (Y/n)
-5. Browser agent (Ever CLI / Playwright / Stagehand / Custom)
-
-Then it hands off to Claude for research and config generation, and auto-starts the build loop on success.
-
-#### Option B: Skill (interactive, conversational)
-
-In any Claude Code session inside the repo:
-
-```
-/ralph-to-ralph-onboard
-```
-
-Claude researches the product live, explains what needs to be set up in plain English, walks you through each decision, and verifies your setup. Both paths produce the same `ralph-config.json` and project setup.
+A bash script that asks for target URL, clone name, cloud provider, deploy preference, and browser agent — then hands off to Claude for research and config generation. Useful for non-interactive environments. Produces the same `ralph-config.json` as the skill.
 
 **Verify onboarding completed:**
 ```bash
