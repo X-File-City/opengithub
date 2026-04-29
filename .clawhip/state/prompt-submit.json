@@ -1,8 +1,8 @@
 {
-  "observed_at": "2026-04-29T18:16:57.413Z",
-  "provider": "codex",
+  "observed_at": "2026-04-29T18:19:46.508Z",
+  "provider": "claude-code",
   "event_name": "UserPromptSubmit",
-  "session_id": "019dda75-56af-7411-9c3b-fef51399ef35",
-  "turn_id": "019dda75-56c5-79a2-ac7d-743feb4f288a",
-  "prompt_summary": "echo hello from codex"
+  "session_id": "44435799-4492-4a35-8c03-adcfb80aad1f",
+  "turn_id": null,
+  "prompt_summary": "the point is that we want codex or claude refer to those docs only when it necessarily needs to then what do we do"
 }
