@@ -4,6 +4,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# shellcheck source=ralph/lib/inline.sh
+. ralph/lib/inline.sh
+
 TARGET_URL="${1:?Usage: $0 <target-url> [iterations]}"
 ITERATIONS="${2:-999}"
 
@@ -135,9 +138,17 @@ for ((i=1; i<=$ITERATIONS; i++)); do
   echo "--- Inspection iteration $i/$ITERATIONS ---"
 
   _BROWSER_REF=""
-  [ "$BROWSER_AGENT" = "ever" ] && _BROWSER_REF="@ralph/ever-cli-reference.md"
+  [ "$BROWSER_AGENT" = "ever" ] && _BROWSER_REF="ralph/ever-cli-reference.md"
+  CONTEXT=$(inline_files \
+    ralph/inspect-prompt.md \
+    ralph/inspect-spec.md \
+    "$_BROWSER_REF" \
+    prd.json \
+    inspect-progress.txt \
+    ralph/pre-setup.md \
+    ralph-config.json)
   result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
-"@ralph/inspect-prompt.md @ralph/inspect-spec.md $_BROWSER_REF @prd.json @inspect-progress.txt @ralph/pre-setup.md @ralph-config.json
+"$CONTEXT
 
 TARGET URL: $TARGET_URL
 ITERATION: $i of $ITERATIONS

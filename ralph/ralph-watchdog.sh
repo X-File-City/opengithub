@@ -572,8 +572,13 @@ if inspect_done && ! architecture_done; then
 
   PHASE_LOG_TMP=$(mktemp)
   # Invoke architect agent
+  ARCH_CONTEXT=$(. ralph/lib/inline.sh && inline_files \
+    ralph/architecture-prompt.md \
+    prd.json \
+    target-docs/INDEX.md \
+    ralph-config.json)
   codex exec --dangerously-bypass-approvals-and-sandbox \
-    "@ralph/architecture-prompt.md @prd.json @target-docs/INDEX.md @ralph-config.json" \
+    "$ARCH_CONTEXT" \
     2>&1 | tee -a "$LOG_FILE" > "$PHASE_LOG_TMP" || true
   
   LOG_TAIL=$(tail -50 "$PHASE_LOG_TMP")

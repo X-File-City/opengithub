@@ -1,0 +1,78 @@
+# BUILD_GUIDE.md — opengithub
+
+Authoritative stack reference for the build loop. Read this before running any commands or assuming framework conventions. If anything in `ralph/build-prompt.md` or `CLAUDE.md` contradicts this file, **this file wins**.
+
+## Stack
+- **Backend**: Rust 2021 — Axum (HTTP), Tokio (runtime), SQLx (Postgres), Tower / Tower-HTTP (middleware), Tracing (logs).
+- **Frontend**: Next.js + TypeScript — to be scaffolded at `web/` on the build loop's first iteration.
+- **Database**: Postgres on AWS RDS. SQLx migrations at `crates/api/migrations/`. Search via `pg_trgm`.
+- **Auth**: Better Auth in Next.js, Google OAuth only. Rust API verifies session cookies / bearer tokens issued by Better Auth.
+- **Cloud**: AWS — ECS Fargate (Rust API), RDS Postgres, S3, SES, CloudFront, ECR. DNS on Cloudflare (zone `namuh.co`).
+
+## Repo layout
+```
+.
+├── Cargo.toml             # workspace root
+├── crates/
+│   └── api/               # Axum HTTP API (binary: api)
+│       ├── Cargo.toml
+│       ├── src/main.rs
+│       └── migrations/    # SQLx migrations (create when DB schema needed)
+├── web/                   # Next.js + TypeScript (build loop scaffolds this)
+│   ├── package.json
+│   ├── src/app/...
+│   └── tests/             # Vitest unit + Playwright e2e
+├── scripts/
+│   └── preflight.sh       # AWS infra provisioning
+├── Makefile               # contract: see commands below
+├── ralph-config.json      # single source of truth for stack decisions
+└── .env                   # local secrets (gitignored)
+```
+
+## Commands (use `make` — never reach for `npx`/`cargo` directly when a make target exists)
+
+| Command | What it does |
+|---|---|
+| `make check` | `cargo check --workspace` + `cargo clippy` + (when web/ exists) `tsc --noEmit` + `biome check` |
+| `make test` | `cargo test --workspace` + (when web/ exists) `vitest run` |
+| `make test-e2e` | Playwright (only when web/ exists) |
+| `make all` | `make check && make test` |
+| `make dev` | Rust API on `:3016` and Next.js on `:3015` together |
+| `make api-dev` | Rust API only |
+| `make web-dev` | Next.js only |
+| `make build` | Production build for both |
+| `make db-migrate` | Run SQLx migrations from `crates/api/migrations/` |
+| `make fix` | Auto-fix clippy + biome |
+| `make format` | `cargo fmt --all` + biome format |
+| `make clean` | `cargo clean` + remove `web/.next`, web caches |
+
+## Ports
+- **Rust API**: `:3016`
+- **Next.js**: `:3015`
+
+The Rust API exposes `GET /` and `GET /health` for sanity. Add new routes under `crates/api/src/routes/`.
+
+## Adding a Rust dependency
+Edit `Cargo.toml` (workspace root) — add the dep to `[workspace.dependencies]` first, then reference it from `crates/api/Cargo.toml` as `dep.workspace = true`. This keeps versions in sync across crates.
+
+## Adding a frontend dependency
+`cd web && npm install <pkg>`. Always pin via `package.json`.
+
+## DB workflow
+1. Add a migration: `crates/api/migrations/<timestamp>_<name>.up.sql` + `.down.sql`.
+2. Apply: `make db-migrate`.
+3. Reference tables/columns from Rust via `sqlx::query!` macros (compile-time checked against `DATABASE_URL`).
+
+## Scaffolding the Next.js frontend (build loop, first iteration)
+```bash
+npx create-next-app@latest web \
+  --ts --tailwind --eslint --app --src-dir \
+  --import-alias "@/*" --use-npm
+cd web
+npm install better-auth @better-auth/google
+npm install -D vitest @vitest/ui @playwright/test biome
+```
+Then update `web/package.json` scripts: `dev`, `build`, `start`, `test`, `test:e2e`, `lint`, `format`. Add `playwright.config.ts` and `vitest.config.ts`.
+
+## Loop runtime
+All ralph loops (inspect, architecture, build, QA) run via `codex exec` — the OpenAI Codex CLI. Prompts in `ralph/*.sh` inline file contents (codex doesn't honor `@filename`). The helper `ralph/lib/inline.sh` provides `inline_files <paths...>`.

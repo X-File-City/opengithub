@@ -4,6 +4,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# shellcheck source=ralph/lib/inline.sh
+. ralph/lib/inline.sh
+
 # macOS does not ship GNU timeout — use gtimeout from coreutils or provide a fallback
 if ! command -v timeout &>/dev/null; then
   if command -v gtimeout &>/dev/null; then
@@ -154,8 +157,18 @@ for ((i=1; i<=$ITERATIONS; i++)); do
     # REBUILD MODE: Feature failed QA previously — use root-cause analysis prompt
     echo "  → Rebuild mode: QA failures detected, providing root-cause context"
 
+    CONTEXT=$(inline_files \
+      ralph/build-prompt.md \
+      ralph/pre-setup.md \
+      BUILD_GUIDE.md \
+      build-spec.md \
+      prd.json \
+      build-progress.txt \
+      CLAUDE.md \
+      ralph-config.json \
+      qa-report.json)
     result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
-"@ralph/build-prompt.md @ralph/pre-setup.md @build-spec.md @prd.json @build-progress.txt @CLAUDE.md @ralph-config.json @qa-report.json
+"$CONTEXT
 
 ITERATION: $i of $ITERATIONS
 PROGRESS: $PASSES/$TOTAL features build_pass
@@ -187,8 +200,17 @@ Output <promise>COMPLETE</promise> only if ALL features pass.")
 
   else
     # FRESH BUILD MODE: No QA failures — standard build prompt
+    CONTEXT=$(inline_files \
+      ralph/build-prompt.md \
+      ralph/pre-setup.md \
+      BUILD_GUIDE.md \
+      build-spec.md \
+      prd.json \
+      build-progress.txt \
+      CLAUDE.md \
+      ralph-config.json)
     result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
-"@ralph/build-prompt.md @ralph/pre-setup.md @build-spec.md @prd.json @build-progress.txt @CLAUDE.md @ralph-config.json
+"$CONTEXT
 
 ITERATION: $i of $ITERATIONS
 PROGRESS: $PASSES/$TOTAL features build_pass
