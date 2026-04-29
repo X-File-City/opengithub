@@ -62,13 +62,22 @@ if [ "$_coverage_passed" -eq 0 ]; then
       rm -rf .venv-scrape
     fi
     echo "First-time setup: creating .venv-scrape and installing scrape-docs deps..."
-    if ! command -v python3 >/dev/null 2>&1; then
-      echo "ERROR: python3 is required for the doc scraper. Install Python 3.10+ and re-run." >&2
-      exit 1
+    # Prefer `uv venv` when available — some hosts shim `python3` to refuse
+    # `python3 -m venv` (e.g. forcing uv usage), which would silently exit 1.
+    if command -v uv >/dev/null 2>&1; then
+      uv venv .venv-scrape --python 3.12 >/dev/null
+      .venv-scrape/bin/python -m ensurepip --upgrade >/dev/null 2>&1 || true
+      .venv-scrape/bin/python -m pip install --quiet --upgrade pip
+      .venv-scrape/bin/python -m pip install --quiet -r scripts/scrape-docs-requirements.txt
+    else
+      if ! command -v python3 >/dev/null 2>&1; then
+        echo "ERROR: python3 (or uv) is required for the doc scraper. Install Python 3.10+ or uv and re-run." >&2
+        exit 1
+      fi
+      python3 -m venv .venv-scrape
+      .venv-scrape/bin/pip install --quiet --upgrade pip
+      .venv-scrape/bin/pip install --quiet -r scripts/scrape-docs-requirements.txt
     fi
-    python3 -m venv .venv-scrape
-    .venv-scrape/bin/pip install --quiet --upgrade pip
-    .venv-scrape/bin/pip install --quiet -r scripts/scrape-docs-requirements.txt
     # Pre-fetch browser binaries so StealthyFetcher / PlayWrightFetcher don't
     # silently degrade to plain HTTP on Cloudflare-protected or SPA-rendered
     # doc sites. Both installers are best-effort: if the download fails we
