@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 6 repository issues inspection.
+Status: partial, iteration 7 repository pull requests inspection.
 
 ## Product Overview
 
@@ -38,7 +38,125 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, and repository issues.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, and repository pull requests.
+
+## Repository Pull Requests
+
+Status: inspected live in iteration 7 against `https://github.com/vercel/next.js` while authenticated. Screenshots:
+
+- `ralph/screenshots/inspect/pr-list.jpg`
+- `ralph/screenshots/inspect/pr-sort-menu.jpg`
+- `ralph/screenshots/inspect/pr-reviews-filter-menu.jpg`
+- `ralph/screenshots/inspect/pr-compare-no-diff.jpg`
+- `ralph/screenshots/inspect/pr-detail-conversation.jpg`
+- `ralph/screenshots/inspect/pr-detail-merge-box.jpg`
+- `ralph/screenshots/inspect/pr-files-diff.jpg`
+- `ralph/screenshots/inspect/pr-submit-review-menu.jpg`
+
+Pull request list:
+
+- Repository Pull requests uses the shared repository header/tab bar. On `vercel/next.js`, the tab count showed roughly 1.7k open pull requests.
+- A dismissible first-time contributor banner appears above the list and points contributors to issues and contributing guidelines.
+- The search builder default query is `is:pr is:open`. Open/Closed tabs showed 1,719 open and 34,869 closed during inspection.
+- Toolbar controls include Filters, Labels, Milestones, New pull request, Author, Label, Projects, Milestones, Reviews, Assignee, and Sort.
+- Rows show PR state icon, title, labels, number, opened relative time, author, author role badge, draft badge when applicable, check run summary, review status, task progress, linked issue count, comment count, and pagination.
+- Review filter menu options are No reviews, Review required, Approved review, Changes requested, Reviewed by you, Not reviewed by you, Awaiting review from you, and Awaiting review from you or your team.
+- Sort menu options are Newest, Oldest, Most commented, Least commented, Recently updated, Least recently updated, Best match, and most-reaction emoji sorts.
+
+Compare/create flow:
+
+- `/compare/{base}...{head}` is the entry point for creating a pull request and for comparing refs.
+- The compare page has a "Comparing changes" heading, optional compare-across-forks button, base and compare branch/tag selectors, swap affordance, explanatory empty state, sample comparison links, split/unified diff buttons, and changed-file summary.
+- When the same branch is selected for base and compare, GitHub shows "There isn't anything to compare" and explains that two different branch names are required.
+- Docs confirm pull request creation collects base repository/branch, head repository/branch, title, description, draft state, labels, milestone, assignees, and reviewers. Pull request templates can prefill the body.
+
+Pull request conversation:
+
+- Detail header shows title, PR number, Open/Draft/Merged/Closed state pill, stack navigation when stacked PRs exist, author, base and head refs, line-change counts, Preview/View status/Code controls, and tabs for Conversation, Commits, Checks, and Files changed.
+- Conversation timeline includes the PR body, label events, bot comments with collapsible details, force-push events, base-branch changes, ready-for-review events, review requests, review approval events, commits, reactions, comment composer, and right sidebar metadata.
+- Sidebar sections include Reviewers, draft/ready-for-review status, Assignees, Labels, Projects, Milestone, Development/linked issues, Notifications, Subscribe, and Participants.
+- Merge box appears near the bottom of the conversation. Observed state showed Changes approved, All checks have passed, and Unable to merge as stack because another PR in the stack failed rules.
+- Merge behavior must account for draft PRs, merge conflicts, required reviews, required status checks, branch protection/rulesets, stacked PR status, and repository-enabled merge methods.
+
+Files changed and review:
+
+- Files changed tab has a sticky pull request toolbar, viewed progress, Submit review button, diff setting controls, changed-commit selector, file filter input, resizable file tree, per-file header, additions/deletions summary, Viewed toggle, file actions, and a diff table.
+- The diff table exposes original and new line-number columns, hunk headers, expand-up/down controls, split/unified rows, syntax-highlighted changed lines, and line-comment entry points.
+- Clicking Submit review opens a dialog titled "Finish your review" with a Markdown summary editor, Write/Preview tabs, formatting toolbar, attachment affordance, review event radio choices, Cancel, and Submit review with Command+Enter hint.
+- Review event choices are Comment, Approve, and Request changes. Pending line/file comments stay private until review submission.
+- Docs confirm reviewers can mark files Viewed, filter the changed file list, switch split/unified diff, hide whitespace, leave single-line and multi-line comments, suggest changes, approve, request changes, or abandon pending reviews.
+
+API examples:
+
+```http
+GET /api/repos/{owner}/{repo}/pulls?state=open&page=1&pageSize=25
+Response: {
+  "pullRequests": [{
+    "id": "uuid",
+    "number": 93365,
+    "title": "[test] Ensure target page is compiled before navigation in instant-navs-devtools",
+    "state": "open",
+    "draft": false,
+    "author": { "username": "eps1lon", "avatarUrl": "https://..." },
+    "base": { "repo": "vercel/next.js", "ref": "sebbie/pw-traces-first" },
+    "head": { "repo": "vercel/next.js", "ref": "sebbie/03-17-..." },
+    "labels": [{ "name": "tests", "color": "0e8a16" }],
+    "reviewState": "approved",
+    "checks": { "total": 184, "passed": 167, "skipped": 17, "failed": 0 },
+    "comments": 2,
+    "linkedIssues": 0,
+    "updatedAt": "2026-04-30T09:12:00Z"
+  }],
+  "total": 1719,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "repo_not_found", "message": "Repository not found" }, "status": 404 }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/pulls
+Request: { "title": "Fix cache collision", "body": "Summary...", "base": "main", "head": "feature/cache-fix", "draft": false, "reviewerUsernames": ["octocat"], "labelNames": ["bug"] }
+Response: { "id": "uuid", "number": 42, "url": "/owner/repo/pull/42", "state": "open", "mergeable": null }
+Error: { "error": { "code": "invalid_ref_range", "message": "Base and head must be different branches" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/pulls/{number}/files?diff=split&commit=all
+Response: {
+  "files": [{
+    "path": "test/development/app-dir/instant-navs-devtools/instant-navs-devtools.test.ts",
+    "status": "modified",
+    "additions": 14,
+    "deletions": 10,
+    "viewed": false,
+    "hunks": [{ "oldStart": 96, "oldLines": 11, "newStart": 96, "newLines": 13, "lines": [{ "type": "context", "oldLine": 97, "newLine": 97, "content": \"it('should show...\" }] }]
+  }]
+}
+Error: { "error": { "code": "pull_request_not_found", "message": "Pull request not found" }, "status": 404 }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/pulls/{number}/reviews
+Request: { "body": "Looks good.", "event": "approve", "comments": [{ "path": "src/file.ts", "line": 12, "side": "right", "body": "Nit: ..." }] }
+Response: { "id": "uuid", "state": "approved", "submittedAt": "2026-04-30T09:42:00Z", "pendingCommentsPublished": 1 }
+Error: { "error": { "code": "cannot_review_own_pr", "message": "Authors cannot approve their own pull request" }, "status": 403 }
+```
+
+```http
+PUT /api/repos/{owner}/{repo}/pulls/{number}/merge
+Request: { "method": "merge", "commitTitle": "Merge pull request #42", "commitMessage": "Fix cache collision" }
+Response: { "merged": true, "mergeCommitSha": "abc123", "state": "merged", "deletedHeadBranch": false }
+Error: { "error": { "code": "merge_blocked", "message": "Required checks or reviews are not satisfied", "details": { "checks": "passed", "reviews": "approved", "rulesets": ["stack has blocked pull requests"] } }, "status": 409 }
+```
+
+Implementation mapping:
+
+- Next.js owns `/pulls`, `/compare/{base}...{head}`, `/pull/{number}`, `/pull/{number}/commits`, `/pull/{number}/checks`, `/pull/{number}/files`, query/search UI, compare selectors, PR form, conversation timeline, merge box, files diff, review modal, and metadata sidebar.
+- Rust API owns PR list/search, compare ref validation, diff generation, PR creation, review requests, review submission, comment persistence, check summary aggregation, mergeability computation, branch protection/ruleset enforcement, merge commits/squash/rebase, and notification fanout.
+- Postgres stores pull_requests, pull_request_commits, pull_request_files, pull_request_reviews, pull_request_review_comments, pull_request_review_requests, pull_request_checks_summary, pull_request_viewed_files, branch_protection_rules, rulesets, merge_queue/status records, timeline events, notifications, and audit records.
+- Git object storage and Rust git plumbing must compute merge bases, ref ranges, patch hunks, conflict detection, merge commits, squashes, rebases, and plaintext `.diff`/`.patch` responses.
+- Actions/check-run data feeds the PR checks tab and merge box. SES sends review-request, comment, approval, change-request, and merge notifications.
 
 ## Repository Issues
 
@@ -237,6 +355,14 @@ Initial model set inferred from docs/OpenAPI:
 - `issue_subscriptions`: id, issue_id, user_id, state, reason, created_at, updated_at.
 - `issue_relationships`: id, source_issue_id, target_type, target_id, relationship_type, created_at.
 - `pull_requests`: id, repository_id, number, title, body, state, author_id, head_repo_id, head_ref, base_repo_id, base_ref, merge_commit_sha, merged_at, closed_at, created_at, updated_at.
+- `pull_request_commits`: id, pull_request_id, commit_sha, position, authored_at, committed_at.
+- `pull_request_files`: id, pull_request_id, path, status, additions, deletions, patch_hash, viewed_state_version, created_at, updated_at.
+- `pull_request_reviews`: id, pull_request_id, reviewer_id, state, body, submitted_at, dismissed_at, dismissal_message.
+- `pull_request_review_comments`: id, pull_request_id, review_id, author_id, path, body, side, line, start_line, commit_sha, original_commit_sha, state, created_at, updated_at.
+- `pull_request_review_requests`: id, pull_request_id, requested_user_id, requested_team_id, requested_by_id, state, created_at, fulfilled_at.
+- `pull_request_viewed_files`: id, pull_request_id, user_id, path, file_version_hash, viewed_at.
+- `pull_request_checks_summary`: id, pull_request_id, total_count, successful_count, skipped_count, failed_count, pending_count, updated_at.
+- `branch_protection_rules`: id, repository_id, pattern, required_reviews_count, dismiss_stale_reviews, require_code_owner_reviews, required_check_contexts, require_linear_history, created_at, updated_at.
 - `labels`: id, repository_id, name, color, description.
 - `organizations`: id, slug, display_name, description, avatar_url, created_at, updated_at.
 - `teams`: id, organization_id, slug, name, description, privacy.

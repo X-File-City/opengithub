@@ -184,3 +184,42 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Pull request list/detail/diff/review for a repository (`/{owner}/{repo}/pulls`, `/pull/{number}`, `/pull/{number}/files`, `/compare/{base}...{head}`), including review states, checks summary, changed files, comments, and merge controls.
+
+Iteration 7 completed on 2026-04-30.
+
+Scope inspected: repository Pull request list/create/detail/diff/review page group (`/{owner}/{repo}/pulls`, `/compare/{base}...{head}`, `/pull/{number}`, `/pull/{number}/files`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever skill instructions, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and target docs for pull request creation, review, merge, checks, and REST pull endpoints.
+- Ran the required `ever snapshot`; Ever was authenticated and on the prior repository issue detail page.
+- Navigated with Ever to `https://github.com/vercel/next.js/pulls`, `https://github.com/vercel/next.js/compare/canary...canary`, `https://github.com/vercel/next.js/pull/93365`, and `https://github.com/vercel/next.js/pull/93365/files`.
+- Captured screenshots:
+  - ralph/screenshots/inspect/pr-list.jpg
+  - ralph/screenshots/inspect/pr-sort-menu.jpg
+  - ralph/screenshots/inspect/pr-reviews-filter-menu.jpg
+  - ralph/screenshots/inspect/pr-compare-no-diff.jpg
+  - ralph/screenshots/inspect/pr-detail-conversation.jpg
+  - ralph/screenshots/inspect/pr-detail-merge-box.jpg
+  - ralph/screenshots/inspect/pr-files-diff.jpg
+  - ralph/screenshots/inspect/pr-submit-review-menu.jpg
+- Tested live interactions: opened Sort and Reviews filter menus, inspected compare/no-diff branch selector state, opened a real PR conversation, scrolled to the mergeability/status box, opened Files changed, and opened the Submit review dialog without submitting anything.
+- Updated build-spec.md with Repository Pull Requests UI, behavior, data models, API examples, backend/cloud mapping, and merge/review constraints.
+- Updated sitemap.md to mark pull requests as completed.
+- Appended focused PRD entries:
+  - prs-001 repository pull request list
+  - prs-002 pull request filters and sorts
+  - prs-003 compare/create pull request flow
+  - prs-004 pull request conversation/merge box/sidebar
+  - prs-005 files changed diff review and submit review
+  - prs-006 merge methods, mergeability, checks, diff/patch API support
+
+Key findings:
+- Pull request list shares issue search-builder mechanics but adds review state, draft status, task progress, check-run summaries, linked issue indicators, and review filters.
+- Compare/create centers on base/head branch or tag selectors; identical refs render a clear no-diff empty state and sample comparison links.
+- PR detail has Conversation, Commits, Checks, and Files changed tabs with a strong status/merge box near the bottom of the conversation.
+- Mergeability is a composite of review approvals, check runs, draft state, conflicts, branch protection/rulesets, and stacked PR state. The inspected PR was approved and checks passed but blocked by stack merge rules.
+- Files changed uses a resizable file tree, diff settings, file filter, viewed tracking, split/unified hunks, expand context controls, and a submit-review modal with Comment/Approve/Request changes radio options.
+- opengithub should implement PR list/create/conversation/files/review/mergeability before secondary features such as merge queue management, dependency review rich diffs, and Copilot PR summaries.
+
+Next recommended iteration:
+- Inspect Actions workflow runs/logs (`/{owner}/{repo}/actions`, `/actions/workflows/{workflow_file}`, `/actions/runs/{run_id}`), including workflow list, run detail, jobs/logs, artifacts, re-run/cancel controls, and status checks feeding PRs.
