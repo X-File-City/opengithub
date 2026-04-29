@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 8 repository Actions inspection.
+Status: partial, iteration 9 global search/code search inspection.
 
 ## Product Overview
 
@@ -38,7 +38,102 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, and repository Actions workflow runs/logs.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, and global search/code search.
+
+## Global Search And Code Search
+
+Status: inspected live in iteration 9 against signed-in GitHub search results for `repo:vercel/next.js router`. Screenshots:
+
+- `ralph/screenshots/inspect/search-code-results.jpg`
+- `ralph/screenshots/inspect/search-more-languages.jpg`
+- `ralph/screenshots/inspect/search-type-menu.jpg`
+- `ralph/screenshots/inspect/search-save-scope.jpg`
+- `ralph/screenshots/inspect/search-issues-results.jpg`
+- `ralph/screenshots/inspect/search-issues-sort-menu.jpg`
+
+Global search bar and suggestions:
+
+- The signed-in header search button shows the active scoped query as tokenized text, for example `repo: vercel/next.js router`.
+- Opening the search bar displays a query-builder modal with a combobox, search syntax tips link, feedback button, saved-search management dialog, and categorized suggestions.
+- In repository scope, suggestions include "Search in this repository", "Search in this organization", "Search all of GitHub", direct code jumps to files/symbols, and Copilot chat suggestions. opengithub should omit Copilot-specific suggestions in MVP.
+- Typing qualifier prefixes such as `language:` changes suggestions into autocomplete lists. Observed language completions include C++, Go, Java, JavaScript, PHP, Python, and Ruby.
+- Saved searches open a modal titled "Create saved search" with Name and Query required inputs, Cancel, Create saved search, and a documentation link. Saved searches should be per-user and appear in future search suggestions.
+
+Code search results:
+
+- `/search?q=repo:vercel/next.js router&type=code` uses a two-pane search layout with a scrollable left filter rail, draggable vertical splitter, and main results pane.
+- Left rail contains result-type navigation with counts for Code, Issues, Pull requests, Discussions, Commits, Packages, and Wikis. Code-specific facets include Languages, Paths, Owner, Symbol, Exclude archived, and Advanced search.
+- Code results header shows total file count, query timing, active scope chips such as `vercel/next.js` with backspace/delete hint, Save button, type menu, column/view option buttons, and search feedback affordances.
+- Code result cards are grouped by file. Each card has collapse/expand, repository/path link, language badge, match count, code snippet table with line anchors, highlighted terms, and "Show N more matches".
+- Type switcher menu is a radio list with keyboard accelerators and counts for Code, Issues, Pull requests, Discussions, Commits, Packages, and Wikis.
+- Docs confirm upgraded code search supports bare terms matching content or path, quoted exact strings, boolean `AND`/`OR`/`NOT`, parentheses, regex delimited by slashes, and qualifiers including `repo:`, `org:`, `user:`, `language:`, `license:`, `path:`, `symbol:`, `content:`, and `is:`. Code search currently indexes default branches and only returns results visible to the viewer.
+
+Issues/Pull request search results:
+
+- Switching to `type=issues` keeps the same search shell but changes the filter rail to State plus advanced issue qualifiers: Owner, State, Close reason, Has linked pull request, Author, Assignee, Mentioned user, Mentioned team, Commenter, Involved user, Label, Milestone, Number of comments, Number of interactions, and Advanced search.
+- Issue result rows show repository, title with highlighted matches, labels, snippet text when available, author, opened date, comment count, issue number, and active repository scope.
+- Sort menu for issue search is a radio menu: Best match, Most commented, Least commented, Newest, Oldest, Recently updated, and Least recently updated. Docs add qualifier equivalents such as `sort:comments`, `sort:created`, `sort:updated`, `sort:interactions`, and `sort:reactions`.
+
+Repository file finder:
+
+- Docs confirm repository file finder is separate from global search and opens with `t` or the "Go to file" control. It searches files/directories in a single repository and excludes generated/vendor-like directories by default unless `.gitattributes` overrides `linguist-generated=false`.
+
+API examples:
+
+```http
+GET /api/search/code?q=repo:vercel/next.js%20router&language=typescript&page=1&pageSize=25
+Response: {
+  "items": [{
+    "repository": { "owner": "vercel", "name": "next.js" },
+    "path": "packages/next/src/client/next.ts",
+    "language": "TypeScript",
+    "matchCount": 2,
+    "snippets": [{ "lineStart": 13, "lineEnd": 19, "lines": [{ "line": 15, "html": "// <mark>router</mark> is initialized later so it has to be live-binded" }] }]
+  }],
+  "facets": { "languages": [{ "name": "TypeScript", "count": 623 }], "paths": [{ "path": "packages/next/src/client/", "count": 215 }] },
+  "total": 1500,
+  "page": 1,
+  "pageSize": 25,
+  "durationMs": 520
+}
+Error: { "error": { "code": "invalid_query", "message": "Unsupported qualifier: enterprise" }, "status": 422 }
+```
+
+```http
+GET /api/search/issues?q=repo:vercel/next.js%20router&state=open&sort=best-match&page=1&pageSize=25
+Response: {
+  "items": [{
+    "repository": "vercel/next.js",
+    "number": 92187,
+    "title": "router.replace/push restores stale query parameters from router cache",
+    "state": "open",
+    "author": { "username": "azu" },
+    "labels": [{ "name": "Runtime", "color": "5319e7" }],
+    "snippetHtml": "...stale query parameters from <mark>router</mark> cache...",
+    "comments": 0,
+    "openedAt": "2026-04-02T00:00:00Z"
+  }],
+  "facets": { "states": [{ "name": "open", "count": 6400 }, { "name": "closed", "count": 1200 }] },
+  "total": 6400,
+  "page": 1,
+  "pageSize": 25,
+  "durationMs": 175
+}
+Error: { "error": { "code": "query_too_large", "message": "Search query is too long" }, "status": 413 }
+```
+
+```http
+POST /api/search/saved
+Request: { "name": "next router", "query": "repo:vercel/next.js router" }
+Response: { "id": "uuid", "name": "next router", "query": "repo:vercel/next.js router", "createdAt": "2026-04-30T13:00:00Z" }
+Error: { "error": { "code": "validation_failed", "message": "Name and query are required" }, "status": 422 }
+```
+
+Implementation mapping:
+
+- Next.js owns the global search/jump modal, qualifier autocomplete, saved-search modal, `/search` result shell, filter rail, result type switching, code snippet rendering, issue/PR/commit/repository result rows, and repository file finder UI.
+- Rust API owns query parsing, permission-aware search execution, faceting, saved-search CRUD, repository file finder indexes, and result-type-specific pagination.
+- Postgres stores saved_searches, search_queries telemetry, repository_file_index, code_symbol_index, issue_search_documents, pull_request_search_documents, commit_search_documents, repository_search_documents, and trigram/full-text indexes. MVP uses Postgres `pg_trgm` plus tsvector; a dedicated code indexer can be introduced later if scale requires it.
 
 ## Repository Actions
 
@@ -831,6 +926,9 @@ More endpoint examples must be completed after feature-page inspection.
 - Re-runs use the original run actor/ref/SHA privileges and should enforce a 50-attempt limit.
 - Workflow logs and artifacts are private to users with repository read access; S3 downloads must use short-lived signed URLs and should expire old logs/artifacts according to retention policy.
 - MVP runners should execute in isolated ECS Fargate tasks without Docker socket or host credential access. Self-hosted runners, larger runners, ARC, custom images, OIDC federation, and artifact attestations can be added later.
+- Search must be permission-aware at query time and index time; private repository code, issues, commits, and saved searches must never leak through counts, facets, suggestions, snippets, or autocomplete.
+- Code search MVP should index default branches first. Searching non-default branches, forks, generated/vendor directories, and all historical revisions should be explicit later work.
+- Search query parsing must bound boolean nesting, regex complexity, result windows, and facet cardinality to protect Postgres. Return structured 422/413 errors instead of timing out.
 
 ## Build Order
 
@@ -841,7 +939,7 @@ More endpoint examples must be completed after feature-page inspection.
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, tree/blob/raw/archive file browser.
 7. Issues and pull requests.
-8. Search, Actions, Packages, Pages, organizations, teams, profiles, settings, notifications.
+8. Global search/code search, Actions, Packages, Pages, organizations, teams, profiles, settings, notifications.
 9. Public marketing/home surfaces only after the core app is usable.
 10. Deployment and production hardening.
 
@@ -863,6 +961,9 @@ Partial inventory from GitHub command palette docs:
 | `Cmd+Enter` / `Ctrl+Enter` | Command palette | Open highlighted search/navigation result in a new tab. |
 | `Esc` | Command palette | Close command palette. |
 | `?` | Command palette | Show command palette help. |
+| `/` | Global search results | Focus the active search input again to adjust the query. |
+| `c` / `i` / `p` / `d` / `w` | Search type menu | Switch result type to Code, Issues, Pull requests, Discussions, or Wikis when the type menu is open. |
+| `Alt+ArrowUp` | Search results | Observed on result repository links; keep result row navigation accessible by keyboard. |
 | `t` | Repository | Focus Go to file / file finder. |
 | `w` | Repository | Open branch/tag switcher on repository code pages. |
 | `y` | Blob view | Replace branch URL with permalink to the current commit. |

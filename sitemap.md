@@ -136,7 +136,7 @@ Template: `/{owner}/{repo}`.
 4. Issues list/detail/create. Completed in iteration 6 with live `vercel/next.js` inspection for list, filters, sort menu, label filter menu, filtered query URL, template chooser, issue form, issue detail timeline/comment composer/sidebar, and docs-backed search/template behavior.
 5. Pull request list/detail/diff/review. Completed in iteration 7 with live `vercel/next.js` inspection for PR list, sort menu, reviews filter menu, compare/no-diff state, conversation timeline, mergeability/status box, files changed diff, and submit review dialog.
 6. Actions workflow runs/logs. Completed in iteration 8 with live `vercel/next.js` inspection for All workflows run list, workflow filter panels, workflow-specific runs, failed run detail, job sidebar, annotations, artifacts, job log view, and log search.
-7. Global search/code search.
+7. Global search/code search. Completed in iteration 9 with live search inspection for repository-scoped code search, qualifier autocomplete, result type menu, saved-search modal, issue search results, issue search sort menu, and docs-backed code search/file finder syntax.
 8. User and organization profiles.
 9. Repository settings, access, webhooks, Pages.
 10. Packages and releases.

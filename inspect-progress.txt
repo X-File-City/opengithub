@@ -253,3 +253,38 @@ Key findings:
 
 Next recommended iteration:
 - Inspect global search/code search (`/search?q=...&type=code`, repository scoped file finder/search, command palette behavior), including filters, result snippets, pagination, and jump-to navigation.
+
+Iteration 9 completed on 2026-04-30.
+
+Scope inspected: global search/code search page group (`/search?q=...&type=code`, `/search?q=...&type=issues`, global query-builder modal, saved searches, result filters/sorts).
+
+What was done:
+- Read prior progress, inspect strategy, Ever CLI reference, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and target docs for upgraded code search, code search syntax, file finder, and search sorting.
+- Ran the required `ever snapshot`; Ever was authenticated and on the prior Actions job log page.
+- Navigated with Ever to `https://github.com/search?q=repo%3Avercel%2Fnext.js%20router&type=code` and inspected repository-scoped code search results.
+- Tested live interactions: opened language/qualifier autocomplete through the filter rail, opened the result-type radio menu, opened the saved-search creation modal, switched to issue search, and opened the issue-search sort menu.
+- Captured screenshots:
+  - ralph/screenshots/inspect/search-code-results.jpg
+  - ralph/screenshots/inspect/search-more-languages.jpg
+  - ralph/screenshots/inspect/search-type-menu.jpg
+  - ralph/screenshots/inspect/search-save-scope.jpg
+  - ralph/screenshots/inspect/search-issues-results.jpg
+  - ralph/screenshots/inspect/search-issues-sort-menu.jpg
+- Updated build-spec.md with Global Search And Code Search UI, behavior, API examples, backend/cloud mapping, search constraints, build order, and keyboard shortcuts.
+- Updated sitemap.md to mark global search/code search as completed.
+- Appended focused PRD entries:
+  - search-002 global search modal, suggestions, jump-to behavior, and saved searches
+  - search-003 code search result page, facets, snippets, and expansion
+  - search-004 issues/pull request search result page, facets, sorts, snippets, and pagination
+  - search-005 permission-aware Rust search backend, query parser, indexes, facets, saved searches, and file finder
+
+Key findings:
+- GitHub search uses a unified two-pane shell with result-type counts, a draggable filter rail, active query/scope chips, and type-specific facets.
+- Code results are grouped by file with language badges, line-number anchors, highlighted snippets, collapsible file groups, and Show N more matches expansion.
+- The search bar doubles as a command/jump surface: it offers repository/org/all-GitHub search suggestions, direct code/symbol jumps, qualifier autocomplete, saved searches, syntax tips, and feedback.
+- Saved searches are per-user records with required name and query fields.
+- Issue/PR search uses the same shell but swaps in state, author, assignee, mention, label, milestone, comments, interactions, and close-reason filters plus sort menus.
+- opengithub search must be permission-aware for results, counts, facets, snippets, autocomplete, and saved searches. MVP should index default branches first with Postgres tsvector + pg_trgm before adding a dedicated code indexer.
+
+Next recommended iteration:
+- Inspect user and organization profiles (`/{user}`, `/{org}`, repository tabs, stars/packages/projects/people/teams), including profile cards, pinned repositories, contribution graph, follow/star interactions, and org membership/team navigation.
