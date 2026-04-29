@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 10 user and organization profile inspection.
+Status: partial, iteration 11 repository settings/access/hooks/Pages inspection.
 
 ## Product Overview
 
@@ -38,7 +38,194 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, and user/organization profiles.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, user/organization profiles, and repository settings/access/hooks/Pages.
+
+## Repository Settings, Access, Webhooks, Secrets, And Pages
+
+Status: inspected in iteration 11. Ever was attempted first but failed DOM extraction and later timed out on navigation/screenshot. Headless Chrome with the local profile could not reuse GitHub cookies because macOS keychain access is unavailable in headless mode, so visual settings screenshots were blocked by GitHub's signed-out 404. Live repository state was verified through `gh api` for `namuh-eng/opengithub`, and UI/behavior details were cross-checked against scraped GitHub docs for repository settings, access, branch protection/rulesets, webhooks, Actions secrets, and Pages.
+
+Evidence and blocked screenshots:
+
+- Required Ever snapshot failed: `Failed to get DOM document - extraction cannot proceed`.
+- Ever navigate/screenshot to `/namuh-eng/opengithub/settings` timed out.
+- Headless Chrome fallback reached GitHub but was unauthenticated and captured a 404/sign-in state instead of settings: `ralph/screenshots/inspect/repo-settings-auth-blocked.png`. This is evidence of the auth limitation, not a UI reference for settings.
+- `gh api repos/namuh-eng/opengithub` confirmed admin access for the token, public visibility, default branch `main`, Issues disabled, Projects/Wiki enabled, merge/squash/rebase enabled, auto-merge disabled, delete-branch-on-merge disabled, forking enabled, web commit signoff disabled, and secret scanning features disabled.
+- `gh api repos/namuh-eng/opengithub/collaborators` returned two admin collaborators.
+- `gh api repos/namuh-eng/opengithub/branches` returned `main` as unprotected.
+- `gh api repos/namuh-eng/opengithub/hooks` returned no repository webhooks.
+- `gh api repos/namuh-eng/opengithub/pages` returned 404, meaning Pages is not configured.
+- `gh api repos/namuh-eng/opengithub/actions/secrets` returned zero repository secrets.
+
+Repository settings shell:
+
+- `/{owner}/{repo}/settings` uses the repository workspace header and Settings tab, then switches to a settings layout with a left sidebar and form/card content.
+- Sidebar groups include General, Access/Collaborators and teams, Code and automation items such as Branches/Rules/Actions/Webhooks/Pages, Security-related settings, and Danger Zone actions at the bottom.
+- General settings are grouped into bordered sections for repository name, template status, social preview, features, pull request merge methods, default branch, forking, discussions/wiki/projects/issues toggles, and Danger Zone actions such as archive, change visibility, transfer, and delete.
+- opengithub should model dangerous actions as confirm-name dialogs with typed repository confirmation and server-side permission checks. Do not make destructive settings available until the related backend behavior is implemented.
+
+Access and collaborators:
+
+- `/{owner}/{repo}/settings/access` shows a combined overview of people and teams with access. Organization repositories include inherited team access and direct collaborators.
+- Rows need avatar/name/login or team name/parent path, permission role, source of access (direct, team, inherited, organization owner), and management menu for admins.
+- The add-access flow opens a dialog/search control for people or teams and selects a role: read, triage, write, maintain, admin. Removing access requires confirmation. Inherited team permissions cannot be removed at the child team row; the parent team or org base permission must be changed.
+- Live API state for `namuh-eng/opengithub` showed admin collaborators `ashley-ha` and `jaeyunha`.
+
+Branches, branch protection, and rulesets:
+
+- `/{owner}/{repo}/settings/branches` lists default branch and branch protection/ruleset entries. If no rules exist, show an empty state with Add branch protection rule / New ruleset controls.
+- Branch protection supports a pattern input and rule toggles: require PR reviews, required approving review count, dismiss stale approvals, require code owner review, restrict review dismissal, require status checks, require branches to be up to date, required check contexts/sources, require conversation resolution, require signed commits, require linear history, require merge queue, require deployments, lock branch, block bypass, restrict pushes/branch creation, allow force pushes, and allow deletions.
+- Rulesets are named, can be active/evaluate/disabled, target branches or tags with fnmatch patterns, layer with branch protections, and aggregate to the most restrictive applicable rule. Build rulesets as the forward-looking policy model, then map classic branch protection into the same mergeability evaluator.
+- Live API state showed branch `main` was not protected.
+
+Repository webhooks:
+
+- `/{owner}/{repo}/settings/hooks` lists configured hooks with endpoint URL, active status, subscribed event summary, latest delivery status, updated time, Edit/Delete/Test controls, and an Add webhook button.
+- Add/Edit webhook form fields: Payload URL, Content type (`application/json` or form encoding), Secret, SSL verification, event selection radio group (Just push, Send me everything, Let me select individual events), individual event checkboxes, and Active checkbox.
+- After creation, GitHub sends a `ping` event. The hook detail page has a Recent Deliveries tab showing delivery GUIDs, request headers/body, response status/body, sent time, duration, and Redeliver controls for recent deliveries.
+- Live API state for `namuh-eng/opengithub` had no hooks, so opengithub needs a no-webhooks empty state and add form.
+
+Actions secrets and variables:
+
+- `/{owner}/{repo}/settings/secrets/actions` uses tabs for Secrets and Variables. The repository secrets list shows secret name, last updated time, and Update/Delete actions; values are write-only after save.
+- New repository secret form has Name and Secret fields and Add secret action. Secret names should be upper-case identifier-like strings, unique per repository, and encrypted before storage. The API must never return secret values.
+- Environment and organization secrets are separate scopes; repository pages may show inherited organization/environment availability but should not leak values or unauthorized metadata.
+- Live API state returned zero repository Actions secrets for `namuh-eng/opengithub`.
+
+GitHub Pages:
+
+- `/{owner}/{repo}/settings/pages` configures Pages source and custom domains. When unconfigured, show a Build and deployment card with Source selector.
+- Branch publishing flow: Source = Deploy from a branch, branch dropdown, folder dropdown (`/(root)` or `/docs`), Save. The source branch/folder must exist before saving.
+- Actions publishing flow: Source = GitHub Actions, workflow template suggestions, link to latest Pages deployment workflow run, and deployment environment `github-pages`.
+- Custom domain settings include domain input, Save/Remove, DNS verification status, HTTPS enforcement, certificate/provisioning status, and warnings that a `CNAME` file alone does not configure the domain.
+- opengithub should publish Pages artifacts to S3 and serve through CloudFront. Default project URL should be `https://{owner}.opengithub.namuh.co/{repo}` with optional custom domain records managed through Cloudflare after verification.
+
+API examples:
+
+```http
+GET /api/repos/{owner}/{repo}/settings
+Response: {
+  "repository": { "fullName": "namuh-eng/opengithub", "visibility": "public", "defaultBranch": "main" },
+  "features": { "issues": false, "projects": true, "wiki": true, "discussions": false },
+  "merge": { "mergeCommit": true, "squash": true, "rebase": true, "autoMerge": false, "deleteBranchOnMerge": false },
+  "forkingAllowed": true,
+  "webCommitSignoffRequired": false,
+  "security": { "secretScanning": "disabled", "pushProtection": "disabled" }
+}
+Error: { "error": { "code": "forbidden", "message": "Admin access is required" }, "status": 403 }
+```
+
+```http
+PATCH /api/repos/{owner}/{repo}/settings
+Request: { "hasIssues": true, "allowSquashMerge": true, "deleteBranchOnMerge": true, "webCommitSignoffRequired": false }
+Response: { "repository": { "fullName": "mona/app" }, "updated": ["hasIssues", "deleteBranchOnMerge"] }
+Error: { "error": { "code": "validation_failed", "message": "At least one merge method must remain enabled" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/access
+Response: {
+  "items": [
+    { "subjectType": "user", "login": "jaeyunha", "role": "admin", "source": "direct", "permissions": { "pull": true, "push": true, "admin": true } }
+  ],
+  "total": 2,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "forbidden", "message": "Admin access is required" }, "status": 403 }
+```
+
+```http
+PUT /api/repos/{owner}/{repo}/access/{subject}
+Request: { "subjectType": "user", "role": "write" }
+Response: { "subjectType": "user", "login": "octo", "role": "write", "invitationState": "pending" }
+Error: { "error": { "code": "role_not_allowed", "message": "Unsupported repository role" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/branch-rules
+Response: {
+  "defaultBranch": "main",
+  "branches": [{ "name": "main", "protected": false }],
+  "rules": []
+}
+Error: { "error": { "code": "not_found", "message": "Repository not found" }, "status": 404 }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/branch-rules
+Request: {
+  "name": "Protect main",
+  "target": "branch",
+  "pattern": "main",
+  "enforcement": "active",
+  "rules": { "requiredApprovingReviewCount": 1, "requiredStatusChecks": ["make check"], "blockForcePushes": true }
+}
+Response: { "id": "uuid", "name": "Protect main", "pattern": "main", "enforcement": "active" }
+Error: { "error": { "code": "pattern_conflict", "message": "A branch rule already targets this pattern" }, "status": 409 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/hooks
+Response: { "items": [], "total": 0, "page": 1, "pageSize": 30 }
+Error: { "error": { "code": "forbidden", "message": "Admin access is required" }, "status": 403 }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/hooks
+Request: {
+  "payloadUrl": "https://example.com/webhook",
+  "contentType": "json",
+  "secret": "redacted",
+  "events": ["push", "pull_request"],
+  "active": true
+}
+Response: { "id": "uuid", "payloadUrl": "https://example.com/webhook", "active": true, "events": ["push", "pull_request"], "lastResponse": null }
+Error: { "error": { "code": "invalid_url", "message": "Payload URL must be HTTPS" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/hooks/{hookId}/deliveries
+Response: {
+  "items": [{ "id": "uuid", "event": "ping", "statusCode": 200, "durationMs": 132, "deliveredAt": "2026-04-30T12:00:00Z" }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "not_found", "message": "Webhook not found" }, "status": 404 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/actions/secrets
+Response: { "items": [{ "name": "DEPLOY_TOKEN", "updatedAt": "2026-04-30T12:00:00Z" }], "total": 1 }
+Error: { "error": { "code": "forbidden", "message": "Admin access is required" }, "status": 403 }
+```
+
+```http
+PUT /api/repos/{owner}/{repo}/actions/secrets/{name}
+Request: { "encryptedValue": "base64", "keyId": "repository-public-key-id" }
+Response: { "name": "DEPLOY_TOKEN", "created": true, "updatedAt": "2026-04-30T12:00:00Z" }
+Error: { "error": { "code": "invalid_secret_name", "message": "Secret names must use letters, digits, and underscores" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/pages
+Response: { "configured": false, "source": null, "customDomain": null, "httpsEnforced": false, "latestDeployment": null }
+Error: { "error": { "code": "not_found", "message": "Pages is not enabled for this repository" }, "status": 404 }
+```
+
+```http
+PATCH /api/repos/{owner}/{repo}/pages
+Request: { "source": { "type": "branch", "branch": "main", "folder": "/docs" }, "customDomain": "docs.example.com", "httpsEnforced": true }
+Response: { "configured": true, "url": "https://mona.opengithub.namuh.co/app", "source": { "type": "branch", "branch": "main", "folder": "/docs" }, "customDomain": "docs.example.com", "domainState": "pending_dns" }
+Error: { "error": { "code": "source_not_found", "message": "The selected branch or folder does not exist" }, "status": 422 }
+```
+
+Implementation mapping:
+
+- Next.js owns settings layout, sidebar navigation, forms, confirmation dialogs, access search dialogs, branch rule editors, webhook event checklists, secret write-only forms, Pages source/domain cards, and validation/error display.
+- Rust API owns admin permission checks, repository settings persistence, access/invitation mutations, branch rule mergeability evaluation, webhook delivery queueing/signing/retry/redelivery, encrypted secret storage, and Pages build/deploy state.
+- Postgres stores repository feature flags, settings audit events, direct repository permissions, repository invitations, branch rules/rulesets, webhook configs/deliveries, secret metadata, Pages config, and Pages deployment records.
+- S3 stores Pages build artifacts and webhook delivery payload archives when retention exceeds Postgres row size limits. CloudFront serves Pages sites. SES sends collaborator invitations and webhook failure notifications if enabled. SQS can back webhook delivery and Pages deploy jobs.
 
 ## User And Organization Profiles
 
@@ -728,6 +915,15 @@ Initial model set inferred from docs/OpenAPI:
 - `repository_readmes`: id, repository_id, commit_sha, path, rendered_html, rendered_at.
 - `code_search_index`: id, repository_id, branch, path, language, line_count, content_tsv, trigram_text, indexed_commit_sha, updated_at.
 - `repository_archives`: id, repository_id, ref_name, commit_sha, format, storage_key, expires_at, created_at.
+- `repository_settings_audit_events`: id, repository_id, actor_id, setting_key, old_value_json, new_value_json, created_at.
+- `repository_invitations`: id, repository_id, invitee_user_id, invitee_email, invited_by_id, role, state, token_hash, expires_at, created_at, accepted_at.
+- `repository_rulesets`: id, repository_id, name, target_type, target_pattern, enforcement, bypass_actors_json, rules_json, created_by_id, created_at, updated_at.
+- `repository_rule_evaluations`: id, repository_id, ruleset_id, ref_name, commit_sha, actor_id, result, violations_json, evaluated_at.
+- `webhook_deliveries`: id, webhook_id, event, delivery_guid, request_headers_json, request_body_storage_key, response_status, response_headers_json, response_body_storage_key, duration_ms, delivered_at, redelivered_from_id.
+- `actions_secrets`: id, scope_type, scope_id, name, encrypted_value_ref, key_id, created_by_id, updated_by_id, created_at, updated_at.
+- `actions_variables`: id, scope_type, scope_id, name, value, created_by_id, updated_by_id, created_at, updated_at.
+- `pages_sites`: id, repository_id, source_type, source_branch, source_folder, custom_domain, domain_state, https_enforced, public_url, latest_deployment_id, created_at, updated_at.
+- `pages_deployments`: id, pages_site_id, source_commit_sha, source_workflow_run_id, status, artifact_storage_key, deployed_storage_prefix, error_message, created_at, completed_at.
 
 ## API Architecture
 
@@ -1048,6 +1244,12 @@ More endpoint examples must be completed after feature-page inspection.
 - Search must be permission-aware at query time and index time; private repository code, issues, commits, and saved searches must never leak through counts, facets, suggestions, snippets, or autocomplete.
 - Code search MVP should index default branches first. Searching non-default branches, forks, generated/vendor directories, and all historical revisions should be explicit later work.
 - Search query parsing must bound boolean nesting, regex complexity, result windows, and facet cardinality to protect Postgres. Return structured 422/413 errors instead of timing out.
+- Repository settings writes must require admin permission and create audit events; public repository settings pages must never reveal private collaborators, secrets, hook secrets, or inherited organization policy details beyond what the viewer may administer.
+- At least one pull request merge method must remain enabled if pull requests are enabled, otherwise PR merge boxes become impossible to satisfy.
+- Branch protection/rulesets must be evaluated by the Rust mergeability path used by pull requests and by Git push endpoints; UI-only enforcement is insufficient.
+- Webhook secrets and Actions secrets are write-only after creation. Store encrypted values or envelope references only, redact them in logs, and sign webhook deliveries with an HMAC header.
+- Webhook delivery workers must bound retries, timeouts, payload size, and retained delivery history; redelivery should create a new delivery row linked to the original.
+- GitHub Pages custom domains require Cloudflare DNS verification before CloudFront alias activation. A repository `CNAME` file alone must not configure the domain.
 
 ## Build Order
 

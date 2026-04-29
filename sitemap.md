@@ -138,5 +138,5 @@ Template: `/{owner}/{repo}`.
 6. Actions workflow runs/logs. Completed in iteration 8 with live `vercel/next.js` inspection for All workflows run list, workflow filter panels, workflow-specific runs, failed run detail, job sidebar, annotations, artifacts, job log view, and log search.
 7. Global search/code search. Completed in iteration 9 with live search inspection for repository-scoped code search, qualifier autocomplete, result type menu, saved-search modal, issue search results, issue search sort menu, and docs-backed code search/file finder syntax.
 8. User and organization profiles. Completed in iteration 10 with headless Chrome fallback for user overview, user repositories, user stars, org overview, filtered org repositories, and org people list after Ever DOM extraction failed.
-9. Repository settings, access, webhooks, Pages.
+9. Repository settings, access, webhooks, Pages. Completed in iteration 11 with docs-backed UI behavior and live `gh api` verification for `namuh-eng/opengithub`; Ever/headless authenticated settings screenshots were blocked.
 10. Packages and releases.

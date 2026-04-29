@@ -323,3 +323,41 @@ Key findings:
 
 Next recommended iteration:
 - Inspect repository settings, access/collaborators, branch rules, webhooks, Actions secrets/settings, and Pages settings (`/{owner}/{repo}/settings/*`).
+
+Iteration 11 completed on 2026-04-30.
+
+Scope inspected: repository settings/admin page group (`/{owner}/{repo}/settings`, `/settings/access`, `/settings/branches`, `/settings/hooks`, `/settings/secrets/actions`, `/settings/pages`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever skill instructions, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for repository settings, collaborator/team access, branch protection, rulesets, webhooks, Actions secrets, and Pages.
+- Ran the required `ever snapshot`; Ever failed with `Failed to get DOM document - extraction cannot proceed`.
+- Attempted Ever navigation and screenshot for `https://github.com/namuh-eng/opengithub/settings`; both timed out.
+- Used headless Chrome fallback with the local Chrome profile. It could reach GitHub only as signed out because macOS keychain access is unavailable in headless mode, so the captured page was GitHub's 404/sign-in state, saved as:
+  - ralph/screenshots/inspect/repo-settings-auth-blocked.png
+- Used authenticated `gh api` as live non-destructive verification for the admin-only repository:
+  - repository settings: public, default branch `main`, Issues disabled, Projects/Wiki enabled, merge/squash/rebase enabled, auto-merge disabled, delete-branch-on-merge disabled, forking enabled, web commit signoff disabled, secret scanning disabled
+  - collaborators: `ashley-ha` and `jaeyunha`, both admin
+  - branches: `main` exists and is not protected
+  - webhooks: none configured
+  - Pages: not configured (404 from Pages API)
+  - Actions secrets: zero repository secrets
+- Updated build-spec.md with repository settings/access/branch rules/webhooks/secrets/Pages UI behavior, data models, API examples, AWS/Rust implementation mapping, and constraints.
+- Updated sitemap.md to mark repository settings/access/webhooks/Pages as completed with the Ever/auth limitation.
+- Appended focused PRD entries:
+  - settings-001 repository Settings overview/general settings
+  - settings-002 repository access/collaborator/team management
+  - settings-003 branch protection and rulesets
+  - settings-004 repository webhooks and delivery history
+  - settings-005 Actions secrets and variables
+  - settings-006 Pages source/custom domain/deployment settings
+- Validated `prd.json` parses and all entries have non-empty `ui_details`, `behavior`, `data_model`, and array `dependent_on`.
+
+Key findings:
+- Repository settings are admin-only and must be a dedicated settings shell with left navigation, grouped cards/forms, and confirm-name modals for dangerous actions.
+- Branch protection and rulesets are not just settings UI; they must feed PR mergeability and Git push enforcement in Rust.
+- Webhook and Actions secret values are write-only after creation. Webhook deliveries need signed payloads, bounded retries/timeouts, retained request/response evidence, and redelivery records.
+- Pages needs branch or Actions source selection, build/deploy status, custom domain verification, HTTPS/certificate state, S3 artifact storage, CloudFront serving, and Cloudflare DNS verification before alias activation.
+- For this iteration, visual admin UI screenshots could not be captured because Ever was wedged and headless Chrome could not reuse authenticated cookies. The spec is therefore docs/API-backed for settings UI details.
+
+Next recommended iteration:
+- Inspect Packages and releases (`/{owner}/{repo}/releases`, `/releases/new`, tags, package list/detail views, package install instructions, visibility/access controls).
