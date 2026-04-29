@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 5 repository code/file browser inspection.
+Status: partial, iteration 6 repository issues inspection.
 
 ## Product Overview
 
@@ -38,7 +38,69 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, and repository code/file browsing.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, and repository issues.
+
+## Repository Issues
+
+Status: inspected live in iteration 6 against `https://github.com/vercel/next.js` while authenticated. Screenshots:
+
+- `ralph/screenshots/inspect/issues-list.jpg`
+- `ralph/screenshots/inspect/issues-sort-menu.jpg`
+- `ralph/screenshots/inspect/issues-label-filter-menu.jpg`
+- `ralph/screenshots/inspect/issues-filtered-bug.jpg`
+- `ralph/screenshots/inspect/issues-new-template-chooser.jpg`
+- `ralph/screenshots/inspect/issues-new-form.jpg`
+- `ralph/screenshots/inspect/issues-detail.jpg`
+- `ralph/screenshots/inspect/issues-detail-comment-preview.jpg`
+- `ralph/screenshots/inspect/issues-notification-customize.jpg`
+
+Issue list:
+
+- Repository Issues uses the shared repository header and tab bar. The tab count on `vercel/next.js` showed roughly 2.1k open issues.
+- A dismissible contributor guidance banner appears above the list: it links to contributing guidelines and a good-first-issues collection.
+- The list header has a search builder labeled `Search Issues`; default query is `is:issue state:open`.
+- To the right of the search builder are Labels and Milestones links and a green New issue button.
+- Open and Closed tabs show counts. On the unfiltered list, Open showed 2,131 and Closed showed 22,473.
+- The filter toolbar includes Author, Labels, Projects, Milestones, Assignees, Types, and Sort by.
+- Issue rows are compact list items with title, inline code spans where needed, label pills, open status, issue number, repository context, author, relative opened time, linked PR indicator, and comments count.
+- Filtering by `label:Bug` updated the query to `is:issue state:open label:Bug`, changed counts, and produced a new URL with the encoded query.
+
+Filter and sort behavior:
+
+- Sort opens a radio menu with Sort by options: Created on, Last updated, Total comments, Best match, Reactions. Order options are Oldest and Newest. The current checked state was Created on + Newest.
+- Label filtering opens a popover/dialog titled "Filter by label" with a search combobox, "Items will be filtered as you type" helper text, and a multiselect listbox. Rows show a color swatch, label name, and optional description.
+- Observed label options included No labels, After, Backport, Broken Link, CSS, Cache Components, Cookies, Documentation, Error Handling, Font, Form, and Freeze.
+- Docs confirm advanced issue filters support qualifiers such as `author:`, `involves:`, `assignee:`, `label:`, negative qualifiers with `-`, `linked:pr`, close reason, issue type, issue fields, boolean `AND`/`OR`, and nested parentheses up to five levels.
+- Sorting must support newest/oldest created, newest/oldest updated, most/least commented, and most reactions. URL query state must be shareable.
+
+Issue creation:
+
+- New issue opens a "Create new issue" template chooser when the repository has issue templates.
+- Observed template cards for `vercel/next.js`: Report an issue, Report a documentation issue, Report a security vulnerability, Ask a question or discuss a topic, Feature or documentation request, and Next.js Learn course.
+- Selecting "Report an issue" changed the chooser into an issue form titled "Create new issue in vercel/next.js: Report an issue".
+- The form has a required title input and template-defined fields, including reproduction link input, To Reproduce Markdown editor, Current vs. Expected behavior Markdown editor, environment information textarea, affected areas/stages, and additional context.
+- Markdown editors use Write/Preview tabs, formatting toolbar buttons, expandable toolbar menus, textareas with instructional placeholders, and "Paste, drop, or click to add files" attachment affordances.
+- Footer controls include Create more checkbox, Cancel, and green Create button with Command+Enter hint. The inspection did not submit the form to avoid creating an issue on the target.
+- Docs confirm issue creation can also happen from comments, code lines/ranges, discussions, projects, task list items, CLI/API, and URL query parameters. MVP should implement repository form creation plus URL query prefill first; code/comment/discussion conversions can be later.
+
+Issue detail:
+
+- Detail page shows title, issue number, Open state pill, New issue action, timeline column, comment composer, and metadata sidebar.
+- The first card shows author avatar/name, opened timestamp, contributor role badge, kebab actions, rendered Markdown body, code blocks with copy buttons, and reaction toolbar.
+- Timeline events include label additions, comments, linked pull request events, and commit references.
+- The comment composer supports Write/Preview tabs, Markdown toolbar, textarea placeholder "Use Markdown to format your comment", attachment affordance, and `Nothing to preview` when preview is empty.
+- Primary composer actions include Close issue and Comment. The page reminds contributors to follow contributing guidelines, security policy, and code of conduct.
+- Sidebar sections observed: Assignees, Labels, Type, Fields, Projects, Milestone, Relationships, Development, Notifications, Participants, and Issue actions.
+- Notification controls include Customize and Subscribe, with helper text when the current user is not receiving thread notifications.
+- Labels in the sidebar are linked color pills with tooltip descriptions; Development showed a linked PR expected to close the issue.
+
+Implementation mapping:
+
+- Next.js owns `/issues`, `/issues/new`, `/issues/{number}`, query builder UI, dropdown filters, template chooser/forms, Markdown editor/preview, issue timeline rendering, metadata sidebar, reaction controls, and notification controls.
+- Rust API owns issue list/search, issue creation, template loading, permission checks, metadata mutation, comments, reactions, timeline event creation, subscriptions, notification fanout, and closing/reopening.
+- Postgres stores issues, comments, issue timeline events, labels, milestones, issue templates/forms, issue types, field values, relationships, linked pull requests/commits, reactions, subscriptions, participants, and notification records.
+- `pg_trgm` and full-text indexes should back issue query search. Search qualifier parsing should be centralized so repository issues, global issues, and pull request lists share behavior.
+- SES sends subscribed issue/comment notifications after domain verification.
 
 ## Repository Code And File Browser
 
@@ -166,6 +228,14 @@ Initial model set inferred from docs/OpenAPI:
 - `repository_git_refs`: id, repository_id, ref_type, name, target_sha, created_at, updated_at.
 - `commits`: id, repository_id, sha, tree_sha, parent_shas, author_name, author_email, committer_name, committer_email, message, committed_at.
 - `issues`: id, repository_id, number, title, body, state, author_id, assignee_id, milestone_id, closed_at, created_at, updated_at.
+- `issue_comments`: id, issue_id, author_id, body, rendered_html, created_at, updated_at, edited_at, deleted_at.
+- `issue_timeline_events`: id, issue_id, actor_id, event_type, payload_json, created_at.
+- `issue_labels`: issue_id, label_id, created_at.
+- `issue_assignees`: issue_id, user_id, assigned_by_id, created_at.
+- `issue_templates`: id, repository_id, name, description, template_type, body, form_schema_json, default_labels, default_assignees, active, created_at, updated_at.
+- `issue_reactions`: id, subject_type, subject_id, user_id, emoji, created_at.
+- `issue_subscriptions`: id, issue_id, user_id, state, reason, created_at, updated_at.
+- `issue_relationships`: id, source_issue_id, target_type, target_id, relationship_type, created_at.
 - `pull_requests`: id, repository_id, number, title, body, state, author_id, head_repo_id, head_ref, base_repo_id, base_ref, merge_commit_sha, merged_at, closed_at, created_at, updated_at.
 - `labels`: id, repository_id, name, color, description.
 - `organizations`: id, slug, display_name, description, avatar_url, created_at, updated_at.
@@ -367,6 +437,98 @@ Response: { "items": [{ "id": "uuid", "number": 1, "title": "Bug", "state": "ope
 ```
 
 ```http
+GET /api/repos/{owner}/{repo}/issues?q=is%3Aissue%20state%3Aopen%20label%3ABug&sort=created-desc&page=1&pageSize=25
+Response: {
+  "items": [
+    {
+      "id": "uuid",
+      "number": 92877,
+      "title": "@vercel/otel fetch instrumentation stripped after HMR in dev mode",
+      "state": "open",
+      "author": { "username": "Strernd", "avatarUrl": "https://..." },
+      "labels": [{ "name": "bug", "color": "d73a4a", "description": "Issue was opened via the bug report template." }],
+      "comments": 3,
+      "linkedPullRequests": [{ "number": 93249, "state": "open" }],
+      "createdAt": "2026-04-16T12:00:00Z",
+      "updatedAt": "2026-04-26T07:10:00Z"
+    }
+  ],
+  "total": 813,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "invalid_query", "message": "Unsupported issue search qualifier" } }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/issue-options
+Response: {
+  "labels": [{ "id": "uuid", "name": "bug", "color": "d73a4a", "description": "Indicates an unexpected problem or unintended behavior" }],
+  "milestones": [{ "id": "uuid", "title": "v1.0", "openIssues": 12, "closedIssues": 3 }],
+  "assignees": [{ "id": "uuid", "username": "mona", "avatarUrl": "https://..." }],
+  "types": [{ "id": "uuid", "name": "Bug" }],
+  "templates": [{ "id": "uuid", "name": "Report an issue", "description": "Report a product issue." }]
+}
+Error: { "error": { "code": "not_found", "message": "Repository not found" } }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/issues
+Request: {
+  "title": "Bug report",
+  "body": "Steps to reproduce...",
+  "templateId": "uuid",
+  "labels": ["bug"],
+  "assignees": ["mona"],
+  "milestoneId": "uuid"
+}
+Response: { "id": "uuid", "number": 42, "title": "Bug report", "state": "open", "url": "/mona/app/issues/42" }
+Error: { "error": { "code": "validation_failed", "message": "Title is required" } }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/issues/{number}
+Response: {
+  "id": "uuid",
+  "number": 92877,
+  "title": "@vercel/otel fetch instrumentation stripped after HMR in dev mode",
+  "state": "open",
+  "author": { "username": "Strernd", "avatarUrl": "https://..." },
+  "bodyHtml": "<p>Rendered Markdown</p>",
+  "labels": [{ "name": "bug", "color": "d73a4a" }],
+  "assignees": [],
+  "milestone": null,
+  "development": [{ "type": "pull_request", "number": 93249, "state": "open", "title": "fix: preserve OTel fetch instrumentation across HMR in dev mode" }],
+  "timeline": [
+    { "id": "uuid", "type": "comment", "author": { "username": "vitalets" }, "bodyHtml": "<p>We also encountered this behavior...</p>", "createdAt": "2026-04-19T20:59:00Z" }
+  ],
+  "subscription": { "state": "not_subscribed", "reason": null }
+}
+Error: { "error": { "code": "not_found", "message": "Issue not found" } }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/issues/{number}/comments
+Request: { "body": "Thanks, I can reproduce this." }
+Response: { "id": "uuid", "bodyHtml": "<p>Thanks, I can reproduce this.</p>", "author": { "username": "mona" }, "createdAt": "2026-04-30T12:00:00Z" }
+Error: { "error": { "code": "validation_failed", "message": "Comment body is required" } }
+```
+
+```http
+PATCH /api/repos/{owner}/{repo}/issues/{number}
+Request: { "state": "closed", "stateReason": "completed", "labels": ["bug", "Turbopack"], "assignees": ["mona"], "milestoneId": null }
+Response: { "id": "uuid", "number": 92877, "state": "closed", "closedAt": "2026-04-30T12:05:00Z" }
+Error: { "error": { "code": "forbidden", "message": "You do not have permission to update this issue" } }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/issues/{number}/reactions
+Request: { "emoji": "+1" }
+Response: { "emoji": "+1", "count": 2, "viewerHasReacted": true }
+Error: { "error": { "code": "validation_failed", "message": "Unsupported reaction" } }
+```
+
+```http
 GET /api/search/code?q=Button+repo:mona/hello-world&page=1&pageSize=30
 Response: { "items": [{ "repository": "mona/hello-world", "path": "src/Button.tsx", "line": 12, "fragment": "export function Button" }], "total": 1, "page": 1, "pageSize": 30 }
 ```
@@ -411,6 +573,11 @@ More endpoint examples must be completed after feature-page inspection.
 - Git clone/fetch/push must be implemented by opengithub smart HTTP endpoints and local/S3 object storage, not by proxying GitHub remotes.
 - SSH clone URLs should be hidden or disabled until `/settings/keys` and SSH git transport are implemented.
 - Public raw/archive responses can be cached, but private repository raw/blob/archive responses must be permission checked and use short-lived signed URLs only.
+- Issues can be disabled per repository; routes must return an explicit disabled state instead of exposing stale issue data.
+- Public repositories allow issue reading and often issue creation by authenticated users with read access, but metadata mutation such as labels, assignees, milestones, pinning, transfer, and deletion requires triage/write/admin permission.
+- Issue templates/forms are repository content and configuration; invalid YAML/form schemas should not break issue creation. Show a blank issue fallback for malformed templates.
+- Issue search query parsing must be bounded: reject excessive nesting, unsupported qualifiers, and oversized URLs with structured errors.
+- Closing keywords in pull requests must create issue references but should only close issues when the PR is merged.
 
 ## Build Order
 
@@ -448,3 +615,11 @@ Partial inventory from GitHub command palette docs:
 | `y` | Blob view | Replace branch URL with permalink to the current commit. |
 | `b` | Blob view | Open Blame for the current file. |
 | `l` | Blob view | Jump to a line number prompt or line focus. |
+| `g` then `i` | Repository | Go to the Issues tab. |
+| `Cmd+/` / `Ctrl+/` | Issues/Pulls list | Focus the issues or pull requests search bar. |
+| `l` | Issues/Pulls list or detail | Filter by/edit labels, or apply a label in issue context. |
+| `m` | Issues/Pulls list or detail | Filter by/edit milestones, or set a milestone in issue context. |
+| `a` | Issues/Pulls list or detail | Filter by/edit assignees, or set an assignee in issue context. |
+| `x` | Issue detail | Link an issue or pull request from the same repository. |
+| `Ctrl+.` then `Ctrl+<number>` | Comment composer | Open saved replies menu and insert a saved reply. |
+| `Cmd+Enter` / `Ctrl+Enter` | Issue creation/comment form | Submit the issue or comment when valid. |

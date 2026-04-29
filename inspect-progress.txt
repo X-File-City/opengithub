@@ -146,3 +146,41 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Issues list/detail/create for a repository (`/{owner}/{repo}/issues`, `/issues/new`, `/issues/{number}`), including filters, labels/milestones links, issue form, timeline/comments, reactions, close/reopen, and sidebar metadata.
+
+Iteration 6 completed on 2026-04-30.
+
+Scope inspected: repository Issues list/filter/create/detail page group (`/{owner}/{repo}/issues`, `/issues/new`, `/issues/{number}`).
+
+What was done:
+- Read prior progress, inspect strategy, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and target docs for issues, issue creation, issue search/filtering, labels, and keyboard shortcuts.
+- Ran the required `ever snapshot`; Ever was authenticated and on the prior repository tree page.
+- Navigated with Ever to `https://github.com/vercel/next.js/issues` and inspected the live repository Issues list.
+- Captured screenshots:
+  - ralph/screenshots/inspect/issues-list.jpg
+  - ralph/screenshots/inspect/issues-sort-menu.jpg
+  - ralph/screenshots/inspect/issues-label-filter-menu.jpg
+  - ralph/screenshots/inspect/issues-filtered-bug.jpg
+  - ralph/screenshots/inspect/issues-new-template-chooser.jpg
+  - ralph/screenshots/inspect/issues-new-form.jpg
+  - ralph/screenshots/inspect/issues-detail.jpg
+  - ralph/screenshots/inspect/issues-detail-comment-preview.jpg
+  - ralph/screenshots/inspect/issues-notification-customize.jpg
+- Tested live interactions: opened Sort menu, opened Label filter menu, navigated to a label-filtered issue query, opened New issue template chooser, selected the Report an issue template, inspected the generated issue form, opened a real issue detail, switched the comment composer to Preview, and attempted notification customization.
+- Updated build-spec.md with repository issues UI, behavior, data models, API examples, backend/cloud mapping, known constraints, and keyboard shortcuts.
+- Updated sitemap.md to mark repository Issues as completed.
+- Appended focused PRD entries:
+  - issues-001 repository issue list
+  - issues-002 issue filter and sort controls
+  - issues-003 issue creation/templates/forms
+  - issues-004 issue detail timeline/comments/sidebar/actions
+
+Key findings:
+- Repository issue lists use a search-builder query model, not simple independent filters. The default query is `is:issue state:open`, and filter/sort state is encoded in the URL.
+- Labels filter is a searchable multiselect popover with color swatches, descriptions, and a No labels option.
+- Sort is a radio menu grouped by sort field and order; observed fields include Created on, Last updated, Total comments, Best match, and Reactions.
+- New issue first shows a repository-specific template chooser when templates exist. The selected template can render a complex issue form with required text inputs, multiple Markdown editors, attachment affordances, and Create more.
+- Issue detail combines rendered Markdown, timeline events, reactions, linked PR/commit references, a comment composer, Close issue/Comment actions, notification controls, and a metadata sidebar.
+- opengithub should build repository issue list/search/create/detail before lower-priority issue administration features such as transfer, deletion, sub-issues, and custom org issue fields.
+
+Next recommended iteration:
+- Inspect Pull request list/detail/diff/review for a repository (`/{owner}/{repo}/pulls`, `/pull/{number}`, `/pull/{number}/files`, `/compare/{base}...{head}`), including review states, checks summary, changed files, comments, and merge controls.
