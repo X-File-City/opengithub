@@ -398,3 +398,38 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Notifications, watches, and subscriptions (`/notifications`, repository/issue/PR notification controls, custom watch settings), including inbox triage, filters, unread/done state, and email/web notification preferences.
+
+Iteration 13 completed on 2026-04-30.
+
+Scope inspected: Notifications, global inbox, watches, and subscriptions (`/notifications`, repository Watch menu, docs-backed subscription rules).
+
+What was done:
+- Read prior progress, inspect strategy, Ever CLI reference, stack config, sitemap.md, build-spec.md, current prd.json, and scraped GitHub notification/subscription docs.
+- Ran the required `ever snapshot`; Ever was authenticated on the dashboard and returned a full snapshot.
+- Navigated with Ever to `https://github.com/notifications` and inspected the live notifications inbox.
+- Captured screenshots:
+  - ralph/screenshots/inspect/notifications-inbox.jpg
+  - ralph/screenshots/inspect/notifications-sort-menu.jpg
+  - ralph/screenshots/inspect/notifications-group-menu.jpg
+  - ralph/screenshots/inspect/notifications-custom-filter-dialog.jpg
+  - ralph/screenshots/inspect/repo-watch-menu.jpg
+- Tested live interactions: opened Sort by menu, opened Group by menu, opened custom filter dialog, and opened repository Watch menu on `vercel/next.js` without changing subscription state.
+- Updated build-spec.md with notifications inbox UI, triage behavior, supported custom filter qualifiers, repository/thread subscription behavior, data models, API examples, backend/cloud mapping, known constraints, and watch-menu keyboard shortcuts.
+- Updated sitemap.md to mark Notifications/watches/subscriptions as completed and list remaining high-value surfaces.
+- Appended focused PRD entries:
+  - notifications-001 inbox layout/search/folders/filters/grouping
+  - notifications-002 single and bulk triage actions
+  - notifications-003 custom inbox filters and query validation
+  - notifications-004 repository Watch menu and thread subscriptions
+- Validated `prd.json` parses and all entries have non-empty `ui_details`, `behavior`, `data_model`, and array `dependent_on`.
+
+Key findings:
+- GitHub notifications use a dedicated inbox shell with folders (Inbox/Saved/Done), default reason filters, repository buckets, query-builder search, sorting, grouping by date/repository, and row/bulk triage controls.
+- Default notification filters are Assigned, Participating, Mentioned, Team mentioned, and Review requested. Custom filters are capped at 15 and support a narrow qualifier set.
+- Row and bulk actions include Done, Move to inbox, Subscribe, Unsubscribe, Save, Unsave, Read, and Unread depending on folder/query state.
+- Repository Watch menu supports Participating and @mentions, All Activity, Ignore, and Custom, with keyboard accelerators p/a/i/c.
+- Saved notifications are retained indefinitely; Done and unsaved notifications should expire after five months.
+- opengithub must implement notification fanout from issues, PRs, Actions, releases, repository invitations, mentions, review requests, and state changes, with SES as the email channel after domain verification.
+
+Next recommended iteration:
+- Inspect personal account settings and developer credentials (`/settings/profile`, `/settings/notifications`, `/settings/tokens`, `/settings/keys`) including Google-only account constraints, personal access tokens for Git/API/package auth, SSH/GPG key management, notification preferences, sessions, and security log.

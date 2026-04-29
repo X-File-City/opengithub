@@ -11,7 +11,7 @@ opengithub is a production-grade GitHub clone for code hosting and collaboration
 - Backend: Rust 2021, Axum, Tokio, SQLx, Postgres.
 - Frontend: Next.js + TypeScript in `web/`.
 - Database: AWS RDS Postgres with `pg_trgm`.
-- Auth: Better Auth in Next.js, Google OAuth only.
+- Auth: Rust-native Google OAuth (`oauth2` + `tower-sessions` + `axum-login`). Next.js is a thin client.
 - Cloud: AWS ECS Fargate, RDS, S3, SES, CloudFront, ECR; DNS through Cloudflare for `opengithub.namuh.co`.
 
 ## Design System Notes
@@ -877,6 +877,46 @@ Implementation mapping:
 - Postgres stores releases, release assets, package metadata, package versions, package downloads, package permissions, package-repository links, and package visibility/inheritance settings.
 - S3 stores release assets, generated archives, package blobs/manifests/layers, and large metadata payloads. CloudFront can cache public package blobs and source archives. ECS workers can generate release notes and archive artifacts asynchronously.
 
+## Notifications, Watches, And Subscriptions
+
+Status: inspected in iteration 13 with live Ever access. Evidence came from `ever snapshot` on `/notifications`, live screenshots, the repository Watch menu on `vercel/next.js`, and scraped notification/subscription docs.
+
+Screenshots:
+
+- `ralph/screenshots/inspect/notifications-inbox.jpg`
+- `ralph/screenshots/inspect/notifications-sort-menu.jpg`
+- `ralph/screenshots/inspect/notifications-group-menu.jpg`
+- `ralph/screenshots/inspect/notifications-custom-filter-dialog.jpg`
+- `ralph/screenshots/inspect/repo-watch-menu.jpg`
+
+Notifications inbox:
+
+- `/notifications` uses the signed-in app shell with a notification-specific two-column layout: fixed left rail for folders/filters/repositories/manage links and a main list panel.
+- Left rail sections include Folders with Inbox, Saved, and Done; default Filters with Assigned, Participating, Mentioned, Team mentioned, and Review requested; a custom filter dialog; a Repositories section with per-repository unread counts; and a Manage notifications action menu linking to notification settings, subscriptions, and watched repositories.
+- Main panel has All and Unread segmented tabs, a query-builder search input, Sort by menu with Newest to oldest and Oldest to newest, Group by menu with Date and Repository, and a cleanup prompt for marking read notifications as done.
+- Notification groups can be rendered by date or by repository. Date grouping observed a "Notifications by date" heading with per-group Select all and group-level actions.
+- Notification rows include a checkbox, repository/name and issue or pull request number, title, reason/action text such as "commented", relative timestamp, read/unread state, and right-side triage controls. Row actions observed in the DOM include Move to inbox, Done, Unsubscribe, Subscribe, Save, and Unsave.
+- Bulk triage appears after selecting rows and supports Done, Unsubscribe, Save/Unsave, Read/Unread, and Move to inbox depending on current folder/query.
+- Saved notifications are retained indefinitely. Done notifications and non-saved notifications follow the target's five-month retention behavior; opengithub can implement this as a scheduled retention job.
+- Custom filters are managed in a dialog. Default filters are editable in the dialog but docs say their order and definition should not be changed; opengithub should present defaults as read-only or resettable and allow up to 15 user-created filters. Custom filter fields are name plus query string.
+- Supported notification custom-filter qualifiers are `repo:owner/name`, `org:org`, `author:user`, `is:check-suite|commit|issue-or-pull-request|release|repository-invitation|repository-vulnerability-alert|repository-advisory|discussion|saved|done|unread|read`, and `reason:assign|author|comment|participating|invitation|manual|mention|review-requested|security-alert|state-change|team-mention|ci-activity`.
+
+Watches and subscriptions:
+
+- Repository Watch menu is a radio menu with Participating and @mentions, All Activity, Ignore, and Custom. Observed selected state was Participating and @mentions, with keyboard accelerators `p`, `a`, `i`, and `c`.
+- Participating and @mentions means the user receives notifications only when participating in a thread, directly mentioned, team-mentioned, assigned, or requested for review.
+- All Activity subscribes the user to all repository notifications.
+- Ignore suppresses repository notifications, including normal updates; docs warn this can hide mentions, so clone UI should show a warning.
+- Custom lets users choose event types in addition to participating/mentions. MVP can model custom event types as a JSON set on `repository_watches`.
+- Issue and pull request detail sidebars share thread-level notification controls: Subscribe/Unsubscribe and Customize. Custom thread notifications can fire on merged, closed, or reopened state changes in addition to participation/mentions.
+
+Implementation mapping:
+
+- Next.js owns `/notifications`, `/notifications?query=...`, `/notifications/subscriptions`, `/watching`, `/settings/notifications`, filter dialogs, row/bulk triage controls, grouped list rendering, repository Watch menus, and thread notification sidebars.
+- Rust API owns notification fanout from issues, PRs, Actions, releases, repository invitations, security alerts, mentions, review requests, and state changes; query parsing; row and bulk triage; subscription resolution; email delivery handoff; and retention cleanup.
+- Postgres stores notifications, notification_threads, notification_subscriptions, repository_watches, notification_custom_filters, notification_delivery_preferences, notification_email_deliveries, and notification_retention_jobs.
+- SES sends email notifications after domain verification. Email should include notification identifiers and thread metadata so future inbound-email reply support can be added, but inbound email is not required for MVP.
+
 ## Data Models
 
 Initial model set inferred from docs/OpenAPI:
@@ -937,7 +977,13 @@ Initial model set inferred from docs/OpenAPI:
 - `releases`: id, repository_id, tag_name, target_commit_sha, title, body, rendered_html, author_id, state, prerelease, latest, immutable, created_at, published_at, updated_at.
 - `release_assets`: id, release_id, name, label, content_type, size_bytes, download_count, storage_key, uploaded_by_id, created_at, updated_at.
 - `webhooks`: id, owner_type, owner_id, url, secret_hash, events, active, created_at, updated_at.
-- `notifications`: id, user_id, subject_type, subject_id, reason, unread, updated_at.
+- `notifications`: id, user_id, thread_id, subject_type, subject_id, repository_id, reason, state, unread, saved, done_at, last_read_at, last_event_at, updated_at.
+- `notification_threads`: id, repository_id, subject_type, subject_id, title, url, state, last_actor_id, last_event_type, last_event_at, created_at, updated_at.
+- `notification_subscriptions`: id, user_id, subject_type, subject_id, repository_id, state, reason, custom_events_json, ignored, created_at, updated_at.
+- `notification_custom_filters`: id, user_id, name, query_string, position, created_at, updated_at.
+- `notification_delivery_preferences`: id, user_id, channel, enabled, events_json, email_address_id, created_at, updated_at.
+- `notification_email_deliveries`: id, notification_id, user_id, ses_message_id, status, error_message, sent_at, opened_at.
+- `notification_retention_jobs`: id, job_type, cutoff_at, processed_count, status, started_at, completed_at.
 - `activity_events`: id, actor_id, repository_id, subject_type, subject_id, event_type, title, summary, created_at.
 - `feed_events`: id, actor_id, repository_id, organization_id, event_type, payload_json, visibility, created_at.
 - `recent_visits`: id, user_id, subject_type, subject_id, last_visited_at.
@@ -1328,6 +1374,61 @@ Response: {
 Error: { "error": { "code": "forbidden", "message": "You do not have permission to view this package" } }
 ```
 
+```http
+GET /api/notifications?query=is:unread%20repo:mona/hello-world&sort=desc&group=date&page=1&pageSize=50
+Response: {
+  "items": [{
+    "id": "uuid",
+    "thread": { "type": "issue", "repository": "mona/hello-world", "number": 42, "title": "Fix build failure", "url": "/mona/hello-world/issues/42" },
+    "reason": "comment",
+    "state": "inbox",
+    "unread": true,
+    "saved": false,
+    "lastActor": { "username": "octo", "avatarUrl": "https://..." },
+    "lastEventType": "commented",
+    "lastEventAt": "2026-04-30T02:15:00Z"
+  }],
+  "groups": [{ "key": "2026-04-30", "label": "Today", "count": 1 }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 50
+}
+Error: { "error": { "code": "invalid_query", "message": "Unsupported notification filter qualifier" } }
+```
+
+```http
+PATCH /api/notifications
+Request: { "ids": ["uuid"], "action": "done" }
+Response: { "updated": 1, "action": "done" }
+Error: { "error": { "code": "validation_failed", "message": "ids are required" } }
+```
+
+```http
+GET /api/notifications/filters
+Response: {
+  "defaults": [
+    { "name": "Assigned", "query": "reason:assign", "readonly": true },
+    { "name": "Participating", "query": "reason:participating", "readonly": true }
+  ],
+  "custom": [{ "id": "uuid", "name": "OSS mentions", "query": "repo:mona/hello-world reason:mention", "position": 1 }]
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+POST /api/notifications/filters
+Request: { "name": "OSS mentions", "query": "repo:mona/hello-world reason:mention" }
+Response: { "id": "uuid", "name": "OSS mentions", "query": "repo:mona/hello-world reason:mention" }
+Error: { "error": { "code": "limit_exceeded", "message": "You can create up to 15 custom filters" } }
+```
+
+```http
+PUT /api/repos/{owner}/{repo}/subscription
+Request: { "level": "custom", "events": ["issues", "pull_requests", "releases", "actions"] }
+Response: { "repository": "mona/hello-world", "level": "custom", "events": ["issues", "pull_requests", "releases", "actions"] }
+Error: { "error": { "code": "forbidden", "message": "Repository access is required" } }
+```
+
 More endpoint examples must be completed after feature-page inspection.
 
 ## Backend Architecture
@@ -1353,7 +1454,7 @@ More endpoint examples must be completed after feature-page inspection.
 
 ## Known Constraints
 
-- Better Auth is configured for Google OAuth only; do not add GitHub OAuth even though this is a GitHub clone.
+- Auth is Rust-native (no Better Auth, no NextAuth, no JS auth library). Google OAuth only — do not add GitHub OAuth even though this is a GitHub clone.
 - No password auth means no password reset flow in opengithub unless the auth mode changes.
 - Google OAuth requires authorized JavaScript origins and redirect URIs in Google Cloud Console.
 - `DATABASE_URL` is pending until AWS RDS is provisioned by `scripts/preflight.sh`.
@@ -1394,12 +1495,17 @@ More endpoint examples must be completed after feature-page inspection.
 - Package registry pushes must authenticate with opengithub personal access tokens or workflow tokens, not Google OAuth browser sessions.
 - Package blobs/manifests must be content-addressed by digest and visibility checked before serving; private package counts, versions, install snippets, and download totals must not leak through public package search.
 - Container registry MVP should support OCI/Docker manifest, blob upload/download, tag listing, and digest pulls before adding Maven/npm/NuGet/RubyGems protocol-specific registries.
+- Notification query parsing must be bounded and should reject unsupported qualifiers, exclusions, full-text inbox search, and oversized queries with structured 422 responses.
+- Notification counts, repository buckets, custom filters, and autocomplete must be permission-aware and must not leak private repository names or thread titles.
+- Custom notification filters are capped at 15 per user and should support only the documented qualifiers until the parser is intentionally expanded.
+- Saved notifications are retained indefinitely; unsaved and Done notifications should expire after five months through an auditable retention job.
+- Repository Ignore watch mode should display a warning because it suppresses normal repository notifications and may hide important mentions in the MVP implementation.
 
 ## Build Order
 
 1. Rust/Next.js scaffolding and shared environment contract.
 2. Database schema and migrations for users, sessions, repositories, Git refs, issues, pull requests.
-3. Better Auth Google login and Rust session verification.
+3. Rust-native Google OAuth login (`oauth2` + `tower-sessions` + `axum-login`).
 4. App shell, global navigation, search/jump bar, and dashboard empty state.
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, tree/blob/raw/archive file browser.
@@ -1442,3 +1548,7 @@ Partial inventory from GitHub command palette docs:
 | `x` | Issue detail | Link an issue or pull request from the same repository. |
 | `Ctrl+.` then `Ctrl+<number>` | Comment composer | Open saved replies menu and insert a saved reply. |
 | `Cmd+Enter` / `Ctrl+Enter` | Issue creation/comment form | Submit the issue or comment when valid. |
+| `p` | Repository Watch menu | Select Participating and @mentions. |
+| `a` | Repository Watch menu | Select All Activity. |
+| `i` | Repository Watch menu | Select Ignore. |
+| `c` | Repository Watch menu | Select Custom notification events. |

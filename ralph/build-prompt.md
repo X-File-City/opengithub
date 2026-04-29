@@ -6,9 +6,9 @@ You are an AI product builder. Your job is to build a working clone of a real pr
 
 - **Target**: https://github.com/  (full platform — repos, PRs, issues, Actions, Pages, Packages, code search, orgs, profiles)
 - **Backend**: Rust 2021 — Axum + Tokio + SQLx. Workspace root at `Cargo.toml`. API binary at `crates/api/src/main.rs`. Add new Rust crates as `crates/<name>/` and register them in the workspace.
-- **Frontend**: Next.js + TypeScript at `web/`. **The build loop is responsible for scaffolding `web/` on first iteration** (run `npx create-next-app@latest web --ts --tailwind --eslint --app --src-dir --import-alias "@/*"`, then add Better Auth, Drizzle/Prisma client pointing at the same Postgres, Biome for lint, Vitest for unit tests, Playwright for E2E).
+- **Frontend**: Next.js + TypeScript at `web/`. **The build loop is responsible for scaffolding `web/` on first iteration** (run `npx create-next-app@latest web --ts --tailwind --eslint --app --src-dir --import-alias "@/*"`, then add Biome for lint, Vitest for unit tests, Playwright for E2E). No JS-side auth library — auth lives in the Rust API.
 - **Database**: Postgres on AWS RDS. SQLx migrations live at `crates/api/migrations/`. Run via `make db-migrate`. Search uses `pg_trgm` — install the extension in your migration.
-- **Auth**: `authMode: "better-auth"` + Google OAuth only (no GitHub OAuth despite cloning GitHub). Better Auth runs in Next.js (`web/`); the Rust API trusts the session/token issued by it.
+- **Auth**: `authMode: "native-rust"` + Google OAuth only (no GitHub OAuth despite cloning GitHub). Auth lives entirely in the Rust API: `oauth2` (code flow) + `tower-sessions` (Postgres-backed signed cookie) + `axum-login` (extractor). Next.js redirects sign-in to `GET /api/auth/google/start` and reads the session via `GET /api/auth/me`.
 - **Cloud**: AWS — ECS Fargate (Rust API), Vercel-style static export of Next.js to S3 + CloudFront OR run Next.js as another Fargate service (your choice; document in BUILD_GUIDE.md). RDS Postgres, S3 (git/packages/releases), SES (email), ECR (containers).
 - **Domain**: opengithub.namuh.co (DNS on Cloudflare via `CLOUDFLARE_API_TOKEN`).
 - **Loop runtime**: Codex (`codex exec`) for all loops. No Anthropic API key.

@@ -8,7 +8,7 @@ You are an AI product inspector. Your job is to thoroughly inspect a target web 
 - **Backend**: Rust 2021 — Axum + Tokio + SQLx — workspace at repo root, API crate `crates/api/`
 - **Frontend**: Next.js + TypeScript — lives at `web/` (build loop scaffolds it on iteration 1; do NOT assume it exists yet during inspect)
 - **Database**: Postgres (AWS RDS) + `pg_trgm` for search
-- **Auth**: Better Auth, Google OAuth only — no GitHub OAuth even though we are cloning GitHub
+- **Auth**: Rust-native (`oauth2` + `tower-sessions` + `axum-login`), Google OAuth only — no GitHub OAuth even though we are cloning GitHub, no JS-side auth library
 - **Cloud**: AWS — ECS Fargate, RDS, S3, SES, CloudFront, ECR
 - **Domain**: opengithub.namuh.co (DNS on Cloudflare)
 - **Loop runtime**: All ralph loops run via `codex exec` (no `claude -p`)

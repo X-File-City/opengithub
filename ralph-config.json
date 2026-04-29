@@ -15,7 +15,7 @@
   "database": "postgres",
   "dbProvider": "rds",
   "skipDeploy": false,
-  "authMode": "better-auth",
+  "authMode": "native-rust",
   "authProviders": ["google"],
   "docsUrl": "https://docs.github.com",
   "browserAgent": "ever",
@@ -60,7 +60,7 @@
       "ever",
       "google-oauth",
       "cloudflare",
-      "better-auth-secret"
+      "session-secret"
     ],
     "pending": [
       "database-url",
@@ -74,7 +74,7 @@
       "google-oauth": { "envVar": "AUTH_GOOGLE_ID", "status": "pass", "detail": "Keys present in .env. JS origins + redirect URIs documented in .env comments." },
       "google-oauth-consent-screen": { "status": "pending", "error": "User must verify in Google Cloud Console: Authorized JS origins, redirect URIs, and consent screen Published OR test user added (TEST_ACCOUNT_EMAIL)." },
       "cloudflare": { "envVars": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID"], "status": "pass", "detail": "Token + Zone ID present in .env. Zone: namuh.co" },
-      "better-auth-secret": { "envVar": "BETTER_AUTH_SECRET", "status": "pass", "detail": "Random 32-byte secret pre-generated." },
+      "session-secret": { "envVar": "SESSION_SECRET", "status": "pass", "detail": "Random 32-byte secret pre-generated for axum tower-sessions cookie signing." },
       "database-url": { "envVar": "DATABASE_URL", "status": "pending", "error": "Auto-filled by scripts/preflight.sh once RDS Postgres is provisioned." }
     }
   }

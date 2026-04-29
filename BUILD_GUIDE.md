@@ -6,7 +6,7 @@ Authoritative stack reference for the build loop. Read this before running any c
 - **Backend**: Rust 2021 — Axum (HTTP), Tokio (runtime), SQLx (Postgres), Tower / Tower-HTTP (middleware), Tracing (logs).
 - **Frontend**: Next.js + TypeScript — to be scaffolded at `web/` on the build loop's first iteration.
 - **Database**: Postgres on AWS RDS. SQLx migrations at `crates/api/migrations/`. Search via `pg_trgm`.
-- **Auth**: Better Auth in Next.js, Google OAuth only. Rust API verifies session cookies / bearer tokens issued by Better Auth.
+- **Auth**: Native Rust — `oauth2` crate (Google OAuth code flow) + `tower-sessions` (Postgres-backed signed cookie sessions) + `axum-login` (extractor). No Better Auth, no JS-side auth library. Next.js is a thin client.
 - **Cloud**: AWS — ECS Fargate (Rust API), RDS Postgres, S3, SES, CloudFront, ECR. DNS on Cloudflare (zone `namuh.co`).
 
 ## Repo layout
@@ -69,7 +69,6 @@ npx create-next-app@latest web \
   --ts --tailwind --eslint --app --src-dir \
   --import-alias "@/*" --use-npm
 cd web
-npm install better-auth @better-auth/google
 npm install -D vitest @vitest/ui @playwright/test biome
 ```
 Then update `web/package.json` scripts: `dev`, `build`, `start`, `test`, `test:e2e`, `lint`, `format`. Add `playwright.config.ts` and `vitest.config.ts`.

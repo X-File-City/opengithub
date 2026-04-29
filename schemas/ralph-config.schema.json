@@ -39,9 +39,9 @@
     },
     "authMode": {
       "type": "string",
-      "enum": ["api-key", "better-auth"],
+      "enum": ["api-key", "better-auth", "native-rust"],
       "default": "api-key",
-      "description": "Authentication mode: api-key for personal use, better-auth for multi-user"
+      "description": "Authentication mode: api-key for personal use, better-auth for JS-side multi-user, native-rust for Rust-owned OAuth + cookie sessions"
     },
     "stackProfile": {
       "type": "string",

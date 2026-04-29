@@ -16,7 +16,7 @@ GitHub is a developer collaboration platform centered on repositories. The platf
 For opengithub, the clone should use the configured Rust + Next.js split:
 
 - Rust Axum API owns Git plumbing, repository data, search indexing, Actions workflow execution, package registry endpoints, webhooks, and public REST API routes.
-- Next.js owns UI, Better Auth Google sign-in, route protection, repository browsing, pull request diff views, issue forms, settings, profiles, and dashboard surfaces.
+- Next.js owns UI, repository browsing, pull request diff views, issue forms, settings, profiles, and dashboard surfaces. Auth (Google OAuth + sessions) lives entirely in the Rust API; Next.js redirects to `/api/auth/google/start` and reads the session cookie set by Rust.
 - Postgres on RDS stores relational product data; `pg_trgm` powers search. S3 stores blobs/artifacts/packages/pages assets where the database should not.
 
 ## API Shape
@@ -82,5 +82,5 @@ Target GitHub auth observations:
 - `/signup`: social signup buttons for Google and Apple, email, password, username, email preferences, terms, octocaptcha account verification.
 - `/password_reset`: verified email address input, captcha, and reset email submit.
 
-opengithub constraint: Better Auth with Google OAuth only. Do not implement GitHub OAuth, Apple OAuth, passkeys, or password-based auth unless the project config changes.
+opengithub constraint: Rust-native Google OAuth only (`oauth2` + `tower-sessions` + `axum-login`). Do not implement GitHub OAuth, Apple OAuth, passkeys, password-based auth, or any JS-side auth library (Better Auth, NextAuth, Clerk) unless the project config changes.
 

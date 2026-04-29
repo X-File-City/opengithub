@@ -10,7 +10,7 @@ All loops run via `codex exec` — no Anthropic API key required.
 - **Backend**: Rust 2021 (Axum + Tokio + SQLx). Workspace root `Cargo.toml`, API crate at `crates/api/`.
 - **Frontend**: Next.js + TypeScript in `web/` (scaffolded by build loop on first iteration).
 - **Database**: Postgres on AWS RDS. Search via Postgres + `pg_trgm` (no separate code indexer for now).
-- **Auth**: Better Auth (multi-user), Google OAuth only. `authMode: "better-auth"` in `ralph-config.json`.
+- **Auth**: Native Rust — `axum-login` + `oauth2` crate + `tower-sessions` (Postgres-backed cookie sessions), Google OAuth only. `authMode: "native-rust"` in `ralph-config.json`.
 - **Cloud**: AWS — ECS Fargate (Rust API), RDS Postgres, S3 (git/packages/releases), SES (email), CloudFront (CDN), ECR.
 - **DNS**: Cloudflare (zone `namuh.co`); production hostname `opengithub.namuh.co`.
 - **Testing**: `cargo test` (Rust), Vitest + Playwright (Next.js).
@@ -56,12 +56,15 @@ All commands go through `make`. The Makefile is a contract — onboarding wires 
 - **`.env`** — copy from `.env.example` and fill in your values
 
 ## Authentication
-`authMode: "better-auth"`, `authProviders: ["google"]`.
-- Better Auth runs in `web/` (TypeScript). Google OAuth only (GitHub OAuth deliberately dropped).
-- Rust API trusts session cookies / bearer tokens issued by Better Auth; verify on every protected route.
+`authMode: "native-rust"`, `authProviders: ["google"]`.
+- Auth lives entirely in the Rust API. Stack: `oauth2` (Google OAuth flow) + `tower-sessions` (signed cookie sessions, Postgres store) + `axum-login` (extractor / middleware).
+- Endpoints: `GET /api/auth/google/start` (issues redirect to Google), `GET /api/auth/google/callback` (exchanges code, upserts user, sets session cookie), `POST /api/auth/logout`, `GET /api/auth/me`.
+- Next.js is a thin client — it does not own auth. Sign-in button hits `/api/auth/google/start`. Session is a `__Host-session` cookie, `HttpOnly`, `Secure`, `SameSite=Lax`.
+- Schema (Rust-owned): `users`, `oauth_accounts (provider, provider_user_id, user_id)`, `sessions (id, user_id, expires_at, data)`. Migrations under `crates/api/migrations/`.
+- Cookie signing key: `SESSION_SECRET` in `.env` (32-byte base64).
 - OAuth client config:
   - JS origins: `http://localhost:3015`, `https://opengithub.namuh.co`
-  - Redirect URIs: `http://localhost:3015/api/auth/callback/google`, `https://opengithub.namuh.co/api/auth/callback/google`
+  - Redirect URIs: `http://localhost:3016/api/auth/google/callback`, `https://opengithub.namuh.co/api/auth/google/callback`
 - Auth is **P1 priority** — build it before core features.
 
 ## Out of Scope — DO NOT build

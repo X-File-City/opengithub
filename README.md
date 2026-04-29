@@ -12,7 +12,7 @@ Production hostname: `opengithub.namuh.co`.
 | **Backend** | Rust 2021 — Axum + Tokio + SQLx + Tower / Tower-HTTP + Tracing |
 | **Frontend** | Next.js + TypeScript (scaffolded by build loop on iteration 1) |
 | **Database** | Postgres on AWS RDS, search via `pg_trgm` |
-| **Auth** | Better Auth in Next.js, Google OAuth only — Rust API verifies session cookies / bearer tokens |
+| **Auth** | Native Rust — `oauth2` + `tower-sessions` + `axum-login`, Google OAuth only. Next.js is a thin client. |
 | **Cloud** | AWS — ECS Fargate (API), RDS, S3, SES, CloudFront, ECR |
 | **DNS** | Cloudflare (zone `namuh.co`) |
 | **Loop runtime** | `codex exec --dangerously-bypass-approvals-and-sandbox` (no `claude -p`) |
@@ -96,11 +96,13 @@ tmux capture-pane -t ralph-loop -p | tail -50
 
 ## Auth setup
 
-`ralph-config.json`: `authMode: "better-auth"`, `authProviders: ["google"]`.
+`ralph-config.json`: `authMode: "native-rust"`, `authProviders: ["google"]`.
+
+Auth lives in the Rust API. Stack: `oauth2` (Google flow) + `tower-sessions` (Postgres-backed signed cookie) + `axum-login` (extractor). Next.js does not own auth — the sign-in button just hits `GET /api/auth/google/start`.
 
 Google OAuth client config:
 - JS origins: `http://localhost:3015`, `https://opengithub.namuh.co`
-- Redirect URIs: `http://localhost:3015/api/auth/callback/google`, `https://opengithub.namuh.co/api/auth/callback/google`
+- Redirect URIs (note: API port `:3016`, not Next.js): `http://localhost:3016/api/auth/google/callback`, `https://opengithub.namuh.co/api/auth/google/callback`
 
 GitHub OAuth is deliberately dropped — even though we're cloning GitHub, opengithub uses Google for sign-in.
 
