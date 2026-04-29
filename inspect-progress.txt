@@ -1,0 +1,29 @@
+Iteration 1 completed on 2026-04-30.
+
+Scope inspected: Phase A docs/API/auth/onboarding discovery for GitHub/opengithub.
+
+What was done:
+- Read stack config from ralph-config.json, BUILD_GUIDE.md, and .ralph-setup-done.
+- Confirmed target-docs scrape passed: 3,613 docs pages, OpenAPI present, 758 REST paths, 923 schemas.
+- Sampled target-docs/INDEX.md and key docs for account onboarding, personal dashboard, repository quickstart, and GitHub CLI quickstart.
+- Read OpenAPI metadata and representative REST operations for /user, /user/repos, repos, contents, issues, pulls, Actions runs, packages, and code search.
+- Ran ever snapshot on the current public GitHub home page successfully.
+- Attempted Ever navigation/screenshot/extract for /login; Ever navigated but failed follow-up operations because it targeted a chrome-extension:// context. Captured auth screenshots with Playwright fallback instead.
+- Captured screenshots:
+  - ralph/screenshots/inspect/auth-login.jpg
+  - ralph/screenshots/inspect/auth-signup.jpg
+  - ralph/screenshots/inspect/auth-password-reset.jpg
+- Wrote docs-extract.md.
+- Wrote target-docs/onboarding-flow.md.
+- Wrote target-docs/auth-flow.md.
+- Created initial partial build-spec.md.
+- Replaced empty prd.json with first-pass infrastructure, auth, onboarding, repository creation, API, and DX entries. Every entry includes ui_details, behavior, data_model, and dependent_on.
+
+Key findings:
+- GitHub docs/API are broad; the first build must prioritize repository hosting, auth/session verification, dashboard empty state, repository creation, REST API foundations, then issues/PRs/actions/packages/search/orgs.
+- Target GitHub auth includes email/password, Google, Apple, passkeys, captcha, email verification, and password reset.
+- opengithub stack constraint is Better Auth with Google OAuth only. Password, Apple, passkey, captcha, and GitHub OAuth should not be built unless ralph-config.json changes.
+- SDK is disabled in ralph-config.json; developer experience should start with REST docs, personal access tokens, Git remote instructions, and webhooks rather than a packaged SDK.
+
+Next recommended iteration:
+- Build the complete site map from the live product/navigation and save sitemap.md. Inspect one structurally similar page group only.
