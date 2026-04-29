@@ -136,7 +136,7 @@ for ((i=1; i<=$ITERATIONS; i++)); do
 
   _BROWSER_REF=""
   [ "$BROWSER_AGENT" = "ever" ] && _BROWSER_REF="@ralph/ever-cli-reference.md"
-  result=$(timeout 1200 claude -p --dangerously-skip-permissions --model claude-opus-4-6 \
+  result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
 "@ralph/inspect-prompt.md @ralph/inspect-spec.md $_BROWSER_REF @prd.json @inspect-progress.txt @ralph/pre-setup.md @ralph-config.json
 
 TARGET URL: $TARGET_URL

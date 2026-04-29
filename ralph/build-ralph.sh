@@ -154,7 +154,7 @@ for ((i=1; i<=$ITERATIONS; i++)); do
     # REBUILD MODE: Feature failed QA previously — use root-cause analysis prompt
     echo "  → Rebuild mode: QA failures detected, providing root-cause context"
 
-    result=$(timeout 1200 claude -p --dangerously-skip-permissions --model claude-opus-4-6 \
+    result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
 "@ralph/build-prompt.md @ralph/pre-setup.md @build-spec.md @prd.json @build-progress.txt @CLAUDE.md @ralph-config.json @qa-report.json
 
 ITERATION: $i of $ITERATIONS
@@ -187,7 +187,7 @@ Output <promise>COMPLETE</promise> only if ALL features pass.")
 
   else
     # FRESH BUILD MODE: No QA failures — standard build prompt
-    result=$(timeout 1200 claude -p --dangerously-skip-permissions --model claude-opus-4-6 \
+    result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
 "@ralph/build-prompt.md @ralph/pre-setup.md @build-spec.md @prd.json @build-progress.txt @CLAUDE.md @ralph-config.json
 
 ITERATION: $i of $ITERATIONS

@@ -572,7 +572,7 @@ if inspect_done && ! architecture_done; then
 
   PHASE_LOG_TMP=$(mktemp)
   # Invoke architect agent
-  claude -p --dangerously-skip-permissions --model claude-opus-4-6 \
+  codex exec --dangerously-bypass-approvals-and-sandbox \
     "@ralph/architecture-prompt.md @prd.json @target-docs/INDEX.md @ralph-config.json" \
     2>&1 | tee -a "$LOG_FILE" > "$PHASE_LOG_TMP" || true
   

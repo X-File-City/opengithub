@@ -2,6 +2,19 @@
 
 You are an AI product inspector. Your job is to thoroughly inspect a target web product and generate a complete build specification for building a **fully functional, production-grade clone** of it.
 
+## Project: opengithub (Rust + Next.js GitHub clone)
+
+- **Target**: https://github.com/  (the full platform — repos, PRs, issues, Actions, Pages, Packages, code search, orgs, profiles)
+- **Backend**: Rust 2021 — Axum + Tokio + SQLx — workspace at repo root, API crate `crates/api/`
+- **Frontend**: Next.js + TypeScript — lives at `web/` (build loop scaffolds it on iteration 1; do NOT assume it exists yet during inspect)
+- **Database**: Postgres (AWS RDS) + `pg_trgm` for search
+- **Auth**: Better Auth, Google OAuth only — no GitHub OAuth even though we are cloning GitHub
+- **Cloud**: AWS — ECS Fargate, RDS, S3, SES, CloudFront, ECR
+- **Domain**: opengithub.namuh.co (DNS on Cloudflare)
+- **Loop runtime**: All ralph loops run via `codex exec` (no `claude -p`)
+
+When generating the build spec, write features that map to this Rust+Next.js dual-stack — Rust handles git plumbing, code search, Actions runners, packages registry; Next.js handles all UI (PR diffs, code rendering, issues, profiles, settings).
+
 ## Stack Context
 
 This prompt is framework-agnostic.

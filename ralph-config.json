@@ -1,0 +1,81 @@
+{
+  "targetUrl": "https://github.com/",
+  "targetName": "opengithub",
+  "deploymentProfile": "production-aws",
+  "cloudProvider": "aws",
+  "deploymentTier": "team",
+  "language": "rust",
+  "stackProfile": "platform",
+  "framework": "axum",
+  "frontend": {
+    "language": "typescript",
+    "framework": "nextjs",
+    "directory": "web"
+  },
+  "database": "postgres",
+  "dbProvider": "rds",
+  "skipDeploy": false,
+  "authMode": "better-auth",
+  "authProviders": ["google"],
+  "docsUrl": "https://docs.github.com",
+  "browserAgent": "ever",
+  "domain": "opengithub.namuh.co",
+  "dnsProvider": "cloudflare",
+  "agentRuntime": "codex",
+  "services": {
+    "email": { "provider": "ses" },
+    "storage": { "provider": "s3" },
+    "containerRegistry": { "provider": "ecr" },
+    "compute": { "provider": "ecs-fargate" },
+    "cdn": { "provider": "cloudfront" },
+    "search": { "provider": "postgres-pgtrgm" }
+  },
+  "sdk": {
+    "enabled": false,
+    "languages": []
+  },
+  "testAccount": {
+    "provider": "google"
+  },
+  "research": {
+    "apiEndpoints": [
+      "REST v3 (api.github.com)",
+      "GraphQL v4 (api.github.com/graphql)"
+    ],
+    "authPattern": "OAuth (GitHub-style + Google) + personal access tokens",
+    "dataModel": "users, organizations, repositories, branches, commits, pull_requests, issues, comments, reactions, labels, milestones, releases, packages, actions_workflows, workflow_runs",
+    "summary": "GitHub: code hosting + collaboration platform. Repositories, pull requests, issues, GitHub Actions, code search, organizations, teams, profiles, releases, packages, Pages."
+  },
+  "stackNotes": [
+    "No rust-platform template ships with the onboarding skill — workspace was scaffolded directly during onboarding (Cargo.toml + crates/api/).",
+    "Frontend (Next.js + TypeScript) lives in web/ and is scaffolded by the build loop on first iteration.",
+    "All ralph loops (inspect, architecture, build, qa) run via `codex exec`; no Anthropic API key required.",
+    "Search starts on Postgres + pg_trgm; can swap in a dedicated code indexer later."
+  ],
+  "setup": {
+    "verified": [
+      "rust",
+      "node",
+      "aws",
+      "ever",
+      "google-oauth",
+      "cloudflare",
+      "better-auth-secret"
+    ],
+    "pending": [
+      "database-url",
+      "google-oauth-consent-screen"
+    ],
+    "checks": {
+      "rust": { "command": "rustc --version", "status": "pass", "detail": "rustc 1.94.0, cargo 1.94.0" },
+      "node": { "command": "node -v", "status": "pass", "detail": "v25.6.1" },
+      "aws": { "command": "aws sts get-caller-identity", "status": "pass", "detail": "user/jaeyun-dev (account 699486076867)" },
+      "ever": { "command": "ever --version", "status": "pass", "detail": "0.1.0" },
+      "google-oauth": { "envVar": "AUTH_GOOGLE_ID", "status": "pass", "detail": "Keys present in .env. JS origins + redirect URIs documented in .env comments." },
+      "google-oauth-consent-screen": { "status": "pending", "error": "User must verify in Google Cloud Console: Authorized JS origins, redirect URIs, and consent screen Published OR test user added (TEST_ACCOUNT_EMAIL)." },
+      "cloudflare": { "envVars": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ZONE_ID"], "status": "pass", "detail": "Token + Zone ID present in .env. Zone: namuh.co" },
+      "better-auth-secret": { "envVar": "BETTER_AUTH_SECRET", "status": "pass", "detail": "Random 32-byte secret pre-generated." },
+      "database-url": { "envVar": "DATABASE_URL", "status": "pending", "error": "Auto-filled by scripts/preflight.sh once RDS Postgres is provisioned." }
+    }
+  }
+}
