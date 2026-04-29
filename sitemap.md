@@ -131,7 +131,7 @@ Template: `/{owner}/{repo}`.
 ## Initial Deep-Dive Order
 
 1. Personal dashboard / onboarding empty state. Completed in iteration 3 from docs-backed inspection; live authenticated UI remains blocked by expired Ever session.
-2. Repository create form.
+2. Repository create/import form group. Completed in iteration 4 with live `/new` form inspection and docs-backed `/new/import` behavior because Ever could navigate to the import tab but could not snapshot/screenshot/extract it.
 3. Repository code/file browser.
 4. Issues list/detail/create.
 5. Pull request list/detail/diff/review.

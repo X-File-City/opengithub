@@ -83,3 +83,31 @@ Key findings:
 
 Next recommended iteration:
 - Inspect the repository creation form `/new` and repository import entry point `/new/import`.
+
+Iteration 4 completed on 2026-04-30.
+
+Scope inspected: repository creation/import form group (`/new` and `/new/import`).
+
+What was done:
+- Read prior progress, inspect strategy, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, and current prd.json.
+- Ran the required `ever snapshot`; the current Ever session was authenticated and showed the signed-in GitHub dashboard.
+- Navigated with Ever to `https://github.com/new`, captured and interacted with the live repository creation form.
+- Captured screenshots:
+  - ralph/screenshots/inspect/repo-new-form.jpg
+  - ralph/screenshots/inspect/repo-new-gitignore-menu.jpg
+- Tested non-destructive interactions only: typed a repository name with spaces, observed normalized-name preview and validation warning, opened the Public/Private visibility menu, toggled README on, and opened the searchable .gitignore template selector.
+- Attempted to inspect `https://github.com/new/import` with Ever. The page loaded as an "Import repository" tab, but `ever snapshot`, `ever screenshot`, `ever extract`, and `ever eval` failed with `Cannot access a chrome-extension:// URL of different extension`. Per the existing fallback pattern, used scraped GitHub docs for import behavior.
+- Read repository creation/import docs from target-docs, including quickstart and GitHub Importer docs.
+- Updated build-spec.md with a Repository Creation And Import section, additional data models, REST API examples, AWS/Rust implementation mapping, and import constraints.
+- Updated sitemap.md to mark repository create/import as inspected.
+- Refined prd.json `repo-001` with live UI/behavior details and added `repo-002` for async external Git repository import.
+
+Key findings:
+- The `/new` form is a compact Primer-style form with owner dropdown, name input, suggestion button, optional description, visibility dropdown, template dropdown, README toggle, .gitignore selector dialog, license dropdown, and green Create repository button.
+- Repository names preview a normalized slug when spaces are typed, but the UI still shows an inline warning about allowed characters; the Rust API must perform final validation.
+- Visibility is a dropdown menu with Public and Private descriptions, not radio cards in the current GitHub UI.
+- `.gitignore` selection is a searchable popup/listbox with many language/framework templates.
+- Import creates a new repository, optionally uses source credentials to clone a private Git remote, redirects to an import status page, and emails completion. It imports source code and commit history only; it does not import issues, pull requests, Git LFS objects, or private-network repositories.
+
+Next recommended iteration:
+- Inspect the repository code/file browser for an existing repository (`/{owner}/{repo}`, tree/blob views, branch selector, clone controls, README rendering).

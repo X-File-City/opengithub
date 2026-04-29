@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 3 docs-backed personal dashboard inspection plus live unauthenticated redirect check.
+Status: partial, iteration 4 repository creation/import inspection.
 
 ## Product Overview
 
@@ -39,6 +39,50 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
 Deep page-level screenshots and interaction details remain pending except auth/public home and the docs-backed personal dashboard slice.
+
+## Repository Creation And Import
+
+Status: inspected in iteration 4. Ever was usable and authenticated for `/new`. Screenshots:
+
+- `ralph/screenshots/inspect/repo-new-form.jpg`
+- `ralph/screenshots/inspect/repo-new-gitignore-menu.jpg`
+
+The import route `/new/import` loaded in the Ever tab, but Ever snapshot/screenshot/extract failed with `Cannot access a chrome-extension:// URL of different extension`. Import behavior is therefore docs-backed from `target-docs/content/migrations/importing-source-code/using-github-importer/importing-a-repository-with-github-importer.md` and `about-github-importer.md`.
+
+Repository create form:
+
+- Page title is "Create a new repository" with helper text "Repositories contain a project's files and version history."
+- A top inline link says "Have a project elsewhere? Import a repository" and routes to `/new/import`.
+- Required fields are marked with an asterisk. The General section starts with "Repository owner and name".
+- Owner is a dropdown button defaulting to the signed-in user. It should include personal account and organizations where the user can create repositories.
+- Repository name is a required input. GitHub shows a generated suggestion such as `silver-train`; clicking the suggestion fills the input.
+- Typing a name with spaces shows a normalized destination line ("Your new repository will be created as OpenGitHub-Invalid-Name-With-Spaces") and an inline validation warning that names can contain ASCII letters, digits, and limited punctuation. The clone should normalize spaces to hyphens for preview, but still require server-side validation.
+- Description is optional with a 350-character counter.
+- Visibility is a dropdown defaulting to Public. Menu options are Public ("Anyone on the internet can see this repository. You choose who can commit.") and Private ("You choose who can see and commit to this repository.").
+- Start with a template is a searchable dropdown defaulting to "No template".
+- Add README is a two-state toggle with visible On/Off labels. Toggling it changes the button pressed state immediately.
+- Add `.gitignore` opens a dialog/popup titled "Choose a .gitignore template" with a search combobox and listbox. Initial options include "No .gitignore", "AL", "Actionscript", "Ada", "Android", "Angular", and many language/framework templates.
+- Add license is a dropdown defaulting to "No license".
+- Primary submit button says "Create repository". This inspection did not click it because that would create a real GitHub repository.
+
+Repository import behavior:
+
+- Import is reached from the create form or the global plus/create menu.
+- The import page title in docs is "Import your project to GitHub".
+- Step 1 collects the source remote repository URL.
+- If the source repository is private, the form asks for credentials that will be used only to perform a `git clone` against the source.
+- The user chooses destination owner, destination repository name, and visibility.
+- Clicking "Begin import" creates a new repository and redirects to a "Preparing your new repository" status page.
+- Import tracks source-code and commit history only. It does not import issues, pull requests, hosting-service metadata, Git LFS objects, or repositories hosted on private networks. Non-Git sources are unsupported.
+
+Implementation mapping:
+
+- Next.js owns `/new`, `/new/import`, inline validation, dropdown/popup interactions, async import status page, and redirect to `/{owner}/{repo}`.
+- Rust API owns repository creation, owner permission checks, name availability checks, default branch/bootstrap commit creation, template materialization, `.gitignore`/license lookup, and import jobs.
+- Postgres stores repository metadata, feature flags, visibility, template selections, import job state, and audit/activity events.
+- Git object storage should start on the API service filesystem or S3-backed object storage per the repository storage design; large import artifacts/logs belong in S3.
+- Async imports should run in an ECS Fargate worker path with job state in Postgres. If queueing is introduced, use SQS.
+- SES sends the completion/failure email for import jobs after the domain is verified.
 
 ## Personal Dashboard
 
@@ -88,6 +132,13 @@ Initial model set inferred from docs/OpenAPI:
 - `repository_watches`: id, user_id, repository_id, watching_level, created_at, updated_at.
 - `stars`: id, user_id, repository_id, created_at.
 - `dashboard_hint_dismissals`: id, user_id, hint_key, dismissed_at.
+- `repository_creation_templates`: id, name, source_repository_id, description, owner_id, visibility, created_at.
+- `repository_template_files`: id, template_id, path, mode, content_sha, created_at.
+- `gitignore_templates`: id, name, body, source, updated_at.
+- `license_templates`: id, spdx_id, name, body, description, permissions, conditions, limitations, updated_at.
+- `repository_imports`: id, repository_id, owner_id, source_url, source_host, status, progress_message, error_code, error_message, started_at, completed_at, created_at, updated_at.
+- `repository_import_credentials`: id, import_id, username, secret_ref, created_at, expires_at. Store credentials encrypted or as a short-lived AWS Secrets Manager/S3 envelope reference; never persist plaintext.
+- `repository_activity_events`: id, repository_id, actor_id, event_type, payload_json, created_at.
 
 ## API Architecture
 
@@ -142,6 +193,36 @@ Error: { "error": { "code": "validation_failed", "message": "Repository name is 
 ```
 
 ```http
+GET /api/repositories/name-check?owner=mona&name=hello-world
+Response: { "owner": "mona", "name": "hello-world", "normalizedName": "hello-world", "available": true, "message": "hello-world is available." }
+Error: { "error": { "code": "validation_failed", "message": "Repository names can only contain ASCII letters, digits, hyphens, underscores, and periods." } }
+```
+
+```http
+GET /api/repository-options
+Response: {
+  "owners": [{ "type": "user", "login": "mona", "displayName": "Mona Lisa", "avatarUrl": "https://..." }],
+  "gitignoreTemplates": [{ "name": "No .gitignore" }, { "name": "Rust" }, { "name": "Node" }],
+  "licenseTemplates": [{ "spdxId": "mit", "name": "MIT License" }],
+  "repositoryTemplates": [{ "id": "uuid", "fullName": "mona/template" }]
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+POST /api/repositories/imports
+Request: { "sourceUrl": "https://example.com/acme/app.git", "owner": "mona", "name": "app", "visibility": "private", "credentials": { "username": "mona", "password": "secret" } }
+Response: { "id": "uuid", "repository": { "fullName": "mona/app" }, "status": "queued", "statusUrl": "/api/repositories/imports/uuid" }
+Error: { "error": { "code": "source_unreachable", "message": "The source repository could not be cloned." } }
+```
+
+```http
+GET /api/repositories/imports/{id}
+Response: { "id": "uuid", "repository": { "fullName": "mona/app" }, "status": "importing", "progressMessage": "Cloning source repository", "startedAt": "2026-04-30T00:00:00Z", "completedAt": null }
+Error: { "error": { "code": "not_found", "message": "Import job not found" } }
+```
+
+```http
 GET /api/repos/{owner}/{repo}
 Response: { "id": "uuid", "owner": "mona", "name": "hello-world", "description": "My first repository", "defaultBranch": "main", "visibility": "public" }
 Error: { "error": { "code": "not_found", "message": "Repository not found" } }
@@ -168,6 +249,7 @@ More endpoint examples must be completed after feature-page inspection.
 - ECS Fargate: Rust API and background workers.
 - ECR: container images.
 - CloudFront: Next.js/static asset delivery and Pages CDN.
+- SQS optional: repository import queue and later Actions job queue when import concurrency exceeds a single worker loop.
 
 ## SDK / DX
 
@@ -188,6 +270,9 @@ More endpoint examples must be completed after feature-page inspection.
 - SES requires verified sender/domain before production email.
 - Cloudflare env vars are required for DNS automation.
 - The clone must not call GitHub APIs for product functionality; GitHub docs/OpenAPI are reference material only.
+- Repository creation must validate owner permissions in both Next.js and Rust; Rust is authoritative.
+- Repository imports require source repositories reachable from the public internet; private network sources are unsupported in MVP.
+- Repository imports must not claim to migrate issues, pull requests, webhooks, or LFS objects unless those migrations are explicitly implemented later.
 
 ## Build Order
 
