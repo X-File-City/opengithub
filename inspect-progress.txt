@@ -433,3 +433,44 @@ Key findings:
 
 Next recommended iteration:
 - Inspect personal account settings and developer credentials (`/settings/profile`, `/settings/notifications`, `/settings/tokens`, `/settings/keys`) including Google-only account constraints, personal access tokens for Git/API/package auth, SSH/GPG key management, notification preferences, sessions, and security log.
+
+Iteration 14 completed on 2026-04-30.
+
+Scope inspected: personal account settings and developer credentials (`/settings/profile`, `/settings/notifications`, `/settings/tokens`, `/settings/personal-access-tokens/new`, `/settings/keys`, `/settings/security`, `/settings/sessions`, `/settings/security-log`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for personal access tokens, SSH keys, and security logs.
+- Ran the required `ever snapshot`; Ever was authenticated and usable on GitHub.
+- Navigated with Ever through profile settings, notification preferences, developer token list/new-token sudo gate, SSH/GPG keys, password/authentication, web sessions, and security log.
+- Captured screenshots:
+  - ralph/screenshots/inspect/settings-profile.jpg
+  - ralph/screenshots/inspect/settings-notifications.jpg
+  - ralph/screenshots/inspect/settings-notifications-channel-menu.jpg
+  - ralph/screenshots/inspect/settings-tokens-classic.jpg
+  - ralph/screenshots/inspect/settings-token-new-sudo.jpg
+  - ralph/screenshots/inspect/settings-ssh-gpg-keys.jpg
+  - ralph/screenshots/inspect/settings-password-authentication.jpg
+  - ralph/screenshots/inspect/settings-sessions.jpg
+  - ralph/screenshots/inspect/settings-security-log.jpg
+  - ralph/screenshots/inspect/settings-security-log-filters.jpg
+- Tested live interactions without saving destructive changes: opened notification channel selector, opened token generation menu, navigated to a prefilled fine-grained token URL and observed sudo-mode blocking, opened security-log filter menu, and inspected session/key/token rows.
+- Updated build-spec.md with personal settings UI, behavior, data models, API examples, AWS/Rust implementation mapping, and constraints.
+- Updated sitemap.md to mark personal settings/developer credentials completed.
+- Appended focused PRD entries:
+  - personal-settings-001 public profile, avatar, identity fields, and profile privacy
+  - personal-settings-002 notification delivery preferences
+  - credentials-001 personal access tokens and sudo-gated token creation
+  - credentials-002 SSH/GPG keys and vigilant mode
+  - security-001 Google-only auth state, sudo-mode, sessions, and security log
+
+Key findings:
+- GitHub personal settings use a persistent left settings sidebar with a right Turbo-frame content pane. The clone can reuse one settings shell for profile, notification, credential, session, and security-log pages.
+- Profile fields are optional and independently clearable; profile picture, profile privacy, private contribution count, achievements, and preferred language are separate save surfaces.
+- Notification preferences use compact select-panel dialogs for channels such as On GitHub and Email. opengithub should implement web/email preferences and omit unsupported product categories.
+- Personal access token creation is sudo-protected and supports prefilled URL parameters. Token secrets are one-time display values and must be hashed at rest.
+- SSH/GPG key management exposes fingerprints, added-by source, last-used status, delete dialogs, GPG empty state, and vigilant-mode commit-signing preference. SSH clone URLs should remain disabled until SSH Git transport exists.
+- Password/passkey/Apple/2FA flows are visible on GitHub, but opengithub must stay Google OAuth only under current stack config. Build connected Google display, sudo-mode, sessions, and security logs instead.
+- Security log supports filters, free-text/qualifier search, expandable details, and JSON/CSV export; export must redact secrets and token values.
+
+Next recommended iteration:
+- Inspect organization/team admin (`/organizations/new`, `/orgs/{org}/settings/*`, team pages) including org creation, people/team management, member privileges, repository defaults, and organization-level Actions/webhooks where accessible.

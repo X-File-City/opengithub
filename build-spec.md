@@ -917,13 +917,84 @@ Implementation mapping:
 - Postgres stores notifications, notification_threads, notification_subscriptions, repository_watches, notification_custom_filters, notification_delivery_preferences, notification_email_deliveries, and notification_retention_jobs.
 - SES sends email notifications after domain verification. Email should include notification identifiers and thread metadata so future inbound-email reply support can be added, but inbound email is not required for MVP.
 
+## Personal Settings And Developer Credentials
+
+Status: inspected after notifications with live Ever access. Evidence came from `ever snapshot` and screenshots on `/settings/profile`, `/settings/notifications`, `/settings/tokens`, `/settings/personal-access-tokens/new`, `/settings/keys`, `/settings/security`, `/settings/sessions`, and `/settings/security-log`.
+
+Screenshots:
+
+- `ralph/screenshots/inspect/settings-profile.jpg`
+- `ralph/screenshots/inspect/settings-notifications.jpg`
+- `ralph/screenshots/inspect/settings-notifications-channel-menu.jpg`
+- `ralph/screenshots/inspect/settings-tokens-classic.jpg`
+- `ralph/screenshots/inspect/settings-token-new-sudo.jpg`
+- `ralph/screenshots/inspect/settings-ssh-gpg-keys.jpg`
+- `ralph/screenshots/inspect/settings-password-authentication.jpg`
+- `ralph/screenshots/inspect/settings-sessions.jpg`
+- `ralph/screenshots/inspect/settings-security-log.jpg`
+- `ralph/screenshots/inspect/settings-security-log-filters.jpg`
+
+Settings shell:
+
+- Personal settings use the signed-in app header plus a two-column settings layout: persistent left sidebar grouped into account, access, code/planning/automation, security, integrations, and archives; the right pane is a Turbo-frame-style content area with forms/cards.
+- Context switcher at the top of the sidebar lets users switch between personal, organization, and enterprise settings. The clone should keep organization/enterprise entries only when the user actually belongs to those owners.
+- Billing, Copilot, Codespaces, Models, Sponsors, and premium analytics are out of MVP scope. Keep routes absent or render a low-priority disabled state, not misleading billing UI.
+
+Public profile settings:
+
+- `/settings/profile` exposes optional fields for display name, public email, bio, pronouns, website URL, up to four social URLs, company, location, local-time display/time zone, ORCID connection, profile picture upload/remove/reset, private profile/activity privacy, private contribution count, PRO badge, achievements visibility, jobs/hireable status, and preferred spoken language.
+- The form has multiple independent save buttons (`Update profile`, `Update preferences`, `Save jobs profile`) rather than one global save. Optional fields can be cleared at any time.
+- opengithub should include profile identity fields, avatar upload, private profile/activity visibility, achievements visibility, and contribution privacy. ORCID, jobs profile, PRO badge, and GitHub Developer Program are low priority or out of scope.
+
+Notification preferences:
+
+- `/settings/notifications` sets default email address, custom routing link, subscriptions for Watching and Participating/@mentions/custom, email-update categories, ignored repositories, and system channels for Actions, Dependabot alerts, email digest, security campaign emails, and agent sessions.
+- Channel selectors are select-panel dialogs with selectable options such as On GitHub, Email, and CLI plus Cancel/Save. Observed Watching preferences were On GitHub + Email.
+- MVP should implement web/email channels, default email selection, Watching and Participating channel preferences, Actions notification preferences, and ignored repository links. Dependabot/security-campaign/agent-session categories can be placeholders unless the corresponding products exist.
+
+Developer credentials:
+
+- `/settings/tokens` is under Developer Settings and has GitHub Apps, OAuth Apps, and Personal access tokens navigation. The token page shows a `Generate new token` details menu with Fine-grained repo-scoped and classic/general options.
+- Existing token rows show token name, scopes, last-used state, expiration state, and a Delete details dialog. Token secret values are never shown after creation.
+- Visiting `/settings/personal-access-tokens/new?...` triggered sudo mode before the fine-grained token form. The sudo screen supports passkey, GitHub Mobile, authenticator app, and email code options, and preserves prefilled token URL parameters (`name`, `description`, `contents=read`) as hidden state.
+- For opengithub, build personal access tokens as the core credential for Git over HTTPS, REST API, and package registry auth. Prefer fine-grained tokens first: name, description, expiration, resource owner, repository access, permission matrix, generated secret shown once, revoke/delete, and audit events. Classic tokens can be a compatibility fallback if needed for package/checks gaps.
+
+SSH/GPG keys and signing:
+
+- `/settings/keys` lists SSH authentication keys with title, SHA256 fingerprint, added date, added-by source, last-used status, and read/write access. Each row has a Delete dialog.
+- The same page has a New SSH key CTA, an empty GPG keys section with New GPG key CTA, and Vigilant mode checkbox to flag unsigned commits as unverified.
+- Key creation requires title, public key, and type (`authentication` or `signing`) per docs; the same public key must be uploaded twice if used for both auth and signing. opengithub should validate key type/fingerprint uniqueness and store only public keys/fingerprints.
+- SSH Git transport remains a later feature. Until then, key management can power commit signature metadata and future SSH enablement while clone/push instructions prefer HTTPS + PAT.
+
+Password/authentication, sessions, and security log:
+
+- `/settings/security` is "Password and authentication". GitHub shows password change, passkeys, connected Google/Apple accounts, two-factor auth methods, preferred 2FA method, authenticator/SMS/GitHub Mobile/security keys, and recovery codes.
+- opengithub stack is Google OAuth only. Do not build password change, Apple, passkeys, SMS, or recovery codes unless auth mode changes. Build connected Google account display, session management, sudo-mode reauthentication for sensitive credential actions, and security/audit log coverage.
+- `/settings/sessions` lists web sessions with browser/device icon, coarse location, IP, active/stale state, last accessed date, country seen, Details links, and separate GitHub Mobile sessions with Revoke. MVP should support web sessions only, with revoke for non-current sessions and current-session marker.
+- `/settings/security-log` lists recent audit events with actor, action, target, integration/app, IP, location, relative timestamp, expandable detail rows, filter menu, text search, and Export menu with JSON/CSV. Built-in filters observed: Yesterday's activity, Repository management, Billing updates, Copilot activity, and Personal access token activity. opengithub should include filters relevant to supported products and omit billing/Copilot filters.
+
+Implementation mapping:
+
+- Next.js owns the settings shell, profile forms, notification preference panels, token/key forms, session list, sudo-mode interstitial, audit log table/filter/export UI, and destructive confirmation dialogs.
+- Rust API owns authoritative writes, sudo-mode token validation, token hashing, session revocation, SSH/GPG key validation, notification preference persistence, audit-event append, and CSV/JSON security-log export.
+- Postgres stores user profile fields, email addresses, notification preferences, PAT metadata/hashes, SSH/GPG public keys, web sessions, sudo grants, and audit events. S3 stores avatar images. SES sends notification emails after verified domain setup.
+
 ## Data Models
 
 Initial model set inferred from docs/OpenAPI:
 
-- `users`: id, username, display_name, email, avatar_url, bio, company, location, website_url, created_at, updated_at.
+- `users`: id, username, display_name, email, avatar_url, bio, pronouns, company, location, website_url, private_profile, show_private_contribution_count, achievements_enabled, display_local_time, time_zone, preferred_language, created_at, updated_at.
 - `auth_accounts`: id, user_id, provider, provider_account_id, access_token_hash, refresh_token_hash, expires_at.
-- `sessions`: id, user_id, token_hash, expires_at, ip_address, user_agent, created_at.
+- `sessions`: id, user_id, token_hash, expires_at, ip_address, user_agent, browser_name, os_name, device_name, country_code, city, last_seen_at, revoked_at, created_at.
+- `user_email_addresses`: id, user_id, email, verified_at, primary, public, notification_default, created_at, updated_at.
+- `user_social_accounts`: id, user_id, provider_key, url, position, created_at, updated_at.
+- `user_avatars`: id, user_id, storage_key, content_type, size_bytes, uploaded_at, active.
+- `sudo_grants`: id, user_id, session_id, method, granted_at, expires_at, ip_address.
+- `personal_access_tokens`: id, user_id, token_hash, token_prefix, name, description, token_type, resource_owner_type, resource_owner_id, repository_selection, permissions_json, scopes_json, expires_at, last_used_at, revoked_at, created_at.
+- `personal_access_token_repositories`: id, token_id, repository_id, created_at.
+- `ssh_keys`: id, user_id, title, key_type, public_key, fingerprint_sha256, added_by, last_used_at, read_write, created_at, revoked_at.
+- `gpg_keys`: id, user_id, public_key, fingerprint, key_id, emails_json, verified, created_at, revoked_at.
+- `security_audit_events`: id, actor_id, action, subject_type, subject_id, target_user_id, repository_id, app_name, oauth_app_id, ip_address, country_code, city, user_agent, metadata_json, created_at.
 - `repositories`: id, owner_type, owner_id, name, full_name, description, visibility, default_branch, has_issues, has_projects, has_wiki, has_discussions, is_template, archived, created_at, updated_at.
 - `repository_git_refs`: id, repository_id, ref_type, name, target_sha, created_at, updated_at.
 - `commits`: id, repository_id, sha, tree_sha, parent_shas, author_name, author_email, committer_name, committer_email, message, committed_at.
@@ -1429,6 +1500,151 @@ Response: { "repository": "mona/hello-world", "level": "custom", "events": ["iss
 Error: { "error": { "code": "forbidden", "message": "Repository access is required" } }
 ```
 
+```http
+GET /api/settings/profile
+Response: {
+  "username": "mona",
+  "name": "Mona Lisa",
+  "publicEmail": "mona@example.com",
+  "bio": "Building tools",
+  "pronouns": "she/her",
+  "websiteUrl": "https://example.com",
+  "socialAccounts": [{ "provider": "generic", "url": "https://social.example/mona", "position": 1 }],
+  "company": "Octo Org",
+  "location": "San Francisco, CA",
+  "privateProfile": false,
+  "showPrivateContributionCount": true,
+  "achievementsEnabled": true,
+  "avatarUrl": "https://..."
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+PATCH /api/settings/profile
+Request: {
+  "name": "Mona Lisa",
+  "bio": "Building tools",
+  "pronouns": "she/her",
+  "websiteUrl": "https://example.com",
+  "company": "Octo Org",
+  "location": "San Francisco, CA",
+  "privateProfile": false,
+  "achievementsEnabled": true
+}
+Response: { "username": "mona", "updated": true }
+Error: { "error": { "code": "validation_failed", "message": "Profile URL is invalid" } }
+```
+
+```http
+GET /api/settings/notification-preferences
+Response: {
+  "defaultEmail": "mona@example.com",
+  "watching": { "channels": ["web", "email"] },
+  "participating": { "channels": ["web", "email"] },
+  "emailUpdates": ["reviews", "pushes", "comments"],
+  "actions": { "channels": ["email"], "failedWorkflowsOnly": true }
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+PATCH /api/settings/notification-preferences
+Request: { "watching": { "channels": ["web"] }, "participating": { "channels": ["web", "email"] } }
+Response: { "updated": true }
+Error: { "error": { "code": "validation_failed", "message": "Unsupported notification channel" } }
+```
+
+```http
+GET /api/settings/tokens
+Response: {
+  "items": [{
+    "id": "uuid",
+    "name": "deploy token",
+    "type": "fine_grained",
+    "resourceOwner": "mona",
+    "repositorySelection": "selected",
+    "permissions": { "contents": "write", "pull_requests": "write" },
+    "lastUsedAt": null,
+    "expiresAt": "2026-05-30T00:00:00Z"
+  }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 50
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+POST /api/settings/tokens
+Request: {
+  "sudoToken": "opaque-sudo-grant",
+  "name": "deploy token",
+  "description": "CI deploys",
+  "expiresInDays": 30,
+  "resourceOwner": "mona",
+  "repositorySelection": "selected",
+  "repositories": ["mona/app"],
+  "permissions": { "contents": "write", "pull_requests": "write" }
+}
+Response: { "id": "uuid", "token": "ogh_...", "tokenPrefix": "ogh_", "expiresAt": "2026-05-30T00:00:00Z" }
+Error: { "error": { "code": "sudo_required", "message": "Confirm access before creating a token" } }
+```
+
+```http
+GET /api/settings/keys
+Response: {
+  "sshKeys": [{ "id": "uuid", "title": "work laptop", "keyType": "authentication", "fingerprintSha256": "SHA256:abc...", "lastUsedAt": null, "readWrite": true }],
+  "gpgKeys": [],
+  "vigilantMode": false
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+POST /api/settings/ssh-keys
+Request: { "title": "work laptop", "keyType": "authentication", "publicKey": "ssh-ed25519 AAAA..." }
+Response: { "id": "uuid", "title": "work laptop", "fingerprintSha256": "SHA256:abc..." }
+Error: { "error": { "code": "validation_failed", "message": "This SSH key is already in use" } }
+```
+
+```http
+GET /api/settings/sessions
+Response: {
+  "items": [{
+    "id": "uuid",
+    "current": true,
+    "browser": "Chrome",
+    "os": "macOS",
+    "ipAddress": "203.0.113.10",
+    "location": "Seoul, KR",
+    "state": "active",
+    "lastSeenAt": "2026-04-30T09:00:00Z"
+  }]
+}
+Error: { "error": { "code": "unauthorized", "message": "Authentication required" } }
+```
+
+```http
+GET /api/settings/security-log?q=action:personal_access_token&page=1&pageSize=50
+Response: {
+  "items": [{
+    "id": "uuid",
+    "actor": { "username": "mona" },
+    "action": "personal_access_token.create",
+    "target": "deploy token",
+    "ipAddress": "203.0.113.10",
+    "location": "Seoul, KR",
+    "createdAt": "2026-04-30T09:00:00Z",
+    "metadata": { "tokenType": "fine_grained" }
+  }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 50
+}
+Error: { "error": { "code": "invalid_query", "message": "Unsupported audit log qualifier" } }
+```
+
 More endpoint examples must be completed after feature-page inspection.
 
 ## Backend Architecture
@@ -1500,6 +1716,16 @@ More endpoint examples must be completed after feature-page inspection.
 - Custom notification filters are capped at 15 per user and should support only the documented qualifiers until the parser is intentionally expanded.
 - Saved notifications are retained indefinitely; unsaved and Done notifications should expire after five months through an auditable retention job.
 - Repository Ignore watch mode should display a warning because it suppresses normal repository notifications and may hide important mentions in the MVP implementation.
+- Personal settings should omit billing, Copilot, Codespaces, Sponsors, Models, and premium analytics until those products exist; do not create empty settings pages that imply unsupported entitlements.
+- Profile settings are partially public data. Treat display name, bio, pronouns, website, social links, company, location, local time, achievements, and contribution privacy as independently clearable optional fields.
+- Avatar uploads should go to S3 with content-type and size validation; old avatars should be retained only as needed for rollback/audit and should not remain publicly linked after replacement/removal.
+- Sensitive credential actions such as creating PATs, deleting tokens, deleting keys, and revoking sessions should require sudo-mode reauthentication with a short-lived server-side grant tied to the current session.
+- Personal access tokens must be hashed before storage, shown only once on creation, revocable, auditable, and scoped in Rust middleware before Git/API/package access. Never store or log plaintext token values.
+- Fine-grained tokens should be capped per user and must validate resource owner, repository selection, permission matrix, expiration, and organization policy before creation. Prefilled token URLs must be validated server-side.
+- SSH/GPG key management stores public keys and fingerprints only. Duplicate fingerprints across users should be rejected; malformed keys should return structured validation errors.
+- SSH keys should not enable visible SSH clone URLs until SSH Git transport is implemented. HTTPS clone with PAT remains the MVP credential path.
+- Security log/audit export can expose sensitive metadata; restrict export to the account owner, apply pagination/rate limits, and redact token values, secrets, and session cookies.
+- Session revocation must refuse to revoke the current session through bulk/row actions unless the UI explicitly signs the user out; revoked session tokens must be invalidated server-side immediately.
 
 ## Build Order
 
