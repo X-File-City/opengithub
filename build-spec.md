@@ -839,6 +839,44 @@ Dashboard implementation mapping:
 - Postgres stores dashboard source data in normal product tables plus optional `activity_events`, `feed_events`, `recent_visits`, `follows`, `repository_watches`, `stars`, and `dashboard_hint_dismissals` tables.
 - No GitHub Copilot dashboard/prompt features should be built for opengithub; they are target-specific preview features outside the clone's current scope.
 
+## Releases, Tags, And Packages
+
+Status: inspected in iteration 12. Ever was attempted first as required but the active session snapshot failed with `Failed to get DOM document`, and subsequent Ever navigation timed out on the active tab. Used the same Chrome headless fallback pattern from earlier blocked iterations, plus scraped docs for create/edit/delete and package registry behavior.
+
+Screenshots:
+
+- `ralph/screenshots/inspect/releases-list.jpg`
+- `ralph/screenshots/inspect/releases-tags.jpg`
+- `ralph/screenshots/inspect/release-detail-latest.jpg`
+- `ralph/screenshots/inspect/org-packages.jpg`
+- `ralph/screenshots/inspect/org-packages-npm-filter.jpg`
+- `ralph/screenshots/inspect/package-detail.jpg`
+
+Repository releases:
+
+- `/{owner}/{repo}/releases` uses the repository workspace shell and an internal subnav with Releases and Tags.
+- Each release card shows tag name, publish date, author, linked commit SHA, signature verification badge when present, Compare button, release state badge such as Latest or Pre-release, rendered release notes grouped by headings, contributors, expandable Assets count, reaction summary, and pagination.
+- The Compare control opens a tag picker/dialog with a filter input and "View all tags"; in headless public capture GitHub showed a transient load error for the picker content, so clone behavior should be implemented as a normal searchable tag selector.
+- `/{owner}/{repo}/releases/latest` resolves to the latest stable release detail page. It shows the release title/tag, Latest badge, compare control, commit, release notes, contributors, and assets such as Source code zip and tar.gz.
+- `/{owner}/{repo}/tags` uses the same Releases/Tags subnav. Tag rows show tag name, optional Verified badge with GPG key details, date, short commit SHA, zip and tar.gz archive links, and a Notes link when a release exists for that tag. Pagination uses Previous/Next.
+- Release creation/editing is write-permission-only and docs-backed: form includes tag selector or new tag from a target branch, optional previous tag for generated notes, title, Markdown description, Generate release notes, binary asset upload, prerelease checkbox, latest-release state, draft/publish controls, and delete confirmation.
+
+Packages:
+
+- Organization package list `/{org}?tab=packages` / `/orgs/{org}/packages` uses the organization profile shell and selected Packages tab.
+- The page has two package-mode tabs: GitHub Packages and Linked artifacts. MVP should implement GitHub Packages first and show Linked artifacts as an empty or future state.
+- Filter bar includes Type dropdown with All, Container, npm, RubyGems, Maven, and NuGet; Visibility dropdown with All, Public, Internal, and Private; Sort dropdown with Most downloads and Least downloads; and a search field. Query/filter state is encoded in URL query params such as `ecosystem=npm`.
+- Package list rows show package icon/type, package name link, published date and publisher, linked repository when present, and download count. Empty filtered results show "0 packages", "No results matched your search", and a link to browse all packages.
+- Container package detail page shows package name, short version/digest, Public visibility, Latest badge, installation panel with `docker pull ghcr.io/{namespace}/{name}:{tag}` commands, OS/Arch variants, digests, recent tagged image versions, per-version download counts, repository README/about content when connected, and package settings/management affordances for admins.
+- Docs confirm packages may be repository-scoped or account/org-scoped with granular permissions, can inherit access from a linked repository, and use personal access tokens with `read:packages`, `write:packages`, and `delete:packages` scopes. Actions workflows can publish packages and may receive package access through repository inheritance.
+
+Implementation mapping:
+
+- Next.js owns release list/detail/tag views, create/edit release forms, asset upload UI, reaction display, package list/filter pages, package detail/install snippets, package settings views, and empty states.
+- Rust API owns release CRUD, tag/ref resolution, generated release notes, immutable/draft/prerelease/latest state transitions, asset upload metadata, source archive generation, package metadata APIs, package permission checks, and OCI registry-compatible container manifest/blob routes.
+- Postgres stores releases, release assets, package metadata, package versions, package downloads, package permissions, package-repository links, and package visibility/inheritance settings.
+- S3 stores release assets, generated archives, package blobs/manifests/layers, and large metadata payloads. CloudFront can cache public package blobs and source archives. ECS workers can generate release notes and archive artifacts asynchronously.
+
 ## Data Models
 
 Initial model set inferred from docs/OpenAPI:
@@ -891,6 +929,13 @@ Initial model set inferred from docs/OpenAPI:
 - `check_suites`: id, repository_id, workflow_run_id, head_sha, status, conclusion, created_at, updated_at.
 - `check_runs`: id, check_suite_id, workflow_job_id, name, status, conclusion, details_url, started_at, completed_at.
 - `packages`: id, owner_type, owner_id, repository_id, package_type, name, visibility, created_at, updated_at.
+- `package_versions`: id, package_id, version, tag, digest, manifest_media_type, size_bytes, metadata_json, published_by_id, published_at, deleted_at.
+- `package_blobs`: id, package_version_id, digest, media_type, size_bytes, os, architecture, storage_key, created_at.
+- `package_downloads`: id, package_id, package_version_id, actor_id, ip_hash, user_agent_hash, downloaded_at.
+- `package_permissions`: id, package_id, subject_type, subject_id, role, inherited_from_repository_id, created_at, updated_at.
+- `package_repository_links`: id, package_id, repository_id, inherit_permissions, linked_by_id, linked_at.
+- `releases`: id, repository_id, tag_name, target_commit_sha, title, body, rendered_html, author_id, state, prerelease, latest, immutable, created_at, published_at, updated_at.
+- `release_assets`: id, release_id, name, label, content_type, size_bytes, download_count, storage_key, uploaded_by_id, created_at, updated_at.
 - `webhooks`: id, owner_type, owner_id, url, secret_hash, events, active, created_at, updated_at.
 - `notifications`: id, user_id, subject_type, subject_id, reason, unread, updated_at.
 - `activity_events`: id, actor_id, repository_id, subject_type, subject_id, event_type, title, summary, created_at.
@@ -1190,6 +1235,99 @@ GET /api/search/code?q=Button+repo:mona/hello-world&page=1&pageSize=30
 Response: { "items": [{ "repository": "mona/hello-world", "path": "src/Button.tsx", "line": 12, "fragment": "export function Button" }], "total": 1, "page": 1, "pageSize": 30 }
 ```
 
+```http
+GET /api/repos/{owner}/{repo}/releases?page=1&pageSize=10
+Response: {
+  "items": [{
+    "id": "uuid",
+    "tagName": "v16.2.4",
+    "title": "v16.2.4",
+    "state": "published",
+    "latest": true,
+    "prerelease": false,
+    "author": { "username": "next-js-bot", "avatarUrl": "https://..." },
+    "targetCommitSha": "2275bd8...",
+    "publishedAt": "2026-04-15T22:17:08Z",
+    "bodyHtml": "<h2>What's Changed</h2>",
+    "assets": [{ "name": "Source code (zip)", "downloadUrl": "/api/repos/vercel/next.js/archive/v16.2.4.zip" }],
+    "reactions": { "+1": 4, "hooray": 3 }
+  }],
+  "total": 1000,
+  "page": 1,
+  "pageSize": 10
+}
+Error: { "error": { "code": "not_found", "message": "Repository not found" } }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/releases
+Request: {
+  "tagName": "v1.0.0",
+  "target": "main",
+  "title": "v1.0.0",
+  "body": "Initial release",
+  "draft": false,
+  "prerelease": false,
+  "generateNotes": true
+}
+Response: { "id": "uuid", "tagName": "v1.0.0", "url": "/mona/app/releases/tag/v1.0.0", "state": "published" }
+Error: { "error": { "code": "forbidden", "message": "Write access is required to create releases" } }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/tags?page=1&pageSize=30
+Response: {
+  "items": [{
+    "name": "v16.3.0-canary.5",
+    "commitSha": "16150cc...",
+    "verified": true,
+    "taggedAt": "2026-04-28T00:00:00Z",
+    "zipUrl": "/api/repos/vercel/next.js/archive/v16.3.0-canary.5.zip",
+    "tarUrl": "/api/repos/vercel/next.js/archive/v16.3.0-canary.5.tar.gz",
+    "releaseUrl": "/vercel/next.js/releases/tag/v16.3.0-canary.5"
+  }],
+  "total": 3000,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "not_found", "message": "Repository not found" } }
+```
+
+```http
+GET /api/orgs/{org}/packages?ecosystem=container&visibility=public&sort=downloads-desc&page=1&pageSize=30
+Response: {
+  "items": [{
+    "id": "uuid",
+    "name": "bridge-cli",
+    "packageType": "container",
+    "visibility": "public",
+    "publishedAt": "2026-02-24T20:19:22Z",
+    "publisher": { "username": "vercel" },
+    "linkedRepository": { "fullName": "vercel/bridge" },
+    "downloads": 3620
+  }],
+  "total": 9,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "invalid_filter", "message": "Unsupported package ecosystem" } }
+```
+
+```http
+GET /api/packages/{owner}/{package_type}/{package_name}
+Response: {
+  "id": "uuid",
+  "name": "bridge-cli",
+  "packageType": "container",
+  "visibility": "public",
+  "latestVersion": "2a20e3f",
+  "install": [{ "label": "linux/amd64", "command": "docker pull ghcr.io/vercel/bridge-cli:2a20e3f@sha256:07ee..." }],
+  "versions": [{ "tag": "latest", "digest": "sha256:3992...", "publishedAt": "2026-03-20T12:00:00Z", "downloads": 0 }],
+  "readmeHtml": "<h1>Bridge</h1>"
+}
+Error: { "error": { "code": "forbidden", "message": "You do not have permission to view this package" } }
+```
+
 More endpoint examples must be completed after feature-page inspection.
 
 ## Backend Architecture
@@ -1250,6 +1388,12 @@ More endpoint examples must be completed after feature-page inspection.
 - Webhook secrets and Actions secrets are write-only after creation. Store encrypted values or envelope references only, redact them in logs, and sign webhook deliveries with an HMAC header.
 - Webhook delivery workers must bound retries, timeouts, payload size, and retained delivery history; redelivery should create a new delivery row linked to the original.
 - GitHub Pages custom domains require Cloudflare DNS verification before CloudFront alias activation. A repository `CNAME` file alone must not configure the domain.
+- Release tags must resolve to repository git refs server-side, and release creation must either use an existing tag or atomically create the tag before publishing the release row.
+- Release assets and generated source archives belong in S3 with permission-aware signed URLs for private repositories; public archive URLs may be cached by CloudFront.
+- Immutable releases, once enabled for a repository, must prevent asset/tag mutation after publish; draft releases remain editable until published.
+- Package registry pushes must authenticate with opengithub personal access tokens or workflow tokens, not Google OAuth browser sessions.
+- Package blobs/manifests must be content-addressed by digest and visibility checked before serving; private package counts, versions, install snippets, and download totals must not leak through public package search.
+- Container registry MVP should support OCI/Docker manifest, blob upload/download, tag listing, and digest pulls before adding Maven/npm/NuGet/RubyGems protocol-specific registries.
 
 ## Build Order
 
@@ -1260,7 +1404,7 @@ More endpoint examples must be completed after feature-page inspection.
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, tree/blob/raw/archive file browser.
 7. Issues and pull requests.
-8. Global search/code search, Actions, Packages, Pages, organizations, teams, profiles, settings, notifications.
+8. Global search/code search, Actions, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
 9. Public marketing/home surfaces only after the core app is usable.
 10. Deployment and production hardening.
 

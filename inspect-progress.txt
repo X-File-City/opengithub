@@ -361,3 +361,40 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Packages and releases (`/{owner}/{repo}/releases`, `/releases/new`, tags, package list/detail views, package install instructions, visibility/access controls).
+
+Iteration 12 completed on 2026-04-30.
+
+Scope inspected: Packages and releases page group (`/{owner}/{repo}/releases`, `/{owner}/{repo}/releases/latest`, `/{owner}/{repo}/tags`, `/orgs/{org}/packages`, package detail pages).
+
+What was done:
+- Read prior progress, inspect strategy, Ever skill instructions, stack config, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for releases, tags, release assets, package publishing, package viewing, container registry, package access control, and REST package/release references.
+- Ran the required `ever snapshot`; Ever failed with `Failed to get DOM document - extraction cannot proceed`.
+- Attempted Ever navigation for release/package pages; navigation timed out on the active tab. Per established fallback precedent, used live headless Chrome captures for public pages and docs-backed behavior for write/admin flows.
+- Captured screenshots:
+  - ralph/screenshots/inspect/releases-list.jpg
+  - ralph/screenshots/inspect/releases-tags.jpg
+  - ralph/screenshots/inspect/release-detail-latest.jpg
+  - ralph/screenshots/inspect/org-packages.jpg
+  - ralph/screenshots/inspect/org-packages-npm-filter.jpg
+  - ralph/screenshots/inspect/package-detail.jpg
+- Tested URL-backed live states for release list, latest release detail, tags list, organization package list, npm ecosystem empty filtered state, and container package detail/install snippets.
+- Updated build-spec.md with Releases, Tags, And Packages UI, behavior, data models, API examples, backend/cloud mapping, constraints, and build order.
+- Updated sitemap.md to mark Packages and releases completed and identify Notifications/inbox as the next inspection target.
+- Appended focused PRD entries:
+  - releases-001 repository releases list/detail/assets/reactions
+  - releases-002 release create/edit/publish/draft/prerelease/assets workflow
+  - releases-003 repository tags list/signatures/archives/notes
+  - packages-001 owner package list filters/search/empty state
+  - packages-002 package detail install/version/digest/README view
+  - packages-003 OCI/container package registry API and Actions publishing integration
+
+Key findings:
+- Repository releases share a Releases/Tags subnav. Release cards include tag, publish date, author, commit SHA, verified signature, Compare, Latest/Pre-release labels, rendered notes, contributors, assets, reactions, and pagination.
+- Tags list rows include tag name, optional Verified signature details, date, short SHA, zip/tar.gz archive links, and Notes links.
+- Release create/edit is write-permission-only and needs tag selection/creation, target branch, generated notes, Markdown body, asset uploads, draft/prerelease/latest state, and delete confirmation.
+- Organization package pages provide GitHub Packages and Linked artifacts tabs plus Type, Visibility, Sort, and search filters. Empty filtered states are explicit and link back to browsing all packages.
+- Container package details expose copyable `docker pull ghcr.io/{namespace}/{name}:{tag}` commands, OS/Arch variants, digest-specific pulls, recent tagged versions, download counts, README/about content, and settings affordances.
+- opengithub should implement OCI/container registry support first with PAT/workflow-token auth, S3 content-addressed blobs, permission-aware serving, and Actions publishing integration before protocol-specific npm/Maven/NuGet/RubyGems registry work.
+
+Next recommended iteration:
+- Inspect Notifications, watches, and subscriptions (`/notifications`, repository/issue/PR notification controls, custom watch settings), including inbox triage, filters, unread/done state, and email/web notification preferences.
