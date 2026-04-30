@@ -798,3 +798,11 @@
 - Browser smoke/E2E saved final screenshots: `layout-001-final-create-menu.jpg`, `layout-001-final-avatar-menu.jpg`, `layout-001-final-mobile-drawer.jpg`, `layout-001-final-dashboard-frame.jpg`, `layout-001-final-repository-frame.jpg`, and `layout-001-final-desktop-header.jpg`.
 - Verification: mandatory Editorial banned-value scan passed with the supported ripgrep flags; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 85 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 38 Playwright tests. Focused verification also passed: `npm test -- --run app-shell.test.tsx` and `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test npm run test:e2e -- app-shell.spec.ts`.
 - Marked Phase 4 as done in `.qrspi/layout-001/structure.md` and set `layout-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - nav-001 structure planning
+
+- Read `BUILD_GUIDE.md`, `build-spec.md`, `web/AGENTS.md`, `sitemap.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, current AppShell/header code, current repository routes, current global/settings route placeholders, and route/test inventory.
+- Determined `nav-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/nav-001/structure.md` did not exist.
+- Added `.qrspi/nav-001/structure.md` with five independently verifiable vertical phases: route registry and protected placeholders, repository workspace navigation, settings shell navigation, profiles/organizations/search entry routes, and final cross-route navigation guardrails.
+- Did not change `prd.json`; `nav-001.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
