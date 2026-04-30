@@ -59,3 +59,11 @@
 - `make db-migrate` was not run because previous iterations confirmed `sqlx-cli` is not installed in this environment; cargo tests applied all migrations through SQLx's migrator.
 - Browser smoke test skipped because this phase is backend schema/data access only.
 - Marked Phase 5 as done in `.qrspi/infra-001/structure.md` and set `infra-001.build_pass` to `true` in `prd.json`.
+
+2026-04-30 - auth-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `target-docs/auth-flow.md`, `build-progress.txt`, and the first incomplete `prd.json` entry.
+- Determined `auth-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/auth-001/structure.md` did not exist.
+- Added `.qrspi/auth-001/structure.md` with four independently verifiable vertical phases: OAuth start route, callback/session API, Next.js login/protected shell, and E2E/security hardening.
+- Did not change `prd.json`; `build_pass` remains `false` until all auth implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
