@@ -5,3 +5,13 @@
 - Added `.qrspi/infra-001/structure.md` with five independently verifiable vertical phases: identity, repository ownership, collaboration, automation/delivery, and search/observability hardening.
 - Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - infra-001 phase 1 identity foundation
+
+- Implemented Phase 1 from `.qrspi/infra-001/structure.md`: identity schema, DB pool construction, health route degradation, and Rust identity data accessors.
+- Added SQLx migrations for `pgcrypto`, `pg_trgm`, `users`, `oauth_accounts`, `sessions`, and `audit_events` with timestamp triggers and down migration.
+- Added `crates/api/src/lib.rs`, `db.rs`, `domain/identity.rs`, and `routes/health.rs`; `main.rs` now builds the shared router and starts even when `DATABASE_URL` is unset.
+- Added integration tests for degraded health, app construction without a DB, and real Postgres user/OAuth/session round trips.
+- Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed against a real local Postgres container; `.scratch/identity-foundation-scenario.sh` passed.
+- Browser smoke test skipped because this phase is backend schema/data access only.
+- Marked Phase 1 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because later infra-001 phases remain.

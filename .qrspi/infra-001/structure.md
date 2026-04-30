@@ -6,7 +6,7 @@
 
 ## Phase 1: Identity Foundation - users, OAuth accounts, sessions, and schema health become testable
 
-Done: [ ]
+Done: [x]
 
 **Scope**: Build the first database-backed vertical slice for identity metadata without implementing the Google OAuth flow itself.
 **Key changes**:

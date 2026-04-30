@@ -1,0 +1,16 @@
+[
+  {
+    "feature_id": "infra-001",
+    "tests_written": [
+      "health returns HTTP 200 with degraded database status when DATABASE_URL is absent",
+      "app router builds without a database pool",
+      "users, OAuth accounts, and sessions round-trip through Postgres migrations",
+      "session revocation removes sessions from active-session lookup"
+    ],
+    "needs_deeper_qa": [
+      "Run make db-migrate once sqlx-cli is installed or CI has a migration runner",
+      "Confirm the future tower-sessions store table contract is compatible with the sessions schema before wiring auth-001",
+      "Exercise /health against the provisioned RDS DATABASE_URL after preflight fills .env"
+    ]
+  }
+]
