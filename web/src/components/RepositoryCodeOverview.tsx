@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { AppShellFrame } from "@/components/AppShellFrame";
 import { RepositoryCodeToolbar } from "@/components/RepositoryCodeToolbar";
 import { RepositoryFileTable } from "@/components/RepositoryFileTable";
-import { RepositoryHeaderActions } from "@/components/RepositoryHeaderActions";
 import { RepositoryQuickSetup } from "@/components/RepositoryQuickSetup";
+import { RepositoryShell } from "@/components/RepositoryShell";
 import type { RepositoryOverview } from "@/lib/api";
 
 type RepositoryCodeOverviewProps = {
@@ -12,50 +11,6 @@ type RepositoryCodeOverviewProps = {
 
 function formatCount(value: number, label: string) {
   return `${new Intl.NumberFormat("en").format(value)} ${label}`;
-}
-
-function RepositoryTabs({ repository }: RepositoryCodeOverviewProps) {
-  const base = `/${repository.owner_login}/${repository.name}`;
-  const tabs = [
-    ["Code", base],
-    ["Issues", `${base}/issues`],
-    ["Pull requests", `${base}/pulls`],
-    ["Discussions", `${base}/discussions`],
-    ["Actions", `${base}/actions`],
-    ["Security", `${base}/security`],
-    ["Insights", `${base}/pulse`],
-  ];
-  const canAdmin = ["owner", "admin"].includes(
-    repository.viewerPermission ?? "",
-  );
-  if (canAdmin) {
-    tabs.push(["Settings", `${base}/settings`]);
-  }
-
-  return (
-    <nav
-      aria-label="Repository"
-      className="tabs mt-5 flex gap-1 overflow-x-auto border-b text-sm"
-      style={{ borderColor: "var(--line)" }}
-    >
-      {tabs.map(([label, href]) => (
-        <Link
-          className={`tab shrink-0 border-b-2 px-3 py-3 font-medium ${
-            label === "Code" ? "active" : ""
-          }`}
-          href={href}
-          key={label}
-          style={
-            label === "Code"
-              ? { borderColor: "var(--accent)", color: "var(--ink-1)" }
-              : { borderColor: "transparent", color: "var(--ink-3)" }
-          }
-        >
-          {label}
-        </Link>
-      ))}
-    </nav>
-  );
 }
 
 function RepositorySidebar({ repository }: RepositoryCodeOverviewProps) {
@@ -161,71 +116,39 @@ export function RepositoryCodeOverview({
   repository,
 }: RepositoryCodeOverviewProps) {
   return (
-    <div>
-      <header
-        className="border-b px-6 pt-5"
-        style={{ borderColor: "var(--line)", background: "var(--surface-2)" }}
-      >
-        <div className="mx-auto max-w-7xl">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p className="t-sm" style={{ color: "var(--ink-3)" }}>
-                {repository.owner_login}
-              </p>
-              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                <h1
-                  className="truncate text-xl font-semibold tracking-normal"
-                  style={{ color: "var(--ink-1)" }}
-                >
-                  {repository.name}
-                </h1>
-                <span className="chip soft capitalize">
-                  {repository.visibility}
-                </span>
-              </div>
-            </div>
-            <RepositoryHeaderActions repository={repository} />
-          </div>
-          <RepositoryTabs repository={repository} />
-        </div>
-      </header>
-      <AppShellFrame
-        className="grid grid-cols-[minmax(0,1fr)_296px] gap-8 max-lg:grid-cols-1"
-        mode="repository"
-      >
-        <div className="min-w-0 space-y-4">
-          <RepositoryCodeToolbar repository={repository} />
-          <RepositoryFileTable
-            emptyState={<RepositoryQuickSetup repository={repository} />}
-            entries={repository.rootEntries}
-            historyHref={`/${repository.owner_login}/${repository.name}/commits/${repository.default_branch}`}
-            latestCommit={repository.latestCommit}
-          />
-          {repository.readme ? (
-            <article
-              className="rounded-md"
-              style={{
-                border: "1px solid var(--line)",
-                background: "var(--surface)",
-              }}
+    <RepositoryShell repository={repository}>
+      <div className="min-w-0 space-y-4">
+        <RepositoryCodeToolbar repository={repository} />
+        <RepositoryFileTable
+          emptyState={<RepositoryQuickSetup repository={repository} />}
+          entries={repository.rootEntries}
+          historyHref={`/${repository.owner_login}/${repository.name}/commits/${repository.default_branch}`}
+          latestCommit={repository.latestCommit}
+        />
+        {repository.readme ? (
+          <article
+            className="rounded-md"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+            }}
+          >
+            <h2
+              className="border-b px-4 py-3 t-sm font-semibold"
+              style={{ borderColor: "var(--line)", color: "var(--ink-1)" }}
             >
-              <h2
-                className="border-b px-4 py-3 t-sm font-semibold"
-                style={{ borderColor: "var(--line)", color: "var(--ink-1)" }}
-              >
-                README.md
-              </h2>
-              <pre
-                className="whitespace-pre-wrap px-4 py-4 t-sm leading-6"
-                style={{ color: "var(--ink-1)" }}
-              >
-                {repository.readme.content}
-              </pre>
-            </article>
-          ) : null}
-        </div>
-        <RepositorySidebar repository={repository} />
-      </AppShellFrame>
-    </div>
+              README.md
+            </h2>
+            <pre
+              className="whitespace-pre-wrap px-4 py-4 t-sm leading-6"
+              style={{ color: "var(--ink-1)" }}
+            >
+              {repository.readme.content}
+            </pre>
+          </article>
+        ) : null}
+      </div>
+      <RepositorySidebar repository={repository} />
+    </RepositoryShell>
   );
 }

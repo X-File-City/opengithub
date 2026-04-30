@@ -1145,5 +1145,23 @@
       "Settings pages currently have concrete CTAs but not editable forms; QA should not expect persisted settings changes until settings-specific PRDs land",
       "Codespaces is a protected placeholder and not a working cloud development environment in this phase"
     ]
+  },
+  {
+    "feature_id": "nav-001",
+    "tests_written": [
+      "Implemented Phase 2 repository workspace navigation shell with breadcrumb/header, visibility chip, header actions, permission-aware tabs, and shared repository frame",
+      "Added concrete repository skeleton routes for Issues, Pull requests, Actions, Projects, Wiki, Security, Insights, Settings, issue detail, pull detail/files, and Actions run detail",
+      "Updated existing repository placeholders for branches, tags, releases, deployments, new file, and upload to render inside the shared repository shell",
+      "Added Vitest coverage for repository tab route files, nested active-tab matching, placeholder shell actions, Settings visibility, and no inert links",
+      "Added Playwright coverage that creates a real repository, clicks every repository tab, verifies active state and no 404 text/dead controls, and saves ralph/screenshots/build/nav-001-phase2-repository-tabs.jpg",
+      "Verification passed: Editorial banned-value scan had zero matches, make check passed, make test passed with 91 frontend tests plus cargo tests, targeted repository Playwright passed, and make test-e2e passed with 38 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Repository tab pages are explicit skeletons, not full Issues/Pulls/Actions/Projects/Wiki/Security/Insights implementations",
+      "Settings tab visibility is based on viewerPermission owner/admin; QA should verify read-only users cannot see Settings and direct settings routes do not reveal mutation controls",
+      "Nested PR files and Actions run routes preserve active tab state but do not yet load real diffs, jobs, logs, or artifacts",
+      "Very long owner/repository names and private repository denied states should be stress-tested across the shared repository shell",
+      "Repository settings sidebars and deeper settings sections remain nav-001 Phase 3"
+    ]
   }
 ]

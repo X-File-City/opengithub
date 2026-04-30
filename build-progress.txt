@@ -816,3 +816,13 @@
 - Added `.qrspi/nav-001/structure.md` with five independently verifiable vertical phases: route registry and protected placeholders, repository workspace navigation, settings shell navigation, profiles/organizations/search entry routes, and final cross-route navigation guardrails.
 - Did not change `prd.json`; `nav-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-05-01 - nav-001 phase 2 repository workspace navigation skeleton
+
+- Implemented Phase 2 from `.qrspi/nav-001/structure.md`: extracted shared `RepositoryShell` for repository breadcrumb/header, visibility chip, header actions, permission-aware tabs, and repository frame layout.
+- Added repository workspace skeleton routes for Issues, Pull requests, Actions, Projects, Wiki, Security, Insights, Settings, plus issue detail, pull request detail/files, and Actions run detail routes so known repository sitemap entries render explicit Editorial pages instead of 404s.
+- Updated existing repository placeholder routes for branches, tags, releases, deployments, new file, and upload to use the shared repository shell when repository metadata is available.
+- Added route and component coverage for repository tab hrefs, active nested tab matching, Settings tab visibility, route-file existence, and placeholder shell actions with no inert links.
+- Browser smoke/E2E clicked every repository tab in a real signed-session seeded repository, verified no 404 text/dead controls, returned to Code each time, and saved `ralph/screenshots/build/nav-001-phase2-repository-tabs.jpg`.
+- Verification: supported Editorial banned-value scan passed with zero matches; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 91 frontend tests; targeted repository Playwright passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 38 Playwright tests.
+- Marked Phase 2 as done in `.qrspi/nav-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.

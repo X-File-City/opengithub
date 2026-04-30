@@ -1,25 +1,33 @@
 import Link from "next/link";
+import { RepositoryShell } from "@/components/RepositoryShell";
+import type { RepositoryOverview } from "@/lib/api";
 
 type RepositoryPlaceholderPageProps = {
-  owner: string;
-  repo: string;
+  repository: RepositoryOverview;
+  activePath: string;
   title: string;
   description: string;
+  actions?: { href: string; label: string; primary?: boolean }[];
 };
 
 export function RepositoryPlaceholderPage({
-  owner,
-  repo,
+  repository,
+  activePath,
   title,
   description,
+  actions = [],
 }: RepositoryPlaceholderPageProps) {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-8">
-      <div className="card p-5">
-        <p className="t-sm" style={{ color: "var(--ink-3)" }}>
-          {owner} / {repo}
-        </p>
-        <h1 className="t-h2 mt-1" style={{ color: "var(--ink-1)" }}>
+    <RepositoryShell
+      activePath={activePath}
+      frameClassName="max-w-5xl"
+      repository={repository}
+    >
+      <section className="card p-5">
+        <div className="t-label" style={{ color: "var(--ink-3)" }}>
+          {repository.owner_login} / {repository.name}
+        </div>
+        <h1 className="t-h2 mt-2" style={{ color: "var(--ink-1)" }}>
           {title}
         </h1>
         <p
@@ -28,10 +36,24 @@ export function RepositoryPlaceholderPage({
         >
           {description}
         </p>
-        <Link className="btn mt-4" href={`/${owner}/${repo}`}>
-          Back to Code
-        </Link>
-      </div>
-    </section>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            className="btn"
+            href={`/${repository.owner_login}/${repository.name}`}
+          >
+            Back to Code
+          </Link>
+          {actions.map((action) => (
+            <Link
+              className={`btn ${action.primary ? "primary" : "ghost"}`}
+              href={action.href}
+              key={action.href}
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      </section>
+    </RepositoryShell>
   );
 }

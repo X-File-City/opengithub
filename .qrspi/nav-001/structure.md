@@ -23,7 +23,7 @@
 
 ## Phase 2: Repository Workspace Navigation Skeleton - owner/repo tabs preserve context
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Upgrade repository pages so the owner/repo header, visibility badge, action area, and horizontal tab set are reusable across Code, Issues, Pull requests, Actions, Projects, Wiki, Security, Insights, and Settings. Tabs must preserve owner/repo context and render real pages or explicit Editorial empty states instead of 404s.
 

@@ -12,6 +12,7 @@ import {
   RepositoryCommitHistoryView,
   RepositoryTreeView,
 } from "@/components/RepositoryPathViews";
+import { RepositoryPlaceholderPage } from "@/components/RepositoryPlaceholderPage";
 import type {
   RepositoryBlameView,
   RepositoryBlobView,
@@ -314,9 +315,25 @@ describe("RepositoryCodeOverview", () => {
       "href",
       "/mona/octo-app/issues",
     );
+    expect(screen.getByRole("link", { name: "Actions" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/actions",
+    );
+    expect(screen.getByRole("link", { name: "Projects" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/projects",
+    );
+    expect(screen.getByRole("link", { name: "Wiki" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/wiki",
+    );
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
       "href",
       "/mona/octo-app/settings",
+    );
+    expect(screen.getByRole("link", { name: "Code" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
     expect(screen.getByLabelText(/Current ref main/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Go to file" })).toBeVisible();
@@ -530,6 +547,30 @@ describe("RepositoryCodeOverview", () => {
     expect(
       within(repositoryNav).queryByRole("link", { name: "Settings" }),
     ).toBeNull();
+  });
+
+  it("renders repository placeholders inside the shared tab shell", () => {
+    render(
+      <RepositoryPlaceholderPage
+        actions={[{ href: "/mona/octo-app", label: "Repository Code" }]}
+        activePath="/mona/octo-app/actions/runs/123"
+        description="Workflow run detail is not built yet."
+        repository={repositoryOverview()}
+        title="Workflow run"
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Workflow run" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Actions" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen.getByRole("link", { name: "Repository Code" }),
+    ).toHaveAttribute("href", "/mona/octo-app");
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
   });
 
   it("optimistically toggles the star control through a same-origin route", async () => {

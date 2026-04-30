@@ -88,10 +88,9 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
   await expect(
     page.getByRole("heading", { name: normalizedName }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Code" })).toHaveAttribute(
-    "href",
-    new RegExp(`/${normalizedName}$`),
-  );
+  await expect(
+    page.getByRole("link", { exact: true, name: "Code" }),
+  ).toHaveAttribute("href", new RegExp(`/${normalizedName}$`));
   await expect(page.getByRole("link", { name: "main" })).toHaveAttribute(
     "href",
     new RegExp(`/${normalizedName}/tree/main$`),
@@ -211,6 +210,32 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/repo-003-final-default-overview.jpg",
+  });
+
+  for (const tab of [
+    "Issues",
+    "Pull requests",
+    "Actions",
+    "Projects",
+    "Wiki",
+    "Security",
+    "Insights",
+    "Settings",
+  ]) {
+    const repositoryNav = page.getByLabel("Repository");
+    await repositoryNav.getByRole("link", { name: tab }).click();
+    await expect(
+      repositoryNav.getByRole("link", { name: tab }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("heading", { name: tab })).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("404");
+    await expectNoDeadControls(page);
+    await page.getByRole("link", { exact: true, name: "Code" }).click();
+    await expect(page).toHaveURL(repositoryUrl);
+  }
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/nav-001-phase2-repository-tabs.jpg",
   });
 
   await page.goto(seeded.socialSourceRepositoryHref);
