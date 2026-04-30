@@ -327,3 +327,13 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_feed_preferences -- --nocapture` passed; `cd web && npx vitest run tests/dashboard-onboarding.test.tsx` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 31 frontend tests plus cargo tests.
 - Browser smoke and `make test-e2e` skipped because this phase is API/data-contract only and changed no visible dashboard controls.
 - Marked Phase 2 as done in `.qrspi/dashboard-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
+
+2026-04-30 - dashboard-003 phase 3 dashboard feed controls
+
+- Implemented Phase 3 from `.qrspi/dashboard-003/structure.md`: `/dashboard` now reads `feedTab` and `eventType` search params, forwards them to the Rust dashboard summary API, and renders the active query state.
+- Replaced the static recent activity section with the dashboard feed surface: Following/For you tab links, right-aligned Filter dropdown, checkbox event types, Apply submit, Clear filters actions, and feed cards with actor, repository, event type, excerpt, timestamp, repository link, and target link metadata.
+- Kept assigned issues and review requests on the existing rail and fixed mobile overflow by allowing the main dashboard content column to shrink.
+- Updated Vitest dashboard coverage for tab/filter state, checked event types, clear-filter URLs, event cards, and no inert empty-state actions; updated Playwright dashboard E2E for tab switching, release filtering, clear filters, feed target navigation, mobile no-overflow, and desktop alignment.
+- Verification: `make check` passed; `make test` passed with cargo tests and 31 Vitest tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 17 Playwright tests.
+- Browser smoke: started `make dev` against the local Postgres test DB, seeded a real Rust-signed session, verified For you plus Release filtering, and saved `ralph/screenshots/build/dashboard-003-phase3-feed-filters.jpg`.
+- Marked Phase 3 as done in `.qrspi/dashboard-003/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.

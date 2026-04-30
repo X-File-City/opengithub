@@ -462,5 +462,23 @@
       "Query parameters intentionally override saved preferences while feedPreferences still reports the saved defaults; QA should verify the UI communicates selected query state clearly in Phase 3",
       "Preference event types are stored as a text array with a CHECK constraint; retest migration compatibility against production RDS before deploy"
     ]
+  },
+  {
+    "feature_id": "dashboard-003",
+    "tests_written": [
+      "Dashboard page reads feedTab and eventType search params and forwards them to GET /api/dashboard",
+      "Dashboard feed UI renders Following/For you tabs, Filter dropdown, event-type checkboxes, Apply submit, and Clear filters links",
+      "Feed cards render actor/repository metadata, event type labels, excerpts, timestamps, repository links, and target links from summary.feedEvents",
+      "Vitest dashboard tests cover selected tab state, checkbox checked states, clear-filter URLs, feed card links, and no inert empty-state actions",
+      "Playwright signed-in dashboard E2E covers switching to For you, applying a Release filter, clearing filters, clicking a feed PR link, sidebar filtering, mobile no-overflow, and desktop alignment",
+      "Browser smoke used a real Rust-signed Postgres session, exercised For you plus Release filtering, and saved ralph/screenshots/build/dashboard-003-phase3-feed-filters.jpg",
+      "make check, make test, and TEST_DATABASE_URL-backed make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Preference write/reset endpoints are not yet wired to visible save-default controls; this phase uses shareable GET filters and phase 4 should decide whether to expose saved defaults",
+      "The feed card action affordance is limited to repository and target links; star/follow mutation buttons should be retested when those write APIs ship",
+      "Dense mixed feeds should be manually checked for truncation and readability because seeded E2E data covers a small event set",
+      "Real Google OAuth sessions should retest the signed-in dashboard path after consent/test-user configuration is confirmed"
+    ]
   }
 ]

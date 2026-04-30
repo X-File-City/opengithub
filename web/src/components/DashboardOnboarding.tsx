@@ -4,9 +4,15 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DashboardRepositoryFeed } from "@/components/DashboardRepositoryFeed";
 import { DashboardTopRepositories } from "@/components/DashboardTopRepositories";
-import type { DashboardSummary } from "@/lib/api";
+import type {
+  DashboardFeedEventType,
+  DashboardFeedTab,
+  DashboardSummary,
+} from "@/lib/api";
 
 type DashboardOnboardingProps = {
+  activeEventTypes?: DashboardFeedEventType[];
+  activeFeedTab?: DashboardFeedTab;
   summary: DashboardSummary;
 };
 
@@ -146,7 +152,11 @@ function WelcomePanel({
   );
 }
 
-export function DashboardOnboarding({ summary }: DashboardOnboardingProps) {
+export function DashboardOnboarding(props: DashboardOnboardingProps) {
+  const { summary } = props;
+  const activeEventTypes =
+    props.activeEventTypes ?? summary.feedPreferences.eventTypes;
+  const activeFeedTab = props.activeFeedTab ?? summary.feedPreferences.feedTab;
   const userName = summary.user.display_name ?? summary.user.email;
   const initiallyDismissed = useMemo(
     () => summary.dismissedHints.map((hint) => hint.hintKey),
@@ -190,7 +200,7 @@ export function DashboardOnboarding({ summary }: DashboardOnboardingProps) {
   return (
     <div className="mx-auto grid max-w-7xl gap-8 px-6 py-8 lg:grid-cols-[296px_minmax(0,1fr)]">
       <DashboardTopRepositories repositories={summary.topRepositories.items} />
-      <div className="space-y-5">
+      <div className="min-w-0 space-y-5">
         {summary.repositories.total === 0 ? (
           <WelcomePanel
             dismissedHintKeys={dismissedHintSet}
@@ -200,7 +210,11 @@ export function DashboardOnboarding({ summary }: DashboardOnboardingProps) {
             userName={userName}
           />
         ) : (
-          <DashboardRepositoryFeed summary={summary} />
+          <DashboardRepositoryFeed
+            activeEventTypes={activeEventTypes}
+            activeFeedTab={activeFeedTab}
+            summary={summary}
+          />
         )}
       </div>
     </div>

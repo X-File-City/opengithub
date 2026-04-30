@@ -58,7 +58,7 @@ async function signIn(page: Page, seeded: SeededDashboard) {
 async function expectNoDeadDashboardControls(page: Page) {
   await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
 
-  for (const button of await page.locator("button").all()) {
+  for (const button of await page.locator("button:visible").all()) {
     await expect(button).toHaveAccessibleName(/.+/);
     await expect(button).not.toBeDisabled();
   }
@@ -108,19 +108,22 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
   await expect(page.getByText("Rust")).toBeVisible();
   await expect(page.getByText("TypeScript")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Recent activity" }),
+    page.getByRole("heading", { exact: true, name: "Dashboard feed" }),
   ).toBeVisible();
-  const recentActivity = page.locator(
-    'section[aria-labelledby="recent-activity-heading"]',
+  const dashboardFeed = page.locator(
+    'section[aria-labelledby="dashboard-feed-heading"]',
   );
   await expect(
-    recentActivity.getByRole("link", { name: "Fix dashboard setup workflow" }),
+    dashboardFeed.getByRole("link", {
+      name: "Asked for help reviewing dashboard feed",
+    }),
   ).toBeVisible();
   await expect(
-    recentActivity.getByRole("link", { name: "Add signed-in dashboard feed" }),
-  ).toBeVisible();
-  await expect(recentActivity.getByText(/#\d+/).first()).toBeVisible();
-  await expect(recentActivity.getByText("open").first()).toBeVisible();
+    dashboardFeed.getByRole("tab", { name: "Following" }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    dashboardFeed.getByRole("tab", { name: "For you" }),
+  ).toHaveAttribute("href", "/dashboard?feedTab=for_you");
 
   const topRepositories = page.getByRole("complementary", {
     name: "Top repositories",
@@ -138,20 +141,40 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
   await expect(page).toHaveURL(new RegExp(`${seeded.secondRepositoryHref}$`));
 
   await page.goto("/dashboard");
-  await recentActivity
-    .getByRole("link", { name: "Fix dashboard setup workflow" })
-    .click();
-  await expect(page).toHaveURL(/\/issues\/\d+$/);
-  await expect(page.getByRole("heading", { name: /Issue #\d+/ })).toBeVisible();
-
-  await page.goto("/dashboard");
-  await recentActivity
-    .getByRole("link", { name: "Add signed-in dashboard feed" })
+  await dashboardFeed
+    .getByRole("link", { name: "Asked for help reviewing dashboard feed" })
     .click();
   await expect(page).toHaveURL(/\/pull\/\d+$/);
   await expect(
     page.getByRole("heading", { name: /Pull request #\d+/ }),
   ).toBeVisible();
+
+  await page.goto("/dashboard");
+  await dashboardFeed.getByRole("tab", { name: "For you" }).click();
+  await expect(page).toHaveURL(/feedTab=for_you/);
+  await expect(
+    dashboardFeed.getByRole("link", {
+      name: "Published infrastructure preview",
+    }),
+  ).toBeVisible();
+
+  await dashboardFeed.locator("summary").click();
+  await dashboardFeed.getByLabel("Releases").check();
+  await dashboardFeed.getByRole("button", { name: "Apply" }).click();
+  await expect(page).toHaveURL(/eventType=release/);
+  await expect(
+    dashboardFeed.getByRole("link", {
+      name: "Published infrastructure preview",
+    }),
+  ).toBeVisible();
+  await expect(
+    dashboardFeed.getByRole("link", { name: "Pushed dashboard activity feed" }),
+  ).toHaveCount(0);
+
+  await dashboardFeed.locator("summary").click();
+  await dashboardFeed.getByRole("link", { name: "Clear filters" }).click();
+  await expect(page).toHaveURL(/feedTab=for_you/);
+  await expect(page).not.toHaveURL(/eventType=/);
 
   await page.goto("/dashboard");
   await newRepositoryLink.click();
@@ -185,7 +208,7 @@ test("signed-in dashboard has no dead controls on empty and non-empty states", a
   await page.goto("/dashboard");
 
   await expect(
-    page.getByRole("heading", { name: "Recent activity" }),
+    page.getByRole("heading", { exact: true, name: "Dashboard feed" }),
   ).toBeVisible();
   await expectNoDeadDashboardControls(page);
 });
@@ -203,7 +226,7 @@ test("signed-in dashboard stacks without horizontal scroll on mobile", async ({
     page.getByRole("heading", { name: "Top repositories" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Recent activity" }),
+    page.getByRole("heading", { exact: true, name: "Dashboard feed" }),
   ).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
@@ -211,7 +234,7 @@ test("signed-in dashboard stacks without horizontal scroll on mobile", async ({
     page.getByRole("complementary", { name: "Top repositories" }),
   );
   const feed = await boundingBoxFor(
-    page.locator('section[aria-labelledby="recent-activity-heading"]'),
+    page.locator('section[aria-labelledby="dashboard-feed-heading"]'),
   );
   expect(feed.y).toBeGreaterThan(sidebar.y + sidebar.height - 1);
 
@@ -238,7 +261,7 @@ test("signed-in dashboard keeps the sidebar and feed aligned on desktop", async 
     page.getByRole("complementary", { name: "Top repositories" }),
   );
   const feed = await boundingBoxFor(
-    page.locator('section[aria-labelledby="recent-activity-heading"]'),
+    page.locator('section[aria-labelledby="dashboard-feed-heading"]'),
   );
   expect(sidebar.width).toBeGreaterThanOrEqual(290);
   expect(sidebar.width).toBeLessThanOrEqual(306);

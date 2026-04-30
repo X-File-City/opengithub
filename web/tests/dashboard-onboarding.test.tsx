@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST as dismissHintRoute } from "@/app/dashboard/onboarding/hints/[hintKey]/route";
 import { DashboardOnboarding } from "@/components/DashboardOnboarding";
 import type {
-  DashboardActivityItem,
   DashboardFeedEvent,
   DashboardFeedPreferences,
   DashboardHintDismissal,
@@ -70,26 +69,6 @@ function dismissedHint(hintKey: string): DashboardHintDismissal {
   };
 }
 
-function activity(
-  overrides: Partial<DashboardActivityItem> = {},
-): DashboardActivityItem {
-  return {
-    id: "activity-1",
-    kind: "issue",
-    title: "Triage repository import failures",
-    number: 7,
-    state: "open",
-    repositoryName: "mona/octo-app",
-    repositoryHref: "/mona/octo-app",
-    href: "/mona/octo-app/issues/7",
-    occurredAt: "2026-04-30T12:30:00Z",
-    description: "Issue #7 is open",
-    actorLogin: "mona",
-    actorAvatarUrl: null,
-    ...overrides,
-  };
-}
-
 function feedEvent(
   overrides: Partial<DashboardFeedEvent> = {},
 ): DashboardFeedEvent {
@@ -149,7 +128,7 @@ function dashboardSummary({
 }: {
   repositories?: RepositorySummary[];
   topRepositories?: DashboardTopRepository[];
-  recentActivity?: DashboardActivityItem[];
+  recentActivity?: DashboardSummary["recentActivity"];
   assignedIssues?: DashboardIssueSummary[];
   reviewRequests?: DashboardReviewRequest[];
   dismissedHints?: DashboardHintDismissal[];
@@ -484,12 +463,12 @@ describe("dashboard onboarding", () => {
     expect(screen.getByText("TypeScript")).toBeInTheDocument();
     expect(screen.getByText("Updated Apr 30")).toBeInTheDocument();
     expect(screen.getByText("public")).toBeInTheDocument();
-    expect(screen.getByText("Recent activity")).toBeInTheDocument();
+    expect(screen.getByText("Dashboard feed")).toBeInTheDocument();
     expect(screen.getByText("Assigned issues")).toBeInTheDocument();
     expect(screen.getByText("Review requests")).toBeInTheDocument();
   });
 
-  it("renders recent activity empty-state actions when there are no qualifying issue or pull request updates", () => {
+  it("renders feed tabs, filter controls, and empty-state actions", () => {
     render(
       <DashboardOnboarding
         summary={dashboardSummary({
@@ -500,7 +479,37 @@ describe("dashboard onboarding", () => {
     );
 
     expect(
-      screen.getByText("There is no recent activity involving you."),
+      screen.getByRole("heading", { name: "Dashboard feed" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Following" })).toHaveAttribute(
+      "href",
+      "/dashboard?feedTab=following",
+    );
+    expect(screen.getByRole("tab", { name: "Following" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "For you" })).toHaveAttribute(
+      "href",
+      "/dashboard?feedTab=for_you",
+    );
+    fireEvent.click(screen.getByText("Filter"));
+    expect(screen.getByLabelText("Pushes")).toHaveAttribute("value", "push");
+    expect(screen.getByLabelText("Releases")).toHaveAttribute(
+      "value",
+      "release",
+    );
+    expect(screen.getByRole("button", { name: "Apply" })).toHaveAttribute(
+      "type",
+      "submit",
+    );
+    for (const link of screen.getAllByRole("link", {
+      name: "Clear filters",
+    })) {
+      expect(link).toHaveAttribute("href", "/dashboard?feedTab=following");
+    }
+    expect(
+      screen.getByText("No dashboard feed events match the current filters."),
     ).toBeInTheDocument();
     expect(
       screen.getAllByRole("link", { name: "Create repository" })[0],
@@ -510,27 +519,28 @@ describe("dashboard onboarding", () => {
     ).toHaveAttribute("href", "/explore");
   });
 
-  it("renders the non-empty activity feed from dashboard API rows", () => {
+  it("renders selected feed filters and event cards from dashboard API rows", () => {
     render(
       <DashboardOnboarding
+        activeEventTypes={["release", "fork"]}
+        activeFeedTab="for_you"
         summary={dashboardSummary({
           repositories: [repository()],
           topRepositories: [topRepository()],
-          recentActivity: [
-            activity({
-              kind: "issue",
-              title: "Wire dashboard feed",
-              number: 9,
-              href: "/mona/octo-app/issues/9",
-              description: "commented on issue #9",
+          feedEvents: [
+            feedEvent({
+              id: "event-1",
+              eventType: "release",
+              title: "Published dashboard feed preview",
+              targetHref: "/mona/octo-app/releases/tag/v0.1.0",
+              actionSummary: "mona released mona/octo-app",
             }),
-            activity({
-              id: "activity-2",
-              kind: "pull_request",
-              title: "Ship dashboard rail",
-              number: 12,
-              href: "/mona/octo-app/pull/12",
-              description: "opened pull request #12",
+            feedEvent({
+              id: "event-2",
+              eventType: "fork",
+              title: "Forked dashboard controls",
+              targetHref: "/mona/octo-app/network/members",
+              actionSummary: "mona forked mona/octo-app",
             }),
           ],
           assignedIssues: [assignedIssue()],
@@ -542,19 +552,27 @@ describe("dashboard onboarding", () => {
     expect(
       screen.queryByRole("heading", { name: "Start building on opengithub" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "For you" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "Following" })).toHaveAttribute(
+      "href",
+      "/dashboard?feedTab=following&eventType=release&eventType=fork",
+    );
+    fireEvent.click(screen.getByText("Filter"));
+    expect(screen.getByLabelText("Releases")).toBeChecked();
+    expect(screen.getByLabelText("Forks")).toBeChecked();
+    expect(screen.getByLabelText("Pushes")).not.toBeChecked();
     expect(
-      screen.getByRole("heading", { name: "Recent activity" }),
-    ).toBeInTheDocument();
+      screen.getByRole("link", { name: "Published dashboard feed preview" }),
+    ).toHaveAttribute("href", "/mona/octo-app/releases/tag/v0.1.0");
+    expect(screen.getByText("mona released mona/octo-app")).toBeInTheDocument();
+    expect(screen.getAllByText("Releases").length).toBeGreaterThan(0);
     expect(
-      screen.getByRole("link", { name: "Wire dashboard feed" }),
-    ).toHaveAttribute("href", "/mona/octo-app/issues/9");
-    expect(screen.getByText("commented on issue #9")).toBeInTheDocument();
-    expect(screen.getByText("#9")).toBeInTheDocument();
-    expect(screen.getAllByText("open").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("mona").length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("link", { name: "Ship dashboard rail" }),
-    ).toHaveAttribute("href", "/mona/octo-app/pull/12");
+      screen.getByRole("link", { name: "Forked dashboard controls" }),
+    ).toHaveAttribute("href", "/mona/octo-app/network/members");
+    expect(screen.getAllByText("Forks").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("link", { name: "Fix failing setup workflow" }),
     ).toHaveAttribute("href", "/mona/octo-app/issues/11");

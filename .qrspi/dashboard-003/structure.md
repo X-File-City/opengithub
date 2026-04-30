@@ -40,7 +40,7 @@
 
 ## Phase 3: Dashboard Feed Controls - Following/For you tabs and event filter dropdown work in the UI
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the static "Recent activity" section with the PRD feed surface: segmented Following/For you tabs, right-aligned Filter dropdown, checkbox event types, clear filters action, and feed cards with actor/repository metadata.
 
