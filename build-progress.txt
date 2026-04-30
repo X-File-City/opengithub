@@ -593,3 +593,13 @@
 - Browser smoke/E2E created a real repository, opened `src/main.rs`, verified blame attribution, permalink behavior, line jump, raw/download/history/Go to file flows, dead-control checks, and saved `ralph/screenshots/build/repo-005-phase3-blame-shortcuts.jpg`.
 - Verification: `make check` passed; `make test` passed with 71 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_blob_view -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 28 Playwright tests.
 - Marked Phase 3 as done in `.qrspi/repo-005/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.
+
+2026-04-30 - repo-005 phase 4 syntax highlighting and symbol entry points
+
+- Implemented Phase 4 from `.qrspi/repo-005/structure.md`: blob responses now include bounded fallback code symbols for Markdown headings, Rust/TypeScript/JavaScript/Python function-like declarations, and JSON keys; binary/large files return no symbols.
+- Installed and pinned `lowlight`/`highlight.js` for dependency-backed syntax highlighting and render highlighted AST nodes without `dangerouslySetInnerHTML`, preserving raw textarea accessibility and line anchors.
+- Replaced the Symbols placeholder link with a real searchable symbol panel that opens in the blob view, filters entries, and jumps to stable `#L<n>` line anchors.
+- Extended Rust, Vitest, and Playwright coverage for symbol extraction, binary symbol suppression, safe script-like source rendering, symbol panel filtering/navigation, dead controls, and the full blob browser flow.
+- Browser smoke/E2E created a real Rust-template repository, opened `src/main.rs`, verified syntax/symbol behavior, jumped to the `main` symbol, exercised raw/download/blame/history/Go to file flows, and saved `ralph/screenshots/build/repo-005-phase4-highlighting-symbols.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_blob_view -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 72 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 28 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/repo-005/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.

@@ -121,6 +121,14 @@ export type RepositoryBlobView = RepositorySummary & {
   rawApiHref: string;
   downloadApiHref: string;
   permalinkHref: string;
+  symbols: RepositoryCodeSymbol[];
+};
+
+export type RepositoryCodeSymbol = {
+  kind: string;
+  name: string;
+  lineNumber: number;
+  preview: string;
 };
 
 export type RepositoryBlameCommit = {

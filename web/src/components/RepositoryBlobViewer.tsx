@@ -1,18 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   RepositoryBranchSelector,
   RepositoryFileFinder,
 } from "@/components/RepositoryCodeToolbar";
 import type { RepositoryBlameView, RepositoryBlobView } from "@/lib/api";
+import {
+  type HighlightNode,
+  highlightCodeLine,
+} from "@/lib/syntax-highlighter";
 
 type RepositoryBlobViewerProps = {
   blob: RepositoryBlobView;
   initialBlame?: RepositoryBlameView | null;
   initialMode?: "code" | "blame";
+  initialSymbolsOpen?: boolean;
 };
 
 function splitPath(path: string) {
@@ -78,14 +83,40 @@ function LineNumber({ line }: { line: number }) {
   );
 }
 
+function highlightedText(node: HighlightNode): string {
+  if (node.type === "text") {
+    return node.value;
+  }
+  return (node.children ?? []).map(highlightedText).join("");
+}
+
+function HighlightedCode({ nodes }: { nodes: HighlightNode[] }): ReactNode {
+  return nodes.map((node) => {
+    if (node.type === "text") {
+      return node.value;
+    }
+    const className = node.properties?.className?.join(" ");
+    return (
+      <span
+        className={className}
+        key={`${node.tagName}-${className ?? "plain"}-${highlightedText(node)}`}
+      >
+        <HighlightedCode nodes={node.children ?? []} />
+      </span>
+    );
+  });
+}
+
 function BlobToolbar({
   blob,
   mode,
   onLineJump,
+  onSymbolsOpen,
 }: {
   blob: RepositoryBlobView;
   mode: "code" | "blame";
   onLineJump: () => void;
+  onSymbolsOpen: () => void;
 }) {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const base = repositoryBase(blob);
@@ -134,12 +165,13 @@ function BlobToolbar({
         {blob.language ? ` · ${blob.language}` : ""}
       </span>
       <div className="ml-auto flex flex-wrap items-center gap-2 max-md:ml-0">
-        <Link
+        <button
           className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
-          href={`${current}?symbols=1`}
+          onClick={onSymbolsOpen}
+          type="button"
         >
           Symbols
-        </Link>
+        </button>
         {!blob.isBinary && !blob.isLarge ? (
           <button
             className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
@@ -276,6 +308,14 @@ function BinaryFallback({ blob }: RepositoryBlobViewerProps) {
 function CodeTable({ blob }: RepositoryBlobViewerProps) {
   const content = blob.displayContent ?? blob.file.content;
   const rows = useMemo(() => lineRows(content), [content]);
+  const highlightedRows = useMemo(
+    () =>
+      rows.map((line) => ({
+        line,
+        nodes: highlightCodeLine(line, blob.language),
+      })),
+    [blob.language, rows],
+  );
 
   return (
     <>
@@ -287,7 +327,7 @@ function CodeTable({ blob }: RepositoryBlobViewerProps) {
       />
       <table className="w-full table-fixed border-collapse font-mono text-xs leading-5">
         <tbody>
-          {rows.map((line, index) => {
+          {highlightedRows.map(({ line, nodes }, index) => {
             const lineNumber = index + 1;
             return (
               <tr
@@ -297,8 +337,14 @@ function CodeTable({ blob }: RepositoryBlobViewerProps) {
                 <td className="w-16 border-r border-[#d0d7de] bg-[#f6f8fa]">
                   <LineNumber line={lineNumber} />
                 </td>
-                <td className="whitespace-pre-wrap break-words px-4 text-[#1f2328]">
-                  {line || " "}
+                <td className="whitespace-pre-wrap break-words px-4 text-[#1f2328] [&_.hljs-attr]:text-[#0550ae] [&_.hljs-built_in]:text-[#8250df] [&_.hljs-comment]:text-[#6e7781] [&_.hljs-keyword]:font-semibold [&_.hljs-keyword]:text-[#cf222e] [&_.hljs-literal]:text-[#0550ae] [&_.hljs-number]:text-[#0550ae] [&_.hljs-string]:text-[#0a3069] [&_.hljs-title]:text-[#6639ba] [&_.hljs-type]:text-[#953800]">
+                  {line ? (
+                    <span>
+                      <HighlightedCode nodes={nodes} />
+                    </span>
+                  ) : (
+                    " "
+                  )}
                 </td>
               </tr>
             );
@@ -306,6 +352,94 @@ function CodeTable({ blob }: RepositoryBlobViewerProps) {
         </tbody>
       </table>
     </>
+  );
+}
+
+function SymbolPanel({
+  blob,
+  onClose,
+}: {
+  blob: RepositoryBlobView;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const symbols = blob.symbols.filter((symbol) => {
+    if (!normalizedQuery) {
+      return true;
+    }
+    return (
+      symbol.name.toLowerCase().includes(normalizedQuery) ||
+      symbol.preview.toLowerCase().includes(normalizedQuery) ||
+      symbol.kind.toLowerCase().includes(normalizedQuery)
+    );
+  });
+
+  function jumpToLine(lineNumber: number) {
+    const target = document.getElementById(`L${lineNumber}`);
+    target?.scrollIntoView({ block: "center" });
+    target?.focus();
+    window.history.replaceState(null, "", `#L${lineNumber}`);
+    onClose();
+  }
+
+  return (
+    <aside
+      aria-label="File symbols"
+      className="rounded-md border border-[#d0d7de] bg-white p-3"
+    >
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-[#1f2328]">Symbols</h2>
+        <button
+          className="ml-auto inline-flex h-7 items-center rounded-md border border-[#d0d7de] bg-white px-2 text-xs font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
+          onClick={onClose}
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+      <label className="mt-3 block text-xs font-semibold text-[#59636e]">
+        Filter symbols
+        <input
+          className="mt-1 h-8 w-full rounded-md border border-[#d0d7de] px-2 text-sm font-normal text-[#1f2328]"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search file symbols"
+          type="search"
+          value={query}
+        />
+      </label>
+      <div className="mt-3 max-h-80 overflow-auto">
+        {symbols.length > 0 ? (
+          <ul className="space-y-1">
+            {symbols.map((symbol) => (
+              <li key={`${symbol.lineNumber}-${symbol.name}`}>
+                <button
+                  className="grid w-full grid-cols-[1fr_auto] gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[#f6f8fa]"
+                  onClick={() => jumpToLine(symbol.lineNumber)}
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[#0969da]">
+                      {symbol.name}
+                    </span>
+                    <span className="block truncate font-mono text-xs text-[#59636e]">
+                      {symbol.preview}
+                    </span>
+                  </span>
+                  <span className="text-xs text-[#59636e]">
+                    L{symbol.lineNumber}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-md bg-[#f6f8fa] p-3 text-sm text-[#59636e]">
+            No symbols found for this file.
+          </p>
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -430,8 +564,10 @@ export function RepositoryBlobViewer({
   blob,
   initialBlame,
   initialMode = "code",
+  initialSymbolsOpen = false,
 }: RepositoryBlobViewerProps) {
   const [lineJumpOpen, setLineJumpOpen] = useState(false);
+  const [symbolsOpen, setSymbolsOpen] = useState(initialSymbolsOpen);
   const mode =
     initialMode === "blame" && !blob.isBinary && !blob.isLarge
       ? "blame"
@@ -579,6 +715,7 @@ export function RepositoryBlobViewer({
               blob={blob}
               mode={mode}
               onLineJump={() => setLineJumpOpen(true)}
+              onSymbolsOpen={() => setSymbolsOpen(true)}
             />
           </div>
           {blob.isBinary || blob.isLarge ? (
@@ -602,6 +739,9 @@ export function RepositoryBlobViewer({
             }
             onClose={() => setLineJumpOpen(false)}
           />
+        ) : null}
+        {symbolsOpen ? (
+          <SymbolPanel blob={blob} onClose={() => setSymbolsOpen(false)} />
         ) : null}
       </div>
     </section>

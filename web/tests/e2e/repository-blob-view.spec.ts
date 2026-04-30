@@ -115,10 +115,19 @@ test("signed-in blob page exposes file header actions and code line anchors", as
     "href",
     new RegExp(`/${repositoryName}/blob/main/src/main\\.rs\\?view=blame$`),
   );
-  await expect(page.getByRole("link", { name: "Symbols" })).toHaveAttribute(
-    "href",
-    new RegExp(`/${repositoryName}/blob/main/src/main\\.rs\\?symbols=1$`),
-  );
+  await expect(page.getByRole("button", { name: "Symbols" })).toBeVisible();
+  await page.getByRole("button", { name: "Symbols" }).click();
+  await expect(
+    page.getByRole("complementary", { name: "File symbols" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /main/ })).toBeVisible();
+  await page.getByLabel("Filter symbols").fill("main");
+  await page.getByRole("button", { name: /main/ }).click();
+  await expect(page).toHaveURL(/#L4$/);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-005-phase4-highlighting-symbols.jpg",
+  });
 
   await page.getByRole("button", { name: "Copy raw" }).click();
   await expect(page.getByRole("status")).toHaveText(/copied|unavailable/);

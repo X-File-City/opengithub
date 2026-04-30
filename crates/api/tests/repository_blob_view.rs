@@ -249,6 +249,10 @@ async fn repository_blob_contract_streams_raw_downloads_and_records_visits() {
         body["displayContent"],
         "fn main() {\n    println!(\"hello\");\n}\n"
     );
+    assert_eq!(body["symbols"][0]["kind"], "function");
+    assert_eq!(body["symbols"][0]["name"], "main");
+    assert_eq!(body["symbols"][0]["lineNumber"], 1);
+    assert_eq!(body["symbols"][0]["preview"], "fn main() {");
     assert_eq!(body["latestPathCommit"]["message"], "Add blob fixtures");
     assert!(body["rawApiHref"].as_str().unwrap().ends_with("&raw=1"));
     assert!(body["downloadApiHref"]
@@ -317,7 +321,10 @@ async fn repository_blob_contract_streams_raw_downloads_and_records_visits() {
     assert_eq!(blame_body["lines"].as_array().unwrap().len(), 3);
     assert_eq!(blame_body["lines"][0]["lineNumber"], 1);
     assert_eq!(blame_body["lines"][0]["content"], "fn main() {");
-    assert_eq!(blame_body["lines"][0]["commit"]["message"], "Add blob fixtures");
+    assert_eq!(
+        blame_body["lines"][0]["commit"]["message"],
+        "Add blob fixtures"
+    );
     assert!(blame_body["lines"][0]["commit"]["authorLogin"]
         .as_str()
         .unwrap()
@@ -336,6 +343,7 @@ async fn repository_blob_contract_streams_raw_downloads_and_records_visits() {
     assert_eq!(binary_status, StatusCode::OK);
     assert_eq!(binary_body["renderMode"], "binary");
     assert_eq!(binary_body["displayContent"], Value::Null);
+    assert_eq!(binary_body["symbols"].as_array().unwrap().len(), 0);
 
     let (large_status, large_body) = send_json(
         app.clone(),

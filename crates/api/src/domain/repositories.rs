@@ -165,6 +165,16 @@ pub struct RepositoryBlobView {
     pub raw_api_href: String,
     pub download_api_href: String,
     pub permalink_href: String,
+    pub symbols: Vec<RepositoryCodeSymbol>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryCodeSymbol {
+    pub kind: String,
+    pub name: String,
+    pub line_number: i64,
+    pub preview: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1393,6 +1403,11 @@ async fn repository_blob_for_actor(
                 )
             })
             .unwrap_or_else(|| repository_blob_href(&repository, &ref_name, &path)),
+        symbols: if is_binary || is_large {
+            Vec::new()
+        } else {
+            symbols_for_file(&path, &file.content)
+        },
         path,
         file,
         latest_commit,
@@ -1408,7 +1423,8 @@ async fn repository_blame_for_actor(
     ref_name: Option<&str>,
     path: &str,
 ) -> Result<RepositoryBlameView, RepositoryError> {
-    let blob = repository_blob_for_actor(pool, repository.clone(), actor_user_id, ref_name, path).await?;
+    let blob =
+        repository_blob_for_actor(pool, repository.clone(), actor_user_id, ref_name, path).await?;
     if blob.is_binary || blob.is_large {
         return Err(repository_path_not_found_error(&repository, &blob.path));
     }
@@ -2981,6 +2997,102 @@ fn loc_count(content: &str) -> i64 {
         .lines()
         .filter(|line| !line.trim().is_empty())
         .count() as i64
+}
+
+fn symbols_for_file(path: &str, content: &str) -> Vec<RepositoryCodeSymbol> {
+    let language = language_for_path(path)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    content
+        .lines()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            symbol_for_line(&language, line).map(|(kind, name)| RepositoryCodeSymbol {
+                kind,
+                name,
+                line_number: (index + 1) as i64,
+                preview: line.trim().chars().take(120).collect(),
+            })
+        })
+        .take(50)
+        .collect()
+}
+
+fn symbol_for_line(language: &str, line: &str) -> Option<(String, String)> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if language == "markdown" {
+        return markdown_symbol(trimmed);
+    }
+    if language == "json" {
+        return json_symbol(trimmed);
+    }
+    if matches!(language, "rust" | "typescript" | "javascript" | "python") {
+        return function_symbol(trimmed);
+    }
+    None
+}
+
+fn markdown_symbol(trimmed: &str) -> Option<(String, String)> {
+    let hashes = trimmed
+        .chars()
+        .take_while(|character| *character == '#')
+        .count();
+    if !(1..=6).contains(&hashes) || !trimmed.chars().nth(hashes).is_some_and(char::is_whitespace) {
+        return None;
+    }
+    let name = trimmed[hashes..].trim();
+    if name.is_empty() {
+        None
+    } else {
+        Some(("heading".to_owned(), name.chars().take(80).collect()))
+    }
+}
+
+fn json_symbol(trimmed: &str) -> Option<(String, String)> {
+    if !trimmed.starts_with('"') || trimmed.starts_with("\"$schema\"") {
+        return None;
+    }
+    let end = trimmed[1..].find('"')? + 1;
+    if !trimmed[end + 1..].trim_start().starts_with(':') {
+        return None;
+    }
+    Some(("key".to_owned(), trimmed[1..end].chars().take(80).collect()))
+}
+
+fn function_symbol(trimmed: &str) -> Option<(String, String)> {
+    let candidates = [
+        "pub async fn ",
+        "pub fn ",
+        "async fn ",
+        "fn ",
+        "export async function ",
+        "export function ",
+        "function ",
+        "export const ",
+        "const ",
+        "def ",
+        "async def ",
+    ];
+    let candidate = candidates
+        .iter()
+        .find_map(|prefix| trimmed.strip_prefix(prefix).map(|rest| (*prefix, rest)))?;
+    let mut name = candidate.1.trim_start();
+    if candidate.0.ends_with("const ") {
+        name = name.split('=').next()?.trim();
+    } else {
+        name = name
+            .split(|character: char| character == '(' || character.is_whitespace())
+            .next()?;
+    }
+    if name.is_empty() {
+        None
+    } else {
+        Some(("function".to_owned(), name.chars().take(80).collect()))
+    }
 }
 
 fn format_byte_size(byte_size: i64) -> String {

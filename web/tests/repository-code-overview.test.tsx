@@ -269,6 +269,14 @@ function blobView(): RepositoryBlobView {
     downloadApiHref:
       "/api/repos/mona/octo-app/blobs/src/index.ts?ref=main&download=1",
     permalinkHref: "/mona/octo-app/blob/abcdef1234567890/src/index.ts",
+    symbols: [
+      {
+        kind: "function",
+        name: "answer",
+        lineNumber: 1,
+        preview: "export const answer = 42;",
+      },
+    ],
   };
 }
 
@@ -693,10 +701,7 @@ describe("RepositoryCodeOverview", () => {
       "href",
       "/mona/octo-app/blob/main/src/index.ts?view=blame",
     );
-    expect(screen.getByRole("link", { name: "Symbols" })).toHaveAttribute(
-      "href",
-      "/mona/octo-app/blob/main/src/index.ts?symbols=1",
-    );
+    expect(screen.getByRole("button", { name: "Symbols" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Line 1" })).toHaveAttribute(
       "href",
       "#L1",
@@ -710,6 +715,42 @@ describe("RepositoryCodeOverview", () => {
     for (const button of container.querySelectorAll("button")) {
       expect(button).toHaveAccessibleName();
     }
+  });
+
+  it("renders highlighted code safely and navigates through the symbol panel", () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    window.history.pushState(null, "", "/mona/octo-app/blob/main/src/index.ts");
+    render(
+      <RepositoryBlobViewPage
+        blob={{
+          ...blobView(),
+          displayContent: 'export const answer = "<script>";\n',
+          file: {
+            ...blobView().file,
+            content: 'export const answer = "<script>";\n',
+          },
+        }}
+        initialSymbolsOpen
+      />,
+    );
+
+    expect(screen.getByLabelText("Raw contents of src/index.ts")).toHaveValue(
+      'export const answer = "<script>";\n',
+    );
+    expect(document.querySelector("script")).toBeNull();
+    expect(
+      screen.getByRole("complementary", { name: "File symbols" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: /answer/ })).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("Filter symbols"), {
+      target: { value: "ans" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /answer/ }));
+    expect(window.location.hash).toBe("#L1");
+    expect(
+      screen.queryByRole("complementary", { name: "File symbols" }),
+    ).toBeNull();
   });
 
   it("renders blame attribution and keeps code mode reachable", () => {

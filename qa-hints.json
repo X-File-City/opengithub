@@ -836,5 +836,22 @@
       "Binary and large files intentionally reject blame and stay on Raw/Download fallbacks; final security QA should probe malformed paths and private raw/download/blame combinations",
       "Permalink conversion uses the latest path commit SHA from metadata; retest with branch names containing slashes and older historical commits when real Git refs expand"
     ]
+  },
+  {
+    "feature_id": "repo-005",
+    "tests_written": [
+      "Added fallback code symbols to the Rust blob contract for Markdown headings, Rust/TypeScript/JavaScript/Python function-like declarations, and JSON keys, with binary and large files returning an empty symbol list",
+      "Installed and pinned lowlight/highlight.js-backed frontend highlighting and render highlighted AST nodes without dangerouslySetInnerHTML",
+      "Replaced the inert Symbols destination with a searchable symbol panel that filters symbols and jumps to stable line anchors",
+      "Vitest covers safe highlighted rendering for script-like source text, symbol panel filtering/navigation, raw textarea preservation, and dead-control checks",
+      "Playwright creates a real repository, opens src/main.rs, verifies the Symbols panel, filters to main, jumps to #L4, exercises existing raw/download/blame/history flows, scans dead controls, and saves ralph/screenshots/build/repo-005-phase4-highlighting-symbols.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test repository_blob_view -- --nocapture, make check, make test with 72 web tests, and make test-e2e with 28 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Syntax highlighting is limited to the lowlight common language set plus the local language alias map; QA should compare Rust, TypeScript, JSON, Markdown, and unsupported extensions visually",
+      "Symbol extraction is deterministic fallback parsing, not a full language server or tree-sitter index; nested classes, multiline declarations, and overloaded symbols need deeper QA later",
+      "The symbol panel closes after navigation and updates the hash only; QA should test keyboard focus and screen-reader behavior in the final accessibility/security pass",
+      "Binary and large files intentionally have no symbols and keep Raw/Download fallbacks; retest with real Git object storage once byte-perfect blobs land"
+    ]
   }
 ]

@@ -95,10 +95,12 @@ export function RepositoryBlobViewPage({
   blob,
   initialBlame,
   initialMode,
+  initialSymbolsOpen,
 }: {
   blob: RepositoryBlobView;
   initialBlame?: RepositoryBlameView | null;
   initialMode?: "code" | "blame";
+  initialSymbolsOpen?: boolean;
 }) {
   return (
     <div>
@@ -114,6 +116,7 @@ export function RepositoryBlobViewPage({
           blob={blob}
           initialBlame={initialBlame}
           initialMode={initialMode}
+          initialSymbolsOpen={initialSymbolsOpen}
         />
       </main>
     </div>

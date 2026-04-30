@@ -57,7 +57,7 @@
 
 ## Phase 4: Syntax Highlighting and Symbol Entry Points - code view is readable and extensible
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add dependency-backed syntax highlighting for common source files and a non-inert symbol entry point. The symbol pane can start with indexed headings/functions from stored metadata or a deterministic file-outline fallback, but it must open, search/filter, and navigate to line anchors without requiring a future feature to make the button useful.
 

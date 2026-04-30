@@ -16,6 +16,7 @@ type RepositoryBlobPageProps = {
   }>;
   searchParams: Promise<{
     view?: string;
+    symbols?: string;
   }>;
 };
 
@@ -23,7 +24,7 @@ export default async function RepositoryBlobPage({
   params,
   searchParams,
 }: RepositoryBlobPageProps) {
-  const [{ owner, repo, ref, path = [] }, { view }, session] =
+  const [{ owner, repo, ref, path = [] }, { view, symbols }, session] =
     await Promise.all([params, searchParams, getSession()]);
   const ownerLogin = decodeURIComponent(owner);
   const repositoryName = decodeURIComponent(repo);
@@ -55,6 +56,7 @@ export default async function RepositoryBlobPage({
           blob={blob}
           initialBlame={blame}
           initialMode={view === "blame" ? "blame" : "code"}
+          initialSymbolsOpen={symbols === "1"}
         />
       ) : (
         <section className="mx-auto max-w-6xl px-6 py-8">
