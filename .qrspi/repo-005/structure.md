@@ -23,7 +23,7 @@
 
 ## Phase 2: Code Viewer UI and File Header Actions - render the GitHub-style blob surface
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the simple `<pre>` preview with a repository split-pane blob page matching the inspected GitHub file view: branch selector, breadcrumbs, Go to file, latest commit strip, Code/Blame toggle, metadata text, line numbers, hoverable anchors, Raw, copy raw, download, symbol pane, and more-actions controls. Every rendered control either performs a real action or reaches a real route.
 

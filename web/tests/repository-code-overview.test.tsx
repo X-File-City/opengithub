@@ -645,10 +645,12 @@ describe("RepositoryCodeOverview", () => {
   });
 
   it("renders blob previews with raw, download, parent, and history actions", () => {
-    render(<RepositoryBlobViewPage blob={blobView()} />);
+    const { container } = render(<RepositoryBlobViewPage blob={blobView()} />);
 
     expect(screen.getByRole("heading", { name: "src/index.ts" })).toBeVisible();
-    expect(screen.getByText("export const answer = 42;")).toBeVisible();
+    expect(screen.getAllByText("export const answer = 42;")).not.toHaveLength(
+      0,
+    );
     expect(screen.getByRole("link", { name: "Parent" })).toHaveAttribute(
       "href",
       "/mona/octo-app/tree/main/src",
@@ -659,7 +661,111 @@ describe("RepositoryCodeOverview", () => {
     );
     expect(screen.getByRole("link", { name: "Raw" })).toHaveAttribute(
       "href",
-      "/mona/octo-app/src/index.ts?raw=1",
+      "/mona/octo-app/raw/main/src/index.ts",
+    );
+    expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/download/main/src/index.ts",
+    );
+    expect(screen.getByRole("link", { name: "Blame" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/blob/main/src/index.ts?view=blame",
+    );
+    expect(screen.getByRole("link", { name: "Symbols" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/blob/main/src/index.ts?symbols=1",
+    );
+    expect(screen.getByRole("link", { name: "Line 1" })).toHaveAttribute(
+      "href",
+      "#L1",
+    );
+    expect(screen.getByLabelText("Raw contents of src/index.ts")).toHaveValue(
+      "export const answer = 42;\n",
+    );
+    expect(
+      container.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+    for (const button of container.querySelectorAll("button")) {
+      expect(button).toHaveAccessibleName();
+    }
+  });
+
+  it("copies blob raw content through the same-origin raw route", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      return new Response("export const answer = 42;\n", { status: 200 });
+    });
+
+    render(<RepositoryBlobViewPage blob={blobView()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy raw" }));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/mona/octo-app/raw/main/src/index.ts",
+      );
+      expect(writeText).toHaveBeenCalledWith("export const answer = 42;\n");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Raw content copied",
+      );
+    });
+  });
+
+  it("renders non-renderable blob states with working raw and download actions", () => {
+    render(
+      <RepositoryBlobViewPage
+        blob={{
+          ...blobView(),
+          isBinary: true,
+          renderMode: "binary",
+          displayContent: null,
+          lineCount: 0,
+          locCount: 0,
+          sizeLabel: "1.0 MB",
+          file: {
+            ...blobView().file,
+            path: "bin/app.bin",
+            content: "\u0000\u0001",
+            byteSize: 1_048_576,
+          },
+          path: "bin/app.bin",
+          pathName: "app.bin",
+          breadcrumbs: [
+            {
+              name: "octo-app",
+              path: "",
+              href: "/mona/octo-app/tree/main",
+            },
+            {
+              name: "bin",
+              path: "bin",
+              href: "/mona/octo-app/tree/main/bin",
+            },
+            {
+              name: "app.bin",
+              path: "bin/app.bin",
+              href: "/mona/octo-app/tree/main/bin/app.bin",
+            },
+          ],
+          parentHref: "/mona/octo-app/tree/main/bin",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("This binary file cannot be previewed inline."),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open raw file" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/raw/main/bin/app.bin",
+    );
+    expect(screen.getByRole("link", { name: "Download file" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/download/main/bin/app.bin",
     );
   });
 

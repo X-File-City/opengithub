@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { RepositoryBlobViewer } from "@/components/RepositoryBlobViewer";
 import { RepositoryTreeBrowser } from "@/components/RepositoryTreeBrowser";
 import type {
   ListEnvelope,
@@ -90,7 +91,6 @@ export function RepositoryTreeView({
 }
 
 export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
-  const displayContent = blob.displayContent ?? blob.file.content;
   return (
     <div>
       <RepositoryPathHeader
@@ -101,57 +101,7 @@ export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
         <Breadcrumbs breadcrumbs={blob.breadcrumbs} />
       </RepositoryPathHeader>
       <main className="mx-auto max-w-7xl space-y-4 px-6 py-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-lg font-semibold text-[#1f2328]">
-              {blob.path}
-            </h1>
-            <p className="mt-1 text-sm text-[#59636e]">
-              {blob.lineCount} lines ({blob.locCount} loc) · {blob.sizeLabel}
-              {blob.language ? ` · ${blob.language}` : ""}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {blob.parentHref ? (
-              <Link
-                className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-                href={blob.parentHref}
-              >
-                Parent
-              </Link>
-            ) : null}
-            <Link
-              className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-              href={blob.historyHref}
-            >
-              History
-            </Link>
-            <Link
-              className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-              href={blob.rawHref}
-            >
-              Raw
-            </Link>
-            <Link
-              className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-              href={blob.downloadHref}
-            >
-              Download
-            </Link>
-          </div>
-        </div>
-        <section className="overflow-hidden rounded-md border border-[#d0d7de] bg-white">
-          {blob.isBinary || blob.isLarge ? (
-            <div className="p-6 text-sm text-[#59636e]">
-              This file cannot be previewed inline yet. Use Raw or Download to
-              inspect the stored blob.
-            </div>
-          ) : (
-            <pre className="max-h-[720px] overflow-auto p-4 text-xs leading-5 text-[#1f2328]">
-              <code>{displayContent}</code>
-            </pre>
-          )}
-        </section>
+        <RepositoryBlobViewer blob={blob} />
       </main>
     </div>
   );

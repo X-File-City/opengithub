@@ -183,7 +183,9 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
   await expect(
     page.getByRole("heading", { name: "src/main.rs" }),
   ).toBeVisible();
-  await expect(page.getByText(/tokio::main/)).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "#[tokio::main]" }),
+  ).toBeVisible();
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/repo-003-final-blob.jpg",

@@ -803,5 +803,21 @@
       "Raw/download currently stream stored text content from Postgres; byte-perfect binary streaming should be revisited with the future git object storage layer",
       "Large-file cutoff is 512 KiB for inline rendering and should be compared against UX expectations during final blob QA"
     ]
+  },
+  {
+    "feature_id": "repo-005",
+    "tests_written": [
+      "Added RepositoryBlobViewer with split-pane file navigation, branch selector, Go to file, latest commit strip, Code/Blame toggle destinations, metadata text, line anchors, hidden raw textarea, and binary/large fallback states",
+      "Added same-origin Next.js raw and download route handlers that forward signed cookies to the Rust blob streaming API",
+      "Extended Vitest coverage for raw/download/copy action wiring, line anchors, no dead links/buttons, and non-renderable binary fallback actions",
+      "Added Playwright E2E that creates a real repository, opens src/main.rs, verifies line anchors and raw textarea, clicks Raw/Download/History, uses Go to file, scans dead controls, and saves ralph/screenshots/build/repo-005-phase2-blob-view.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test, and make test-e2e with 28 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Copy raw depends on browser clipboard permissions; the UI shows success or unavailable feedback, but QA should test permission behavior across browsers",
+      "Blame and Symbols controls intentionally route to real same-page destinations for this phase; line attribution and symbol panel behavior are later repo-005 phases",
+      "Raw/download are same-origin proxies over the Rust API so signed cookies are preserved; QA should retest filename and content-type edge cases in the final security phase",
+      "The file tree sidebar is path-aware, not a full recursive repository explorer; compare against GitHub after symbol and blame interactions land"
+    ]
   }
 ]

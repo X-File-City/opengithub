@@ -575,3 +575,12 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_blob_view -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 67 frontend tests plus cargo tests.
 - Browser smoke test skipped because this phase is backend/API contract only; the full blob viewer UI and screenshots are Phase 2.
 - Marked Phase 1 as done in `.qrspi/repo-005/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
+
+2026-04-30 - repo-005 phase 2 code viewer UI and file header actions
+
+- Implemented Phase 2 from `.qrspi/repo-005/structure.md`: replaced the simple blob preview with a GitHub-style split-pane file viewer, file breadcrumbs/title, branch selector, Go to file control, latest commit strip, Code/Blame toggle links, metadata line, line-numbered code table, hidden raw textarea, Raw, Copy raw, Download, Symbols, More, and binary/large fallback states.
+- Added same-origin Next.js raw/download route handlers under `/{owner}/{repo}/raw/{ref}/{path}` and `/{owner}/{repo}/download/{ref}/{path}` that forward signed cookies to the Rust blob streaming API.
+- Extended `web/tests/repository-code-overview.test.tsx` for blob metadata/actions, copy raw behavior, line anchors, non-renderable fallback states, and no dead controls; added `web/tests/e2e/repository-blob-view.spec.ts` for real browser coverage.
+- Browser smoke: Playwright created a real Rust-template repository, opened `/blob/main/src/main.rs`, verified line anchors/raw textarea, clicked Raw/Download/History, used Go to file, scanned for dead controls, and saved `ralph/screenshots/build/repo-005-phase2-blob-view.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 69 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 28 Playwright tests.
+- Marked Phase 2 as done in `.qrspi/repo-005/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
