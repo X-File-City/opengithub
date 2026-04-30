@@ -129,6 +129,10 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
           description,
           visibility,
           defaultBranch: "main",
+          initializeReadme,
+          templateSlug,
+          gitignoreTemplateSlug: gitignoreSlug || null,
+          licenseTemplateSlug: licenseSlug || null,
         }),
       });
       const body = await response.json();

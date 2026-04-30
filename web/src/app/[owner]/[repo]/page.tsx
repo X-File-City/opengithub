@@ -49,11 +49,40 @@ export default async function RepositoryOverviewPage({
             </div>
             <div className="rounded-md border border-[#d0d7de] bg-white p-5">
               <h2 className="text-base font-semibold text-[#1f2328]">Code</h2>
-              <p className="mt-2 text-sm leading-6 text-[#59636e]">
-                This repository is ready. Add a README, push an existing
-                project, or choose bootstrap files in the next creation phase.
-              </p>
+              {repository.files.length > 0 ? (
+                <div className="mt-4 overflow-hidden rounded-md border border-[#d0d7de]">
+                  {repository.files.map((file) => (
+                    <Link
+                      className="flex items-center justify-between border-b border-[#d0d7de] px-4 py-3 text-sm last:border-b-0 hover:bg-[#f6f8fa]"
+                      href={`/${repository.owner_login}/${repository.name}/blob/${repository.default_branch}/${file.path}`}
+                      key={file.id}
+                    >
+                      <span className="font-mono text-[#0969da]">
+                        {file.path}
+                      </span>
+                      <span className="text-xs text-[#59636e]">
+                        {file.byteSize} bytes
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm leading-6 text-[#59636e]">
+                  This repository is ready. Add a README, push an existing
+                  project, or create a new file to get started.
+                </p>
+              )}
             </div>
+            {repository.readme ? (
+              <article className="rounded-md border border-[#d0d7de] bg-white">
+                <h2 className="border-b border-[#d0d7de] px-4 py-3 text-sm font-semibold text-[#1f2328]">
+                  README.md
+                </h2>
+                <pre className="whitespace-pre-wrap px-4 py-4 text-sm leading-6 text-[#1f2328]">
+                  {repository.readme.content}
+                </pre>
+              </article>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-md border border-[#d0d7de] bg-white p-5">

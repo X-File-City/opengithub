@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
@@ -71,6 +72,28 @@ pub struct Repository {
     pub created_by_user_id: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryFile {
+    pub id: Uuid,
+    pub repository_id: Uuid,
+    pub commit_id: Uuid,
+    pub path: String,
+    pub content: String,
+    pub oid: String,
+    pub byte_size: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryOverview {
+    #[serde(flatten)]
+    pub repository: Repository,
+    pub files: Vec<RepositoryFile>,
+    pub readme: Option<RepositoryFile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -180,6 +203,21 @@ pub struct CreateRepository {
     pub created_by_user_id: Uuid,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RepositoryBootstrapRequest {
+    pub initialize_readme: bool,
+    pub template_slug: Option<String>,
+    pub gitignore_template_slug: Option<String>,
+    pub license_template_slug: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BootstrapFile {
+    pub path: String,
+    pub content: String,
+    pub oid: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateCommit {
     pub oid: String,
@@ -207,6 +245,12 @@ pub enum RepositoryError {
     InvalidName(String),
     #[error("invalid repository description `{0}`")]
     InvalidDescription(String),
+    #[error("unknown repository template `{0}`")]
+    UnknownTemplate(String),
+    #[error("unknown gitignore template `{0}`")]
+    UnknownGitignoreTemplate(String),
+    #[error("unknown license template `{0}`")]
+    UnknownLicenseTemplate(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 }
@@ -384,6 +428,14 @@ pub async fn create_repository(
     pool: &PgPool,
     input: CreateRepository,
 ) -> Result<Repository, RepositoryError> {
+    create_repository_with_bootstrap(pool, input, RepositoryBootstrapRequest::default()).await
+}
+
+pub async fn create_repository_with_bootstrap(
+    pool: &PgPool,
+    input: CreateRepository,
+    bootstrap: RepositoryBootstrapRequest,
+) -> Result<Repository, RepositoryError> {
     ensure_owner_can_create(pool, &input.owner, input.created_by_user_id).await?;
     let normalized_name = normalize_repository_name(&input.name);
     validate_repository_name(&normalized_name).map_err(RepositoryError::InvalidName)?;
@@ -431,7 +483,38 @@ pub async fn create_repository(
     )
     .await?;
     ensure_default_repository_labels(pool, repository.id).await?;
+    bootstrap_repository(pool, &repository, input.created_by_user_id, &bootstrap).await?;
     Ok(repository)
+}
+
+pub async fn repository_overview_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+) -> Result<Option<RepositoryOverview>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(repository_overview(pool, repository).await?))
+}
+
+pub async fn repository_overview(
+    pool: &PgPool,
+    repository: Repository,
+) -> Result<RepositoryOverview, RepositoryError> {
+    let files = list_repository_files(pool, repository.id).await?;
+    let readme = files
+        .iter()
+        .find(|file| file.path.eq_ignore_ascii_case("README.md"))
+        .cloned();
+    Ok(RepositoryOverview {
+        repository,
+        files,
+        readme,
+    })
 }
 
 pub async fn list_repositories_for_user(
@@ -748,6 +831,259 @@ pub async fn upsert_git_ref(
     Ok(git_ref_from_row(row))
 }
 
+async fn bootstrap_repository(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+    request: &RepositoryBootstrapRequest,
+) -> Result<(), RepositoryError> {
+    let files = bootstrap_files(pool, repository, request).await?;
+    if files.is_empty() {
+        return Ok(());
+    }
+
+    let tree_oid = deterministic_oid(
+        "tree",
+        &files
+            .iter()
+            .map(|file| format!("{}:{}", file.path, file.oid))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    );
+    let commit_oid = deterministic_oid(
+        "commit",
+        &format!(
+            "{}:{}:{}",
+            repository.id, repository.default_branch, tree_oid
+        ),
+    );
+    let commit = insert_commit(
+        pool,
+        repository.id,
+        CreateCommit {
+            oid: commit_oid.clone(),
+            author_user_id: Some(actor_user_id),
+            committer_user_id: Some(actor_user_id),
+            message: "Initial commit".to_owned(),
+            tree_oid: Some(tree_oid.clone()),
+            parent_oids: Vec::new(),
+            committed_at: Utc::now(),
+        },
+    )
+    .await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
+        VALUES ($1, $2, 'tree', $3)
+        ON CONFLICT (repository_id, oid) DO NOTHING
+        "#,
+    )
+    .bind(repository.id)
+    .bind(&tree_oid)
+    .bind(files.len() as i64)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
+        VALUES ($1, $2, 'commit', 0)
+        ON CONFLICT (repository_id, oid) DO NOTHING
+        "#,
+    )
+    .bind(repository.id)
+    .bind(&commit_oid)
+    .execute(pool)
+    .await?;
+
+    for file in files {
+        sqlx::query(
+            r#"
+            INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
+            VALUES ($1, $2, 'blob', $3)
+            ON CONFLICT (repository_id, oid) DO NOTHING
+            "#,
+        )
+        .bind(repository.id)
+        .bind(&file.oid)
+        .bind(file.content.len() as i64)
+        .execute(pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO repository_files (repository_id, commit_id, path, content, oid, byte_size)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (repository_id, lower(path))
+            DO UPDATE SET commit_id = EXCLUDED.commit_id,
+                          content = EXCLUDED.content,
+                          oid = EXCLUDED.oid,
+                          byte_size = EXCLUDED.byte_size
+            "#,
+        )
+        .bind(repository.id)
+        .bind(commit.id)
+        .bind(&file.path)
+        .bind(&file.content)
+        .bind(&file.oid)
+        .bind(file.content.len() as i64)
+        .execute(pool)
+        .await?;
+    }
+
+    upsert_git_ref(
+        pool,
+        repository.id,
+        &format!("refs/heads/{}", repository.default_branch),
+        "branch",
+        Some(commit.id),
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn bootstrap_files(
+    pool: &PgPool,
+    repository: &Repository,
+    request: &RepositoryBootstrapRequest,
+) -> Result<Vec<BootstrapFile>, RepositoryError> {
+    let mut files = Vec::new();
+
+    let template_slug = request
+        .template_slug
+        .as_deref()
+        .unwrap_or("blank")
+        .trim();
+    if !template_slug.is_empty() && template_slug != "blank" {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS (SELECT 1 FROM repository_creation_templates WHERE slug = $1)",
+        )
+        .bind(template_slug)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(RepositoryError::UnknownTemplate(template_slug.to_owned()));
+        }
+        files.extend(template_files(template_slug, repository));
+    }
+
+    if request.initialize_readme {
+        files.push(make_bootstrap_file(
+            "README.md",
+            &format!(
+                "# {}\n\n{}{}\n",
+                repository.name,
+                repository
+                    .description
+                    .as_deref()
+                    .unwrap_or("A new opengithub repository."),
+                if template_slug == "blank" {
+                    ""
+                } else {
+                    "\n\nGenerated from a repository template."
+                }
+            ),
+        ));
+    }
+
+    if let Some(slug) = request
+        .gitignore_template_slug
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let content = sqlx::query_scalar::<_, String>(
+            "SELECT content FROM gitignore_templates WHERE slug = $1",
+        )
+        .bind(slug)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| RepositoryError::UnknownGitignoreTemplate(slug.to_owned()))?;
+        files.push(make_bootstrap_file(".gitignore", &content));
+    }
+
+    if let Some(slug) = request
+        .license_template_slug
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let content = sqlx::query_scalar::<_, String>(
+            "SELECT content FROM license_templates WHERE slug = $1",
+        )
+        .bind(slug)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| RepositoryError::UnknownLicenseTemplate(slug.to_owned()))?;
+        let owner = repository.owner_login.clone();
+        files.push(make_bootstrap_file(
+            "LICENSE",
+            &content
+                .replace("{{year}}", &Utc::now().format("%Y").to_string())
+                .replace("{{owner}}", &owner),
+        ));
+    }
+
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    files.dedup_by(|left, right| left.path.eq_ignore_ascii_case(&right.path));
+    Ok(files)
+}
+
+fn template_files(slug: &str, repository: &Repository) -> Vec<BootstrapFile> {
+    match slug {
+        "node-typescript" => vec![
+            make_bootstrap_file("package.json", &format!("{{\n  \"name\": \"{}\",\n  \"version\": \"0.1.0\",\n  \"type\": \"module\"\n}}\n", repository.name)),
+            make_bootstrap_file("src/index.ts", "export function main() {\n  return \"hello from opengithub\";\n}\n"),
+        ],
+        "rust-axum" => vec![
+            make_bootstrap_file("Cargo.toml", &format!("[package]\nname = \"{}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\naxum = \"0.7\"\ntokio = {{ version = \"1\", features = [\"full\"] }}\n", repository.name.replace('-', "_"))),
+            make_bootstrap_file("src/main.rs", "use axum::{routing::get, Router};\n\n#[tokio::main]\nasync fn main() {\n    let app = Router::new().route(\"/\", get(|| async { \"ok\" }));\n    let listener = tokio::net::TcpListener::bind(\"0.0.0.0:3000\").await.unwrap();\n    axum::serve(listener, app).await.unwrap();\n}\n"),
+        ],
+        _ => Vec::new(),
+    }
+}
+
+fn make_bootstrap_file(path: &str, content: &str) -> BootstrapFile {
+    BootstrapFile {
+        path: path.to_owned(),
+        content: content.to_owned(),
+        oid: deterministic_oid("blob", &format!("{path}\0{content}")),
+    }
+}
+
+fn deterministic_oid(kind: &str, content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(kind.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(content.as_bytes());
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+async fn list_repository_files(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<Vec<RepositoryFile>, RepositoryError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT id, repository_id, commit_id, path, content, oid, byte_size, created_at
+        FROM repository_files
+        WHERE repository_id = $1
+        ORDER BY lower(path) ASC
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(repository_file_from_row).collect())
+}
+
 async fn ensure_owner_can_create(
     pool: &PgPool,
     owner: &RepositoryOwner,
@@ -1046,5 +1382,18 @@ fn git_ref_from_row(row: sqlx::postgres::PgRow) -> GitRef {
         target_commit_id: row.get("target_commit_id"),
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
+    }
+}
+
+fn repository_file_from_row(row: sqlx::postgres::PgRow) -> RepositoryFile {
+    RepositoryFile {
+        id: row.get("id"),
+        repository_id: row.get("repository_id"),
+        commit_id: row.get("commit_id"),
+        path: row.get("path"),
+        content: row.get("content"),
+        oid: row.get("oid"),
+        byte_size: row.get("byte_size"),
+        created_at: row.get("created_at"),
     }
 }

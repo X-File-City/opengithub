@@ -197,6 +197,9 @@ fn map_dashboard_error(error: DashboardError) -> (StatusCode, Json<ErrorEnvelope
         DashboardError::Repositories(RepositoryError::InvalidVisibility(_))
         | DashboardError::Repositories(RepositoryError::InvalidName(_))
         | DashboardError::Repositories(RepositoryError::InvalidDescription(_))
+        | DashboardError::Repositories(RepositoryError::UnknownTemplate(_))
+        | DashboardError::Repositories(RepositoryError::UnknownGitignoreTemplate(_))
+        | DashboardError::Repositories(RepositoryError::UnknownLicenseTemplate(_))
         | DashboardError::Onboarding(OnboardingError::BlankHintKey) => error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "validation_failed",

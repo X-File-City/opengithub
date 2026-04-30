@@ -121,6 +121,17 @@ test("signed-in repository creation submits, redirects, and reports duplicates",
   await page
     .getByRole("combobox", { name: /Choose visibility/ })
     .selectOption("private");
+  await page
+    .getByRole("combobox", { name: /Start with a template/ })
+    .selectOption("rust-axum");
+  await page.getByRole("button", { name: "Off" }).click();
+  await page.getByText("Add .gitignore").click();
+  await page.getByLabel("Search gitignore templates").fill("rust");
+  await page
+    .getByRole("listbox")
+    .getByRole("option", { name: /Rust/ })
+    .click();
+  await page.getByRole("combobox", { name: /Add license/ }).selectOption("mit");
   await page.getByRole("button", { name: "Create repository" }).click();
 
   const normalizedName = repositoryName.replaceAll(/\s+/g, "-");
@@ -131,7 +142,17 @@ test("signed-in repository creation submits, redirects, and reports duplicates",
   await expect(page.getByText("private")).toBeVisible();
   await expect(page.getByText("Default branch")).toBeVisible();
   await expect(
-    page.getByText("Created by the Playwright submit flow"),
+    page
+      .locator("p")
+      .filter({ hasText: "Created by the Playwright submit flow" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /README\.md/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /\.gitignore/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /LICENSE/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Cargo\.toml/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "README.md" })).toBeVisible();
+  await expect(
+    page.getByText("Generated from a repository template."),
   ).toBeVisible();
 
   await page.goto("/new");

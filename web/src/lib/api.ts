@@ -29,6 +29,22 @@ export type RepositorySummary = {
   updated_at: string;
 };
 
+export type RepositoryFile = {
+  id: string;
+  repositoryId: string;
+  commitId: string;
+  path: string;
+  content: string;
+  oid: string;
+  byteSize: number;
+  createdAt: string;
+};
+
+export type RepositoryOverview = RepositorySummary & {
+  files: RepositoryFile[];
+  readme: RepositoryFile | null;
+};
+
 export type WritableRepositoryOwner = {
   ownerType: RepositoryOwnerType;
   id: string;
@@ -80,9 +96,13 @@ export type CreateRepositoryRequest = {
   description?: string | null;
   visibility: Exclude<RepositoryVisibility, "internal">;
   defaultBranch?: string | null;
+  initializeReadme?: boolean;
+  templateSlug?: string | null;
+  gitignoreTemplateSlug?: string | null;
+  licenseTemplateSlug?: string | null;
 };
 
-export type CreatedRepository = RepositorySummary & {
+export type CreatedRepository = RepositoryOverview & {
   href: string;
 };
 
@@ -403,7 +423,7 @@ export async function getRepositoryFromCookie(
   cookie: string | null | undefined,
   owner: string,
   repo: string,
-): Promise<RepositorySummary | null> {
+): Promise<RepositoryOverview | null> {
   let response: Response;
   try {
     response = await fetch(
@@ -421,7 +441,7 @@ export async function getRepositoryFromCookie(
     return null;
   }
 
-  return (await response.json()) as RepositorySummary;
+  return (await response.json()) as RepositoryOverview;
 }
 
 export async function getRepositoryCreationOptionsFromCookie(

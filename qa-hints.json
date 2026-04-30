@@ -535,5 +535,24 @@
       "Duplicate-name handling is verified sequentially; QA should probe concurrent duplicate creates for race behavior",
       "Phase 4 still needs keyboard/mobile polish for dense selectors and broader accessibility review"
     ]
+  },
+  {
+    "feature_id": "repo-001",
+    "tests_written": [
+      "Postgres-backed Rust tests cover README, .gitignore, LICENSE bootstrap file creation through POST /api/repos",
+      "Postgres-backed Rust tests verify default branch refs, commit metadata, and git_objects are created for bootstrapped repositories",
+      "Postgres-backed Rust tests verify invalid template, gitignore, and license slugs return validation_failed envelopes",
+      "Repository read API now returns bootstrap files and README content, covered by the repository_create_flow integration test",
+      "Vitest verifies the create form submits README, template, gitignore, and license selections to /new/repositories",
+      "Playwright E2E creates a signed-in bootstrapped repository, verifies redirect, file rows, and README preview",
+      "Browser smoke used a real Rust-signed Postgres session, created a Rust Axum + README + Rust .gitignore + MIT license repository, and saved ralph/screenshots/build/repo-001-phase3-bootstrap-files.jpg",
+      "make check, make test, TEST_DATABASE_URL-backed repository_create_flow, and TEST_DATABASE_URL-backed make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Bootstrap git object records are deterministic metadata/content rows, not full Git packfile semantics; QA should revisit when smart HTTP push/clone ships",
+      "Template starter files cover the seeded Node TypeScript and Rust Axum templates only; QA should probe unknown slugs and future template additions",
+      "README/license content uses lightweight text substitution; legal/license copy parity with GitHub should be reviewed before production",
+      "Phase 4 still needs keyboard/mobile polish for dense selectors, conflict recovery after validation errors, and accessibility review"
+    ]
   }
 ]

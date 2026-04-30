@@ -12,9 +12,10 @@ use crate::{
     api_types::{database_unavailable, error_response, ErrorEnvelope},
     auth::extractor::AuthenticatedUser,
     domain::repositories::{
-        create_repository, get_repository_for_actor_by_owner_name,
+        create_repository_with_bootstrap,
         insert_repository_create_feed_event, list_repositories_for_user,
-        repository_creation_options, repository_name_availability, CreateRepository,
+        repository_creation_options, repository_name_availability,
+        repository_overview_for_actor_by_owner_name, CreateRepository, RepositoryBootstrapRequest,
         RepositoryError, RepositoryOwner, RepositoryVisibility,
     },
     AppState,
@@ -44,6 +45,10 @@ struct CreateRepositoryRequest {
     description: Option<String>,
     visibility: Option<RepositoryVisibility>,
     default_branch: Option<String>,
+    initialize_readme: Option<bool>,
+    template_slug: Option<String>,
+    gitignore_template_slug: Option<String>,
+    license_template_slug: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,7 +100,7 @@ async fn create(
             id: request.owner_id,
         },
     };
-    let repository = create_repository(
+    let repository = create_repository_with_bootstrap(
         pool,
         CreateRepository {
             owner,
@@ -104,6 +109,12 @@ async fn create(
             visibility: request.visibility.unwrap_or_default(),
             default_branch: request.default_branch,
             created_by_user_id: actor.0.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: request.initialize_readme.unwrap_or(false),
+            template_slug: request.template_slug,
+            gitignore_template_slug: request.gitignore_template_slug,
+            license_template_slug: request.license_template_slug,
         },
     )
     .await
@@ -155,7 +166,7 @@ async fn read(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository = get_repository_for_actor_by_owner_name(pool, actor.0.id, &owner, &repo)
+    let repository = repository_overview_for_actor_by_owner_name(pool, actor.0.id, &owner, &repo)
         .await
         .map_err(map_repository_error)?
         .ok_or_else(|| {
@@ -177,16 +188,14 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
         RepositoryError::OwnerNotFound | RepositoryError::NotFound => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
-        RepositoryError::InvalidVisibility(_) => error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "validation_failed",
-            error.to_string(),
-        ),
-        RepositoryError::InvalidName(_) | RepositoryError::InvalidDescription(_) => error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "validation_failed",
-            error.to_string(),
-        ),
+        RepositoryError::InvalidVisibility(_)
+        | RepositoryError::InvalidName(_)
+        | RepositoryError::InvalidDescription(_)
+        | RepositoryError::UnknownTemplate(_)
+        | RepositoryError::UnknownGitignoreTemplate(_)
+        | RepositoryError::UnknownLicenseTemplate(_) => {
+            error_response(StatusCode::UNPROCESSABLE_ENTITY, "validation_failed", error.to_string())
+        }
         RepositoryError::Sqlx(sqlx::Error::Database(database_error))
             if database_error.is_unique_violation() =>
         {

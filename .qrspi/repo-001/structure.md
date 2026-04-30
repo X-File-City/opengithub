@@ -42,7 +42,7 @@
 
 ## Phase 3: Bootstrap Files and First Commit - README/template/gitignore/license selections create content
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Honor README, template, gitignore, and license selections by bootstrapping the default branch and first commit metadata/content in the existing repository/git tables. This phase makes the advanced configuration controls materially affect the created repository.
 

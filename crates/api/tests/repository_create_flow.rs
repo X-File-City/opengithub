@@ -141,7 +141,11 @@ async fn create_repository_normalizes_redirect_metadata_labels_and_feed_event() 
             "name": repo_name,
             "description": "  Created by the real submit flow  ",
             "visibility": "private",
-            "defaultBranch": "main"
+            "defaultBranch": "main",
+            "initializeReadme": true,
+            "templateSlug": "blank",
+            "gitignoreTemplateSlug": "rust",
+            "licenseTemplateSlug": "mit"
         })),
     )
     .await;
@@ -176,6 +180,52 @@ async fn create_repository_normalizes_redirect_metadata_labels_and_feed_event() 
     .await
     .expect("feed events should count");
     assert_eq!(feed_event_count, 1);
+
+    let file_paths = sqlx::query_scalar::<_, String>(
+        "SELECT string_agg(path, ',' ORDER BY path) FROM repository_files WHERE repository_id = $1",
+    )
+    .bind(repository_id)
+    .fetch_one(&pool)
+    .await
+    .expect("bootstrap files should list");
+    assert_eq!(file_paths, ".gitignore,LICENSE,README.md");
+
+    let git_ref_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM repository_git_refs WHERE repository_id = $1 AND name = 'refs/heads/main' AND target_commit_id IS NOT NULL",
+    )
+    .bind(repository_id)
+    .fetch_one(&pool)
+    .await
+    .expect("default branch ref should count");
+    assert_eq!(git_ref_count, 1);
+
+    let object_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM git_objects WHERE repository_id = $1 AND object_type IN ('blob', 'tree', 'commit')",
+    )
+    .bind(repository_id)
+    .fetch_one(&pool)
+    .await
+    .expect("git objects should count");
+    assert!(object_count >= 5);
+
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), app_config());
+    let (read_status, read_body) = send_json(
+        app,
+        Method::GET,
+        &format!("/api/repos/{owner_login}/{normalized_name}"),
+        Some(&cookie),
+        None,
+    )
+    .await;
+    assert_eq!(read_status, StatusCode::OK);
+    assert_eq!(read_body["files"].as_array().expect("files").len(), 3);
+    assert_eq!(read_body["readme"]["path"], "README.md");
+    assert!(
+        read_body["readme"]["content"]
+            .as_str()
+            .expect("readme content")
+            .contains(normalized_name)
+    );
 }
 
 #[tokio::test]
@@ -283,4 +333,41 @@ async fn create_repository_rejects_unauthorized_owner_duplicates_and_long_descri
     .await;
     assert_eq!(description_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(description_body["error"]["code"], "validation_failed");
+}
+
+#[tokio::test]
+async fn create_repository_validates_unknown_bootstrap_template_slugs() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping repository bootstrap validation scenario; set TEST_DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let actor = create_user(&pool, "repo-bootstrap").await;
+    let cookie = cookie_header(&pool, &config, &actor).await;
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+
+    for (field, value) in [
+        ("templateSlug", "unknown-template"),
+        ("gitignoreTemplateSlug", "unknown-gitignore"),
+        ("licenseTemplateSlug", "unknown-license"),
+    ] {
+        let (status, body) = send_json(
+            app.clone(),
+            Method::POST,
+            "/api/repos",
+            Some(&cookie),
+            Some(json!({
+                "ownerType": "user",
+                "ownerId": actor.id,
+                "name": format!("invalid-{field}-{}", Uuid::new_v4().simple()),
+                "visibility": "public",
+                field: value
+            })),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(body["error"]["code"], "validation_failed");
+    }
 }

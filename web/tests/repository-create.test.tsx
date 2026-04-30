@@ -92,6 +92,8 @@ function createdRepository(): CreatedRepository {
     created_by_user_id: "user-1",
     created_at: "2026-04-30T00:00:00Z",
     updated_at: "2026-04-30T00:00:00Z",
+    files: [],
+    readme: null,
     href: "/mona/my-new-repo",
   };
 }
@@ -195,6 +197,10 @@ describe("repository creation API helpers", () => {
         description: "Created through the form",
         visibility: "public",
         defaultBranch: "main",
+        initializeReadme: undefined,
+        templateSlug: undefined,
+        gitignoreTemplateSlug: undefined,
+        licenseTemplateSlug: undefined,
       }),
     ).resolves.toMatchObject({ href: "/mona/my-new-repo" });
     expect(fetchMock).toHaveBeenCalledWith("http://api.local/api/repos", {
@@ -210,6 +216,10 @@ describe("repository creation API helpers", () => {
         description: "Created through the form",
         visibility: "public",
         defaultBranch: "main",
+        initializeReadme: undefined,
+        templateSlug: undefined,
+        gitignoreTemplateSlug: undefined,
+        licenseTemplateSlug: undefined,
       }),
       cache: "no-store",
     });
@@ -238,6 +248,10 @@ describe("repository creation API helpers", () => {
           description: "Created through the form",
           visibility: "public",
           defaultBranch: "main",
+          initializeReadme: false,
+          templateSlug: "blank",
+          gitignoreTemplateSlug: null,
+          licenseTemplateSlug: null,
         }),
       },
     ) as NextRequest;
@@ -345,6 +359,57 @@ describe("RepositoryCreateForm", () => {
         description: "Created through the form",
         visibility: "private",
         defaultBranch: "main",
+        initializeReadme: false,
+        templateSlug: "blank",
+        gitignoreTemplateSlug: null,
+        licenseTemplateSlug: null,
+      }),
+    });
+  });
+
+  it("submits README, template, gitignore, and license selections", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(createdRepository()), {
+        status: 201,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RepositoryCreateForm options={creationOptions()} />);
+
+    fireEvent.change(screen.getByLabelText("Repository name *"), {
+      target: { value: "bootstrapped repo" },
+    });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: /Start with a template/ }),
+      { target: { value: "rust-axum" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Off" }));
+    fireEvent.click(screen.getByText("Add .gitignore"));
+    fireEvent.click(
+      within(screen.getByRole("listbox")).getByRole("option", {
+        name: /Rust/,
+      }),
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: /Add license/ }), {
+      target: { value: "mit" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+
+    await waitFor(() => expect(routerPush).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith("/new/repositories", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerType: "user",
+        ownerId: "user-1",
+        name: "bootstrapped repo",
+        description: "",
+        visibility: "public",
+        defaultBranch: "main",
+        initializeReadme: true,
+        templateSlug: "rust-axum",
+        gitignoreTemplateSlug: "rust",
+        licenseTemplateSlug: "mit",
       }),
     });
   });
