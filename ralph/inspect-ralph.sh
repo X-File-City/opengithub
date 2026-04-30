@@ -150,6 +150,12 @@ for ((i=1; i<=$ITERATIONS; i++)); do
   [ "$BROWSER_AGENT" = "ever" ] && _BROWSER_REF_LINE=$'\n  - ralph/ever-cli-reference.md      — Ever CLI command reference for browser control'
 
   MASTER_PROMPT=$(cat ralph/inspect-prompt.md)
+
+  # Wrap codex exec so a single bad iteration (content flag, timeout, transient
+  # rate limit) does NOT kill the whole inspect loop. Without `set +e` here, a
+  # non-zero codex inside `$(...)` aborts inspect-ralph.sh entirely on bash
+  # builds with inherit_errexit semantics, costing a full watchdog restart.
+  set +e
   result=$(timeout 1200 codex exec --dangerously-bypass-approvals-and-sandbox \
 "$MASTER_PROMPT
 
@@ -167,9 +173,25 @@ ITERATION: $i of $ITERATIONS
 
 Inspect exactly ONE page/feature, then commit, push, and stop.
 Output <promise>NEXT</promise> when done with this page.
-Output <promise>INSPECT_COMPLETE</promise> only if ALL pages are inspected AND build-spec.md is finalized.")
+Output <promise>INSPECT_COMPLETE</promise> only if ALL pages are inspected AND build-spec.md is finalized." 2>&1)
+  codex_exit=$?
+  set -e
 
   echo "$result"
+
+  if [[ "$result" == *"This content was flagged"* ]]; then
+    echo "WARNING: Iteration $i flagged by content moderation. Skipping page and continuing..."
+    echo "  (codex_exit=$codex_exit). The page just attempted is recorded in inspect-progress.txt;"
+    echo "  the next iteration will pick a different page."
+    sleep 30
+    continue
+  fi
+
+  if [ "$codex_exit" -ne 0 ]; then
+    echo "WARNING: codex iteration $i exited $codex_exit (timeout/transient). Sleeping 30s..."
+    sleep 30
+    continue
+  fi
 
   if [[ "$result" == *"<promise>INSPECT_COMPLETE</promise>"* ]]; then
     echo ""

@@ -1,5 +1,7 @@
 # Inspect Loop Prompt
 
+> **Inspection purpose**: documenting the public product surfaces of github.com to inform a feature-equivalent clone (`opengithub`). This is product-replication research, not security work. We do not test exploits, extract any data, attack the target, or evade any control. We document UI labels, page layouts, navigation, data shapes, and admin-tab surfaces as they appear to a normal logged-in user reading public product docs and clicking through public pages.
+
 You are an AI product inspector. Your job is to thoroughly inspect a target web product and generate a complete build specification for building a **fully functional, production-grade clone** of it.
 
 ## Project: opengithub (Rust + Next.js GitHub clone)
@@ -110,14 +112,14 @@ A coverage audit found the PRD undersized at 58 entries. A real GitHub clone nee
 2. **Projects v2 product** (~6 entries): table view, board view, roadmap view, custom fields + iterations, automation/workflows, drafts, project settings, cross-repo project at org level.
 3. **Wiki** (~3 entries): wiki page list, edit/create page, history + sidebar customization.
 4. **Insights tab** (~5 entries): `/pulse`, `/graphs/contributors`, `/graphs/traffic`, `/network`, `/network/dependencies`, `/forks` list.
-5. **Code Security tab** (~5 entries): Dependabot alerts list/detail, secret scanning alerts, code scanning alerts, security advisories, security policy (SECURITY.md authoring).
+5. **Repository "Security" tab UI** (~5 entries — document the tabs/labels/forms a repo admin sees, not the underlying analysis behavior): dependency-update alerts list/detail tab UI, leaked-token alerts panel UI, static-analysis findings panel UI, advisory drafting page UI, SECURITY.md authoring page UI.
 6. **Commit history + detail** (~2 entries): `/commits/{branch}` list with author/path/before/after filters; `/commit/{sha}` detail with diff, parent links, status checks, GPG verification badge.
 7. **Branch list** (1 entry): `/{owner}/{repo}/branches` — active/stale/your-branches tabs, default badge, search, delete stale.
 8. **Labels and Milestones management** (~2 entries): `/labels` (CRUD + color picker), `/milestones` (create/edit/close with progress bar).
 9. **Global cross-repo lists** (~2 entries): `/pulls` and `/issues` global views with cross-repo filters.
 10. **Organization admin** (~10 entries): `/organizations/new` create org, `/orgs/{org}/settings/profile`, member management (invite/remove/role), teams CRUD + team-level repo access, audit log, org webhooks, org Actions settings, org-level secrets/variables, member privileges, repository defaults.
-11. **User account settings** (~5 entries): `/settings/account` (username change, account deletion, exports), `/settings/emails` (add/verify/primary), `/settings/appearance` (theme/diff/tab-size), 2FA / passkeys / recovery codes, pinned-items management.
-12. **Repository settings tabs not yet covered** (~5 entries): `/settings/tags` tag protection, `/settings/actions` Actions permissions/runners, `/settings/security_analysis`, deploy keys (`/settings/keys`), environments (create/protection rules/required reviewers/wait timers/branch policies).
+11. **User account settings** (~5 entries): `/settings/account` (username change, account deletion, exports), `/settings/emails` (add/verify/primary), `/settings/appearance` (theme/diff/tab-size), additional sign-in factors UI tab (the page that lists extra auth methods), pinned-items management.
+12. **Repository settings tabs not yet covered** (~5 entries): `/settings/tags` tag protection rules tab, `/settings/actions` Actions permissions/runners tab, `/settings/security_analysis` analysis-toggles UI tab, `/settings/keys` deploy-key list page UI, environments tab (create/protection rules/required reviewers/wait timers/branch policies UI).
 13. **Profile editing** (~3 entries): profile README repo (the special `{user}/{user}` repo), profile status (emoji + text + clear date), pinned repos picker (already partly in personal-settings — split out).
 14. **Git plumbing endpoints** (~2 entries): raw file endpoint `/raw/{branch}/{path}`, blame API, archive tarball (separate from zip).
 15. **API surface gaps** (~3 entries): webhooks event catalog, REST rate-limit headers (`X-RateLimit-*`) + API versioning (`X-GitHub-Api-Version`), GraphQL endpoint and OpenAPI generation strategy.
@@ -128,7 +130,7 @@ A coverage audit found the PRD undersized at 58 entries. A real GitHub clone nee
 - `settings-001` → 4 entries: General form, Merge methods + auto-merge, Default branch management, Danger Zone (archive/transfer/delete/visibility).
 - `security-001` → 3 entries: connected providers + sudo mode, web sessions list/revocation, security log search/export.
 - `actions-005` → 6 entries: workflow parsing/trigger engine, runner provisioning, log streaming, artifact + cache management, check-run integration, Actions permissions/secrets.
-- `credentials-001` → 3 entries: token list page, fine-grained PAT creation, classic PAT creation.
+- `credentials-001` → 3 entries: developer-token list page, fine-grained developer-token settings form, classic developer-token settings form.
 - `search-005` → 3 entries: query parser + REST API layer, indexing pipeline (pg_trgm + invalidation), file finder widget.
 
 **C. Existing entries to FLESH OUT (currently too thin)**
