@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod dashboard;
 pub mod identity;
 pub mod issues;
 pub mod notifications;

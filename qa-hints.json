@@ -236,5 +236,23 @@
       "Dismiss hint controls are not wired in the UI until onboarding-001 Phase 4",
       "Real Google-created browser sessions should verify these endpoints once the dashboard UI consumes them"
     ]
+  },
+  {
+    "feature_id": "onboarding-001",
+    "tests_written": [
+      "GET /api/dashboard rejects anonymous requests with the standard JSON 401 envelope",
+      "a valid signed session without a database pool returns database_unavailable",
+      "new signed-session users receive a dashboard summary with zero repositories, empty activity placeholders, and no dismissed hints",
+      "dashboard summary flips hasRepositories true after repository creation and includes paginated top repositories",
+      "dismissed dashboard hints are included in the summary from real Postgres state",
+      ".scratch/dashboard-summary-scenario.sh passed against TEST_DATABASE_URL-backed Postgres",
+      "make check and make test passed"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke test skipped because Phase 2 is an API/data contract slice and does not change /dashboard UI yet",
+      "Recent activity, assigned issues, and review requests intentionally return empty arrays until those product domains expose feed queries",
+      "Dashboard UI consumption and CTA navigation are deferred to onboarding-001 Phase 3",
+      "Real Google-created browser sessions should verify the summary endpoint once the dashboard UI consumes it"
+    ]
   }
 ]

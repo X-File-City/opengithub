@@ -174,3 +174,13 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_onboarding -- --nocapture` passed; `.scratch/dashboard-onboarding-scenario.sh` passed; `make check` passed; `make test` passed.
 - Browser smoke test skipped because this phase is backend-only and changed no UI surface.
 - Marked Phase 1 as done in `.qrspi/onboarding-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
+
+2026-04-30 - onboarding-001 phase 2 dashboard data contract
+
+- Implemented Phase 2 from `.qrspi/onboarding-001/structure.md`: protected `GET /api/dashboard` returns the current user, paginated repositories, dismissed onboarding hints, `hasRepositories`, and empty placeholder arrays for later activity/issue/review feeds.
+- Added `crates/api/src/domain/dashboard.rs` and `crates/api/src/routes/dashboard.rs`; wired the route through `crates/api/src/lib.rs`, `crates/api/src/domain/mod.rs`, and `crates/api/src/routes/mod.rs`.
+- Added typed frontend dashboard summary DTOs and `getDashboardSummaryFromCookie` in `web/src/lib/api.ts` for the upcoming dashboard UI phase.
+- Added `crates/api/tests/dashboard_summary.rs` covering anonymous 401, valid-cookie database_unavailable, zero-repository summary shape, repository pagination, `hasRepositories`, and dismissed-hint inclusion against real Postgres.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_summary -- --nocapture` passed; `.scratch/dashboard-summary-scenario.sh` passed; `make check` passed; `make test` passed.
+- Browser smoke test and `make test-e2e` skipped because this phase is API/data-contract only and does not change the dashboard UI.
+- Marked Phase 2 as done in `.qrspi/onboarding-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.

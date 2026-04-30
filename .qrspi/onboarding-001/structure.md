@@ -23,7 +23,7 @@
 
 ## Phase 2: Dashboard Data Contract - the API returns repositories, activity placeholders, and onboarding state
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add a single protected dashboard summary API that reads the current user, repository list, and dismissed hints, giving the frontend one stable contract for empty and non-empty dashboard states.
 

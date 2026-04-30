@@ -10,6 +10,47 @@ export type AuthSession = {
   user: AuthUser | null;
 };
 
+export type RepositoryVisibility = "public" | "private" | "internal";
+
+export type RepositorySummary = {
+  id: string;
+  owner_user_id: string | null;
+  owner_organization_id: string | null;
+  owner_login: string;
+  name: string;
+  description: string | null;
+  visibility: RepositoryVisibility;
+  default_branch: string;
+  is_archived: boolean;
+  created_by_user_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ListEnvelope<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type DashboardHintDismissal = {
+  id: string;
+  userId: string;
+  hintKey: string;
+  dismissedAt: string;
+};
+
+export type DashboardSummary = {
+  user: AuthUser;
+  repositories: ListEnvelope<RepositorySummary>;
+  hasRepositories: boolean;
+  recentActivity: [];
+  assignedIssues: [];
+  reviewRequests: [];
+  dismissedHints: DashboardHintDismissal[];
+};
+
 const DEFAULT_API_URL = "http://localhost:3016";
 
 export function apiBaseUrl(): string {
@@ -64,6 +105,26 @@ export async function getSessionFromHeaders(
   requestHeaders: Headers,
 ): Promise<AuthSession> {
   return getSessionFromCookie(requestHeaders.get("cookie"));
+}
+
+export async function getDashboardSummaryFromCookie(
+  cookie: string | null | undefined,
+): Promise<DashboardSummary | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}/api/dashboard`, {
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as DashboardSummary;
 }
 
 export async function logout(cookie: string | null): Promise<string | null> {
