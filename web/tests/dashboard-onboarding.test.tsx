@@ -146,7 +146,6 @@ describe("dashboard onboarding", () => {
     expect(
       screen.getByText("You do not have any repositories yet."),
     ).toBeInTheDocument();
-
     for (const link of screen.getAllByRole("link", {
       name: "Create repository",
     })) {
@@ -280,20 +279,89 @@ describe("dashboard onboarding", () => {
   it("renders repository rows and removes first-run welcome copy when repositories exist", () => {
     render(
       <DashboardOnboarding
-        summary={dashboardSummary({ repositories: [repository()] })}
+        summary={dashboardSummary({
+          repositories: [repository()],
+          topRepositories: [topRepository()],
+        })}
       />,
     );
 
     expect(
       screen.queryByRole("heading", { name: "Start building on opengithub" }),
     ).not.toBeInTheDocument();
-    for (const link of screen.getAllByRole("link", {
-      name: /mona\/octo-app/i,
-    })) {
-      expect(link).toHaveAttribute("href", "/mona/octo-app");
-    }
+    expect(
+      screen.getByRole("link", { name: /mona\/octo-app.*public/i }),
+    ).toHaveAttribute("href", "/mona/octo-app");
+    expect(screen.getByText("TypeScript")).toBeInTheDocument();
+    expect(screen.getByText("Updated Apr 30")).toBeInTheDocument();
+    expect(screen.getByText("public")).toBeInTheDocument();
     expect(screen.getByText("Recent activity")).toBeInTheDocument();
     expect(screen.getByText("Assigned issues")).toBeInTheDocument();
     expect(screen.getByText("Review requests")).toBeInTheDocument();
+  });
+
+  it("filters top repositories client-side without changing the New destination", () => {
+    render(
+      <DashboardOnboarding
+        summary={dashboardSummary({
+          repositories: [repository()],
+          topRepositories: [
+            topRepository({
+              ownerLogin: "mona",
+              name: "octo-app",
+              href: "/mona/octo-app",
+              primaryLanguage: "TypeScript",
+              primaryLanguageColor: "#3178c6",
+            }),
+            topRepository({
+              ownerLogin: "octo-org",
+              name: "infra",
+              href: "/octo-org/infra",
+              visibility: "private",
+              primaryLanguage: "Rust",
+              primaryLanguageColor: "#dea584",
+            }),
+          ],
+        })}
+      />,
+    );
+
+    const filter = screen.getByLabelText("Find a repository");
+    fireEvent.change(filter, { target: { value: "infra" } });
+
+    expect(
+      screen.queryByRole("link", { name: /mona\/octo-app.*public/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /octo-org\/infra.*private/i }),
+    ).toHaveAttribute("href", "/octo-org/infra");
+    expect(screen.getByText("Rust")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New" })).toHaveAttribute(
+      "href",
+      "/new",
+    );
+  });
+
+  it("shows an empty filter result without hiding the sidebar controls", () => {
+    render(
+      <DashboardOnboarding
+        summary={dashboardSummary({
+          repositories: [repository()],
+          topRepositories: [topRepository()],
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Find a repository"), {
+      target: { value: "does-not-exist" },
+    });
+
+    expect(
+      screen.getByText("No repositories match your filter."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New" })).toHaveAttribute(
+      "href",
+      "/new",
+    );
   });
 });

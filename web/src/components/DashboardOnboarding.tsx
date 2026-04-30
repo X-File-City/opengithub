@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DashboardRepositoryFeed } from "@/components/DashboardRepositoryFeed";
-import type { DashboardSummary, RepositorySummary } from "@/lib/api";
+import { DashboardTopRepositories } from "@/components/DashboardTopRepositories";
+import type { DashboardSummary } from "@/lib/api";
 
 type DashboardOnboardingProps = {
   summary: DashboardSummary;
@@ -43,80 +44,6 @@ const ONBOARDING_HINTS: OnboardingHint[] = [
     action: "Read setup guide",
   },
 ];
-
-function RepositoryVisibility({ visibility }: { visibility: string }) {
-  return (
-    <span className="rounded-full border border-[#d0d7de] px-2 py-0.5 text-xs font-medium text-[#59636e]">
-      {visibility}
-    </span>
-  );
-}
-
-function RepositoryRow({ repository }: { repository: RepositorySummary }) {
-  return (
-    <li className="border-t border-[#d0d7de] first:border-t-0">
-      <Link
-        className="block px-4 py-3 hover:bg-[#f6f8fa]"
-        href={`/${repository.owner_login}/${repository.name}`}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-sm font-semibold text-[#0969da]">
-            {repository.owner_login}/{repository.name}
-          </span>
-          <RepositoryVisibility visibility={repository.visibility} />
-        </div>
-        {repository.description ? (
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#59636e]">
-            {repository.description}
-          </p>
-        ) : null}
-      </Link>
-    </li>
-  );
-}
-
-function TopRepositories({ summary }: DashboardOnboardingProps) {
-  const repositories = summary.repositories.items;
-
-  return (
-    <aside className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-[#1f2328]">
-          Top repositories
-        </h2>
-        <Link
-          className="inline-flex h-8 items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37]"
-          href="/new"
-        >
-          New
-        </Link>
-      </div>
-      <label className="sr-only" htmlFor="repository-filter">
-        Find a repository
-      </label>
-      <input
-        className="h-8 w-full rounded-md border border-[#d0d7de] px-3 text-sm text-[#1f2328] placeholder:text-[#59636e]"
-        id="repository-filter"
-        name="repository-filter"
-        placeholder="Find a repository..."
-        type="search"
-      />
-      <div className="rounded-md border border-[#d0d7de] bg-white">
-        {repositories.length > 0 ? (
-          <ul>
-            {repositories.map((repository) => (
-              <RepositoryRow key={repository.id} repository={repository} />
-            ))}
-          </ul>
-        ) : (
-          <p className="px-4 py-6 text-center text-sm leading-6 text-[#59636e]">
-            You do not have any repositories yet.
-          </p>
-        )}
-      </div>
-    </aside>
-  );
-}
 
 function WelcomePanel({
   userName,
@@ -262,7 +189,7 @@ export function DashboardOnboarding({ summary }: DashboardOnboardingProps) {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 px-6 py-8 lg:grid-cols-[296px_minmax(0,1fr)]">
-      <TopRepositories summary={summary} />
+      <DashboardTopRepositories repositories={summary.topRepositories.items} />
       <div className="space-y-5">
         {summary.repositories.total === 0 ? (
           <WelcomePanel

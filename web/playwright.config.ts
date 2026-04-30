@@ -35,7 +35,10 @@ export default defineConfig({
       AUTH_GOOGLE_ID: "playwright-client-id.apps.googleusercontent.com",
       AUTH_GOOGLE_SECRET: "playwright-client-secret",
       SESSION_SECRET: "playwright-session-secret-with-enough-entropy",
+      SESSION_COOKIE_NAME: "og_session",
       SESSION_COOKIE_SECURE: "false",
+      DATABASE_URL:
+        process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
     },
   },
 });
