@@ -270,7 +270,7 @@ describe("RepositoryCodeOverview", () => {
       "href",
       "/mona/octo-app/settings",
     );
-    expect(screen.getByLabelText(/Current branch main/)).toBeVisible();
+    expect(screen.getByLabelText(/Current ref main/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Go to file" })).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Create new file" }),
@@ -357,6 +357,49 @@ describe("RepositoryCodeOverview", () => {
         screen.getByRole("link", { name: /src\/index\.ts/ }),
       ).toHaveAttribute("href", "/mona/octo-app/blob/main/src/index.ts");
     });
+  });
+
+  it("searches refs and preserves the current tree path when switching branches", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              name: "refs/heads/feature/tree-nav",
+              shortName: "feature/tree-nav",
+              kind: "branch",
+              href: "/mona/octo-app/tree/feature%2Ftree-nav/src",
+              samePathHref: "/mona/octo-app/tree/feature%2Ftree-nav/src",
+              active: false,
+              targetShortOid: "def4567",
+              updatedAt: "2026-04-30T00:00:00Z",
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 100,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    render(<RepositoryTreeView overview={pathOverview()} />);
+
+    fireEvent.click(
+      screen.getByLabelText("Switch branches or tags. Current ref main"),
+    );
+    fireEvent.change(screen.getByLabelText("Search branches and tags"), {
+      target: { value: "feature" },
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("link", { name: /feature\/tree-nav/ }),
+      ).toHaveAttribute("href", "/mona/octo-app/tree/feature%2Ftree-nav/src");
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/mona/octo-app/refs?activeRef=main&pageSize=100&q=feature&currentPath=src",
+    );
   });
 
   it("renders quick setup for empty repositories", () => {
@@ -515,10 +558,7 @@ describe("RepositoryCodeOverview", () => {
     expect(screen.getByRole("heading", { name: "src" })).toBeVisible();
     expect(screen.getByText("Last commit message")).toBeVisible();
     expect(screen.getByText("Last commit date")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Go to file" })).toHaveAttribute(
-      "href",
-      "/mona/octo-app/file-finder?ref=main",
-    );
+    expect(screen.getByRole("button", { name: "Go to file" })).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Create new file" }),
     ).toHaveAttribute("href", "/mona/octo-app/new/main");

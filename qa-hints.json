@@ -755,5 +755,21 @@
       "Branch names with slashes still need browser-level QA with the current /tree/[ref]/... route shape",
       "Splitter pointer dragging is covered by implementation and keyboard tests; QA should manually test drag feel across trackpads and narrow viewports"
     ]
+  },
+  {
+    "feature_id": "repo-004",
+    "tests_written": [
+      "Extended repository refs API coverage for q/currentPath/activeRef query handling, active-ref labels, same-path hrefs, and fallback-to-ref-root when the selected path is absent on a target ref",
+      "Shared the searchable branch/tag selector and Go to file combobox between Code overview and tree pages; tree pages now use the resolved ref instead of default_branch",
+      "Vitest covers searchable ref switching from a nested tree path and same-path href preservation",
+      "Playwright seeds a real repository with main, feature/tree-nav, and v1.0.0 refs; it switches from /tree/main/src to the feature branch root, opens docs/guide.md through Go to file at the selected ref, switches to the tag tab, scans for dead controls, and saves ralph/screenshots/build/repo-004-phase3-ref-file-controls.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test, and make test-e2e with 26 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "The current Next.js route shape keeps slash-containing branch names encoded as one path segment; QA should keep stress-testing refs such as feature/foo/bar as Git storage matures",
+      "Refs menu branch/tag counts currently reflect the filtered result set in the open menu; a later dedicated branches/tags page should verify full totals independently",
+      "Go to file searches metadata-backed repository_files records; retest after real smart HTTP push/fetch and importer indexing land",
+      "Large-directory pagination/virtualization is still Phase 4, so QA should defer high-cardinality folder stress until that slice is implemented"
+    ]
   }
 ]

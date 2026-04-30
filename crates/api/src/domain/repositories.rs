@@ -175,6 +175,15 @@ pub struct RepositoryCommitHistoryQuery<'a> {
     pub page_size: i64,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RepositoryRefsQuery<'a> {
+    pub query: Option<&'a str>,
+    pub current_path: Option<&'a str>,
+    pub active_ref: Option<&'a str>,
+    pub page: i64,
+    pub page_size: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryLatestCommit {
@@ -369,6 +378,8 @@ pub struct RepositoryRefSummary {
     pub short_name: String,
     pub kind: String,
     pub href: String,
+    pub same_path_href: String,
+    pub active: bool,
     pub target_short_oid: Option<String>,
     pub updated_at: DateTime<Utc>,
 }
@@ -750,19 +761,30 @@ pub async fn repository_refs_for_actor_by_owner_name(
     actor_user_id: Uuid,
     owner_login: &str,
     name: &str,
+    query: RepositoryRefsQuery<'_>,
 ) -> Result<Option<ListEnvelope<RepositoryRefSummary>>, RepositoryError> {
     let Some(repository) =
         get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
     else {
         return Ok(None);
     };
+    let normalized_query = query.query.unwrap_or("").trim().to_lowercase();
+    let current_path = normalize_repository_path(query.current_path.unwrap_or(""))?;
+    let active_ref = query
+        .active_ref
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&repository.default_branch);
+    let page = query.page.max(1);
+    let page_size = query.page_size.clamp(1, 100);
 
     let rows = sqlx::query(
         r#"
         SELECT repository_git_refs.name,
                repository_git_refs.kind,
                repository_git_refs.updated_at,
-               commits.oid AS target_oid
+               commits.oid AS target_oid,
+               commits.id AS target_commit_id
         FROM repository_git_refs
         LEFT JOIN commits ON commits.id = repository_git_refs.target_commit_id
         WHERE repository_git_refs.repository_id = $1
@@ -773,38 +795,61 @@ pub async fn repository_refs_for_actor_by_owner_name(
     .fetch_all(pool)
     .await?;
 
-    let items = rows
+    let mut items = Vec::new();
+    for row in rows {
+        let name: String = row.get("name");
+        let kind: String = row.get("kind");
+        let short_name = name
+            .strip_prefix("refs/heads/")
+            .or_else(|| name.strip_prefix("refs/tags/"))
+            .unwrap_or(&name)
+            .to_owned();
+        if !normalized_query.is_empty()
+            && !short_name.to_lowercase().contains(&normalized_query)
+            && !name.to_lowercase().contains(&normalized_query)
+        {
+            continue;
+        }
+        let target_commit_id = row.get::<Option<Uuid>, _>("target_commit_id");
+        let same_path_href = if current_path.is_empty()
+            || repository_path_exists_for_commit(
+                pool,
+                repository.id,
+                target_commit_id,
+                &current_path,
+            )
+            .await?
+        {
+            repository_tree_href(&repository, &short_name, &current_path)
+        } else {
+            repository_tree_href(&repository, &short_name, "")
+        };
+        let active = ref_matches_active(&name, &short_name, active_ref);
+        items.push(RepositoryRefSummary {
+            href: same_path_href.clone(),
+            same_path_href,
+            active,
+            target_short_oid: row
+                .get::<Option<String>, _>("target_oid")
+                .map(|oid| oid.chars().take(7).collect()),
+            updated_at: row.get("updated_at"),
+            name,
+            short_name,
+            kind,
+        });
+    }
+    let total = items.len() as i64;
+    let offset = ((page - 1) * page_size) as usize;
+    items = items
         .into_iter()
-        .map(|row| {
-            let name: String = row.get("name");
-            let kind: String = row.get("kind");
-            let short_name = name
-                .strip_prefix("refs/heads/")
-                .or_else(|| name.strip_prefix("refs/tags/"))
-                .unwrap_or(&name)
-                .to_owned();
-            RepositoryRefSummary {
-                href: format!(
-                    "/{}/{}/tree/{}",
-                    repository.owner_login,
-                    repository.name,
-                    percent_encode_segment(&short_name)
-                ),
-                target_short_oid: row
-                    .get::<Option<String>, _>("target_oid")
-                    .map(|oid| oid.chars().take(7).collect()),
-                updated_at: row.get("updated_at"),
-                name,
-                short_name,
-                kind,
-            }
-        })
-        .collect::<Vec<_>>();
+        .skip(offset)
+        .take(page_size as usize)
+        .collect();
 
     Ok(Some(ListEnvelope {
-        total: items.len() as i64,
-        page: 1,
-        page_size: items.len().max(1) as i64,
+        total,
+        page,
+        page_size,
         items,
     }))
 }
@@ -1981,6 +2026,39 @@ async fn list_repository_files_for_resolved_ref(
     Ok(rows.into_iter().map(repository_file_from_row).collect())
 }
 
+async fn repository_path_exists_for_commit(
+    pool: &PgPool,
+    repository_id: Uuid,
+    commit_id: Option<Uuid>,
+    path: &str,
+) -> Result<bool, RepositoryError> {
+    let Some(commit_id) = commit_id else {
+        return Ok(false);
+    };
+    if path.is_empty() {
+        return Ok(true);
+    }
+    let path_prefix = format!("{path}/%");
+    let exists = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM repository_files
+            WHERE repository_id = $1
+              AND commit_id = $2
+              AND (path = $3 OR path LIKE $4)
+        )
+        "#,
+    )
+    .bind(repository_id)
+    .bind(commit_id)
+    .bind(path)
+    .bind(path_prefix)
+    .fetch_one(pool)
+    .await?;
+    Ok(exists)
+}
+
 async fn count_repository_refs(
     pool: &PgPool,
     repository_id: Uuid,
@@ -2310,6 +2388,14 @@ fn repository_tree_href(repository: &Repository, ref_name: &str, path: &str) -> 
             percent_encode_path(path)
         )
     }
+}
+
+fn ref_matches_active(qualified_name: &str, short_name: &str, active_ref: &str) -> bool {
+    let normalized = active_ref.trim();
+    qualified_name == normalized
+        || short_name == normalized
+        || qualified_name == format!("refs/heads/{normalized}")
+        || qualified_name == format!("refs/tags/{normalized}")
 }
 
 fn parent_path(path: &str) -> &str {

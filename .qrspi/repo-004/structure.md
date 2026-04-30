@@ -40,7 +40,7 @@
 
 ## Phase 3: Searchable Branch Selector and Go To File - ref/path controls drive real navigation
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Upgrade the branch/tag menu and Go to file combobox for tree pages so the selected ref preserves the current path when possible, file search results route to blob pages at the chosen ref, and missing paths show a branch/path recovery link instead of a generic 404.
 

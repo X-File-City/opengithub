@@ -533,3 +533,14 @@
 - Browser smoke: Playwright used a real Rust-signed Postgres session to create a Rust-template repository, open `/tree/main/src`, resize/collapse/restore the file tree, open `src/main.rs`, return through parent navigation, and save `ralph/screenshots/build/repo-004-phase2-tree-browser.jpg`.
 - Verification: `make check` passed; `make test` passed with 65 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_code_overview -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 25 Playwright tests.
 - Marked Phase 2 as done in `.qrspi/repo-004/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
+
+2026-04-30 - repo-004 phase 3 searchable ref and file controls
+
+- Implemented Phase 3 from `.qrspi/repo-004/structure.md`: tree pages now use the shared searchable branch/tag selector and Go to file combobox, with the selected resolved ref preserved across path and blob navigation.
+- Extended `GET /api/repos/:owner/:repo/refs` to accept `q`, `currentPath`, `activeRef`, `page`, and `pageSize`; responses include `active` and `samePathHref`, falling back to the selected ref root when the current path does not exist on that ref.
+- Updated the Next.js refs proxy, typed API client, and `RepositoryCodeToolbar` controls so overview and tree pages share behavior while tree pages use `overview.resolvedRef.shortName` instead of `default_branch`.
+- Extended the Playwright seed helper to create a real repository with `main`, `feature/tree-nav`, and `v1.0.0`; E2E covers switching from `/tree/main/src` to the feature branch root, opening `docs/guide.md` through Go to file at the selected ref, switching to a tag, and scanning for dead controls.
+- Added/updated Rust, Vitest, and Playwright coverage for refs search, active-ref metadata, same-path fallback, selected-ref file finder navigation, and typed ref-not-found error envelopes.
+- Browser smoke: `make test-e2e` saved `ralph/screenshots/build/repo-004-phase3-ref-file-controls.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 66 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 26 Playwright tests.
+- Marked Phase 3 as done in `.qrspi/repo-004/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.

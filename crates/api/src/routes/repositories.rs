@@ -20,7 +20,7 @@ use crate::{
         repository_path_overview_for_actor_by_owner_name, repository_refs_for_actor_by_owner_name,
         set_repository_star_by_owner_name, set_repository_watch_by_owner_name, CreateRepository,
         RepositoryBootstrapRequest, RepositoryCommitHistoryQuery, RepositoryError, RepositoryOwner,
-        RepositoryVisibility,
+        RepositoryRefsQuery, RepositoryVisibility,
     },
     AppState,
 };
@@ -84,6 +84,16 @@ struct CommitsQuery {
     #[serde(rename = "ref")]
     ref_name: Option<String>,
     path: Option<String>,
+    page: Option<i64>,
+    page_size: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RefsQuery {
+    q: Option<String>,
+    current_path: Option<String>,
+    active_ref: Option<String>,
     page: Option<i64>,
     page_size: Option<i64>,
 }
@@ -312,19 +322,32 @@ async fn refs(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
+    Query(query): Query<RefsQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let envelope = repository_refs_for_actor_by_owner_name(pool, actor.0.id, &owner, &repo)
-        .await
-        .map_err(map_repository_error)?
-        .ok_or_else(|| {
-            error_response(
-                StatusCode::NOT_FOUND,
-                "not_found",
-                "repository was not found".to_owned(),
-            )
-        })?;
+    let envelope = repository_refs_for_actor_by_owner_name(
+        pool,
+        actor.0.id,
+        &owner,
+        &repo,
+        RepositoryRefsQuery {
+            query: query.q.as_deref(),
+            current_path: query.current_path.as_deref(),
+            active_ref: query.active_ref.as_deref(),
+            page: query.page.unwrap_or(1),
+            page_size: query.page_size.unwrap_or(100),
+        },
+    )
+    .await
+    .map_err(map_repository_error)?
+    .ok_or_else(|| {
+        error_response(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "repository was not found".to_owned(),
+        )
+    })?;
 
     Ok(Json(json!(envelope)))
 }

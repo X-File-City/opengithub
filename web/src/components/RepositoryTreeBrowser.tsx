@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import {
+  RepositoryBranchSelector,
+  RepositoryFileFinder,
+} from "@/components/RepositoryCodeToolbar";
 import { RepositoryFileTable } from "@/components/RepositoryFileTable";
 import type { RepositoryPathOverview, RepositoryTreeEntry } from "@/lib/api";
 
@@ -92,21 +96,16 @@ function TreeToolbar({ overview }: RepositoryTreeBrowserProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Link
-        className="inline-flex h-8 items-center gap-2 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]"
-        href={`${base}/tree/${encodeURIComponent(overview.resolvedRef.shortName)}`}
-      >
-        <span aria-hidden="true">⑂</span>
-        {overview.resolvedRef.shortName}
-      </Link>
-      <Link
-        className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-        href={`${base}/file-finder?ref=${encodeURIComponent(
-          overview.resolvedRef.shortName,
-        )}`}
-      >
-        Go to file
-      </Link>
+      <RepositoryBranchSelector
+        activeRef={overview.resolvedRef.shortName}
+        currentPath={overview.path}
+        repository={overview}
+      />
+      <RepositoryFileFinder
+        activeRef={overview.resolvedRef.shortName}
+        currentPath={overview.path}
+        repository={overview}
+      />
       <div className="ml-auto flex flex-wrap items-center gap-2 max-md:ml-0">
         <details className="relative">
           <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]">

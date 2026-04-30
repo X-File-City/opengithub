@@ -289,6 +289,35 @@ async fn repository_tree_contract_resolves_branches_tags_and_recovery_links() {
     assert_eq!(finder_body["pageSize"], 20);
     assert_eq!(finder_body["items"][0]["path"], "docs/guide.md");
 
+    let (refs_status, refs_body) = send_json(
+        app.clone(),
+        &format!("{base}/refs?q=feature&currentPath=docs&activeRef={encoded_feature}"),
+        Some(&owner_cookie),
+    )
+    .await;
+    assert_eq!(refs_status, StatusCode::OK);
+    assert_eq!(refs_body["total"], 1);
+    assert_eq!(refs_body["items"][0]["shortName"], "feature/tree-nav");
+    assert_eq!(refs_body["items"][0]["active"], true);
+    assert!(refs_body["items"][0]["samePathHref"]
+        .as_str()
+        .expect("same path href")
+        .ends_with("/tree/feature%2Ftree-nav/docs"));
+
+    let (tag_refs_status, tag_refs_body) = send_json(
+        app.clone(),
+        &format!("{base}/refs?q=v1&currentPath=docs&activeRef={encoded_feature}"),
+        Some(&owner_cookie),
+    )
+    .await;
+    assert_eq!(tag_refs_status, StatusCode::OK);
+    assert_eq!(tag_refs_body["items"][0]["shortName"], "v1.0.0");
+    assert_eq!(tag_refs_body["items"][0]["active"], false);
+    assert!(tag_refs_body["items"][0]["samePathHref"]
+        .as_str()
+        .expect("tag same path href")
+        .ends_with("/tree/v1.0.0"));
+
     let (missing_ref_status, missing_ref_body) = send_json(
         app.clone(),
         &format!("{base}/contents/docs?ref=nope"),

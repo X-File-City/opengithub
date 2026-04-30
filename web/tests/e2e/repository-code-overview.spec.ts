@@ -7,6 +7,7 @@ type SeededSession = {
   cookieName: string;
   cookieValue: string;
   socialSourceRepositoryHref: string;
+  treeRepositoryHref?: string;
 };
 
 function seedSession(): SeededSession {
@@ -276,5 +277,73 @@ test("empty repository quick setup and mobile Code tab remain actionable", async
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/repo-003-final-mobile.jpg",
+  });
+});
+
+test("repository tree branch selector and Go to file preserve the selected ref", async ({
+  page,
+}) => {
+  const treeSeed = JSON.parse(
+    execFileSync(
+      "cargo",
+      [
+        "run",
+        "--quiet",
+        "-p",
+        "opengithub-api",
+        "--example",
+        "dashboard_e2e_seed",
+      ],
+      {
+        cwd: "..",
+        env: {
+          ...process.env,
+          DASHBOARD_E2E_EMPTY: "1",
+          DASHBOARD_E2E_TREE_REFS: "1",
+          SESSION_COOKIE_NAME: "og_session",
+        },
+      },
+    ).toString(),
+  ) as SeededSession;
+  await signIn(page, treeSeed);
+  const repositoryHref = treeSeed.treeRepositoryHref;
+  if (!repositoryHref) {
+    throw new Error("tree repository seed did not return a repository href");
+  }
+  const repositoryName = repositoryHref.split("/").at(-1);
+
+  await page.goto(`${repositoryHref}/tree/main/src`);
+  await expect(page).toHaveURL(new RegExp(`${repositoryName}/tree/main/src$`));
+  await page.getByLabel("Switch branches or tags. Current ref main").click();
+  await page.getByLabel("Search branches and tags").fill("feature");
+  await page.getByRole("link", { name: /feature\/tree-nav/ }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`${repositoryName}/tree/feature%2Ftree-nav$`),
+  );
+
+  await page.getByRole("button", { name: "Go to file" }).click();
+  await page.getByLabel("Find a file").fill("guide");
+  await page.getByRole("link", { name: /docs\/guide\.md/ }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`${repositoryName}/blob/feature%2Ftree-nav/docs/guide\\.md$`),
+  );
+  await expect(
+    page.getByRole("heading", { name: "docs/guide.md" }),
+  ).toBeVisible();
+
+  await page.goto(`${repositoryHref}/tree/feature%2Ftree-nav`);
+  await page
+    .getByLabel("Switch branches or tags. Current ref feature/tree-nav")
+    .click();
+  await page.getByRole("button", { name: /Tags/ }).click();
+  await page.getByLabel("Search branches and tags").fill("v1");
+  await page.getByRole("link", { name: /v1\.0\.0/ }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`${repositoryName}/tree/v1\\.0\\.0$`),
+  );
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-004-phase3-ref-file-controls.jpg",
   });
 });

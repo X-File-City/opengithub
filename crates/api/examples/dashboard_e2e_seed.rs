@@ -8,8 +8,9 @@ use opengithub_api::{
         permissions::RepositoryRole,
         pulls::{create_pull_request, CreatePullRequest},
         repositories::{
-            create_repository, create_repository_with_bootstrap, CreateRepository,
-            RepositoryBootstrapRequest, RepositoryOwner, RepositoryVisibility,
+            create_repository, create_repository_with_bootstrap, insert_commit, upsert_git_ref,
+            CreateCommit, CreateRepository, RepositoryBootstrapRequest, RepositoryOwner,
+            RepositoryVisibility,
         },
     },
 };
@@ -28,11 +29,19 @@ struct SeedOutput {
     first_repository_href: String,
     second_repository_href: String,
     social_source_repository_href: String,
+    tree_repository_href: String,
 }
 
 fn seed_empty_dashboard() -> bool {
     matches!(
         std::env::var("DASHBOARD_E2E_EMPTY").as_deref(),
+        Ok("1" | "true" | "yes")
+    )
+}
+
+fn seed_tree_repository() -> bool {
+    matches!(
+        std::env::var("DASHBOARD_E2E_TREE_REFS").as_deref(),
         Ok("1" | "true" | "yes")
     )
 }
@@ -111,6 +120,30 @@ async fn main() -> anyhow::Result<()> {
         },
     )
     .await?;
+    let tree_repository_href = if seed_tree_repository() {
+        let tree_repository_name = format!("tree-nav-{}", &suffix[..12]);
+        let tree_repository = create_repository_with_bootstrap(
+            &pool,
+            CreateRepository {
+                owner: RepositoryOwner::User { id: user.id },
+                name: tree_repository_name.clone(),
+                description: Some("Repository tree navigation seed".to_owned()),
+                visibility: RepositoryVisibility::Public,
+                default_branch: None,
+                created_by_user_id: user.id,
+            },
+            RepositoryBootstrapRequest {
+                initialize_readme: true,
+                template_slug: Some("rust-axum".to_owned()),
+                ..RepositoryBootstrapRequest::default()
+            },
+        )
+        .await?;
+        seed_tree_refs(&pool, user.id, tree_repository.id).await?;
+        format!("/{username}/{tree_repository_name}")
+    } else {
+        String::new()
+    };
     let (first_repository_href, second_repository_href) = if seed_empty_dashboard() {
         (String::new(), String::new())
     } else {
@@ -308,8 +341,78 @@ async fn main() -> anyhow::Result<()> {
             "/{}/{}",
             social_source_repository.owner_login, social_source_repository.name
         ),
+        tree_repository_href,
     };
     println!("{}", serde_json::to_string(&output)?);
+    Ok(())
+}
+
+async fn seed_tree_refs(pool: &PgPool, user_id: Uuid, repository_id: Uuid) -> anyhow::Result<()> {
+    let default_commit_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        SELECT target_commit_id
+        FROM repository_git_refs
+        WHERE repository_id = $1 AND name = 'refs/heads/main'
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_one(pool)
+    .await?;
+    let default_commit_oid =
+        sqlx::query_scalar::<_, String>("SELECT oid FROM commits WHERE id = $1")
+            .bind(default_commit_id)
+            .fetch_one(pool)
+            .await?;
+    let feature_commit = insert_commit(
+        pool,
+        repository_id,
+        CreateCommit {
+            oid: format!("tree-feature-{}", Uuid::new_v4().simple()),
+            author_user_id: Some(user_id),
+            committer_user_id: Some(user_id),
+            message: "Add docs on tree feature branch".to_owned(),
+            tree_oid: None,
+            parent_oids: vec![default_commit_oid],
+            committed_at: Utc::now(),
+        },
+    )
+    .await?;
+    for (path, content) in [
+        ("README.md", "# Feature tree branch\n"),
+        ("docs/guide.md", "# Feature guide\n"),
+        ("docs/reference/api.md", "# API reference\n"),
+    ] {
+        sqlx::query(
+            r#"
+            INSERT INTO repository_files (repository_id, commit_id, path, content, oid, byte_size)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(repository_id)
+        .bind(feature_commit.id)
+        .bind(path)
+        .bind(content)
+        .bind(format!("{}-{}", feature_commit.oid, path.replace('/', "-")))
+        .bind(content.len() as i64)
+        .execute(pool)
+        .await?;
+    }
+    upsert_git_ref(
+        pool,
+        repository_id,
+        "refs/heads/feature/tree-nav",
+        "branch",
+        Some(feature_commit.id),
+    )
+    .await?;
+    upsert_git_ref(
+        pool,
+        repository_id,
+        "refs/tags/v1.0.0",
+        "tag",
+        Some(default_commit_id),
+    )
+    .await?;
     Ok(())
 }
 

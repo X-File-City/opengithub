@@ -171,6 +171,8 @@ export type RepositoryRefSummary = {
   shortName: string;
   kind: "branch" | "tag" | string;
   href: string;
+  samePathHref: string;
+  active: boolean;
   targetShortOid: string | null;
   updatedAt: string;
 };
@@ -756,11 +758,35 @@ export async function getRepositoryRefsFromCookie(
   cookie: string | null | undefined,
   owner: string,
   repo: string,
+  options: {
+    query?: string;
+    currentPath?: string;
+    activeRef?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
 ): Promise<ListEnvelope<RepositoryRefSummary> | null> {
+  const params = new URLSearchParams();
+  if (options.query?.trim()) {
+    params.set("q", options.query.trim());
+  }
+  if (options.currentPath?.trim()) {
+    params.set("currentPath", options.currentPath.trim());
+  }
+  if (options.activeRef?.trim()) {
+    params.set("activeRef", options.activeRef.trim());
+  }
+  if (options.page) {
+    params.set("page", String(options.page));
+  }
+  if (options.pageSize) {
+    params.set("pageSize", String(options.pageSize));
+  }
+  const suffix = params.size ? `?${params.toString()}` : "";
   let response: Response;
   try {
     response = await fetch(
-      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/refs`,
+      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/refs${suffix}`,
       {
         headers: cookie ? { cookie } : undefined,
         cache: "no-store",
