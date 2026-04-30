@@ -332,3 +332,125 @@ async fn private_issue_lists_require_repository_permission_and_redact_errors() {
     assert!(!serialized.contains("__Host-session"));
     assert!(!serialized.contains("DATABASE_URL"));
 }
+
+#[tokio::test]
+async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping issue list filter scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-filter-owner").await;
+    let repo_name = format!("issue-filters-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("repository should create");
+    let labels = ensure_default_labels(&pool, repository.id)
+        .await
+        .expect("labels should exist");
+    let bug = labels
+        .iter()
+        .find(|label| label.name == "bug")
+        .expect("bug label should exist");
+    let enhancement = labels
+        .iter()
+        .find(|label| label.name == "enhancement")
+        .expect("enhancement label should exist");
+    let milestone_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO milestones (repository_id, title, description, created_by_user_id)
+        VALUES ($1, 'Phase 3', 'Filter milestone', $2)
+        RETURNING id
+        "#,
+    )
+    .bind(repository.id)
+    .bind(owner.id)
+    .fetch_one(&pool)
+    .await
+    .expect("milestone should create");
+
+    let matched = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Filtered issue smoke target".to_owned(),
+            body: Some("plain text search should match this body".to_owned()),
+            milestone_id: Some(milestone_id),
+            label_ids: vec![bug.id],
+            assignee_user_ids: vec![owner.id],
+        },
+    )
+    .await
+    .expect("matched issue should create");
+    let other = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Enhancement backlog item".to_owned(),
+            body: None,
+            milestone_id: None,
+            label_ids: vec![enhancement.id],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("other issue should create");
+    update_issue_state(
+        &pool,
+        other.id,
+        UpdateIssueState {
+            actor_user_id: owner.id,
+            state: IssueState::Closed,
+        },
+    )
+    .await
+    .expect("other issue should close");
+
+    let cookie = cookie_header(&pool, &config, &owner).await;
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let owner_path = owner.email.replace('@', "%40");
+    let uri = format!(
+        "/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20plain%20text%20label%3Abug%20milestone%3A%22Phase%203%22%20assignee%3A%40me&sort=created-asc"
+    );
+
+    let (status, body) = send_json(app.clone(), &uri, Some(&cookie)).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total"], 1);
+    assert_eq!(body["items"][0]["number"], matched.number);
+    assert_eq!(body["filters"]["labels"][0], "bug");
+    assert_eq!(body["filters"]["milestone"], "Phase 3");
+    assert_eq!(body["filters"]["assignee"], owner.email);
+    assert_eq!(body["filters"]["sort"], "created-asc");
+
+    let (bad_sort_status, bad_sort_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{owner_path}/{repo_name}/issues?sort=random"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(bad_sort_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(bad_sort_body["error"]["code"], "validation_failed");
+
+    let (bad_state_status, bad_state_body) = send_json(
+        app,
+        &format!("/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Amerged"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(bad_state_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(bad_state_body["error"]["code"], "validation_failed");
+}

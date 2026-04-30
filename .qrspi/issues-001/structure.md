@@ -40,7 +40,7 @@
 
 ## Phase 3: URL Filters and Empty States - search, tabs, sorting, and clear query work
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Make the issue query builder and filter controls functional. Typing a query or choosing state/sort/label/milestone filters updates the URL and results. Open/Closed tabs switch state filters, empty results show a no-results state, and the clear-query affordance resets to the default open issue query.
 

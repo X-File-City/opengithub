@@ -13,6 +13,17 @@ type CreatedIssue = {
   title: string;
 };
 
+type CurrentUser = {
+  id: string;
+  username: string | null;
+  email: string;
+};
+
+type CreatedRepository = {
+  owner_login: string;
+  name: string;
+};
+
 function seedSession(): SeededSession {
   if (!databaseUrl) {
     throw new Error("TEST_DATABASE_URL or DATABASE_URL is required");
@@ -135,4 +146,92 @@ test("signed-in repository Issues tab renders real issues and row navigation", a
   await expect(
     page.getByRole("heading", { name: `Issue #${issue.number}` }),
   ).toBeVisible();
+});
+
+test("signed-in repository Issues filters update URL, results, and empty states", async ({
+  page,
+}) => {
+  const seeded = seedSession();
+  await signIn(page, seeded);
+  const repositoryName = `issues filters ${Date.now().toString(36)}`;
+  const cookie = `${seeded.cookieName}=${seeded.cookieValue}`;
+  const currentUserResponse = await page.request.get(
+    "http://localhost:3016/api/auth/current-user",
+    { headers: { cookie } },
+  );
+  expect(currentUserResponse.status()).toBe(200);
+  const currentUser = (await currentUserResponse.json()) as CurrentUser;
+  const repositoryResponse = await page.request.post(
+    "http://localhost:3016/api/repos",
+    {
+      headers: { cookie },
+      data: {
+        ownerType: "user",
+        ownerId: currentUser.id,
+        name: repositoryName,
+        visibility: "public",
+        initializeReadme: false,
+      },
+    },
+  );
+  expect(repositoryResponse.status()).toBe(201);
+  const repository = (await repositoryResponse.json()) as CreatedRepository;
+  const ownerLogin = repository.owner_login;
+  const repoName = repository.name;
+  const openTitle = `Filter target issue ${Date.now().toString(36)}`;
+  const closedTitle = `Closed target issue ${Date.now().toString(36)}`;
+  const openResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/issues`,
+    {
+      headers: { cookie },
+      data: {
+        title: openTitle,
+        body: "Repository issue filter smoke body",
+      },
+    },
+  );
+  expect(openResponse.status()).toBe(201);
+  const closedResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/issues`,
+    {
+      headers: { cookie },
+      data: {
+        title: closedTitle,
+        body: "Closed state filter smoke body",
+      },
+    },
+  );
+  expect(closedResponse.status()).toBe(201);
+  const closedIssue = (await closedResponse.json()) as CreatedIssue;
+  const closeResponse = await page.request.patch(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/issues/${closedIssue.number}`,
+    {
+      headers: { cookie },
+      data: { state: "closed" },
+    },
+  );
+  expect(closeResponse.status()).toBe(200);
+
+  await page.goto(`/${ownerLogin}/${repoName}/issues`);
+  await page.getByLabel("issue-query").fill("target issue");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page).toHaveURL(/q=target\+issue/);
+  await expect(page.getByRole("link", { name: openTitle })).toBeVisible();
+  await expect(page.getByRole("link", { name: closedTitle })).toHaveCount(0);
+
+  await page.getByRole("link", { name: /Closed/ }).click();
+  await expect(page).toHaveURL(/state=closed/);
+  await expect(page.getByRole("link", { name: closedTitle })).toBeVisible();
+
+  await page.getByLabel("issue-query").fill("no matching issue text");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByText("No issues matched this query")).toBeVisible();
+  await page.getByRole("link", { name: "Clear query" }).click();
+  await expect(page).toHaveURL(/q=is%3Aissue\+state%3Aopen/);
+  await expect(page.getByRole("link", { name: openTitle })).toBeVisible();
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-001-phase3-filtered-empty.jpg",
+  });
 });

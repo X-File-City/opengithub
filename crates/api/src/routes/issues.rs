@@ -14,6 +14,7 @@ use crate::{
     },
     auth::extractor::AuthenticatedUser,
     domain::{
+        identity::User,
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
             repository_issue_list_view, update_issue_state, CollaborationError, CreateComment,
@@ -109,7 +110,7 @@ async fn list(
         pool,
         repository_id,
         actor.0.id,
-        issue_list_query(&query),
+        issue_list_query(&query, &actor.0).map_err(map_collaboration_error)?,
         pagination.page,
         pagination.page_size,
     )
@@ -119,7 +120,9 @@ async fn list(
     Ok(Json(json!(envelope)))
 }
 
-fn issue_list_query(query: &ListQuery) -> IssueListQuery {
+const ISSUE_SORTS: &[&str] = &["updated-desc", "updated-asc", "created-desc", "created-asc"];
+
+fn issue_list_query(query: &ListQuery, actor: &User) -> Result<IssueListQuery, CollaborationError> {
     let mut filters = IssueListQuery::default();
     let q = query
         .q
@@ -128,7 +131,8 @@ fn issue_list_query(query: &ListQuery) -> IssueListQuery {
         .filter(|value| !value.is_empty())
         .unwrap_or("is:issue state:open");
 
-    filters.query = Some(q.to_owned());
+    validate_issue_query(q)?;
+    filters.query = Some(q.chars().take(240).collect());
     filters.state = query.state.clone().unwrap_or_else(|| state_from_query(q));
     filters.labels = labels_from_query(q, query.labels.as_deref());
     filters.milestone = query
@@ -143,11 +147,11 @@ fn issue_list_query(query: &ListQuery) -> IssueListQuery {
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(normalize_assignee_filter)
+        .map(|value| normalize_assignee_filter(value, actor))
         .or_else(|| {
             qualifier_from_query(q, "assignee:")
                 .as_deref()
-                .map(normalize_assignee_filter)
+                .map(|value| normalize_assignee_filter(value, actor))
         });
     filters.sort = query
         .sort
@@ -157,7 +161,32 @@ fn issue_list_query(query: &ListQuery) -> IssueListQuery {
         .map(ToOwned::to_owned)
         .or_else(|| qualifier_from_query(q, "sort:"))
         .unwrap_or_else(|| "updated-desc".to_owned());
-    filters
+    if !ISSUE_SORTS.contains(&filters.sort.as_str()) {
+        return Err(CollaborationError::InvalidIssueFilter(
+            "sort must be one of updated-desc, updated-asc, created-desc, created-asc".to_owned(),
+        ));
+    }
+    Ok(filters)
+}
+
+fn validate_issue_query(query: &str) -> Result<(), CollaborationError> {
+    for term in query.split_whitespace() {
+        if let Some(value) = term.strip_prefix("state:") {
+            if !matches!(value, "open" | "closed") {
+                return Err(CollaborationError::InvalidIssueFilter(
+                    "state filter must be open or closed".to_owned(),
+                ));
+            }
+        }
+        if let Some(value) = term.strip_prefix("is:") {
+            if !matches!(value, "issue" | "open" | "closed") {
+                return Err(CollaborationError::InvalidIssueFilter(
+                    "is filter must be issue, open, or closed".to_owned(),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn state_from_query(query: &str) -> IssueState {
@@ -180,12 +209,9 @@ fn labels_from_query(query: &str, explicit_labels: Option<&str>) -> Vec<String> 
         .map(ToOwned::to_owned)
         .collect::<Vec<_>>();
     labels.extend(
-        query
-            .split_whitespace()
-            .filter_map(|term| term.strip_prefix("label:"))
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(|value| value.trim_matches('"').to_owned()),
+        qualifier_values_from_query(query, "label:")
+            .into_iter()
+            .filter(|value| !value.is_empty()),
     );
     labels.sort_by_key(|value| value.to_lowercase());
     labels.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
@@ -193,16 +219,45 @@ fn labels_from_query(query: &str, explicit_labels: Option<&str>) -> Vec<String> 
 }
 
 fn qualifier_from_query(query: &str, prefix: &str) -> Option<String> {
-    query
-        .split_whitespace()
-        .find_map(|term| term.strip_prefix(prefix))
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| value.trim_matches('"').to_owned())
+    qualifier_values_from_query(query, prefix)
+        .into_iter()
+        .find(|value| !value.is_empty())
 }
 
-fn normalize_assignee_filter(value: &str) -> String {
-    value.trim().trim_start_matches('@').to_owned()
+fn qualifier_values_from_query(query: &str, prefix: &str) -> Vec<String> {
+    let mut values = Vec::new();
+    let mut rest = query;
+    while let Some(index) = rest.find(prefix) {
+        let after_prefix = &rest[index + prefix.len()..];
+        let trimmed = after_prefix.trim_start();
+        if let Some(quoted) = trimmed.strip_prefix('"') {
+            if let Some(end_quote) = quoted.find('"') {
+                values.push(quoted[..end_quote].trim().to_owned());
+                rest = &quoted[end_quote + 1..];
+            } else {
+                values.push(quoted.trim().to_owned());
+                break;
+            }
+        } else {
+            let end = trimmed.find(char::is_whitespace).unwrap_or(trimmed.len());
+            values.push(trimmed[..end].trim().to_owned());
+            rest = &trimmed[end..];
+        }
+    }
+    values
+}
+
+fn normalize_assignee_filter(value: &str, actor: &User) -> String {
+    let normalized = value.trim().trim_start_matches('@');
+    if normalized.eq_ignore_ascii_case("me") {
+        actor
+            .username
+            .as_deref()
+            .unwrap_or(actor.email.as_str())
+            .to_owned()
+    } else {
+        normalized.to_owned()
+    }
 }
 
 async fn create(
@@ -382,13 +437,13 @@ pub(crate) fn map_collaboration_error(
         | CollaborationError::PullRequestNotFound => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
-        CollaborationError::InvalidState(_) | CollaborationError::InvalidReaction(_) => {
-            error_response(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "validation_failed",
-                error.to_string(),
-            )
-        }
+        CollaborationError::InvalidState(_)
+        | CollaborationError::InvalidReaction(_)
+        | CollaborationError::InvalidIssueFilter(_) => error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            error.to_string(),
+        ),
         CollaborationError::Sqlx(sqlx::Error::Database(database_error))
             if database_error.is_unique_violation() =>
         {

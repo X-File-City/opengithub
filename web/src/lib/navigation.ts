@@ -674,9 +674,119 @@ export function repositoryIssueStateHref(
   return repositoryIssuesHref(owner, repo, {
     ...current,
     state,
-    q: `is:issue state:${state}`,
+    q: issueQueryWithState(current.q, state),
     page: null,
   });
+}
+
+export function repositoryIssueSortHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  sort: string,
+) {
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    sort,
+    page: null,
+  });
+}
+
+export function repositoryIssueClearFilterHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  filter: "labels" | "milestone" | "assignee",
+  value?: string,
+) {
+  const next = { ...current, page: null };
+  if (filter === "labels") {
+    next.labels = value
+      ? current.labels?.filter(
+          (label) => label.toLowerCase() !== value.toLowerCase(),
+        )
+      : [];
+    next.q = removeIssueFilterFromQuery(current.q, "label", value);
+  } else if (filter === "milestone") {
+    next.milestone = null;
+    next.q = removeIssueFilterFromQuery(current.q, "milestone");
+  } else {
+    next.assignee = null;
+    next.q = removeIssueFilterFromQuery(current.q, "assignee");
+  }
+  return repositoryIssuesHref(owner, repo, next);
+}
+
+function issueQueryWithState(
+  query: string | null | undefined,
+  state: "open" | "closed",
+) {
+  const terms = (query?.trim() || "is:issue")
+    .split(/\s+/)
+    .filter(
+      (term) =>
+        term &&
+        !term.startsWith("state:") &&
+        term !== "is:open" &&
+        term !== "is:closed",
+    );
+  if (!terms.some((term) => term === "is:issue")) {
+    terms.unshift("is:issue");
+  }
+  terms.push(`state:${state}`);
+  return terms.join(" ");
+}
+
+function removeIssueFilterFromQuery(
+  query: string | null | undefined,
+  filter: "label" | "milestone" | "assignee",
+  value?: string,
+) {
+  const normalizedValue = value?.toLowerCase();
+  return issueQueryTerms(query?.trim() || "")
+    .filter((term) => {
+      const prefix = `${filter}:`;
+      if (!term.startsWith(prefix)) {
+        return true;
+      }
+      if (!normalizedValue) {
+        return false;
+      }
+      return (
+        term.slice(prefix.length).replaceAll('"', "").toLowerCase() !==
+        normalizedValue
+      );
+    })
+    .join(" ");
+}
+
+function issueQueryTerms(query: string) {
+  const terms: string[] = [];
+  let rest = query.trim();
+  while (rest) {
+    const spaceIndex = rest.search(/\s/);
+    const tokenEnd = spaceIndex === -1 ? rest.length : spaceIndex;
+    const token = rest.slice(0, tokenEnd);
+    const quoteIndex = token.indexOf(':"');
+    if (quoteIndex >= 0) {
+      const prefixLength = quoteIndex + 2;
+      const quotedRest = rest.slice(prefixLength);
+      const endQuote = quotedRest.indexOf('"');
+      if (endQuote >= 0) {
+        terms.push(
+          `${token.slice(0, prefixLength)}${quotedRest.slice(0, endQuote + 1)}`,
+        );
+        rest = quotedRest.slice(endQuote + 1).trimStart();
+      } else {
+        terms.push(rest);
+        rest = "";
+      }
+    } else {
+      terms.push(token);
+      rest = rest.slice(tokenEnd).trimStart();
+    }
+  }
+  return terms;
 }
 
 export function activeRepositoryTab(pathname: string): string {

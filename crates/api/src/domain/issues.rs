@@ -332,6 +332,8 @@ pub enum CollaborationError {
     InvalidState(String),
     #[error("invalid reaction `{0}`")]
     InvalidReaction(String),
+    #[error("invalid issue filter: {0}")]
+    InvalidIssueFilter(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 }
@@ -1319,11 +1321,11 @@ async fn linked_pull_request_hints(
 }
 
 fn search_text_from_issue_query(query: &str) -> String {
-    query
-        .split_whitespace()
+    issue_query_terms(query)
+        .into_iter()
         .filter(|term| {
             !matches!(
-                *term,
+                term.as_str(),
                 "is:issue" | "is:open" | "is:closed" | "state:open" | "state:closed"
             ) && !term.starts_with("label:")
                 && !term.starts_with("milestone:")
@@ -1334,6 +1336,34 @@ fn search_text_from_issue_query(query: &str) -> String {
         .join(" ")
         .trim()
         .to_owned()
+}
+
+fn issue_query_terms(query: &str) -> Vec<String> {
+    let mut terms = Vec::new();
+    let mut rest = query.trim();
+    while !rest.is_empty() {
+        let next_space = rest.find(char::is_whitespace).unwrap_or(rest.len());
+        let term = &rest[..next_space];
+        if let Some(quote_index) = term.find(":\"") {
+            let prefix_len = quote_index + 2;
+            let quoted_rest = &rest[prefix_len..];
+            if let Some(end_quote) = quoted_rest.find('"') {
+                terms.push(format!(
+                    "{}{}",
+                    &term[..prefix_len],
+                    &quoted_rest[..end_quote + 1]
+                ));
+                rest = quoted_rest[end_quote + 1..].trim_start();
+            } else {
+                terms.push(rest.to_owned());
+                break;
+            }
+        } else {
+            terms.push(term.to_owned());
+            rest = rest[next_space..].trim_start();
+        }
+    }
+    terms
 }
 
 fn fallback_issue_user(user_id: Uuid) -> IssueListUser {

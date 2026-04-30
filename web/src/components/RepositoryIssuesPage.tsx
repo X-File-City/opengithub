@@ -7,7 +7,9 @@ import type {
 } from "@/lib/api";
 import {
   type RepositoryIssueHrefQuery,
+  repositoryIssueClearFilterHref,
   repositoryIssueDetailHref,
+  repositoryIssueSortHref,
   repositoryIssueStateHref,
   repositoryIssuesHref,
 } from "@/lib/navigation";
@@ -82,6 +84,13 @@ function InlineCodeTitle({ title }: { title: string }) {
     </>
   );
 }
+
+const ISSUE_SORT_OPTIONS = [
+  ["updated-desc", "Recently updated"],
+  ["updated-asc", "Least recently updated"],
+  ["created-desc", "Newest"],
+  ["created-asc", "Oldest"],
+] as const;
 
 function IssueRow({
   issue,
@@ -224,6 +233,27 @@ export function RepositoryIssuesPage({
           </label>
           <input name="state" type="hidden" value={activeState} />
           <input name="sort" type="hidden" value={issues.filters.sort} />
+          {issues.filters.labels.length ? (
+            <input
+              name="labels"
+              type="hidden"
+              value={issues.filters.labels.join(",")}
+            />
+          ) : null}
+          {issues.filters.milestone ? (
+            <input
+              name="milestone"
+              type="hidden"
+              value={issues.filters.milestone}
+            />
+          ) : null}
+          {issues.filters.assignee ? (
+            <input
+              name="assignee"
+              type="hidden"
+              value={issues.filters.assignee}
+            />
+          ) : null}
           <button className="btn" type="submit">
             Search
           </button>
@@ -262,16 +292,63 @@ export function RepositoryIssuesPage({
               </Link>
             </nav>
             <div className="flex flex-wrap gap-2 py-3">
-              <span className="chip soft">Sort: {issues.filters.sort}</span>
+              {ISSUE_SORT_OPTIONS.map(([value, label]) => (
+                <Link
+                  aria-current={
+                    issues.filters.sort === value ? "page" : undefined
+                  }
+                  className={`chip ${
+                    issues.filters.sort === value ? "active" : "soft"
+                  }`}
+                  href={repositoryIssueSortHref(owner, repo, baseQuery, value)}
+                  key={value}
+                >
+                  {label}
+                </Link>
+              ))}
               {issues.filters.labels.map((label) => (
-                <span className="chip soft" key={label}>
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "labels",
+                    label,
+                  )}
+                  key={label}
+                  title={`Remove label:${label}`}
+                >
                   label:{label}
-                </span>
+                </Link>
               ))}
               {issues.filters.milestone ? (
-                <span className="chip soft">
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "milestone",
+                  )}
+                  title={`Remove milestone:${issues.filters.milestone}`}
+                >
                   milestone:{issues.filters.milestone}
-                </span>
+                </Link>
+              ) : null}
+              {issues.filters.assignee ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "assignee",
+                  )}
+                  title={`Remove assignee:${issues.filters.assignee}`}
+                >
+                  assignee:{issues.filters.assignee}
+                </Link>
               ) : null}
             </div>
           </div>
@@ -300,6 +377,38 @@ export function RepositoryIssuesPage({
                   repo={repo}
                 />
               ))}
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3"
+                style={{ borderColor: "var(--line-soft)" }}
+              >
+                <span className="t-xs" style={{ color: "var(--ink-3)" }}>
+                  Page <span className="t-num">{issues.page}</span>
+                </span>
+                <div className="flex gap-2">
+                  {issues.page > 1 ? (
+                    <Link
+                      className="btn sm"
+                      href={repositoryIssuesHref(owner, repo, {
+                        ...baseQuery,
+                        page: issues.page - 1,
+                      })}
+                    >
+                      Previous
+                    </Link>
+                  ) : null}
+                  {issues.page * issues.pageSize < issues.total ? (
+                    <Link
+                      className="btn sm"
+                      href={repositoryIssuesHref(owner, repo, {
+                        ...baseQuery,
+                        page: issues.page + 1,
+                      })}
+                    >
+                      Next
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
             </div>
           ) : (
             <div className="p-8 text-center">

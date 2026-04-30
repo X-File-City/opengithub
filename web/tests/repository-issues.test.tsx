@@ -7,7 +7,9 @@ import type {
   RepositoryOverview,
 } from "@/lib/api";
 import {
+  repositoryIssueClearFilterHref,
   repositoryIssueDetailHref,
+  repositoryIssueSortHref,
   repositoryIssueStateHref,
   repositoryIssuesHref,
 } from "@/lib/navigation";
@@ -203,15 +205,40 @@ describe("RepositoryIssuesPage", () => {
       repositoryIssueStateHref(
         "mona",
         "octo-app",
-        { q: "label:bug", labels: ["bug"], page: 3 },
+        { q: "is:issue label:bug needs triage", labels: ["bug"], page: 3 },
         "closed",
       ),
     ).toBe(
-      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed&state=closed&labels=bug",
+      "/mona/octo-app/issues?q=is%3Aissue+label%3Abug+needs+triage+state%3Aclosed&state=closed&labels=bug",
+    );
+    expect(
+      repositoryIssueSortHref(
+        "mona",
+        "octo-app",
+        { q: "is:issue state:open", state: "open" },
+        "created-asc",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open&sort=created-asc",
+    );
+    expect(
+      repositoryIssueClearFilterHref(
+        "mona",
+        "octo-app",
+        {
+          q: "is:issue state:open",
+          labels: ["bug", "docs"],
+          milestone: "MVP",
+        },
+        "labels",
+        "bug",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&labels=docs&milestone=MVP",
     );
   });
 
-  it("renders closed and empty states with a clear query affordance", () => {
+  it("renders filtered controls, closed state, and clear-query affordance", () => {
     render(
       <RepositoryIssuesPage
         issues={issueListView({
@@ -225,8 +252,8 @@ describe("RepositoryIssuesPage", () => {
             state: "closed",
             labels: ["missing"],
             milestone: null,
-            assignee: null,
-            sort: "updated-desc",
+            assignee: "hubot",
+            sort: "created-asc",
           },
         })}
         query={{ q: "is:issue state:closed label:missing", state: "closed" }}
@@ -239,6 +266,18 @@ describe("RepositoryIssuesPage", () => {
       "page",
     );
     expect(screen.getByText("No issues matched this query")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Oldest" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByTitle("Remove label:missing")).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed&state=closed&assignee=hubot&sort=created-asc",
+    );
+    expect(screen.getByTitle("Remove assignee:hubot")).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed+label%3Amissing&state=closed&labels=missing&sort=created-asc",
+    );
     expect(screen.getByRole("link", { name: "Clear query" })).toHaveAttribute(
       "href",
       "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open",

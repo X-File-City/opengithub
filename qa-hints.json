@@ -1345,5 +1345,22 @@
       "Issue detail row navigation lands on the existing issue detail placeholder; full timelines/comments/state controls are later issues features.",
       "The browser smoke uses a simple unlabelled issue created through the real API; richer label, milestone, assignee, and linked-PR combinations are covered in unit/API tests and should get deeper browser QA in later phases."
     ]
+  },
+  {
+    "feature_id": "issues-001",
+    "tests_written": [
+      "Implemented Phase 3 URL-backed issue filters: query text, open/closed tabs, sort links, removable label/milestone/assignee chips, pagination links, and clear-query empty state.",
+      "Tightened Rust issue-list query parsing for state/is qualifiers, label/milestone/assignee including assignee:@me, quoted milestone values, validated sort values, and non-leaky 422 validation envelopes.",
+      "Extended Rust integration coverage for text/state/label/milestone/assignee/sort filters, @me normalization, bad sort validation, and bad state validation against real Postgres.",
+      "Extended Vitest coverage for URL helper round-trips, state tab query preservation, active sort controls, removable filter chips, and empty-state clear query.",
+      "Extended Playwright coverage with a real signed Rust session, API-created repository and issues, text search, closed tab navigation, empty state, clear query, dead-control scan, and screenshot ralph/screenshots/build/issues-001-phase3-filtered-empty.jpg.",
+      "Verification passed: focused api_repository_issues_list_contract, focused repository-issues Vitest, focused repository-issues Playwright, mandatory Editorial banned-value scan, TEST_DATABASE_URL-backed make check, make test with 116 frontend tests plus cargo tests, and make test-e2e with 53 Playwright tests."
+    ],
+    "needs_deeper_qa": [
+      "Phase 3 supports the bounded query syntax required for this slice; advanced GitHub query grammar such as complex boolean expressions and multi-word unquoted qualifiers remains out of scope.",
+      "Filter chips remove explicit URL filters and matching simple qualifiers, but richer quoted chip removal edge cases should be retested when the full query builder ships.",
+      "Pagination controls are rendered and URL-backed; the browser smoke does not create enough issues to click through multiple pages.",
+      "Contributor banner dismissal and preference persistence are intentionally not built until Phase 4."
+    ]
   }
 ]
