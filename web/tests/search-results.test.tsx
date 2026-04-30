@@ -229,6 +229,96 @@ describe("SearchResultsPage", () => {
     expect(screen.getByText("abcdef123456")).toBeVisible();
   });
 
+  it("renders issue and pull request results with state, labels, and detail links", () => {
+    render(
+      <SearchResultsPage
+        activeType="issues"
+        query="phase4"
+        results={envelope([
+          result({
+            document: {
+              ...result().document,
+              id: "doc-issue",
+              kind: "issue",
+              resource_id: "repo-1:7",
+              title: "Investigate phase4 issue search",
+              body: "Issue body carries phase4.",
+              metadata: {
+                number: 7,
+                state: "closed",
+                labels: [{ name: "bug", color: "d73a4a" }],
+                authorLogin: "mona",
+              },
+            },
+            type: "issues",
+            href: "/mona/editorial-search/issues/7",
+            title: "Investigate phase4 issue search",
+            summary: "Issue body carries phase4.",
+          }),
+          result({
+            document: {
+              ...result().document,
+              id: "doc-pull",
+              kind: "pull_request",
+              resource_id: "repo-1:8",
+              title: "Review phase4 pull search",
+              body: "Pull body carries phase4.",
+              branch: "feature/phase4",
+              metadata: {
+                number: 8,
+                state: "merged",
+                labels: [],
+                authorLogin: "mona",
+                headRef: "feature/phase4",
+                baseRef: "main",
+              },
+            },
+            type: "pull_requests",
+            href: "/mona/editorial-search/pull/8",
+            title: "Review phase4 pull search",
+            summary: "Pull body carries phase4.",
+          }),
+        ])}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /Investigate phase4 issue search/ }),
+    ).toHaveAttribute("href", "/mona/editorial-search/issues/7");
+    expect(screen.getByText("#7")).toBeVisible();
+    expect(screen.getByText("closed")).toBeVisible();
+    expect(screen.getByText("bug")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: /Review phase4 pull search/ }),
+    ).toHaveAttribute("href", "/mona/editorial-search/pull/8");
+    expect(screen.getByText("merged")).toBeVisible();
+    expect(screen.getByText("feature/phase4 -> main")).toBeVisible();
+  });
+
+  it("keeps the discussions tab concrete with an explicit empty state", () => {
+    render(
+      <SearchResultsPage
+        activeType="discussions"
+        query="phase4"
+        results={{ items: [], total: 0, page: 1, pageSize: 30 }}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Discussions" })).toHaveAttribute(
+      "href",
+      "/search?q=phase4&type=discussions",
+    );
+    expect(
+      screen.getByText("Discussion search is ready for indexing."),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/No discussions are indexed for "phase4" yet/),
+    ).toBeVisible();
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+  });
+
   it("builds the API search path with UI type names", () => {
     expect(
       globalSearchPath({

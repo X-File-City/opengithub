@@ -11,6 +11,7 @@ use super::{
     repositories::{
         get_repository, get_repository_by_owner_name, repository_permission_for_user, Repository,
     },
+    search::{upsert_search_document, SearchDocumentKind, SearchError, UpsertSearchDocument},
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -263,10 +264,11 @@ pub async fn list_labels(
 }
 
 pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, CollaborationError> {
+    let actor_user_id = input.actor_user_id;
     require_repository_role(
         pool,
         input.repository_id,
-        input.actor_user_id,
+        actor_user_id,
         RepositoryRole::Write,
     )
     .await?;
@@ -282,6 +284,7 @@ pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, Co
         json!({ "number": issue.number }),
     )
     .await?;
+    index_issue_search_document(pool, &issue, actor_user_id).await?;
     Ok(issue)
 }
 
@@ -417,6 +420,7 @@ pub async fn update_issue_state(
         json!({ "number": issue.number }),
     )
     .await?;
+    index_issue_search_document(pool, &issue, input.actor_user_id).await?;
     Ok(issue)
 }
 
@@ -692,6 +696,107 @@ fn label_from_row(row: sqlx::postgres::PgRow) -> Label {
         is_default: row.get("is_default"),
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
+    }
+}
+
+pub(crate) async fn index_issue_search_document(
+    pool: &PgPool,
+    issue: &Issue,
+    actor_user_id: Uuid,
+) -> Result<(), CollaborationError> {
+    let repository = get_repository(pool, issue.repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    let labels = labels_for_issue(pool, issue.id).await?;
+    let author_login = user_login(pool, issue.author_user_id).await?;
+    let label_names = labels
+        .iter()
+        .map(|label| label.name.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let body = [issue.body.as_deref().unwrap_or(""), label_names.as_str()]
+        .into_iter()
+        .filter(|part| !part.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let label_metadata = labels
+        .iter()
+        .map(|label| json!({ "name": label.name, "color": label.color }))
+        .collect::<Vec<_>>();
+
+    upsert_search_document(
+        pool,
+        actor_user_id,
+        UpsertSearchDocument {
+            repository_id: Some(repository.id),
+            owner_user_id: repository.owner_user_id,
+            owner_organization_id: repository.owner_organization_id,
+            kind: SearchDocumentKind::Issue,
+            resource_id: format!("{}:{}", repository.id, issue.number),
+            title: issue.title.clone(),
+            body: Some(body),
+            path: None,
+            language: None,
+            branch: None,
+            visibility: repository.visibility,
+            metadata: json!({
+                "number": issue.number,
+                "state": issue.state.as_str(),
+                "labels": label_metadata,
+                "authorLogin": author_login,
+                "createdAt": issue.created_at,
+                "updatedAt": issue.updated_at,
+                "href": format!("/{}/{}/issues/{}", repository.owner_login, repository.name, issue.number),
+            }),
+        },
+    )
+    .await
+    .map_err(search_error_to_collaboration)?;
+
+    Ok(())
+}
+
+pub(crate) async fn user_login(pool: &PgPool, user_id: Uuid) -> Result<String, CollaborationError> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT COALESCE(NULLIF(username, ''), email) FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .map_err(CollaborationError::Sqlx)
+}
+
+async fn labels_for_issue(pool: &PgPool, issue_id: Uuid) -> Result<Vec<Label>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT labels.id, labels.repository_id, labels.name, labels.color, labels.description,
+               labels.is_default, labels.created_at, labels.updated_at
+        FROM labels
+        JOIN issue_labels ON issue_labels.label_id = labels.id
+        WHERE issue_labels.issue_id = $1
+        ORDER BY lower(labels.name)
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(label_from_row).collect())
+}
+
+pub(crate) fn search_error_to_collaboration(error: SearchError) -> CollaborationError {
+    match error {
+        SearchError::RepositoryAccessDenied => CollaborationError::RepositoryAccessDenied,
+        SearchError::Repository(super::repositories::RepositoryError::Sqlx(error))
+        | SearchError::Sqlx(error) => CollaborationError::Sqlx(error),
+        SearchError::Repository(_) => CollaborationError::RepositoryNotFound,
+        SearchError::QueryTooShort | SearchError::InvalidKind(_) => {
+            CollaborationError::RepositoryAccessDenied
+        }
     }
 }
 

@@ -499,7 +499,12 @@ fn split_commit_message(title: &str, body: &str) -> (String, Option<String>) {
     } else if let Some(rest) = body.strip_prefix(&message_title) {
         rest.trim().to_owned()
     } else if title.is_empty() {
-        body.lines().skip(1).collect::<Vec<_>>().join("\n").trim().to_owned()
+        body.lines()
+            .skip(1)
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim()
+            .to_owned()
     } else {
         body.to_owned()
     };

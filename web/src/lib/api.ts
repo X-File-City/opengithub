@@ -570,7 +570,8 @@ export type SearchResultType =
   | "pull_requests"
   | "commits"
   | "users"
-  | "organizations";
+  | "organizations"
+  | "discussions";
 
 export type SearchDocumentKind =
   | "repository"

@@ -4,7 +4,7 @@ use opengithub_api::{
     config::{AppConfig, AuthConfig},
     domain::{
         identity::{upsert_session, upsert_user_by_email},
-        issues::{create_issue, CreateIssue},
+        issues::{create_issue, ensure_default_labels, CreateIssue},
         permissions::RepositoryRole,
         pulls::{create_pull_request, CreatePullRequest},
         repositories::{
@@ -432,6 +432,37 @@ async fn seed_search_documents(
                 oid: format!("blob-{marker}"),
                 byte_size: 72,
             }],
+        },
+    )
+    .await?;
+
+    let labels = ensure_default_labels(pool, repository.id).await?;
+    create_issue(
+        pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: user_id,
+            title: format!("Investigate {marker} issue search"),
+            body: Some(format!("Issue result seeded for {marker}")),
+            milestone_id: None,
+            label_ids: labels
+                .first()
+                .map(|label| vec![label.id])
+                .unwrap_or_default(),
+            assignee_user_ids: vec![],
+        },
+    )
+    .await?;
+    create_pull_request(
+        pool,
+        CreatePullRequest {
+            repository_id: repository.id,
+            actor_user_id: user_id,
+            title: format!("Review {marker} pull search"),
+            body: Some(format!("Pull request result seeded for {marker}")),
+            head_ref: format!("feature/{marker}"),
+            base_ref: "main".to_owned(),
+            head_repository_id: None,
         },
     )
     .await?;

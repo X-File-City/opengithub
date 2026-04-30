@@ -8,6 +8,14 @@ use opengithub_api::{
     config::{AppConfig, AuthConfig},
     domain::{
         identity::{upsert_session, upsert_user_by_email, User},
+        issues::{
+            create_issue, ensure_default_labels, update_issue_state, CreateIssue, IssueState,
+            UpdateIssueState,
+        },
+        pulls::{
+            create_pull_request, update_pull_request_state, CreatePullRequest, PullRequestState,
+            UpdatePullRequestState,
+        },
         repositories::{
             replace_repository_snapshot, CreateCommit, RepositorySnapshot, RepositorySnapshotFile,
         },
@@ -573,4 +581,178 @@ async fn search_rest_route_projects_code_and_commit_results_from_repository_snap
     .await;
     assert_eq!(outsider_status, StatusCode::OK);
     assert_eq!(outsider_body["total"], 0);
+}
+
+#[tokio::test]
+async fn search_rest_route_indexes_issue_pull_request_and_discussion_tabs() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping search collaboration contract scenario; set TEST_DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "api-search-collab-owner").await;
+    let outsider = create_user(&pool, "api-search-collab-outsider").await;
+    let owner_cookie = cookie_header(&pool, &config, &owner).await;
+    let outsider_cookie = cookie_header(&pool, &config, &outsider).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let marker = format!("phase4{}", Uuid::new_v4().simple());
+    let repo_name = format!("collab-search-{}", Uuid::new_v4().simple());
+
+    let (create_status, _headers, create_body) = send_json(
+        app.clone(),
+        Method::POST,
+        "/api/repos",
+        Some(&owner_cookie),
+        Some(json!({
+            "ownerType": "user",
+            "ownerId": owner.id,
+            "name": repo_name,
+            "visibility": "private"
+        })),
+    )
+    .await;
+    assert_eq!(create_status, StatusCode::CREATED);
+    let repository_id = Uuid::parse_str(
+        create_body["id"]
+            .as_str()
+            .expect("repository id should exist"),
+    )
+    .expect("repository id should parse");
+    let labels = ensure_default_labels(&pool, repository_id)
+        .await
+        .expect("default labels should exist");
+    let issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id,
+            actor_user_id: owner.id,
+            title: format!("Investigate {marker} issue search"),
+            body: Some(format!(
+                "Issue body carries {marker} and collaboration text."
+            )),
+            milestone_id: None,
+            label_ids: vec![labels[0].id],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("issue should create and index");
+    update_issue_state(
+        &pool,
+        issue.id,
+        UpdateIssueState {
+            actor_user_id: owner.id,
+            state: IssueState::Closed,
+        },
+    )
+    .await
+    .expect("issue state should update search metadata");
+    let pull_request = create_pull_request(
+        &pool,
+        CreatePullRequest {
+            repository_id,
+            actor_user_id: owner.id,
+            title: format!("Review {marker} pull search"),
+            body: Some(format!(
+                "Pull request body carries {marker} and review notes."
+            )),
+            head_ref: format!("feature/{marker}"),
+            base_ref: "main".to_owned(),
+            head_repository_id: None,
+        },
+    )
+    .await
+    .expect("pull request should create and index")
+    .pull_request;
+    update_pull_request_state(
+        &pool,
+        pull_request.id,
+        UpdatePullRequestState {
+            actor_user_id: owner.id,
+            state: PullRequestState::Merged,
+            merge_commit_id: None,
+        },
+    )
+    .await
+    .expect("pull request state should update search metadata");
+
+    let (issues_status, _issues_headers, issues_body) = send_json(
+        app.clone(),
+        Method::GET,
+        &format!("/api/search?q={marker}&type=issues"),
+        Some(&owner_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(issues_status, StatusCode::OK);
+    assert_eq!(issues_body["total"], 1);
+    assert_eq!(issues_body["items"][0]["type"], "issues");
+    assert_eq!(issues_body["items"][0]["document"]["metadata"]["number"], 1);
+    assert_eq!(
+        issues_body["items"][0]["document"]["metadata"]["state"],
+        "closed"
+    );
+    assert_eq!(
+        issues_body["items"][0]["document"]["metadata"]["labels"][0]["name"],
+        labels[0].name
+    );
+    assert!(issues_body["items"][0]["href"]
+        .as_str()
+        .expect("issue href should be string")
+        .ends_with("/issues/1"));
+
+    let (pulls_status, _pulls_headers, pulls_body) = send_json(
+        app.clone(),
+        Method::GET,
+        &format!("/api/search?q={marker}&type=pull_requests"),
+        Some(&owner_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(pulls_status, StatusCode::OK);
+    assert_eq!(pulls_body["total"], 1);
+    assert_eq!(pulls_body["items"][0]["type"], "pull_requests");
+    assert_eq!(pulls_body["items"][0]["document"]["metadata"]["number"], 2);
+    assert_eq!(
+        pulls_body["items"][0]["document"]["metadata"]["state"],
+        "merged"
+    );
+    assert_eq!(
+        pulls_body["items"][0]["document"]["metadata"]["headRef"],
+        format!("feature/{marker}")
+    );
+    assert!(pulls_body["items"][0]["href"]
+        .as_str()
+        .expect("pull href should be string")
+        .ends_with("/pull/2"));
+
+    let (outsider_status, _outsider_headers, outsider_body) = send_json(
+        app.clone(),
+        Method::GET,
+        &format!("/api/search?q={marker}&type=issues"),
+        Some(&outsider_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(outsider_status, StatusCode::OK);
+    assert_eq!(outsider_body["total"], 0);
+
+    let (discussions_status, _discussions_headers, discussions_body) = send_json(
+        app,
+        Method::GET,
+        &format!("/api/search?q={marker}&type=discussions"),
+        Some(&owner_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(discussions_status, StatusCode::OK);
+    assert_eq!(discussions_body["total"], 0);
+    assert_eq!(
+        discussions_body["items"]
+            .as_array()
+            .expect("items should be an array")
+            .len(),
+        0
+    );
 }

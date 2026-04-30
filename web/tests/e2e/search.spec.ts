@@ -141,3 +141,52 @@ test("code and commit search link to repository files and commits", async ({
     path: "../ralph/screenshots/build/search-001-phase3-code-results.jpg",
   });
 });
+
+test("issue, pull request, and discussions search tabs stay navigable", async ({
+  page,
+}) => {
+  const marker = `phase4-${Date.now()}`;
+  const seeded = seedSession(marker);
+  await signIn(page, seeded);
+
+  await page.goto(`/search?q=${marker}&type=issues`);
+  await expect(page.getByText(/1 issues results/)).toBeVisible();
+  const issueResult = page.getByRole("link", {
+    name: new RegExp(`Investigate ${marker} issue search`),
+  });
+  await expect(issueResult).toHaveAttribute("href", /\/issues\/1$/);
+  await expect(issueResult.getByText("#1")).toBeVisible();
+  await expect(issueResult.getByText("open", { exact: true })).toBeVisible();
+  await expect(issueResult.getByText("bug")).toBeVisible();
+
+  await page
+    .getByRole("navigation", { name: "Search result types" })
+    .getByRole("link", { name: "Pull requests" })
+    .click();
+  await expect(page).toHaveURL(
+    new RegExp(`/search\\?q=${marker}&type=pull_requests$`),
+  );
+  await expect(page.getByText(/1 pull requests results/)).toBeVisible();
+  const pullResult = page.getByRole("link", {
+    name: new RegExp(`Review ${marker} pull search`),
+  });
+  await expect(pullResult).toHaveAttribute("href", /\/pull\/2$/);
+  await expect(pullResult.getByText(`feature/${marker} -> main`)).toBeVisible();
+
+  await page
+    .getByRole("navigation", { name: "Search result types" })
+    .getByRole("link", { name: "Discussions" })
+    .click();
+  await expect(page).toHaveURL(
+    new RegExp(`/search\\?q=${marker}&type=discussions$`),
+  );
+  await expect(
+    page.getByText("Discussion search is ready for indexing."),
+  ).toBeVisible();
+  await expectNoDeadControls(page);
+
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/search-001-phase4-collaboration-results.jpg",
+  });
+});

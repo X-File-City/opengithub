@@ -432,6 +432,11 @@ export const SEARCH_TABS = [
     value: "organizations",
     description: "Organization profiles and teams",
   },
+  {
+    label: "Discussions",
+    value: "discussions",
+    description: "Repository discussions once discussion indexing ships",
+  },
 ] as const satisfies readonly QueryTab[];
 
 export type JumpSuggestionKind =

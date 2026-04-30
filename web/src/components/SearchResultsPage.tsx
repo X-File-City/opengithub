@@ -73,7 +73,11 @@ function ResultIcon({ result }: { result: GlobalSearchResult }) {
             ? "{}"
             : result.type === "commits"
               ? "C"
-              : "S";
+              : result.type === "issues"
+                ? "I"
+                : result.type === "pull_requests"
+                  ? "P"
+                  : "S";
 
   return (
     <span
@@ -88,6 +92,52 @@ function ResultIcon({ result }: { result: GlobalSearchResult }) {
       {label}
     </span>
   );
+}
+
+function metadataString(
+  metadata: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function metadataNumber(
+  metadata: Record<string, unknown>,
+  key: string,
+): number | null {
+  const value = metadata[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function metadataLabels(metadata: Record<string, unknown>) {
+  const labels = metadata.labels;
+  if (!Array.isArray(labels)) {
+    return [];
+  }
+
+  return labels
+    .map((label) => {
+      if (!label || typeof label !== "object" || !("name" in label)) {
+        return null;
+      }
+      const name = (label as { name?: unknown }).name;
+      return typeof name === "string" && name.trim() ? name : null;
+    })
+    .filter((label): label is string => Boolean(label));
+}
+
+function stateChipClass(type: string, state: string | null) {
+  if (state === "merged") {
+    return "chip ok";
+  }
+  if (state === "closed") {
+    return "chip err";
+  }
+  if (type === "pull_requests") {
+    return "chip warn";
+  }
+  return "chip ok";
 }
 
 function HighlightedFragment({
@@ -216,12 +266,73 @@ function CommitSearchResultCard({ result }: { result: GlobalSearchResult }) {
   );
 }
 
+function CollaborationSearchResultCard({
+  result,
+}: {
+  result: GlobalSearchResult;
+}) {
+  const metadata = result.document.metadata;
+  const number = metadataNumber(metadata, "number");
+  const state = metadataString(metadata, "state") ?? "open";
+  const labels = metadataLabels(metadata);
+  const author = metadataString(metadata, "authorLogin");
+  const headRef = metadataString(metadata, "headRef");
+  const baseRef = metadataString(metadata, "baseRef");
+  const typeLabel = result.type === "pull_requests" ? "Pull request" : "Issue";
+
+  return (
+    <Link className="list-row items-start gap-3 px-0" href={result.href}>
+      <ResultIcon result={result} />
+      <span className="min-w-0 flex-1">
+        <span className="t-label block" style={{ color: "var(--ink-3)" }}>
+          {resultKicker(result)}
+        </span>
+        <span className="mt-1 block text-[15px] font-semibold text-[color:var(--ink-1)]">
+          {result.title}
+        </span>
+        {result.summary ? (
+          <span className="t-sm mt-1 block" style={{ color: "var(--ink-3)" }}>
+            {result.summary}
+          </span>
+        ) : null}
+        <span className="mt-3 flex flex-wrap items-center gap-2">
+          <span className={stateChipClass(result.type, state)}>{state}</span>
+          {number ? (
+            <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
+              #{number}
+            </span>
+          ) : null}
+          <span className="chip soft">{typeLabel}</span>
+          {labels.map((label) => (
+            <span className="chip soft" key={label}>
+              {label}
+            </span>
+          ))}
+          {headRef && baseRef ? (
+            <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
+              {headRef} {"->"} {baseRef}
+            </span>
+          ) : null}
+          {author ? (
+            <span className="t-sm" style={{ color: "var(--ink-3)" }}>
+              by {author}
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function SearchResultCard({ result }: { result: GlobalSearchResult }) {
   if (result.type === "code") {
     return <CodeSearchResultCard result={result} />;
   }
   if (result.type === "commits") {
     return <CommitSearchResultCard result={result} />;
+  }
+  if (result.type === "issues" || result.type === "pull_requests") {
+    return <CollaborationSearchResultCard result={result} />;
   }
 
   return (
@@ -272,6 +383,24 @@ function EmptySearchState({ query }: { query: string }) {
         <span className="kbd">owner:namuh</span>,{" "}
         <span className="kbd">language:rust</span>, and{" "}
         <span className="kbd">path:src</span> as indexing expands.
+      </p>
+    </div>
+  );
+}
+
+function DiscussionsEmptyState({ query }: { query: string }) {
+  return (
+    <div className="card p-8">
+      <p className="t-label" style={{ color: "var(--ink-3)" }}>
+        Discussions
+      </p>
+      <h2 className="t-h2 mt-2">Discussion search is ready for indexing.</h2>
+      <p className="t-body mt-3 max-w-2xl" style={{ color: "var(--ink-3)" }}>
+        {query
+          ? `No discussions are indexed for "${query}" yet.`
+          : "Run a search once repository discussions are connected."}{" "}
+        The tab stays available so saved search URLs and keyboard navigation do
+        not fall through to a placeholder.
       </p>
     </div>
   );
@@ -432,7 +561,11 @@ export function SearchResultsPage({
           </div>
 
           {!hasQuery ? (
-            <EmptySearchState query="" />
+            normalizedType === "discussions" ? (
+              <DiscussionsEmptyState query="" />
+            ) : (
+              <EmptySearchState query="" />
+            )
           ) : isErrorEnvelope(results) ? (
             <SearchErrorState error={results} />
           ) : successfulResults && successfulResults.items.length > 0 ? (
@@ -441,6 +574,8 @@ export function SearchResultsPage({
                 <SearchResultCard key={result.document.id} result={result} />
               ))}
             </div>
+          ) : normalizedType === "discussions" ? (
+            <DiscussionsEmptyState query={query} />
           ) : (
             <EmptySearchState query={query} />
           )}

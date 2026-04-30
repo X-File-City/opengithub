@@ -893,3 +893,14 @@
 - Browser smoke/E2E saved `ralph/screenshots/build/search-001-phase3-code-results.jpg`. Local dev verification required `DB_SSL=false` for Docker Postgres because `.env` is configured for RDS SSL.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 105 frontend tests; focused `npx playwright test tests/e2e/search.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test DB_SSL=false make test-e2e` passed with 46 Playwright tests.
 - Marked Phase 3 as done in `.qrspi/search-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.
+
+2026-05-01 - search-001 phase 4 issues, pull requests, and discussions tabs
+
+- Implemented Phase 4 from `.qrspi/search-001/structure.md`: issue and pull request create/state-update paths now upsert permission-aware `search_documents` with repository-scoped resource IDs, state, number, labels, author, branch context, and direct detail href metadata.
+- Added explicit `/api/search?type=discussions` handling that returns a concrete empty envelope for valid queries until discussion indexing exists.
+- Extended `/search` UI with issue and pull request result cards using Editorial semantic chips, labels, repository/author context, direct issue/PR links, and an explicit discussions empty state.
+- Extended deterministic Playwright search seeding to create real issues and pull requests through existing Rust domain mutation paths.
+- Added Rust API contract coverage for issue/PR indexing, state metadata refresh, label metadata, direct links, private filtering, and discussions empty envelopes; added Vitest and Playwright coverage for collaboration result rendering and tab navigation.
+- Browser smoke/E2E saved `ralph/screenshots/build/search-001-phase4-collaboration-results.jpg`.
+- Verification: targeted Rust `api_repository_search_contract` Phase 4 test passed; targeted `cd web && npx vitest run tests/search-results.test.tsx` passed; focused `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test npx playwright test tests/e2e/search.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 107 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 47 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/search-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.

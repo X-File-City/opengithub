@@ -8,7 +8,9 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
-    api_types::{database_unavailable, error_response, normalize_pagination, ErrorEnvelope},
+    api_types::{
+        database_unavailable, error_response, normalize_pagination, ErrorEnvelope, ListEnvelope,
+    },
     auth::extractor::AuthenticatedUser,
     domain::search::{search_documents, SearchDocumentKind, SearchError, SearchQuery},
     AppState,
@@ -38,6 +40,30 @@ async fn search(
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let pagination = normalize_pagination(request.page, request.page_size);
+    let selected_type = request
+        .result_type
+        .as_deref()
+        .or(request.kind.as_deref())
+        .unwrap_or("repositories");
+    if matches!(selected_type, "discussions" | "discussion") {
+        if request
+            .q
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .chars()
+            .count()
+            < 2
+        {
+            return Err(map_search_error(SearchError::QueryTooShort));
+        }
+        return Ok(Json(json!(ListEnvelope::<serde_json::Value> {
+            items: Vec::new(),
+            total: 0,
+            page: pagination.page,
+            page_size: pagination.page_size,
+        })));
+    }
     let kind = request
         .result_type
         .as_deref()

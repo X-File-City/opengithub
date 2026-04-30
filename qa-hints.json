@@ -1264,5 +1264,21 @@
       "Commit result pages are linked, but the commit detail route itself remains a later repository/commit surface",
       "Full search completion still requires issues, pull requests, discussions, and final guardrail phases"
     ]
+  },
+  {
+    "feature_id": "search-001",
+    "tests_written": [
+      "Implemented Phase 4 issue and pull request indexing from create/state-update mutation paths",
+      "Rust API contract verifies issue and pull request search metadata, state changes, label metadata, direct detail hrefs, private repository filtering, and discussions empty envelopes",
+      "Vitest renders issue and pull request result cards with state chips, labels, author/repository context, branch context, and concrete detail links",
+      "Playwright signs in with a real Rust session, seeds issue and pull request search data, verifies issues/pull requests/discussions tabs, scans for dead controls, and saves ralph/screenshots/build/search-001-phase4-collaboration-results.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 107 frontend tests plus cargo tests, and make test-e2e with 47 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Issue and pull request list/detail pages are still concrete skeleton destinations; QA should verify search links navigate, not expect full collaboration detail parity yet",
+      "Label indexing is covered on creation, but label edit/remove mutation paths are not built yet and should be retested when label management ships",
+      "Discussion search is intentionally an explicit empty/not-yet-indexed state until discussions data exists",
+      "Search document resource IDs were made repository-scoped for issues and pull requests; QA should stress multiple repositories with the same issue/PR numbers"
+    ]
   }
 ]

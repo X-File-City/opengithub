@@ -9,11 +9,12 @@ use crate::api_types::ListEnvelope;
 use super::{
     issues::{
         append_timeline_event, insert_issue_with_number, issue_from_row, next_issue_number,
-        repository_for_actor, CollaborationError, CreateComment, CreateIssue, Issue, IssueState,
-        TimelineEvent,
+        repository_for_actor, search_error_to_collaboration, user_login, CollaborationError,
+        CreateComment, CreateIssue, Issue, IssueState, TimelineEvent,
     },
     permissions::RepositoryRole,
-    repositories::repository_permission_for_user,
+    repositories::{get_repository, repository_permission_for_user},
+    search::{upsert_search_document, SearchDocumentKind, UpsertSearchDocument},
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -161,6 +162,7 @@ pub async fn create_pull_request(
         }),
     )
     .await?;
+    index_pull_request_search_document(pool, &pull_request, input.actor_user_id).await?;
 
     Ok(PullRequestDetail {
         pull_request,
@@ -333,6 +335,7 @@ pub async fn update_pull_request_state(
         json!({ "number": pull_request.number }),
     )
     .await?;
+    index_pull_request_search_document(pool, &pull_request, input.actor_user_id).await?;
     Ok(pull_request)
 }
 
@@ -485,4 +488,61 @@ fn pull_request_from_row(row: sqlx::postgres::PgRow) -> Result<PullRequest, Coll
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     })
+}
+
+async fn index_pull_request_search_document(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    actor_user_id: Uuid,
+) -> Result<(), CollaborationError> {
+    let repository = get_repository(pool, pull_request.repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    let author_login = user_login(pool, pull_request.author_user_id).await?;
+    let body = [
+        pull_request.body.as_deref().unwrap_or(""),
+        pull_request.head_ref.as_str(),
+        pull_request.base_ref.as_str(),
+    ]
+    .into_iter()
+    .filter(|part| !part.trim().is_empty())
+    .collect::<Vec<_>>()
+    .join("\n");
+
+    upsert_search_document(
+        pool,
+        actor_user_id,
+        UpsertSearchDocument {
+            repository_id: Some(repository.id),
+            owner_user_id: repository.owner_user_id,
+            owner_organization_id: repository.owner_organization_id,
+            kind: SearchDocumentKind::PullRequest,
+            resource_id: format!("{}:{}", repository.id, pull_request.number),
+            title: pull_request.title.clone(),
+            body: Some(body),
+            path: None,
+            language: None,
+            branch: Some(pull_request.head_ref.clone()),
+            visibility: repository.visibility,
+            metadata: json!({
+                "number": pull_request.number,
+                "state": pull_request.state.as_str(),
+                "headRef": pull_request.head_ref,
+                "baseRef": pull_request.base_ref,
+                "labels": [],
+                "authorLogin": author_login,
+                "createdAt": pull_request.created_at,
+                "updatedAt": pull_request.updated_at,
+                "href": format!("/{}/{}/pull/{}", repository.owner_login, repository.name, pull_request.number),
+            }),
+        },
+    )
+    .await
+    .map_err(search_error_to_collaboration)?;
+
+    Ok(())
 }

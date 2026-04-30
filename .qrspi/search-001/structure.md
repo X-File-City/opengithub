@@ -57,7 +57,7 @@
 
 ## Phase 4: Issues, Pull Requests, and Discussions Tabs - collaboration search feels complete
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Render issue and pull request results with state chips, numbers, labels, author/repository context, and links to detail pages. Keep the discussions tab present as an explicit no-results/not-yet-indexed state until discussions data exists, with no dead controls.
 
