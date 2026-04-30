@@ -156,3 +156,11 @@
 - Browser smoke: started `make dev`, verified login error UX and auth-wall API behavior through the scenario, and saved `ralph/screenshots/build/auth-002-phase4-auth-wall.jpg`.
 - Verification: `cargo test --test auth_security -- --nocapture` passed; `cd web && npx vitest run tests/auth-login.test.tsx` passed; `cd web && npx playwright test tests/e2e/auth.spec.ts` passed; `make check` passed; `make test` passed; `make test-e2e` passed with 8 Playwright tests.
 - Marked Phase 4 as done in `.qrspi/auth-002/structure.md` and set `auth-002.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - onboarding-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, and the current dashboard/repository/auth code.
+- Determined `onboarding-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/onboarding-001/structure.md` did not exist.
+- Added `.qrspi/onboarding-001/structure.md` with five independently verifiable vertical phases: dashboard hint persistence, dashboard summary API, first-run dashboard UI, dismissible/non-empty dashboard behavior, and final QA/visual polish.
+- Did not change `prd.json`; `build_pass` remains `false` until all onboarding implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
