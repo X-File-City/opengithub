@@ -6,7 +6,7 @@
 
 ## Phase 1: Code Overview Read Contract - render the real repository workspace shell
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Expand the existing repository overview from a placeholder into a permission-aware Code tab read contract and UI shell for the default branch. This phase renders header breadcrumbs, visibility badge, tabs, branch/file toolbar, latest commit summary, root file table, README, and right sidebar metadata from real API data. Mutating Watch/Star/Fork controls remain out of the visible UI until Phase 3 so no rendered control is inert.
 

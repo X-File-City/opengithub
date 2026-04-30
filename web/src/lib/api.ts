@@ -40,9 +40,70 @@ export type RepositoryFile = {
   createdAt: string;
 };
 
+export type RepositoryTreeEntry = {
+  kind: "folder" | "file" | string;
+  name: string;
+  path: string;
+  href: string;
+  byteSize: number | null;
+  latestCommitMessage: string | null;
+  latestCommitHref: string | null;
+  updatedAt: string;
+};
+
+export type RepositoryLatestCommit = {
+  oid: string;
+  shortOid: string;
+  message: string;
+  href: string;
+  committedAt: string;
+};
+
+export type RepositoryLanguageSummary = {
+  language: string;
+  color: string;
+  byteCount: number;
+  percentage: number;
+};
+
+export type RepositorySidebarMetadata = {
+  about: string | null;
+  websiteUrl: string | null;
+  topics: string[];
+  starsCount: number;
+  watchersCount: number;
+  forksCount: number;
+  releasesCount: number;
+  deploymentsCount: number;
+  contributorsCount: number;
+  languages: RepositoryLanguageSummary[];
+};
+
+export type RepositoryCloneUrls = {
+  https: string;
+  git: string;
+  zip: string;
+};
+
 export type RepositoryOverview = RepositorySummary & {
+  viewerPermission: string | null;
+  branchCount: number;
+  tagCount: number;
+  defaultBranchRef: {
+    id: string;
+    repository_id: string;
+    name: string;
+    kind: string;
+    target_commit_id: string | null;
+    created_at: string;
+    updated_at: string;
+  } | null;
+  latestCommit: RepositoryLatestCommit | null;
+  rootEntries: RepositoryTreeEntry[];
   files: RepositoryFile[];
   readme: RepositoryFile | null;
+  sidebar: RepositorySidebarMetadata;
+  cloneUrls: RepositoryCloneUrls;
 };
 
 export type WritableRepositoryOwner = {
@@ -102,8 +163,10 @@ export type CreateRepositoryRequest = {
   licenseTemplateSlug?: string | null;
 };
 
-export type CreatedRepository = RepositoryOverview & {
+export type CreatedRepository = RepositorySummary & {
   href: string;
+  files?: RepositoryFile[];
+  readme?: RepositoryFile | null;
 };
 
 export type RepositoryImportRequest = {

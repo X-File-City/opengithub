@@ -455,3 +455,13 @@
 - Added `.qrspi/repo-003/structure.md` with five independently verifiable vertical phases: Code overview read contract, tree/blob/history navigation, Watch/Star/Fork actions, branch/file-finder/sidebar polish, and final QA guardrails.
 - Did not change `prd.json`; `build_pass` remains `false` until all repository Code tab implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - repo-003 phase 1 Code overview read contract
+
+- Implemented Phase 1 from `.qrspi/repo-003/structure.md`: `GET /api/repos/:owner/:repo` now returns a richer repository Code tab contract with viewer permission, branch/tag counts, default branch ref, latest commit, root tree entries, README, clone URLs, and sidebar metadata.
+- Replaced the placeholder `/{owner}/{repo}` UI with a GitHub-style repository workspace shell: header breadcrumb/visibility, repository tabs, branch toolbar, Go to file/Add file destinations, Code clone dropdown, latest commit row, root file/folder table, README panel, empty quick setup, and About/language/count sidebar.
+- Kept Watch/Star/Fork mutation controls out of Phase 1 so no visible action is inert before their APIs ship in Phase 3.
+- Added `crates/api/tests/repository_code_overview.rs`, `web/tests/repository-code-overview.test.tsx`, and `web/tests/e2e/repository-code-overview.spec.ts`.
+- Browser smoke used Playwright with a real Rust-signed Postgres session to create a bootstrapped repository through `/new`, verify the Code tab and clone menu, scan for dead controls, and save `ralph/screenshots/build/repo-003-phase1-code-overview.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 57 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 23 Playwright tests.
+- Marked Phase 1 as done in `.qrspi/repo-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

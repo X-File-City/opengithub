@@ -638,5 +638,21 @@
       "Private-network blocking covers literal hostnames/IPs including IPv6; DNS resolution/rebinding protection still needs deeper production hardening",
       "Large repositories are bounded by file count and per-file byte size; QA should test user-facing failure clarity with larger real remotes"
     ]
+  },
+  {
+    "feature_id": "repo-003",
+    "tests_written": [
+      "Rust API tests cover the Code tab read contract for bootstrapped repositories, including root folder/file entries, README detection, latest commit summary, branch/tag counts, clone URLs, sidebar language/star metadata, and private repository 403 behavior",
+      "Vitest covers repository tab links, branch/go-to-file/add-file destinations, root file and folder hrefs, README rendering, clone menu fields, sidebar counts/languages, empty repository quick setup, and hidden admin Settings for read-only viewers",
+      "Playwright E2E creates a real repository through /new using a Rust-signed Postgres session, verifies the Code tab overview, root file/folder links, README/sidebar content, opens the clone menu, checks dead controls, and saves ralph/screenshots/build/repo-003-phase1-code-overview.jpg",
+      "TEST_DATABASE_URL-backed make check, make test, and make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 renders root tree links but tree/blob/history destination pages are intentionally deferred to repo-003 Phase 2",
+      "Watch, Star, and Fork controls are intentionally not rendered yet because their write APIs are Phase 3",
+      "Branch selector, file finder combobox, topics, copy-to-clipboard affordances, and empty-repository quick setup polish are deferred to Phase 4",
+      "Language percentages and contributor/release counts are read from existing metadata tables; QA should recheck freshness after importer and Git push flows evolve",
+      "Current root entry latest-commit text uses the repository latest commit as a Phase 1 approximation; per-path commit attribution belongs in Phase 2"
+    ]
   }
 ]

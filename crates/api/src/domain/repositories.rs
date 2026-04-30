@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
+use std::collections::BTreeMap;
 use uuid::Uuid;
 
 use crate::api_types::ListEnvelope;
@@ -89,11 +90,74 @@ pub struct RepositoryFile {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RepositoryTreeEntry {
+    pub kind: String,
+    pub name: String,
+    pub path: String,
+    pub href: String,
+    pub byte_size: Option<i64>,
+    pub latest_commit_message: Option<String>,
+    pub latest_commit_href: Option<String>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryLatestCommit {
+    pub oid: String,
+    pub short_oid: String,
+    pub message: String,
+    pub href: String,
+    pub committed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryLanguageSummary {
+    pub language: String,
+    pub color: String,
+    pub byte_count: i64,
+    pub percentage: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryCloneUrls {
+    pub https: String,
+    pub git: String,
+    pub zip: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositorySidebarMetadata {
+    pub about: Option<String>,
+    pub website_url: Option<String>,
+    pub topics: Vec<String>,
+    pub stars_count: i64,
+    pub watchers_count: i64,
+    pub forks_count: i64,
+    pub releases_count: i64,
+    pub deployments_count: i64,
+    pub contributors_count: i64,
+    pub languages: Vec<RepositoryLanguageSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryOverview {
     #[serde(flatten)]
     pub repository: Repository,
+    pub viewer_permission: Option<String>,
+    pub branch_count: i64,
+    pub tag_count: i64,
+    pub default_branch_ref: Option<GitRef>,
+    pub latest_commit: Option<RepositoryLatestCommit>,
+    pub root_entries: Vec<RepositoryTreeEntry>,
     pub files: Vec<RepositoryFile>,
     pub readme: Option<RepositoryFile>,
+    pub sidebar: RepositorySidebarMetadata,
+    pub clone_urls: RepositoryCloneUrls,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -513,23 +577,63 @@ pub async fn repository_overview_for_actor_by_owner_name(
     else {
         return Ok(None);
     };
-    Ok(Some(repository_overview(pool, repository).await?))
+    Ok(Some(
+        repository_overview_for_actor(pool, repository, actor_user_id).await?,
+    ))
 }
 
-pub async fn repository_overview(
+pub async fn repository_overview_for_actor(
     pool: &PgPool,
     repository: Repository,
+    actor_user_id: Uuid,
 ) -> Result<RepositoryOverview, RepositoryError> {
     let files = list_repository_files(pool, repository.id).await?;
     let readme = files
         .iter()
         .find(|file| file.path.eq_ignore_ascii_case("README.md"))
         .cloned();
+    let viewer_permission = repository_permission_for_user(pool, repository.id, actor_user_id)
+        .await?
+        .map(|permission| permission.role.as_str().to_owned())
+        .or_else(|| {
+            if repository.visibility == RepositoryVisibility::Public {
+                Some("read".to_owned())
+            } else {
+                None
+            }
+        });
+    let branch_count = count_repository_refs(pool, repository.id, "branch").await?;
+    let tag_count = count_repository_refs(pool, repository.id, "tag").await?;
+    let default_branch_ref = get_repository_ref(
+        pool,
+        repository.id,
+        &format!("refs/heads/{}", repository.default_branch),
+    )
+    .await?;
+    let latest_commit = latest_commit_for_repository(pool, &repository).await?;
+    let root_entries = repository_root_entries(&repository, &files, latest_commit.as_ref());
+    let sidebar = repository_sidebar_metadata(pool, &repository).await?;
+    let clone_urls = repository_clone_urls(&repository);
     Ok(RepositoryOverview {
         repository,
+        viewer_permission,
+        branch_count,
+        tag_count,
+        default_branch_ref,
+        latest_commit,
+        root_entries,
         files,
         readme,
+        sidebar,
+        clone_urls,
     })
+}
+
+pub async fn repository_overview(
+    pool: &PgPool,
+    repository: Repository,
+) -> Result<RepositoryOverview, RepositoryError> {
+    repository_overview_for_actor(pool, repository.clone(), repository.created_by_user_id).await
 }
 
 pub async fn list_repositories_for_user(
@@ -1240,6 +1344,229 @@ async fn list_repository_files(
     .await?;
 
     Ok(rows.into_iter().map(repository_file_from_row).collect())
+}
+
+async fn count_repository_refs(
+    pool: &PgPool,
+    repository_id: Uuid,
+    kind: &str,
+) -> Result<i64, RepositoryError> {
+    let count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM repository_git_refs WHERE repository_id = $1 AND kind = $2",
+    )
+    .bind(repository_id)
+    .bind(kind)
+    .fetch_one(pool)
+    .await?;
+    Ok(count)
+}
+
+async fn get_repository_ref(
+    pool: &PgPool,
+    repository_id: Uuid,
+    name: &str,
+) -> Result<Option<GitRef>, RepositoryError> {
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, name, kind, target_commit_id, created_at, updated_at
+        FROM repository_git_refs
+        WHERE repository_id = $1 AND name = $2
+        "#,
+    )
+    .bind(repository_id)
+    .bind(name)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(git_ref_from_row))
+}
+
+async fn latest_commit_for_repository(
+    pool: &PgPool,
+    repository: &Repository,
+) -> Result<Option<RepositoryLatestCommit>, RepositoryError> {
+    let row = sqlx::query(
+        r#"
+        SELECT oid, message, committed_at
+        FROM commits
+        WHERE repository_id = $1
+        ORDER BY committed_at DESC, created_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(repository.id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|row| {
+        let oid: String = row.get("oid");
+        RepositoryLatestCommit {
+            short_oid: oid.chars().take(7).collect(),
+            href: format!(
+                "/{}/{}/commit/{}",
+                repository.owner_login, repository.name, oid
+            ),
+            oid,
+            message: row.get("message"),
+            committed_at: row.get("committed_at"),
+        }
+    }))
+}
+
+fn repository_root_entries(
+    repository: &Repository,
+    files: &[RepositoryFile],
+    latest_commit: Option<&RepositoryLatestCommit>,
+) -> Vec<RepositoryTreeEntry> {
+    let mut folders: BTreeMap<String, DateTime<Utc>> = BTreeMap::new();
+    let mut entries = Vec::new();
+
+    for file in files {
+        if let Some((folder, _)) = file.path.split_once('/') {
+            folders
+                .entry(folder.to_owned())
+                .and_modify(|updated_at| {
+                    if file.created_at > *updated_at {
+                        *updated_at = file.created_at;
+                    }
+                })
+                .or_insert(file.created_at);
+        } else {
+            entries.push(RepositoryTreeEntry {
+                kind: "file".to_owned(),
+                name: file.path.clone(),
+                path: file.path.clone(),
+                href: format!(
+                    "/{}/{}/blob/{}/{}",
+                    repository.owner_login, repository.name, repository.default_branch, file.path
+                ),
+                byte_size: Some(file.byte_size),
+                latest_commit_message: latest_commit.map(|commit| commit.message.clone()),
+                latest_commit_href: latest_commit.map(|commit| commit.href.clone()),
+                updated_at: file.created_at,
+            });
+        }
+    }
+
+    for (folder, updated_at) in folders {
+        entries.push(RepositoryTreeEntry {
+            kind: "folder".to_owned(),
+            name: folder.clone(),
+            path: folder.clone(),
+            href: format!(
+                "/{}/{}/tree/{}/{}",
+                repository.owner_login, repository.name, repository.default_branch, folder
+            ),
+            byte_size: None,
+            latest_commit_message: latest_commit.map(|commit| commit.message.clone()),
+            latest_commit_href: latest_commit.map(|commit| commit.href.clone()),
+            updated_at,
+        });
+    }
+
+    entries.sort_by(
+        |left, right| match (left.kind.as_str(), right.kind.as_str()) {
+            ("folder", "file") => std::cmp::Ordering::Less,
+            ("file", "folder") => std::cmp::Ordering::Greater,
+            _ => left.name.to_lowercase().cmp(&right.name.to_lowercase()),
+        },
+    );
+    entries
+}
+
+async fn repository_sidebar_metadata(
+    pool: &PgPool,
+    repository: &Repository,
+) -> Result<RepositorySidebarMetadata, RepositoryError> {
+    let stars_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM repository_stars WHERE repository_id = $1",
+    )
+    .bind(repository.id)
+    .fetch_one(pool)
+    .await?;
+    let watchers_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM repository_watches WHERE repository_id = $1",
+    )
+    .bind(repository.id)
+    .fetch_one(pool)
+    .await?;
+    let forks_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM repository_forks WHERE source_repository_id = $1",
+    )
+    .bind(repository.id)
+    .fetch_one(pool)
+    .await?;
+    let releases_count =
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM releases WHERE repository_id = $1")
+            .bind(repository.id)
+            .fetch_one(pool)
+            .await?;
+    let contributors_count = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT count(DISTINCT contributor_id)
+        FROM (
+            SELECT author_user_id AS contributor_id FROM commits WHERE repository_id = $1
+            UNION
+            SELECT committer_user_id AS contributor_id FROM commits WHERE repository_id = $1
+        ) contributors
+        WHERE contributor_id IS NOT NULL
+        "#,
+    )
+    .bind(repository.id)
+    .fetch_one(pool)
+    .await?;
+    let language_rows = sqlx::query(
+        r#"
+        SELECT language, color, byte_count
+        FROM repository_languages
+        WHERE repository_id = $1
+        ORDER BY byte_count DESC, language ASC
+        "#,
+    )
+    .bind(repository.id)
+    .fetch_all(pool)
+    .await?;
+    let total_language_bytes = language_rows
+        .iter()
+        .map(|row| row.get::<i64, _>("byte_count"))
+        .sum::<i64>()
+        .max(1);
+    let languages = language_rows
+        .into_iter()
+        .map(|row| {
+            let byte_count = row.get::<i64, _>("byte_count");
+            RepositoryLanguageSummary {
+                language: row.get("language"),
+                color: row.get("color"),
+                byte_count,
+                percentage: byte_count * 100 / total_language_bytes,
+            }
+        })
+        .collect();
+
+    Ok(RepositorySidebarMetadata {
+        about: repository.description.clone(),
+        website_url: None,
+        topics: Vec::new(),
+        stars_count,
+        watchers_count,
+        forks_count,
+        releases_count,
+        deployments_count: 0,
+        contributors_count,
+        languages,
+    })
+}
+
+fn repository_clone_urls(repository: &Repository) -> RepositoryCloneUrls {
+    let path = format!("{}/{}", repository.owner_login, repository.name);
+    RepositoryCloneUrls {
+        https: format!("https://opengithub.namuh.co/{path}.git"),
+        git: format!("git@opengithub.namuh.co:{path}.git"),
+        zip: format!(
+            "/{path}/archive/refs/heads/{}.zip",
+            repository.default_branch
+        ),
+    }
 }
 
 async fn ensure_owner_can_create(
