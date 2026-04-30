@@ -6,6 +6,7 @@ use opengithub_api::domain::highlight::{highlight_code, HighlightCodeInput};
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use tower::ServiceExt;
+use uuid::Uuid;
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 
@@ -126,7 +127,7 @@ async fn highlight_cache_returns_cached_hit_with_database() {
     let request = HighlightCodeInput {
         source: "fn main() {\n  println!(\"hello\");\n}".to_owned(),
         path: Some("src/main.rs".to_owned()),
-        sha: Some("same-sha".to_owned()),
+        sha: Some(format!("same-sha-{}", Uuid::new_v4())),
         repository_id: None,
         language: None,
     };

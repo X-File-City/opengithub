@@ -218,6 +218,7 @@
 2026-04-30 - dashboard-001 structure planning
 
 - Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, current dashboard/frontend components, and dashboard API code.
+
 - Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
 - Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
 - Did not change `prd.json`; `dashboard-001.build_pass` remains `false` until all implementation phases pass verification.
@@ -233,6 +234,15 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_summary -- --nocapture` passed; `cd web && npx vitest run tests/dashboard-onboarding.test.tsx` passed; `make check` passed; `make test` passed; `make test-e2e` passed.
 - Browser smoke test skipped because this phase is API/data-contract only and changed no visible dashboard interaction.
 - Marked Phase 1 as done in `.qrspi/dashboard-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
+
+2026-04-30 - dashboard-001 phase 2 sidebar interaction
+
+- Implemented Phase 2 from `.qrspi/dashboard-001/structure.md`: the signed-in dashboard now uses the focused `DashboardTopRepositories` client component with the 296px desktop sidebar, green `New` link, search input, client-side repository filtering, language dots, visibility badges, updated timestamps, and clickable repository rows.
+- Added/kept authenticated Playwright coverage in `web/tests/e2e/dashboard-dashboard.spec.ts` for a real Postgres-seeded signed session, sidebar filtering, row navigation, and `/new` navigation; tightened selectors to scope repository row assertions to the Top repositories sidebar.
+- Fixed stateful Postgres cache tests in `crates/api/tests/highlight_rendering.rs` and `crates/api/tests/markdown_rendering.rs` by giving their cache-hit scenarios unique cache keys per run.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 26 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 14 Playwright tests.
+- Browser smoke: started `make dev` with the local Postgres test DB, seeded a real Rust-signed session via `crates/api/examples/dashboard_e2e_seed.rs`, verified `/dashboard`, repository filtering, filtered row navigation to `/dash-64202fdb6803/infra-64202fdb6803`, and the sidebar `New` link to `/new`; saved `ralph/screenshots/build/dashboard-001-phase2-sidebar-filter.jpg`.
+- Marked Phase 2 as done in `.qrspi/dashboard-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
 
 2026-04-30 - markdown-001 site-wide markdown rendering pipeline
 

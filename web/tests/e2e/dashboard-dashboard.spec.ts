@@ -71,11 +71,19 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
   await expect(page.getByText("Rust")).toBeVisible();
   await expect(page.getByText("TypeScript")).toBeVisible();
 
+  const topRepositories = page.getByRole("complementary", {
+    name: "Top repositories",
+  });
   await page.getByLabel("Find a repository").fill("infra");
-  await expect(page.getByRole("link", { name: /infra-/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /alpha-/ })).toHaveCount(0);
+  const filteredRepository = topRepositories.getByRole("link", {
+    name: /infra-/,
+  });
+  await expect(filteredRepository).toBeVisible();
+  await expect(
+    topRepositories.getByRole("link", { name: /alpha-/ }),
+  ).toHaveCount(0);
 
-  await page.getByRole("link", { name: /infra-/ }).click();
+  await filteredRepository.click();
   await expect(page).toHaveURL(new RegExp(`${seeded.secondRepositoryHref}$`));
 
   await page.goto("/dashboard");

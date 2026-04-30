@@ -8,6 +8,7 @@ use opengithub_api::domain::markdown::{
 use serde_json::{json, Value};
 use sqlx::PgPool;
 use tower::ServiceExt;
+use uuid::Uuid;
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 
@@ -142,8 +143,9 @@ async fn markdown_cache_returns_cached_hit_with_database() {
         return;
     };
 
+    let suffix = Uuid::new_v4();
     let request = RenderMarkdownInput {
-        markdown: "# Cached".to_owned(),
+        markdown: format!("# Cached\n\nRun {suffix}"),
         repository_id: None,
         owner: None,
         repo: None,

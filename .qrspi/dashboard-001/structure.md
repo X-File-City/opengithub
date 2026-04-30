@@ -23,7 +23,7 @@
 
 ## Phase 2: Sidebar Interaction - repository filter and row navigation work like the signed-in GitHub dashboard
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the current static top-repositories panel with the PRD sidebar: 296px desktop column, green `New` action, client-side repository filter, language dots, visibility badges, updated time, and clickable rows.
 

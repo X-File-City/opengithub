@@ -353,5 +353,22 @@
       "Theme-aware dark-mode token colors should be rechecked when theme-001 ships",
       "file_tokens cache was unit-tested with TEST_DATABASE_URL when available; production index-time generation still belongs to the future search-006 worker"
     ]
+  },
+  {
+    "feature_id": "dashboard-001",
+    "tests_written": [
+      "Vitest dashboard tests cover client-side top repository filtering, repository row hrefs, New href, language dots, visibility badges, updated time text, and empty filter feedback",
+      "Playwright dashboard E2E seeds a real Postgres-backed signed session, verifies sidebar filtering, scopes row assertions to the Top repositories sidebar, clicks the filtered repository row, and verifies /new navigation",
+      "make check passed with cargo check, tsc, clippy, and Biome",
+      "make test passed with cargo tests and 26 Vitest tests",
+      "make test-e2e passed with 14 Playwright tests",
+      "Ever browser smoke verified the signed-in /dashboard sidebar, filter input, row navigation to /dash-64202fdb6803/infra-64202fdb6803, New navigation to /new, and saved ralph/screenshots/build/dashboard-001-phase2-sidebar-filter.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Repeat the signed-in dashboard sidebar flow through real Google OAuth with TEST_ACCOUNT_EMAIL once Google consent/test-user setup is confirmed",
+      "Dashboard top repository ranking uses seeded recent visits and language metadata; QA should retest with production-like Git ingestion once repository visit tracking and language detection are wired",
+      "The main feed still duplicates repository links outside the sidebar; this is expected until dashboard-001 Phase 3 replaces it with the fuller activity feed",
+      "Mobile stacking and dead-action guardrails remain for dashboard-001 Phase 4"
+    ]
   }
 ]
