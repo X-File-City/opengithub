@@ -856,3 +856,11 @@
 - Mandatory Editorial banned-value scan passed with zero matches using the compatible ripgrep form: `rg -n -e '#(0969da|1f883d|1a7f37|cf222e|82071e|f6f8fa|1f2328|d0d7de|59636e|f1aeb5|fff1f3)\b|@primer/|Octicon' web/src/ --glob '!**/og*.css'`. The prompt's `rg -nE` spelling errors in this environment because this ripgrep treats `-E` as encoding.
 - Verification: targeted `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test npx playwright test tests/e2e/navigation-sitemap.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 98 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 44 Playwright tests.
 - Marked Phase 5 as done in `.qrspi/nav-001/structure.md` and set `nav-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - search-001 structure planning
+
+- Read `BUILD_GUIDE.md`, `build-spec.md`, `web/AGENTS.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, current Rust search domain/route code, current Next.js search page, current AppHeader search control, and the Editorial command palette reference in `design/project/og-shell.jsx`.
+- Determined `search-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/search-001/structure.md` did not exist.
+- Added `.qrspi/search-001/structure.md` with five independently verifiable vertical phases: header jump suggestions, repository/people result rendering, code/commit snippets, issue/PR collaboration results, and final search guardrails/QA handoff.
+- Did not change `prd.json`; `search-001.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
