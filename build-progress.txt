@@ -1,3 +1,11 @@
+2026-04-30 - git-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing repository QRSPI outlines, current repository routes/domain code, and inspect screenshot inventory.
+- Determined `git-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/git-001/structure.md` did not exist.
+- Added `.qrspi/git-001/structure.md` with five independently verifiable vertical phases: read-only smart HTTP clone, private fetch auth, authenticated push, raw/archive streaming, and developer-docs/security/QA hardening.
+- Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
+
 2026-04-30 - infra-001 structure planning
 
 - Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, and the first incomplete `prd.json` entry.
