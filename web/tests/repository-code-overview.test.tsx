@@ -455,7 +455,7 @@ describe("RepositoryCodeOverview", () => {
   });
 
   it("renders quick setup for empty repositories", () => {
-    render(
+    const { container } = render(
       <RepositoryCodeOverview
         repository={repositoryOverview({
           rootEntries: [],
@@ -467,7 +467,54 @@ describe("RepositoryCodeOverview", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Quick setup" })).toBeVisible();
-    expect(screen.getByText(/git remote add origin/)).toBeVisible();
+    expect(screen.getByLabelText("HTTPS clone URL")).toHaveValue(
+      "https://opengithub.namuh.co/mona/octo-app.git",
+    );
+    expect(
+      screen.getByRole("button", { name: "Copy URL" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Copy commands" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/git clone/)).toBeVisible();
+    expect(screen.getByText(/echo "# Getting started"/)).toBeVisible();
+    expect(screen.getByText(/git push -u origin main/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Git docs" })).toHaveAttribute(
+      "href",
+      "/docs/git",
+    );
+    expect(
+      container.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+  });
+
+  it("copies quick setup commands with status feedback", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    });
+    render(
+      <RepositoryCodeOverview
+        repository={repositoryOverview({
+          rootEntries: [],
+          files: [],
+          readme: null,
+          latestCommit: null,
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy commands" }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "git clone https://opengithub.namuh.co/mona/octo-app.git",
+        ),
+      );
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Quick setup commands copied",
+    );
   });
 
   it("hides settings when the viewer cannot administer the repository", () => {

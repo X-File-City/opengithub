@@ -940,5 +940,23 @@
       "Content type inference is extension-based for common formats; QA should test uncommon binary/text extensions and filenames with quoting/non-ASCII before final launch",
       "Private raw/archive auth uses the same signed-session/PAT actor resolution as Git fetch; retest over real TLS/proxy headers after deployment hardening"
     ]
+  },
+  {
+    "feature_id": "git-001",
+    "tests_written": [
+      "Added /docs/git with HTTPS clone/fetch/push examples, PAT/private repository guidance, raw file examples, and ZIP archive examples using opengithub.namuh.co URLs",
+      "Replaced the empty repository quick setup with copyable HTTPS clone URL and README/push command blocks plus success/error clipboard feedback and token guidance",
+      "Added crates/api/tests/git_transport_security.rs covering unsupported smart HTTP services, oversized upload-pack rejection, private receive-pack denial for read-scope tokens, malformed raw paths, request-log redaction, and archive filename/storage sanitization",
+      "Added web/tests/e2e/git-transport.spec.ts covering Git docs, Code menu clone/ZIP controls, raw file access, archive downloads, empty-repository quick setup, copy feedback, and dead-control scans",
+      "Updated existing repository Code tab unit/E2E tests for the new quick setup command contract",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test git_transport_security -- --nocapture, make check, make test with 73 web tests, and make test-e2e with 31 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Production Git storage still uses local filesystem paths in this build; ECS/S3 durability, lifecycle cleanup, and multi-task concurrency need deployment QA",
+      "Phase 5 docs cover branch archive URLs only; tag and commit archive URL variants remain a follow-up unless product requirements demand parity now",
+      "Clipboard copy behavior is covered with unit tests and browser smoke, but QA should retest browser permission prompts across Chrome, Safari, and Firefox",
+      "Personal access token creation UI is still a later developer-experience feature, so private Git CLI flows currently require seeded tokens or future settings-token UI",
+      "Raw/archive byte fidelity should be retested once pushed/imported binary objects move from text snapshots to durable object storage"
+    ]
   }
 ]

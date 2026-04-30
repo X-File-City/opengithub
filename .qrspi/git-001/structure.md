@@ -75,7 +75,7 @@
 
 ## Phase 5: Developer Docs, Security, and QA Guardrails - finish git-001 for handoff
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Complete the user-facing Git workflow surfaces and lock the feature down with E2E, API-contract, and security tests. Empty repositories show working Quick setup commands for clone, README creation, and push; docs show opengithub remote examples; no visible Git controls are inert.
 

@@ -667,3 +667,14 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test git_transport -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 72 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 29 Playwright tests.
 - Browser smoke: started `make dev` with real Postgres and signed-session auth config, seeded a real repository, opened the Code menu, downloaded ZIP, verified `README.md` and `src/main.rs` with `unzip -l`, opened the Raw route, downloaded `main.rs`, and saved `ralph/screenshots/build/git-001-phase4-archive-menu.jpg`.
 - Marked Phase 4 as done in `.qrspi/git-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.
+
+2026-04-30 - git-001 phase 5 developer docs, security, and QA guardrails
+
+- Implemented Phase 5 from `.qrspi/git-001/structure.md`: added `/docs/git` with opengithub HTTPS clone/fetch/push, PAT/private repository, raw file, and ZIP archive examples with no GitHub API URLs.
+- Replaced the empty repository Code tab quick setup with copyable HTTPS clone URL and README/push command blocks, clipboard success/error feedback, a `/docs/git` link, and token guidance for private repositories.
+- Added `crates/api/tests/git_transport_security.rs` for unsupported services, oversized upload-pack rejection, private receive-pack denial for read-scope tokens, malformed raw paths, request-log redaction, and archive filename/storage sanitization.
+- Added `web/tests/e2e/git-transport.spec.ts` for signed-in Git docs, Code menu clone/ZIP controls, raw file access, archive download, empty quick setup commands, copy feedback, and dead-control scans.
+- Updated existing repository Code tab unit/E2E coverage for the new quick setup command contract.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test git_transport_security -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 73 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 31 Playwright tests.
+- Browser smoke/E2E saved `ralph/screenshots/build/git-001-final-docs-code-menu.jpg` and `ralph/screenshots/build/git-001-final-empty-quick-setup.jpg`.
+- Marked Phase 5 as done in `.qrspi/git-001/structure.md` and set `git-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

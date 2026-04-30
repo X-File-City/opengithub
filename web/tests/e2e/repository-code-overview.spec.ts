@@ -249,7 +249,15 @@ test("empty repository quick setup and mobile Code tab remain actionable", async
   await expect(
     page.getByRole("heading", { name: "Quick setup" }),
   ).toBeVisible();
-  await expect(page.getByText(/git remote add origin/)).toBeVisible();
+  await expect(page.getByLabel("HTTPS clone URL")).toHaveValue(
+    new RegExp(`/${normalizedName}\\.git$`),
+  );
+  await expect(page.getByText(/git clone/)).toBeVisible();
+  await expect(page.getByText(/git push -u origin main/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Git docs" })).toHaveAttribute(
+    "href",
+    "/docs/git",
+  );
   await page.locator("summary").filter({ hasText: "Add file" }).click();
   await expect(
     page.getByRole("link", { name: "Create new file" }),

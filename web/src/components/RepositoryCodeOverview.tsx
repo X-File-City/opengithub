@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RepositoryCodeToolbar } from "@/components/RepositoryCodeToolbar";
 import { RepositoryFileTable } from "@/components/RepositoryFileTable";
 import { RepositoryHeaderActions } from "@/components/RepositoryHeaderActions";
+import { RepositoryQuickSetup } from "@/components/RepositoryQuickSetup";
 import type { RepositoryOverview } from "@/lib/api";
 
 type RepositoryCodeOverviewProps = {
@@ -164,22 +165,7 @@ export function RepositoryCodeOverview({
         <div className="min-w-0 space-y-4">
           <RepositoryCodeToolbar repository={repository} />
           <RepositoryFileTable
-            emptyState={
-              <div className="rounded-md border border-[#d0d7de] bg-white p-6">
-                <h2 className="text-base font-semibold text-[#1f2328]">
-                  Quick setup
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#59636e]">
-                  This repository is ready. Push an existing project or create a
-                  new file to start the default branch.
-                </p>
-                <div className="mt-4 rounded-md bg-[#f6f8fa] p-3 font-mono text-xs text-[#1f2328]">
-                  <p>git remote add origin {repository.cloneUrls.https}</p>
-                  <p>git branch -M {repository.default_branch}</p>
-                  <p>git push -u origin {repository.default_branch}</p>
-                </div>
-              </div>
-            }
+            emptyState={<RepositoryQuickSetup repository={repository} />}
             entries={repository.rootEntries}
             historyHref={`/${repository.owner_login}/${repository.name}/commits/${repository.default_branch}`}
             latestCommit={repository.latestCommit}
