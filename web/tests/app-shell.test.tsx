@@ -65,6 +65,7 @@ describe("AppShell desktop header", () => {
   it("renders working global navigation, notifications, and search controls", () => {
     renderShell();
 
+    expect(screen.getByRole("banner")).toHaveClass("app-shell-header");
     expect(
       screen.getByRole("link", { name: "opengithub dashboard" }),
     ).toHaveAttribute("href", "/dashboard");
@@ -100,6 +101,9 @@ describe("AppShell desktop header", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Global menu" }));
 
+    expect(screen.getByRole("button", { name: "Global menu" })).toHaveClass(
+      "app-shell-icon-button",
+    );
     expect(screen.getByRole("menuitem", { name: "Dashboard" })).toHaveAttribute(
       "href",
       "/dashboard",
@@ -114,6 +118,7 @@ describe("AppShell desktop header", () => {
     expect(
       screen.getByRole("menuitem", { name: "namuh/Platform" }),
     ).toHaveAttribute("href", "/orgs/namuh/teams/platform");
+    expect(screen.getByRole("menu")).toHaveClass("app-shell-menu");
     expect(
       container.querySelectorAll('a[href="#"], a:not([href])'),
     ).toHaveLength(0);
@@ -125,6 +130,9 @@ describe("AppShell desktop header", () => {
     fireEvent.click(screen.getByRole("button", { name: "Global menu" }));
 
     expect(screen.getByRole("dialog", { name: "Global menu" })).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "Global menu" })).toHaveClass(
+      "app-shell-drawer",
+    );
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
       "href",
       "/dashboard",

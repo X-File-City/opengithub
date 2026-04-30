@@ -44,6 +44,72 @@ a {
   outline-offset: 2px;
 }
 
+.app-shell-header {
+  background: color-mix(in oklch, var(--surface) 94%, transparent);
+  border-color: var(--line);
+  color: var(--ink-1);
+  height: var(--header-h);
+  isolation: isolate;
+}
+
+@supports (backdrop-filter: blur(12px)) {
+  .app-shell-header {
+    backdrop-filter: blur(12px);
+  }
+}
+
+.app-shell-icon-button {
+  color: var(--ink-2);
+  flex: 0 0 auto;
+}
+
+.app-shell-icon-button:hover,
+.app-shell-icon-button[aria-expanded="true"] {
+  background: var(--surface-2);
+  color: var(--ink-1);
+}
+
+.app-shell-menu {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow-md);
+  color: var(--ink-1);
+  max-height: min(72vh, 560px);
+  overflow: auto;
+}
+
+.app-shell-menu-link {
+  color: var(--ink-1);
+  outline-color: var(--accent);
+}
+
+.app-shell-menu-link:hover,
+.app-shell-menu-link:focus-visible {
+  background: var(--surface-2);
+  opacity: 1;
+}
+
+.app-shell-drawer-backdrop {
+  background: color-mix(in oklch, var(--ink-1) 28%, transparent);
+}
+
+.app-shell-drawer {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow-lg);
+  color: var(--ink-1);
+}
+
+.app-shell-drawer-link {
+  border-color: var(--line);
+  outline-color: var(--accent);
+}
+
+.app-shell-drawer-link:hover,
+.app-shell-drawer-link:focus-visible {
+  background: var(--surface-2);
+}
+
 .markdown-body {
   color: var(--ink-1);
   font-size: 14px;

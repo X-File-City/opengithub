@@ -1111,5 +1111,22 @@
       "Repository frame now spans the viewport for Code overview content; QA should compare other repository subpages for consistent responsive width as they adopt the frame helper",
       "Notification count remains a page-load value from shell context; live update behavior belongs to later notification work"
     ]
+  },
+  {
+    "feature_id": "layout-001",
+    "tests_written": [
+      "Completed Phase 4 app shell polish with token-based sticky header, menu, drawer, hover, focus, shadow, and stable sizing classes",
+      "Extended Vitest coverage for shell header/menu/drawer class contracts, concrete routes, accessible menu actions, and no inert links",
+      "Extended Playwright coverage across /dashboard, repository overview, /new, /notifications, /issues, /pulls, and /settings/profile with signed Rust session cookies",
+      "Playwright verifies every visible button has an accessible name, no placeholder/inert links exist, header controls remain visible, and desktop/mobile layouts have no horizontal overflow",
+      "Saved Phase 4 screenshots for create menu, avatar menu, mobile drawer, dashboard frame, repository frame, and desktop header menu"
+    ],
+    "needs_deeper_qa": [
+      "Screen reader QA should verify menu and mobile drawer announcements across Safari/VoiceOver and Chrome screen readers beyond Playwright role checks",
+      "Notification count is still loaded once from /api/app-shell; live unread updates and very large count behavior belong to later notification work",
+      "Long display names, repository names, organization names, and team names are truncated in the shell; QA should stress mixed-width scripts and narrow mobile widths",
+      "Issues, pulls, notifications, and profile pages are concrete shell destinations but remain lightweight placeholders until their feature-specific PRDs land",
+      "Keyboard focus enters the drawer and Escape closes it; full focus-trap cycling is a deeper accessibility follow-up if the product wants modal-grade drawer semantics"
+    ]
   }
 ]

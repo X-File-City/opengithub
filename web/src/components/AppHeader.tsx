@@ -92,15 +92,9 @@ function MenuPanel({
   return (
     <div
       aria-labelledby={labelledBy}
-      className="absolute z-40 mt-2 w-72 rounded-md border py-2 shadow-lg"
+      className="app-shell-menu absolute z-40 mt-2 w-72 rounded-md border py-2"
       id={id}
       role="menu"
-      style={{
-        background: "var(--surface)",
-        borderColor: "var(--line)",
-        color: "var(--ink-1)",
-        boxShadow: "var(--shadow-md)",
-      }}
     >
       {children}
     </div>
@@ -116,10 +110,9 @@ function MenuLink({
 }) {
   return (
     <Link
-      className="block px-4 py-2 t-sm hover:opacity-75 focus:outline-none focus:ring-2"
+      className="app-shell-menu-link block px-4 py-2 t-sm"
       href={href}
       role="menuitem"
-      style={{ outlineColor: "var(--accent)" }}
     >
       {children}
     </Link>
@@ -134,10 +127,9 @@ function DrawerLink({
 }: DrawerSectionLink & { onNavigate: () => void }) {
   return (
     <Link
-      className="flex min-h-11 items-center justify-between gap-3 border-b px-5 py-3 focus:outline-none focus:ring-2"
+      className="app-shell-drawer-link flex min-h-11 items-center justify-between gap-3 border-b px-5 py-3"
       href={href}
       onClick={onNavigate}
-      style={{ borderColor: "var(--line)", outlineColor: "var(--accent)" }}
     >
       <span className="min-w-0 truncate t-sm">{label}</span>
       {detail ? (
@@ -271,14 +263,8 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
 
   return (
     <header
-      className="sticky top-0 z-30 border-b px-4"
+      className="app-shell-header sticky top-0 z-30 border-b px-4"
       ref={headerRef}
-      style={{
-        height: "var(--header-h)",
-        background: "var(--surface)",
-        borderColor: "var(--line)",
-        color: "var(--ink-1)",
-      }}
     >
       <div className="mx-auto flex h-full max-w-[1240px] items-center gap-3">
         <div className="relative">
@@ -286,7 +272,7 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
             aria-controls={globalMenuId}
             aria-expanded={openMenu === "global"}
             aria-label="Global menu"
-            className="btn ghost grid h-8 w-8 place-items-center p-0"
+            className="app-shell-icon-button btn ghost grid h-8 w-8 place-items-center p-0"
             id={globalButtonId}
             onClick={() => setOpenMenu(openMenu === "global" ? null : "global")}
             type="button"
@@ -360,25 +346,16 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
               </div>
               <div
                 aria-hidden="true"
-                className="fixed inset-0 z-40 md:hidden"
+                className="app-shell-drawer-backdrop fixed inset-0 z-40 md:hidden"
                 onClick={() => setOpenMenu(null)}
-                style={{
-                  background:
-                    "color-mix(in oklch, var(--ink-1) 28%, transparent)",
-                }}
               />
               <div
                 aria-labelledby={globalButtonId}
                 aria-modal="true"
-                className="fixed bottom-0 left-0 top-0 z-50 flex w-[min(88vw,360px)] flex-col border-r shadow-lg md:hidden"
+                className="app-shell-drawer fixed bottom-0 left-0 top-0 z-50 flex w-[min(88vw,360px)] flex-col border-r md:hidden"
                 id={mobileGlobalMenuId}
                 ref={mobileDrawerRef}
                 role="dialog"
-                style={{
-                  background: "var(--surface)",
-                  borderColor: "var(--line)",
-                  boxShadow: "var(--shadow-lg)",
-                }}
               >
                 <div
                   className="flex min-h-[var(--header-h)] items-center justify-between border-b px-5"
@@ -392,7 +369,7 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
                   </div>
                   <button
                     aria-label="Close global menu"
-                    className="btn ghost grid h-8 w-8 place-items-center p-0"
+                    className="app-shell-icon-button btn ghost grid h-8 w-8 place-items-center p-0"
                     onClick={() => setOpenMenu(null)}
                     type="button"
                   >
@@ -501,7 +478,7 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
                 aria-controls={createMenuId}
                 aria-expanded={openMenu === "create"}
                 aria-label="Create new"
-                className="btn ghost grid h-8 w-8 place-items-center p-0"
+                className="app-shell-icon-button btn ghost grid h-8 w-8 place-items-center p-0"
                 id={createButtonId}
                 onClick={() =>
                   setOpenMenu(openMenu === "create" ? null : "create")

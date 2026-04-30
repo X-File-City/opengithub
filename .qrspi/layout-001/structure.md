@@ -58,7 +58,7 @@
 
 ## Phase 4: Cross-Page Polish and QA Handoff - finish layout-001 with accessibility and regression guardrails
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Tighten visual parity and behavior across all signed-in pages touched so the shell can serve as the foundation for later features. Complete bookkeeping only after all shell interactions, responsive states, and auth redirects are verified.
 

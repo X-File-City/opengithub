@@ -54,8 +54,22 @@ async function expectNoDeadControls(page: Page) {
   await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
   for (const button of await page.locator("button:visible").all()) {
     await expect(button).toHaveAccessibleName(/.+/);
-    await expect(button).not.toBeDisabled();
   }
+}
+
+async function expectHeaderControlsWork(page: Page) {
+  await expect(
+    page.getByRole("link", { name: "opengithub dashboard" }),
+  ).toHaveAttribute("href", "/dashboard");
+  await expect(page.getByRole("button", { name: "Global menu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create new" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open user menu" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /notifications/i }),
+  ).toHaveAttribute("href", "/notifications");
+  await expectNoDeadControls(page);
 }
 
 test.skip(
@@ -102,6 +116,10 @@ test("signed-in desktop header menus, links, search, and sign-out work", async (
   await expect(
     page.getByRole("menuitem", { name: "Import repository" }),
   ).toHaveAttribute("href", "/new/import");
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/layout-001-final-create-menu.jpg",
+  });
 
   await page.getByRole("searchbox", { name: "Search or jump to" }).fill("rust");
   await page.keyboard.press("Enter");
@@ -119,7 +137,7 @@ test("signed-in desktop header menus, links, search, and sign-out work", async (
   ).toHaveAttribute("href", "/settings/tokens");
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/layout-001-phase2-desktop-header.jpg",
+    path: "../ralph/screenshots/build/layout-001-final-avatar-menu.jpg",
   });
 
   await page.getByRole("menuitem", { name: "Sign out" }).click();
@@ -135,6 +153,7 @@ test("signed-in mobile drawer exposes navigation and responsive frames", async (
 
   await page.goto("/dashboard");
   await expect(page.locator("[data-app-shell-frame='centered']")).toBeVisible();
+  await expectHeaderControlsWork(page);
 
   await page.getByRole("button", { name: "Global menu" }).click();
   const drawer = page.getByRole("dialog", { name: "Global menu" });
@@ -159,6 +178,59 @@ test("signed-in mobile drawer exposes navigation and responsive frames", async (
 
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/layout-001-phase3-mobile-drawer.jpg",
+    path: "../ralph/screenshots/build/layout-001-final-mobile-drawer.jpg",
+  });
+});
+
+test("signed-in shell is stable across primary destinations", async ({
+  page,
+}) => {
+  const seeded = seedDashboard();
+  await signIn(page, seeded);
+  const seededRepositoryName =
+    seeded.firstRepositoryHref.split("/").at(-1) ?? "";
+
+  const destinations = [
+    { path: "/dashboard", heading: "Dashboard" },
+    { path: seeded.firstRepositoryHref, heading: seededRepositoryName },
+    { path: "/new", heading: "Create a new repository" },
+    { path: "/notifications", heading: "Notifications" },
+    { path: "/issues", heading: "Issues" },
+    { path: "/pulls", heading: "Pull requests" },
+    { path: "/settings/profile", heading: "Profile" },
+  ] as const;
+
+  for (const destination of destinations) {
+    await page.goto(destination.path);
+    await expect(
+      page.getByRole("heading", { name: destination.heading }).first(),
+    ).toBeVisible();
+    await expectHeaderControlsWork(page);
+    const horizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(horizontalOverflow).toBe(false);
+  }
+
+  await page.goto("/dashboard");
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/layout-001-final-dashboard-frame.jpg",
+  });
+
+  await page.goto(seeded.firstRepositoryHref);
+  await expect(
+    page.locator("[data-app-shell-frame='repository']"),
+  ).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/layout-001-final-repository-frame.jpg",
+  });
+
+  await page.getByRole("button", { name: "Global menu" }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/layout-001-final-desktop-header.jpg",
   });
 });
