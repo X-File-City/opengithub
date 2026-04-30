@@ -1,6 +1,9 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use chrono::{DateTime, Duration, Utc};
 use hmac::{Hmac, Mac};
+pub mod google;
+pub mod session;
+
 use oauth2::{
     basic::BasicClient, AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl,
 };
@@ -132,6 +135,15 @@ pub fn decode_state(auth: &AuthConfig, state: &str) -> Result<OAuthStatePayload,
 
 pub fn google_userinfo_url() -> &'static str {
     GOOGLE_USERINFO_URL
+}
+
+pub fn google_token_url() -> &'static str {
+    GOOGLE_TOKEN_URL
+}
+
+pub fn google_oauth_client(config: &AppConfig) -> Result<BasicClient, AuthError> {
+    let auth = config.auth.as_ref().ok_or(AuthError::MissingConfig)?;
+    google_client(auth, callback_url(config)?)
 }
 
 fn google_client(auth: &AuthConfig, callback_url: Url) -> Result<BasicClient, AuthError> {

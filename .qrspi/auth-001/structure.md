@@ -24,7 +24,7 @@
 
 ## Phase 2: Callback, Session Cookie, and Auth API — login state is persisted
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Complete the Rust-owned auth loop after Google redirects back: exchange code, fetch userinfo, upsert identity rows, persist a signed Postgres-backed session, expose `GET /api/auth/me`, and support logout.
 

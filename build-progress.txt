@@ -78,3 +78,13 @@
 - Verification: `make check` passed; `make test` passed; `.scratch/auth-oauth-start-scenario.sh` passed against the real Axum binary on `localhost:3016`.
 - Browser smoke test skipped because Phase 1 is a backend redirect endpoint only; real Google callback/session/browser UI are later auth-001 phases.
 - Marked Phase 1 as done in `.qrspi/auth-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
+
+2026-04-30 - auth-001 phase 2 callback, session cookie, and auth API
+
+- Implemented Phase 2 from `.qrspi/auth-001/structure.md`: Google OAuth callback handling, token/userinfo exchange plumbing, user/account upsert, signed session cookie issuance, `GET /api/auth/me`, and idempotent `POST /api/auth/logout`.
+- Added `crates/api/src/auth/google.rs` and `crates/api/src/auth/session.rs`; added `reqwest` to the Rust workspace for Google userinfo HTTP calls.
+- Added `get_user_by_active_session` in `crates/api/src/domain/identity.rs` and expanded `crates/api/src/routes/auth.rs` with callback/session/logout routes.
+- Added `crates/api/tests/auth_callback_session.rs` covering fake Google user persistence, signed cookie auth, authenticated `/api/auth/me`, logout revocation, callback error redirect behavior, and missing-code handling.
+- Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test auth_callback_session -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed.
+- Browser smoke test skipped because Phase 2 is backend callback/session API only; Next.js login UI and E2E auth foundation are Phases 3 and 4.
+- Marked Phase 2 as done in `.qrspi/auth-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.

@@ -204,6 +204,28 @@ pub async fn get_active_session(
     Ok(row.map(session_from_row))
 }
 
+pub async fn get_user_by_active_session(
+    pool: &PgPool,
+    session_id: &str,
+) -> Result<Option<User>, sqlx::Error> {
+    let row = sqlx::query(
+        r#"
+        SELECT users.id, users.username, users.email, users.display_name, users.avatar_url,
+               users.created_at, users.updated_at
+        FROM sessions
+        JOIN users ON users.id = sessions.user_id
+        WHERE sessions.id = $1
+          AND sessions.revoked_at IS NULL
+          AND sessions.expires_at > now()
+        "#,
+    )
+    .bind(session_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(user_from_row))
+}
+
 pub async fn revoke_session(pool: &PgPool, id: &str) -> Result<(), sqlx::Error> {
     sqlx::query("UPDATE sessions SET revoked_at = now() WHERE id = $1")
         .bind(id)

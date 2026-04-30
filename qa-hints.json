@@ -96,5 +96,21 @@
       "Session cookie issuance is not present until Phase 2, so QA should not expect /api/auth/me yet",
       "Browser smoke test skipped because Phase 1 is a backend OAuth redirect endpoint only"
     ]
+  },
+  {
+    "feature_id": "auth-001",
+    "tests_written": [
+      "Google callback persistence upserts users and OAuth accounts from a fake Google userinfo payload",
+      "signed __Host-session cookie issuance includes HttpOnly and SameSite=Lax attributes",
+      "/api/auth/me returns the authenticated user when a valid signed session cookie is present",
+      "logout revokes the active session, clears the cookie, and remains idempotent",
+      "OAuth callback errors and missing authorization codes redirect to /login?error=oauth_failed without leaking provider details",
+      "make check, make test, and TEST_DATABASE_URL-backed make test passed"
+    ],
+    "needs_deeper_qa": [
+      "Real Google token exchange and userinfo fetch still need browser-level QA with TEST_ACCOUNT_EMAIL once the login UI ships",
+      "Cookie Secure/__Host behavior should be rechecked in Phase 4 hardening because local dev currently permits insecure cookies",
+      "Browser smoke test skipped because auth-001 Phase 2 is backend callback/session API only"
+    ]
   }
 ]
