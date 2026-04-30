@@ -15,6 +15,7 @@ pub fn build_app(db: Option<DbPool>) -> Router {
     Router::new()
         .route("/", get(root))
         .route("/health", get(routes::health::health))
+        .nest("/api/repos", routes::repositories::router())
         .with_state(AppState { db })
 }
 

@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS repository_git_refs;
+DROP TABLE IF EXISTS git_objects;
+DROP TABLE IF EXISTS commits;
+DROP TABLE IF EXISTS repository_permissions;
+DROP TABLE IF EXISTS repositories;
+DROP TABLE IF EXISTS team_memberships;
+DROP TABLE IF EXISTS teams;
+DROP TABLE IF EXISTS organization_memberships;
+DROP TABLE IF EXISTS organizations;

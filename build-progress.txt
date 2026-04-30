@@ -15,3 +15,14 @@
 - Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed against a real local Postgres container; `.scratch/identity-foundation-scenario.sh` passed.
 - Browser smoke test skipped because this phase is backend schema/data access only.
 - Marked Phase 1 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because later infra-001 phases remain.
+
+2026-04-30 - infra-001 phase 2 ownership and repositories
+
+- Implemented Phase 2 from `.qrspi/infra-001/structure.md`: organization/team membership schema, repository ownership and permission schema, git ref/commit/object metadata schema, repository domain accessors, and initial JSON repository routes.
+- Added SQLx migration `202604300002_repositories` for `organizations`, `organization_memberships`, `teams`, `team_memberships`, `repositories`, `repository_permissions`, `commits`, `git_objects`, and `repository_git_refs`.
+- Added `crates/api/src/domain/repositories.rs`, `crates/api/src/domain/permissions.rs`, and `crates/api/src/routes/repositories.rs`; `/api/repos` now has list/create/read route wiring for later auth integration.
+- Added Postgres-backed tests for user/org repository creation, duplicate names per owner, permission grants, pagination envelopes, team membership persistence, commit inserts, and git ref upserts.
+- Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `.scratch/repository-foundation-scenario.sh` passed against real local Postgres.
+- `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make db-migrate` could not run because `sqlx-cli` is not installed in this environment; cargo tests still applied migrations through SQLx's migrator.
+- Browser smoke test skipped because this phase is backend schema/data access only.
+- Marked Phase 2 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because later infra-001 phases remain.

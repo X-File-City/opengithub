@@ -12,5 +12,21 @@
       "Confirm the future tower-sessions store table contract is compatible with the sessions schema before wiring auth-001",
       "Exercise /health against the provisioned RDS DATABASE_URL after preflight fills .env"
     ]
+  },
+  {
+    "feature_id": "infra-001",
+    "tests_written": [
+      "user-owned repositories enforce per-owner case-insensitive uniqueness",
+      "repository creation grants owner permissions and paginates through the standard list envelope",
+      "users cannot create repositories under a different user owner",
+      "organization repositories require org owner/admin membership",
+      "teams and team memberships persist under organizations",
+      "commit metadata and repository git refs round-trip through Postgres"
+    ],
+    "needs_deeper_qa": [
+      "make db-migrate still needs a sqlx-cli-equipped environment; the migration harness passed through cargo tests",
+      "Repository JSON routes are compiled but should be exercised through HTTP once auth/session middleware exists",
+      "Owner login for user-owned repositories currently falls back to email until username/profile setup ships"
+    ]
   }
 ]

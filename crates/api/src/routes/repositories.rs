@@ -1,0 +1,182 @@
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    routing::get,
+    Json, Router,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use uuid::Uuid;
+
+use crate::{
+    domain::repositories::{
+        create_repository, get_repository_by_owner_name, list_repositories_for_user,
+        CreateRepository, RepositoryError, RepositoryOwner, RepositoryVisibility,
+    },
+    AppState,
+};
+
+pub fn router() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list).post(create))
+        .route("/:owner/:repo", get(read))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListQuery {
+    user_id: Uuid,
+    page: Option<i64>,
+    page_size: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateRepositoryRequest {
+    owner_type: OwnerType,
+    owner_id: Uuid,
+    name: String,
+    description: Option<String>,
+    visibility: Option<RepositoryVisibility>,
+    default_branch: Option<String>,
+    created_by_user_id: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum OwnerType {
+    User,
+    Organization,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorEnvelope {
+    error: ErrorBody,
+    status: u16,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorBody {
+    code: &'static str,
+    message: String,
+}
+
+async fn list(
+    State(state): State<AppState>,
+    Query(query): Query<ListQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let envelope = list_repositories_for_user(
+        pool,
+        query.user_id,
+        query.page.unwrap_or(1),
+        query.page_size.unwrap_or(30),
+    )
+    .await
+    .map_err(map_repository_error)?;
+
+    Ok(Json(json!(envelope)))
+}
+
+async fn create(
+    State(state): State<AppState>,
+    Json(request): Json<CreateRepositoryRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let owner = match request.owner_type {
+        OwnerType::User => RepositoryOwner::User {
+            id: request.owner_id,
+        },
+        OwnerType::Organization => RepositoryOwner::Organization {
+            id: request.owner_id,
+        },
+    };
+    let repository = create_repository(
+        pool,
+        CreateRepository {
+            owner,
+            name: request.name,
+            description: request.description,
+            visibility: request.visibility.unwrap_or_default(),
+            default_branch: request.default_branch,
+            created_by_user_id: request.created_by_user_id,
+        },
+    )
+    .await
+    .map_err(map_repository_error)?;
+
+    Ok((StatusCode::CREATED, Json(json!(repository))))
+}
+
+async fn read(
+    State(state): State<AppState>,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository = get_repository_by_owner_name(pool, &owner, &repo)
+        .await
+        .map_err(map_repository_error)?
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "repository was not found".to_owned(),
+            )
+        })?;
+
+    Ok(Json(json!(repository)))
+}
+
+fn database_unavailable() -> (StatusCode, Json<ErrorEnvelope>) {
+    error_response(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "database_unavailable",
+        "database connection is not available".to_owned(),
+    )
+}
+
+fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelope>) {
+    match error {
+        RepositoryError::OwnerPermissionDenied => error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "user cannot create repositories for this owner".to_owned(),
+        ),
+        RepositoryError::OwnerNotFound | RepositoryError::NotFound => {
+            error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
+        }
+        RepositoryError::InvalidVisibility(_) => error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            error.to_string(),
+        ),
+        RepositoryError::Sqlx(sqlx::Error::Database(database_error))
+            if database_error.is_unique_violation() =>
+        {
+            error_response(
+                StatusCode::CONFLICT,
+                "conflict",
+                database_error.message().to_owned(),
+            )
+        }
+        RepositoryError::Sqlx(_) => error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "repository operation failed".to_owned(),
+        ),
+    }
+}
+
+fn error_response(
+    status: StatusCode,
+    code: &'static str,
+    message: String,
+) -> (StatusCode, Json<ErrorEnvelope>) {
+    (
+        status,
+        Json(ErrorEnvelope {
+            error: ErrorBody { code, message },
+            status: status.as_u16(),
+        }),
+    )
+}

@@ -21,7 +21,7 @@ Done: [x]
 
 ## Phase 2: Ownership and Repositories - org, team, repository, permission, and ref metadata become testable
 
-Done: [ ]
+Done: [x]
 
 **Scope**: Add the data path needed by dashboard, profile, organization, and repository overview pages.
 **Key changes**:
