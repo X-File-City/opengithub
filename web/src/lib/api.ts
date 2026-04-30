@@ -12,6 +12,8 @@ export type AuthSession = {
 
 export type RepositoryVisibility = "public" | "private" | "internal";
 
+export type RepositoryOwnerType = "user" | "organization";
+
 export type RepositorySummary = {
   id: string;
   owner_user_id: string | null;
@@ -25,6 +27,50 @@ export type RepositorySummary = {
   created_by_user_id: string;
   created_at: string;
   updated_at: string;
+};
+
+export type WritableRepositoryOwner = {
+  ownerType: RepositoryOwnerType;
+  id: string;
+  login: string;
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+export type RepositoryTemplateOption = {
+  slug: string;
+  displayName: string;
+  description: string;
+};
+
+export type GitignoreTemplateOption = {
+  slug: string;
+  displayName: string;
+  description: string;
+};
+
+export type LicenseTemplateOption = {
+  slug: string;
+  displayName: string;
+  description: string;
+};
+
+export type RepositoryCreationOptions = {
+  owners: WritableRepositoryOwner[];
+  templates: RepositoryTemplateOption[];
+  gitignoreTemplates: GitignoreTemplateOption[];
+  licenseTemplates: LicenseTemplateOption[];
+  suggestedName: string;
+};
+
+export type RepositoryNameAvailability = {
+  ownerType: RepositoryOwnerType;
+  ownerId: string;
+  ownerLogin: string;
+  requestedName: string;
+  normalizedName: string;
+  available: boolean;
+  reason: string | null;
 };
 
 export type DashboardTopRepository = {
@@ -355,6 +401,71 @@ export async function getRepositoryFromCookie(
   }
 
   return (await response.json()) as RepositorySummary;
+}
+
+export async function getRepositoryCreationOptionsFromCookie(
+  cookie: string | null | undefined,
+): Promise<RepositoryCreationOptions | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}/api/repos/creation-options`, {
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as RepositoryCreationOptions;
+}
+
+export function repositoryNameAvailabilityPath({
+  ownerType,
+  ownerId,
+  name,
+}: {
+  ownerType: RepositoryOwnerType;
+  ownerId: string;
+  name: string;
+}): string {
+  const params = new URLSearchParams({
+    ownerType,
+    ownerId,
+    name,
+  });
+  return `/api/repos/name-availability?${params.toString()}`;
+}
+
+export async function getRepositoryNameAvailabilityFromCookie(
+  cookie: string | null | undefined,
+  query: {
+    ownerType: RepositoryOwnerType;
+    ownerId: string;
+    name: string;
+  },
+): Promise<RepositoryNameAvailability | null> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryNameAvailabilityPath(query)}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as RepositoryNameAvailability;
 }
 
 export async function logout(cookie: string | null): Promise<string | null> {

@@ -6,7 +6,7 @@
 
 ## Phase 1: Creation Options and Availability - signed-in `/new` renders real owner/template choices
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder `/new` destination with the GitHub-style create form shell backed by Rust APIs for writable owners, template choices, gitignore templates, license templates, and repository-name availability. This phase does not submit repositories yet; it makes the form truthful and testable with real data.
 

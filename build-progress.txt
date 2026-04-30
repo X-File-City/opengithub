@@ -354,3 +354,15 @@
 - Added `.qrspi/repo-001/structure.md` with four independently verifiable vertical phases: creation options and availability, basic repository submit, bootstrap files and first commit, and final form polish/QA guardrails.
 - Did not change `prd.json`; `repo-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - repo-001 phase 1 creation options and availability
+
+- Implemented Phase 1 from `.qrspi/repo-001/structure.md`: the signed-in `/new` page now renders a GitHub-style repository creation form shell backed by real Rust APIs for writable owners, templates, gitignore templates, license templates, and name availability.
+- Added SQLx migration `202604300012_repository_creation_options` for seeded `repository_creation_templates`, `gitignore_templates`, and `license_templates`.
+- Added repository domain/query support for `RepositoryCreationOptions`, `WritableRepositoryOwner`, lookup option DTOs, repository name normalization/validation, and permission-aware availability checks.
+- Added protected `GET /api/repos/creation-options` and `GET /api/repos/name-availability`; added Next.js API helpers plus `/new/name-availability` same-origin proxy for browser checks.
+- Replaced the placeholder `/new` page with `RepositoryCreateForm`, including owner dropdown, required name input, suggestion button, normalized-name preview, availability feedback, description counter, visibility selector, template selector, README toggle, searchable gitignore selector, license selector, and disabled Phase 1 submit.
+- Added Rust coverage in `crates/api/tests/repository_creation_options.rs`, Vitest coverage in `web/tests/repository-create.test.tsx`, and Playwright coverage in `web/tests/e2e/repository-create.spec.ts`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 37 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 19 Playwright tests.
+- Browser smoke: started `make dev` with `.env` loaded and the local Postgres test DB, seeded a real Rust-signed session, verified `/new` with Ever, checked normalized availability feedback, toggled README, exercised gitignore/license controls, and saved `ralph/screenshots/build/repo-001-phase1-form-options.jpg`.
+- Marked Phase 1 as done in `.qrspi/repo-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.

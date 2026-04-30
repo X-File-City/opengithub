@@ -82,6 +82,62 @@ pub struct RepositoryPermission {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WritableRepositoryOwner {
+    pub owner_type: String,
+    pub id: Uuid,
+    pub login: String,
+    pub display_name: String,
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryTemplateOption {
+    pub slug: String,
+    pub display_name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitignoreTemplateOption {
+    pub slug: String,
+    pub display_name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LicenseTemplateOption {
+    pub slug: String,
+    pub display_name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryCreationOptions {
+    pub owners: Vec<WritableRepositoryOwner>,
+    pub templates: Vec<RepositoryTemplateOption>,
+    pub gitignore_templates: Vec<GitignoreTemplateOption>,
+    pub license_templates: Vec<LicenseTemplateOption>,
+    pub suggested_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryNameAvailability {
+    pub owner_type: String,
+    pub owner_id: Uuid,
+    pub owner_login: String,
+    pub requested_name: String,
+    pub normalized_name: String,
+    pub available: bool,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Commit {
     pub id: Uuid,
     pub repository_id: Uuid,
@@ -147,8 +203,146 @@ pub enum RepositoryError {
     NotFound,
     #[error("invalid repository visibility `{0}`")]
     InvalidVisibility(String),
+    #[error("invalid repository name `{0}`")]
+    InvalidName(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
+}
+
+pub async fn repository_creation_options(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+) -> Result<RepositoryCreationOptions, RepositoryError> {
+    let owner_rows = sqlx::query(
+        r#"
+        SELECT 'user' AS owner_type,
+               users.id,
+               COALESCE(NULLIF(users.username, ''), users.email) AS login,
+               COALESCE(users.display_name, users.email) AS display_name,
+               users.avatar_url,
+               0 AS sort_order
+        FROM users
+        WHERE users.id = $1
+
+        UNION ALL
+
+        SELECT 'organization' AS owner_type,
+               organizations.id,
+               organizations.slug AS login,
+               organizations.display_name,
+               NULL::text AS avatar_url,
+               1 AS sort_order
+        FROM organizations
+        JOIN organization_memberships
+          ON organization_memberships.organization_id = organizations.id
+        WHERE organization_memberships.user_id = $1
+          AND organization_memberships.role IN ('owner', 'admin')
+        ORDER BY sort_order ASC, login ASC
+        "#,
+    )
+    .bind(actor_user_id)
+    .fetch_all(pool)
+    .await?;
+
+    let owners = owner_rows
+        .into_iter()
+        .map(|row| WritableRepositoryOwner {
+            owner_type: row.get("owner_type"),
+            id: row.get("id"),
+            login: row.get("login"),
+            display_name: row.get("display_name"),
+            avatar_url: row.get("avatar_url"),
+        })
+        .collect();
+
+    let templates = sqlx::query(
+        r#"
+        SELECT slug, display_name, description
+        FROM repository_creation_templates
+        ORDER BY sort_order ASC, display_name ASC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|row| RepositoryTemplateOption {
+        slug: row.get("slug"),
+        display_name: row.get("display_name"),
+        description: row.get("description"),
+    })
+    .collect();
+
+    let gitignore_templates = sqlx::query(
+        r#"
+        SELECT slug, display_name, description
+        FROM gitignore_templates
+        ORDER BY sort_order ASC, display_name ASC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|row| GitignoreTemplateOption {
+        slug: row.get("slug"),
+        display_name: row.get("display_name"),
+        description: row.get("description"),
+    })
+    .collect();
+
+    let license_templates = sqlx::query(
+        r#"
+        SELECT slug, display_name, description
+        FROM license_templates
+        ORDER BY sort_order ASC, display_name ASC
+        "#,
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|row| LicenseTemplateOption {
+        slug: row.get("slug"),
+        display_name: row.get("display_name"),
+        description: row.get("description"),
+    })
+    .collect();
+
+    Ok(RepositoryCreationOptions {
+        owners,
+        templates,
+        gitignore_templates,
+        license_templates,
+        suggested_name: suggested_repository_name(actor_user_id),
+    })
+}
+
+pub async fn repository_name_availability(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner: RepositoryOwner,
+    requested_name: &str,
+) -> Result<RepositoryNameAvailability, RepositoryError> {
+    ensure_owner_can_create(pool, &owner, actor_user_id).await?;
+    let (owner_type, owner_id, owner_login) = repository_owner_login(pool, &owner).await?;
+    let normalized_name = normalize_repository_name(requested_name);
+    let mut reason = validate_repository_name(&normalized_name).err();
+    let exists = if reason.is_none() {
+        repository_exists_for_owner(pool, &owner, &normalized_name).await?
+    } else {
+        false
+    };
+    if exists {
+        reason = Some("A repository with this name already exists for this owner.".to_owned());
+    }
+
+    Ok(RepositoryNameAvailability {
+        owner_type,
+        owner_id,
+        owner_login,
+        requested_name: requested_name.to_owned(),
+        normalized_name,
+        available: reason.is_none() && !exists,
+        reason,
+    })
 }
 
 pub async fn create_organization(
@@ -189,6 +383,7 @@ pub async fn create_repository(
     input: CreateRepository,
 ) -> Result<Repository, RepositoryError> {
     ensure_owner_can_create(pool, &input.owner, input.created_by_user_id).await?;
+    validate_repository_name(&input.name).map_err(RepositoryError::InvalidName)?;
 
     let (owner_user_id, owner_organization_id) = match input.owner {
         RepositoryOwner::User { id } => (Some(id), None),
@@ -585,6 +780,107 @@ async fn ensure_owner_can_create(
             }
         }
     }
+}
+
+async fn repository_owner_login(
+    pool: &PgPool,
+    owner: &RepositoryOwner,
+) -> Result<(String, Uuid, String), RepositoryError> {
+    match owner {
+        RepositoryOwner::User { id } => {
+            let login = sqlx::query_scalar::<_, String>(
+                "SELECT COALESCE(NULLIF(username, ''), email) FROM users WHERE id = $1",
+            )
+            .bind(id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or(RepositoryError::OwnerNotFound)?;
+            Ok(("user".to_owned(), *id, login))
+        }
+        RepositoryOwner::Organization { id } => {
+            let login =
+                sqlx::query_scalar::<_, String>("SELECT slug FROM organizations WHERE id = $1")
+                    .bind(id)
+                    .fetch_optional(pool)
+                    .await?
+                    .ok_or(RepositoryError::OwnerNotFound)?;
+            Ok(("organization".to_owned(), *id, login))
+        }
+    }
+}
+
+async fn repository_exists_for_owner(
+    pool: &PgPool,
+    owner: &RepositoryOwner,
+    name: &str,
+) -> Result<bool, RepositoryError> {
+    let exists = match owner {
+        RepositoryOwner::User { id } => {
+            sqlx::query_scalar::<_, bool>(
+                r#"
+                SELECT EXISTS (
+                    SELECT 1 FROM repositories
+                    WHERE owner_user_id = $1 AND lower(name) = lower($2)
+                )
+                "#,
+            )
+            .bind(id)
+            .bind(name)
+            .fetch_one(pool)
+            .await?
+        }
+        RepositoryOwner::Organization { id } => {
+            sqlx::query_scalar::<_, bool>(
+                r#"
+                SELECT EXISTS (
+                    SELECT 1 FROM repositories
+                    WHERE owner_organization_id = $1 AND lower(name) = lower($2)
+                )
+                "#,
+            )
+            .bind(id)
+            .bind(name)
+            .fetch_one(pool)
+            .await?
+        }
+    };
+
+    Ok(exists)
+}
+
+pub fn normalize_repository_name(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join("-")
+}
+
+fn validate_repository_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("Repository name is required.".to_owned());
+    }
+    if name.len() > 100 {
+        return Err("Repository name must be 100 characters or fewer.".to_owned());
+    }
+    if name
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
+    {
+        Ok(())
+    } else {
+        Err(
+            "Repository names can only include letters, numbers, dots, underscores, and hyphens."
+                .to_owned(),
+        )
+    }
+}
+
+fn suggested_repository_name(actor_user_id: Uuid) -> String {
+    let words = [
+        "silver-train",
+        "probable-octo",
+        "refactored-disco",
+        "friendly-engine",
+    ];
+    let index = actor_user_id.as_bytes()[0] as usize % words.len();
+    words[index].to_owned()
 }
 
 fn organization_from_row(row: sqlx::postgres::PgRow) -> Organization {

@@ -499,5 +499,23 @@
       "Dense feed truncation should be manually checked with long actor names, repository names, titles, excerpts, and many event types",
       "Mobile dropdown accessibility should be checked with a screen reader and real touch devices beyond the Playwright viewport smoke"
     ]
+  },
+  {
+    "feature_id": "repo-001",
+    "tests_written": [
+      "Postgres-backed Rust tests cover signed-session access to repository creation options",
+      "Postgres-backed Rust tests cover writable owner filtering for personal and organization owners",
+      "Postgres-backed Rust tests cover repository name normalization, conflict detection, and forbidden owner checks",
+      "Vitest coverage verifies creation-option API helpers, the same-origin name availability proxy, form labels, default states, description counter, README toggle, gitignore filtering, and disabled Phase 1 submit",
+      "Playwright E2E verifies the signed-in /new form loads real options, checks name availability, toggles README, filters/selects gitignore templates, and has no dead links",
+      "Ever browser smoke used a real Rust-signed Postgres session on make dev, exercised name availability, README toggle, gitignore/license controls, and saved ralph/screenshots/build/repo-001-phase1-form-options.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Create repository submit is intentionally disabled until repo-001 Phase 2; retest full create/redirect then",
+      "Template, gitignore, license, and README controls are option-state only in Phase 1; bootstrap content is Phase 3",
+      "Owner list currently includes personal accounts and orgs where membership role is owner/admin; QA should retest broader org roles once org management UI ships",
+      "Availability checks normalize spaces to hyphens but do not reserve names client-side; race/conflict behavior belongs to Phase 2 create submit",
+      "Manual screen reader review for details/listbox behavior should happen during Phase 4 polish"
+    ]
   }
 ]

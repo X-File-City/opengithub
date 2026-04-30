@@ -13,7 +13,8 @@ use crate::{
     auth::extractor::AuthenticatedUser,
     domain::repositories::{
         create_repository, get_repository_for_actor_by_owner_name, list_repositories_for_user,
-        CreateRepository, RepositoryError, RepositoryOwner, RepositoryVisibility,
+        repository_creation_options, repository_name_availability, CreateRepository,
+        RepositoryError, RepositoryOwner, RepositoryVisibility,
     },
     AppState,
 };
@@ -21,6 +22,8 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(list).post(create))
+        .route("/creation-options", get(creation_options))
+        .route("/name-availability", get(name_availability))
         .route("/:owner/:repo", get(read))
 }
 
@@ -40,6 +43,14 @@ struct CreateRepositoryRequest {
     description: Option<String>,
     visibility: Option<RepositoryVisibility>,
     default_branch: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NameAvailabilityQuery {
+    owner_type: OwnerType,
+    owner_id: Uuid,
+    name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -100,6 +111,37 @@ async fn create(
     Ok((StatusCode::CREATED, Json(json!(repository))))
 }
 
+async fn creation_options(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let options = repository_creation_options(pool, actor.0.id)
+        .await
+        .map_err(map_repository_error)?;
+
+    Ok(Json(json!(options)))
+}
+
+async fn name_availability(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<NameAvailabilityQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let owner = match query.owner_type {
+        OwnerType::User => RepositoryOwner::User { id: query.owner_id },
+        OwnerType::Organization => RepositoryOwner::Organization { id: query.owner_id },
+    };
+    let availability = repository_name_availability(pool, actor.0.id, owner, &query.name)
+        .await
+        .map_err(map_repository_error)?;
+
+    Ok(Json(json!(availability)))
+}
+
 async fn read(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -130,6 +172,11 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
         RepositoryError::InvalidVisibility(_) => error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            error.to_string(),
+        ),
+        RepositoryError::InvalidName(_) => error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "validation_failed",
             error.to_string(),
