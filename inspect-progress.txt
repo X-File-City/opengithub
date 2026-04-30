@@ -547,3 +547,42 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Insights and Security overview surfaces (`/{owner}/{repo}/pulse`, `/graphs/contributors`, `/network`, `/forks`, `/security`, Dependabot/code-scanning/secret-scanning alert pages) or begin Required Coverage Backlog surfaces such as Discussions, Projects v2, and Wiki.
+
+Iteration 17 completed on 2026-04-30.
+
+Scope inspected: repository Insights graphs and analytics (`/{owner}/{repo}/pulse`, `/graphs/contributors`, `/graphs/traffic`, `/network`, `/network/dependencies`, `/network/dependents`, `/forks`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for repository graphs, traffic, contributors, and dependency graph behavior.
+- Ran the required `ever snapshot`; Ever was authenticated and returned the signed-in GitHub dashboard.
+- Navigated with Ever to `https://github.com/vercel/next.js/pulse`, contributors, traffic, network, dependency graph dependencies/dependents, and forks.
+- Captured screenshots:
+  - ralph/screenshots/inspect/insights-pulse.jpg
+  - ralph/screenshots/inspect/insights-pulse-period-menu.jpg
+  - ralph/screenshots/inspect/insights-contributors.jpg
+  - ralph/screenshots/inspect/insights-traffic.jpg
+  - ralph/screenshots/inspect/insights-network.jpg
+  - ralph/screenshots/inspect/insights-dependency-graph.jpg
+  - ralph/screenshots/inspect/insights-dependents.jpg
+  - ralph/screenshots/inspect/insights-forks.jpg
+- Tested non-destructive interactions: opened Pulse period menu, confirmed traffic permission redirect, inspected contributor chart/range controls, dependency search/filter surfaces, dependents package/owner filters, and fork period/type/sort filters.
+- Updated build-spec.md with Repository Insights UI, behavior, API examples, backend/cloud mapping, and constraints.
+- Updated sitemap.md to mark Insights analytics as completed and add traffic/dependency/forks routes.
+- Appended focused PRD entries:
+  - insights-001 Pulse activity summary
+  - insights-002 contributor analytics
+  - insights-003 traffic analytics and permission gate
+  - insights-004 network graph and forks list
+  - insights-005 dependency graph, dependents, and SBOM export
+
+Key findings:
+- Insights uses a dedicated left sidebar inside the repository shell with Pulse, Contributors, Community standards, Commits, Code frequency, Dependency graph, Network, Forks, Actions usage metrics, and Actions performance metrics.
+- Pulse has period options for 24 hours, 3 days, 1 week, and 1 month, overview PR/issue metrics, summary counts, top committers chart, releases published, and merged PR activity.
+- Contributors uses accessible Highcharts charts, a Period control, range sliders, per-contributor charts, and omits line counts for repositories over the commit threshold. Docs confirm top-100 contributor behavior and default-branch-only counting.
+- Traffic requires push access; read-only live navigation redirected to the dashboard. Docs confirm 14-day clones/visitors, referring sites, popular content, UTC data, hourly clone/visitor updates, and daily referrer/content updates.
+- Network graph is an explanatory timeline surface that shows the 50 most recently pushed forks and updates daily.
+- Dependency graph has Dependencies and Dependents tabs, Export SBOM, dependency search, ecosystem filter, direct/transitive badges, manifest paths, detected dates, licenses, package selector, owner filter, and dependent repository/package counts.
+- Forks list has Period, Repository type, and Sort menus, a Defaults Saved state, Switch to tree view link, and rows with owner/name, metrics, created date, and updated date.
+
+Next recommended iteration:
+- Inspect Code Security surfaces (`/{owner}/{repo}/security`, Dependabot alerts, code scanning alerts, secret scanning alerts, security advisories, and SECURITY.md policy authoring) or begin Required Coverage Backlog surfaces such as Discussions, Projects v2, and Wiki.

@@ -869,6 +869,118 @@ Implementation mapping:
 - Postgres stores commit metadata, commit_search_index rows, commit_signature_verifications, commit_status_summaries, repository_git_refs, branch activity projections, branch protection/rulesets, and linked PR refs. Git object storage remains the source of truth for commit/tree/blob bytes.
 - Actions/check-run data feeds commit and branch status buttons. Branch protection/rules data feeds protected badges and View rules links.
 
+## Repository Insights
+
+Status: inspected in iteration 17 with live Ever navigation on `vercel/next.js`. Traffic redirected to the authenticated dashboard for a read-only public repository, matching GitHub's permission gate that repository traffic requires push access. Traffic UI details are docs-backed.
+
+Screenshots:
+- `ralph/screenshots/inspect/insights-pulse.jpg`
+- `ralph/screenshots/inspect/insights-pulse-period-menu.jpg`
+- `ralph/screenshots/inspect/insights-contributors.jpg`
+- `ralph/screenshots/inspect/insights-traffic.jpg`
+- `ralph/screenshots/inspect/insights-network.jpg`
+- `ralph/screenshots/inspect/insights-dependency-graph.jpg`
+- `ralph/screenshots/inspect/insights-dependents.jpg`
+- `ralph/screenshots/inspect/insights-forks.jpg`
+
+Shared Insights shell:
+- Insights keeps the repository header/tab bar and renders a left sidebar headed `Insights: {owner}/{repo}`.
+- Sidebar links observed: Pulse, Contributors, Community standards, Commits, Code frequency, Dependency graph, Network, Forks, Actions usage metrics, and Actions performance metrics.
+- Graph pages use accessible Highcharts regions with "View as data table" controls, chart export/action buttons, and keyboard-readable chart summaries.
+
+Pulse:
+- Pulse defaults to a one-week window and shows the exact date range, a Period button, overview metric cards for active pull requests and active issues, linked counts for merged/open PRs and closed/new issues, and a summary sentence for authors, commits on default branch, commits on all branches, changed files, additions, and deletions.
+- Period menu is a radio menu with 24 hours, 3 days, 1 week, and 1 month. Selecting a period reloads the Pulse aggregates.
+- Top Committers is a bar chart with avatar links below it. Activity streams below include releases published and pull requests merged, with linked release tags/PR titles, actors, states, and relative times.
+
+Contributors:
+- Contributors page shows a heading, default branch scope, commit-limit message when line counts are omitted, Period button, a repository-wide "Commits over time" interactive chart, range sliders for start/end selection, and per-contributor cards.
+- Contributor rows/cards include avatar, login link, total commit count, an expandable/exportable chart menu, and an individual bar chart. Docs confirm only the top 100 contributors are shown, merge commits and empty commits are excluded, and only commits merged to the default branch count.
+
+Traffic:
+- `/{owner}/{repo}/graphs/traffic` is push-access gated. Read-only navigation redirected to dashboard during live inspection.
+- Docs-backed UI: traffic contains clones and visitors line charts for the past 14 days, referring sites table, and popular content table. Data uses UTC, clones/visitors update hourly, and referrers/popular content update daily.
+
+Network and forks:
+- Network page shows an explanatory "Network graph" page, a timeline of recent commits to the repository and network, and notes that the network graph displays the 50 most recently pushed forks and updates daily.
+- Forks page links back to tree view and has filter menus for Period, Repository type, and Sort, plus a disabled "Defaults Saved" button when current filters match defaults.
+- Fork rows show fork owner/avatar, repository name, small metric icons/counts, Created relative time, and Updated relative time. Observed defaults: Period = 2 years, Repository type = Active, Sort = Most starred.
+
+Dependency graph:
+- Dependency graph has tabs for Dependencies and Dependents and an Export SBOM button.
+- Dependencies tab has a query-builder search input, total count, Ecosystem select-panel filter, and rows for each dependency. Rows include package name/version, Direct or Transitive badge, ecosystem, manifest/lockfile path, detected automatically date, license, and a row options menu.
+- Dependents tab has a package filter menu, counts for dependent repositories and packages, warning disclosure, owner filter with username input, and dependent repository rows. Observed `next` package dependent counts were millions of repositories and over one hundred thousand packages.
+
+API examples:
+
+```http
+GET /api/repos/{owner}/{repo}/insights/pulse?period=week
+Response: {
+  "range": { "from": "2026-04-22", "to": "2026-04-29", "period": "week" },
+  "overview": { "activePullRequests": 140, "activeIssues": 35, "mergedPullRequests": 71, "openPullRequests": 69, "closedIssues": 22, "newIssues": 13 },
+  "summary": { "authors": 27, "defaultBranchCommits": 73, "allBranchCommits": 432, "changedFiles": 395, "additions": 10380, "deletions": 5384 },
+  "topCommitters": [{ "user": { "login": "feedthejim", "avatarUrl": "https://..." }, "commits": 114 }],
+  "activity": [{ "type": "pull_request_merged", "title": "enable validateRSCRequestHeaders by default", "number": 93367, "actor": "feedthejim", "occurredAt": "2026-04-30T05:00:00Z" }]
+}
+Error: { "error": { "code": "not_found", "message": "Repository not found" }, "status": 404 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/insights/contributors?period=all&page=1&pageSize=25
+Response: {
+  "branch": "canary",
+  "lineCountsOmitted": true,
+  "chart": [{ "week": "2026-04-26", "commits": 312 }],
+  "contributors": [{ "login": "ijjk", "avatarUrl": "https://...", "commits": 4631, "weekly": [{ "week": "2026-04-26", "commits": 24 }] }],
+  "total": 100, "page": 1, "pageSize": 25
+}
+Error: { "error": { "code": "insights_unavailable", "message": "Contributor graph is not available for this repository" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/insights/traffic
+Response: {
+  "clones": [{ "date": "2026-04-29", "count": 420, "uniques": 90 }],
+  "views": [{ "date": "2026-04-29", "count": 1500, "uniques": 620 }],
+  "referrers": [{ "referrer": "google.com", "count": 230, "uniques": 190 }],
+  "popularContent": [{ "path": "/", "title": "README", "count": 900, "uniques": 500 }]
+}
+Error: { "error": { "code": "forbidden", "message": "Push access is required to view traffic" }, "status": 403 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/network/forks?period=2y&type=active&sort=stars&page=1&pageSize=25
+Response: {
+  "forks": [{ "owner": "supertokens", "name": "next.js", "stars": 19, "createdAt": "2021-04-01T00:00:00Z", "updatedAt": "2024-04-01T00:00:00Z" }],
+  "filters": { "period": "2y", "type": "active", "sort": "stars" },
+  "total": 50, "page": 1, "pageSize": 25
+}
+Error: { "error": { "code": "invalid_filter", "message": "Unsupported fork filter" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/dependency-graph/dependencies?q=react&ecosystem=npm&page=1&pageSize=25
+Response: {
+  "dependencies": [{ "package": "@actions/core", "version": "1.10.1", "relationship": "direct", "ecosystem": "npm", "manifestPath": "pnpm-lock.yaml", "detectedAt": "2026-02-24T00:00:00Z", "license": "MIT" }],
+  "total": 12977, "page": 1, "pageSize": 25
+}
+Error: { "error": { "code": "dependency_graph_disabled", "message": "Dependency graph is disabled for this repository" }, "status": 422 }
+
+GET /api/repos/{owner}/{repo}/dependency-graph/dependents?package=next&type=repository&owner=OcularEngineering&page=1&pageSize=25
+Response: {
+  "package": "next",
+  "counts": { "repositories": 5050990, "packages": 136378 },
+  "dependents": [{ "owner": "OcularEngineering", "name": "ocular", "stars": 449, "forks": 34 }],
+  "total": 5050990, "page": 1, "pageSize": 25
+}
+```
+
+Implementation mapping:
+- Next.js owns the Insights sidebar, filter menus, chart rendering, data-table fallbacks, dependency search/filter UI, forks list filters, and traffic permission empty state.
+- Rust owns aggregation jobs for Pulse, contributor stats, traffic rollups, fork/network projections, dependency extraction from manifests/lockfiles, dependents index, SBOM export, and permission gates.
+- Postgres stores repository_insight_snapshots, repository_traffic_daily, repository_contributors_weekly, repository_network_forks, dependency_manifests, repository_dependencies, repository_dependents, sbom_exports, and chart cache rows.
+- S3 stores generated SBOM exports and optional large dependency graph artifacts. Background jobs can run inside the API worker initially; move to SQS/ECS workers if graph generation becomes slow.
+
 ## Repository Creation And Import
 
 Status: inspected in iteration 4. Ever was usable and authenticated for `/new`. Screenshots:
@@ -1151,6 +1263,18 @@ Initial model set inferred from docs/OpenAPI:
 - `commit_status_summaries`: id, repository_id, commit_sha, total_count, successful_count, failed_count, skipped_count, pending_count, conclusion, updated_at.
 - `commit_file_changes`: id, repository_id, commit_sha, path, previous_path, status, additions, deletions, patch_hash, binary, generated, created_at.
 - `branch_activity_snapshots`: id, repository_id, ref_name, latest_commit_sha, latest_actor_id, active_state, ahead_count, behind_count, linked_pull_request_id, computed_at.
+- `repository_insight_snapshots`: id, repository_id, period_key, starts_at, ends_at, active_pull_requests, active_issues, merged_pull_requests, open_pull_requests, closed_issues, new_issues, authors_count, default_branch_commits, all_branch_commits, changed_files, additions, deletions, activity_json, computed_at.
+- `repository_contributors_weekly`: id, repository_id, user_id, author_email_hash, week_start, commit_count, additions, deletions, default_branch_only, computed_at.
+- `repository_traffic_daily`: id, repository_id, date, clones_count, clones_unique, views_count, views_unique, computed_at.
+- `repository_referrers_daily`: id, repository_id, date, referrer, views_count, uniques_count, computed_at.
+- `repository_popular_content_daily`: id, repository_id, date, path, title, views_count, uniques_count, computed_at.
+- `forks`: id, source_repository_id, fork_repository_id, forked_by_id, created_at, synced_at.
+- `repository_network_forks`: id, repository_id, fork_repository_id, latest_push_at, latest_commit_sha, active_state, stars_count, forks_count, issues_count, pull_requests_count, computed_at.
+- `dependency_manifests`: id, repository_id, path, ecosystem, manifest_hash, parsed_at, parser_version.
+- `dependency_packages`: id, ecosystem, package_name, normalized_name, latest_version, metadata_json, updated_at.
+- `repository_dependencies`: id, repository_id, manifest_id, package_id, package_name, version, relationship, scope, license, detected_at, resolved_at.
+- `repository_dependents`: id, package_id, dependent_repository_id, dependent_package_id, detected_at, stars_count, forks_count, owner_id.
+- `sbom_exports`: id, repository_id, actor_id, format, status, storage_key, error_message, created_at, completed_at, expires_at.
 - `issues`: id, repository_id, number, title, body, state, author_id, assignee_id, milestone_id, closed_at, created_at, updated_at.
 - `issue_comments`: id, issue_id, author_id, body, rendered_html, created_at, updated_at, edited_at, deleted_at.
 - `issue_timeline_events`: id, issue_id, actor_id, event_type, payload_json, created_at.

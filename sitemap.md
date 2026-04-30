@@ -80,7 +80,10 @@ Template: `/{owner}/{repo}`.
 - `/{owner}/{repo}/security` — security overview, Dependabot/code scanning/secret scanning placeholders.
 - `/{owner}/{repo}/pulse` — activity summary.
 - `/{owner}/{repo}/graphs/contributors` — contributors graph.
+- `/{owner}/{repo}/graphs/traffic` — traffic graph for push-access users; permission-gated.
+- `/{owner}/{repo}/network/dependencies` — dependency graph dependencies and dependents.
 - `/{owner}/{repo}/network` — fork/network graph; low priority.
+- `/{owner}/{repo}/forks` — searchable/filterable fork list and tree-view switch.
 - `/{owner}/{repo}/settings` — repository settings overview.
 - `/{owner}/{repo}/settings/access` — collaborators/teams.
 - `/{owner}/{repo}/settings/branches` — branch protection/rulesets.
@@ -144,4 +147,5 @@ Template: `/{owner}/{repo}`.
 12. Personal settings and developer credentials. Completed after iteration 13 with live Ever inspection for `/settings/profile`, `/settings/notifications`, `/settings/tokens`, `/settings/personal-access-tokens/new` sudo-mode gate, `/settings/keys`, `/settings/security`, `/settings/sessions`, and `/settings/security-log`.
 13. Organization/team admin. Completed in iteration 15 with live inspection for `/organizations/new`, organization profile settings, people/member management and invite dialog, teams empty state, new team form, and member privileges.
 14. Branch/commit history details. Completed in iteration 16 with live `vercel/next.js` inspection for commit list filters, commit detail diff, branches overview, and branch row menu.
-15. Remaining high-value surfaces: Insights/Security overview, wiki/projects/discussions if scope remains.
+15. Insights graphs and dependency/fork analytics. Completed in iteration 17 with live `vercel/next.js` inspection for Pulse, period menu, Contributors, Network, Dependency graph dependencies/dependents, Forks, and docs-backed Traffic permission/retention behavior.
+16. Remaining high-value surfaces: Security overview, wiki/projects/discussions if scope remains.
