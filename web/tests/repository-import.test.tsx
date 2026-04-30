@@ -346,6 +346,9 @@ describe("RepositoryImportForm", () => {
     await expect(
       screen.findByText("import source host is not allowed"),
     ).resolves.toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByLabelText("Source repository URL *")).toHaveFocus();
+    });
     expect(routerPush).not.toHaveBeenCalled();
   });
 });
@@ -374,6 +377,10 @@ describe("RepositoryImportStatusPanel", () => {
     );
 
     expect(screen.getByText("Queued")).toBeVisible();
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(
+      screen.getByRole("link", { name: "Start another import" }),
+    ).toHaveAttribute("href", "/new/import");
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/new/imports/import-1", {
         cache: "no-store",
@@ -405,5 +412,30 @@ describe("RepositoryImportStatusPanel", () => {
     expect(
       screen.getByRole("link", { name: "Start another import" }),
     ).toHaveAttribute("href", "/new/import");
+  });
+
+  it("truncates long source and destination labels without losing full titles", () => {
+    const longSource =
+      "very-long-hostname.example.com/some/deeply/nested/repository/path/with-a-long-name.git";
+    const longDestination =
+      "/mona/a-very-long-imported-repository-name-that-should-not-overflow";
+    render(
+      <RepositoryImportStatusPanel
+        initialImport={repositoryImport({
+          source: {
+            url: `https://${longSource}`,
+            host: "very-long-hostname.example.com",
+            path: "some/deeply/nested/repository/path/with-a-long-name.git",
+          },
+          repositoryHref: longDestination,
+        })}
+      />,
+    );
+
+    expect(screen.getByText(longSource)).toHaveAttribute("title", longSource);
+    expect(screen.getByText(longDestination)).toHaveAttribute(
+      "title",
+      longDestination,
+    );
   });
 });

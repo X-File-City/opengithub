@@ -93,6 +93,7 @@ test("signed-in import wizard validates source URLs and queues imports", async (
   await expect(
     page.getByText(/host is not allowed|invalid import source/i),
   ).toBeVisible();
+  await expect(page.getByLabel("Source repository URL *")).toBeFocused();
   await expect(page).toHaveURL(/\/new\/import$/);
 
   const repositoryName = `queued-import-${Date.now().toString(36)}`;
@@ -115,4 +116,13 @@ test("signed-in import wizard validates source URLs and queues imports", async (
     }),
   ).toBeVisible();
   await expectNoDeadImportControls(page);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const viewportWidth = await page.evaluate(
+    () => document.documentElement.clientWidth,
+  );
+  const scrollWidth = await page.evaluate(
+    () => document.documentElement.scrollWidth,
+  );
+  expect(scrollWidth).toBeLessThanOrEqual(viewportWidth + 1);
 });

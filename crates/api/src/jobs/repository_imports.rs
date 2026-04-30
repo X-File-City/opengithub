@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     domain::{
+        notifications::{create_notification, CreateNotification},
         repositories::{
             replace_repository_snapshot, CreateCommit, RepositorySnapshot, RepositorySnapshotFile,
         },
@@ -23,6 +24,7 @@ use crate::{
 };
 
 const IMPORT_QUEUE: &str = "repository_import";
+const EMAIL_QUEUE: &str = "email_delivery";
 const IMPORT_LEASE_SECONDS: i64 = 300;
 const MAX_IMPORTED_FILES: usize = 1_000;
 const MAX_IMPORTED_FILE_BYTES: usize = 1024 * 1024;
@@ -157,16 +159,104 @@ pub async fn run_repository_import_once(
                 "Repository import completed. The default branch is ready.",
             )
             .await?;
+            create_terminal_side_effects(pool, &work_item, RepositoryImportStatus::Imported, None)
+                .await?;
             complete_job_lease(pool, lease.id, worker_id).await?;
             Ok(Some(RepositoryImportStatus::Imported))
         }
         Err(error) => {
             mark_repository_import_failed(pool, import_id, error.code(), &error.user_message())
                 .await?;
+            create_terminal_side_effects(
+                pool,
+                &work_item,
+                RepositoryImportStatus::Failed,
+                Some((error.code(), error.user_message())),
+            )
+            .await?;
             fail_job_lease(pool, lease.id, worker_id, error.code(), 300).await?;
             Ok(Some(RepositoryImportStatus::Failed))
         }
     }
+}
+
+async fn create_terminal_side_effects(
+    pool: &PgPool,
+    work_item: &crate::domain::repository_imports::RepositoryImportWorkItem,
+    status: RepositoryImportStatus,
+    failure: Option<(&str, String)>,
+) -> Result<(), RepositoryImportWorkerError> {
+    let repository_name = work_item.import.repository_href.trim_start_matches('/');
+    let (title, reason, email_subject, email_body) = match status {
+        RepositoryImportStatus::Imported => (
+            format!("Import completed for {repository_name}"),
+            "import_completed",
+            format!("Repository import completed: {repository_name}"),
+            format!(
+                "The repository import for {repository_name} completed. Open it at {}.",
+                work_item.import.repository_href
+            ),
+        ),
+        RepositoryImportStatus::Failed => {
+            let message = failure
+                .as_ref()
+                .map(|(_, message)| message.as_str())
+                .unwrap_or("The repository import failed.");
+            (
+                format!("Import failed for {repository_name}"),
+                "import_failed",
+                format!("Repository import failed: {repository_name}"),
+                format!("The repository import for {repository_name} failed: {message}"),
+            )
+        }
+        RepositoryImportStatus::Queued | RepositoryImportStatus::Importing => return Ok(()),
+    };
+
+    create_notification(
+        pool,
+        CreateNotification {
+            user_id: work_item.import.requested_by_user_id,
+            repository_id: Some(work_item.repository.id),
+            subject_type: "repository_import".to_owned(),
+            subject_id: Some(work_item.import.id),
+            title,
+            reason: reason.to_owned(),
+        },
+    )
+    .await
+    .map_err(|error| match error {
+        crate::domain::notifications::NotificationError::Sqlx(error) => {
+            RepositoryImportWorkerError::Sqlx(error)
+        }
+        crate::domain::notifications::NotificationError::NotFound => {
+            RepositoryImportWorkerError::NotFound
+        }
+    })?;
+
+    let email_key = format!(
+        "repository_import:{}:{}",
+        work_item.import.id,
+        status.as_str()
+    );
+    crate::jobs::enqueue_job(
+        pool,
+        EMAIL_QUEUE,
+        &email_key,
+        serde_json::json!({
+            "kind": "repository_import",
+            "importId": work_item.import.id,
+            "repositoryId": work_item.repository.id,
+            "userId": work_item.import.requested_by_user_id,
+            "status": status,
+            "subject": email_subject,
+            "body": email_body,
+            "repositoryHref": work_item.import.repository_href,
+            "errorCode": failure.as_ref().map(|(code, _)| *code),
+        }),
+    )
+    .await?;
+
+    Ok(())
 }
 
 async fn import_source_snapshot(

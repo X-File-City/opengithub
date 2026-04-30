@@ -621,5 +621,22 @@
       "Email and in-app notification side effects are still deferred to repo-002 Phase 4",
       "Large repositories, LFS objects, provider-specific auth failures, and DNS-rebinding/private-network resolution remain deeper QA targets"
     ]
+  },
+  {
+    "feature_id": "repo-002",
+    "tests_written": [
+      "Worker tests now verify terminal import side effects: in-app notifications and durable email_delivery job leases for imported and failed imports",
+      "Added repository_import_security coverage for IPv6/private-network source blocking, source URL fragment normalization, non-owner status access denial, duplicate destination conflicts, request-log credential redaction, and no stack/secret leakage in API envelopes",
+      "Vitest covers import form focus after validation errors, ARIA live status announcements, terminal status callouts, retry/back actions, polling stop behavior, and long source/destination truncation titles",
+      "Playwright E2E covers bad-source focus recovery, dead-control checks, queued status navigation, and mobile no-overflow on the import status page",
+      "Browser smoke used Ever with a real Rust-signed Postgres session to verify empty wizard, private-network validation, queued status after a real POST, terminal failed/completed status pages, and a mobile status screenshot"
+    ],
+    "needs_deeper_qa": [
+      "Real SES delivery remains a queued email_delivery job only; QA should verify end-to-end SES once sender/domain infrastructure is active",
+      "The MVP importer intentionally omits issues, pull requests, repository metadata, and LFS objects; QA should confirm product copy sets that expectation",
+      "Credential metadata is redacted and not rendered/logged, but private remote clone authentication is not fully exercised against real providers yet",
+      "Private-network blocking covers literal hostnames/IPs including IPv6; DNS resolution/rebinding protection still needs deeper production hardening",
+      "Large repositories are bounded by file count and per-file byte size; QA should test user-facing failure clarity with larger real remotes"
+    ]
   }
 ]

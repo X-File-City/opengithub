@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type {
   RepositoryCreationOptions,
   RepositoryOwnerType,
@@ -73,6 +73,9 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const sourceInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const formErrorRef = useRef<HTMLParagraphElement>(null);
 
   const selectedOwner = useMemo(
     () =>
@@ -83,6 +86,20 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
   );
   const normalizedName = normalizeRepositoryName(name);
   const suggestedName = importNameFromUrl(sourceUrl);
+
+  useEffect(() => {
+    if (sourceError) {
+      sourceInputRef.current?.focus();
+      return;
+    }
+    if (nameError) {
+      nameInputRef.current?.focus();
+      return;
+    }
+    if (formError) {
+      formErrorRef.current?.focus();
+    }
+  }, [formError, nameError, sourceError]);
 
   async function submitImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,6 +195,7 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
               aria-invalid={sourceError ? "true" : "false"}
               className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
               placeholder="https://github.com/octocat/Hello-World.git"
+              ref={sourceInputRef}
               value={sourceUrl}
               onBlur={() => {
                 if (!name.trim() && suggestedName) {
@@ -283,6 +301,7 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
                 aria-describedby="destination-name-help destination-name-error"
                 aria-invalid={nameError ? "true" : "false"}
                 className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
+                ref={nameInputRef}
                 value={name}
                 onChange={(event) => {
                   setName(event.target.value);
@@ -339,7 +358,12 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
           </fieldset>
 
           {formError ? (
-            <p className="mt-4 text-sm text-[#cf222e]" role="alert">
+            <p
+              className="mt-4 text-sm text-[#cf222e]"
+              ref={formErrorRef}
+              role="alert"
+              tabIndex={-1}
+            >
               {formError}
             </p>
           ) : null}

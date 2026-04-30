@@ -147,6 +147,32 @@ async fn repository_import_worker_clones_file_fixture_and_indexes_default_branch
     .await
     .expect("job should query");
     assert_eq!(completed_job_count, 1);
+
+    let notification = sqlx::query_as::<_, (String, String)>(
+        "SELECT title, reason FROM notifications WHERE user_id = $1 AND repository_id = $2 AND subject_id = $3",
+    )
+    .bind(user.id)
+    .bind(import.repository_id)
+    .bind(import.id)
+    .fetch_one(&pool)
+    .await
+    .expect("completion notification should query");
+    assert!(notification.0.contains(&repo_name));
+    assert_eq!(notification.1, "import_completed");
+
+    let email_job = sqlx::query_as::<_, (serde_json::Value, Option<String>)>(
+        "SELECT payload, last_error FROM job_leases WHERE queue = 'email_delivery' AND lease_key = $1",
+    )
+    .bind(format!("repository_import:{}:imported", import.id))
+    .fetch_one(&pool)
+    .await
+    .expect("completion email job should queue");
+    assert_eq!(email_job.0["status"], "imported");
+    assert_eq!(
+        email_job.0["repositoryId"],
+        import.repository_id.to_string()
+    );
+    assert!(email_job.1.is_none());
 }
 
 #[tokio::test]
@@ -213,6 +239,31 @@ async fn repository_import_worker_marks_unreachable_source_failed_without_leakin
     .await
     .expect("job should query");
     assert!(last_error.is_some());
+
+    let notification = sqlx::query_as::<_, (String, String)>(
+        "SELECT title, reason FROM notifications WHERE user_id = $1 AND repository_id = $2 AND subject_id = $3",
+    )
+    .bind(user.id)
+    .bind(import.repository_id)
+    .bind(import.id)
+    .fetch_one(&pool)
+    .await
+    .expect("failure notification should query");
+    assert!(notification.0.contains("Import failed"));
+    assert_eq!(notification.1, "import_failed");
+
+    let email_payload = sqlx::query_scalar::<_, serde_json::Value>(
+        "SELECT payload FROM job_leases WHERE queue = 'email_delivery' AND lease_key = $1",
+    )
+    .bind(format!("repository_import:{}:failed", import.id))
+    .fetch_one(&pool)
+    .await
+    .expect("failure email job should queue");
+    assert_eq!(email_payload["status"], "failed");
+    assert!(email_payload["errorCode"].is_string());
+    assert!(!email_payload
+        .to_string()
+        .contains(&missing.display().to_string()));
 }
 
 struct GitFixture {

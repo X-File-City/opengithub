@@ -91,9 +91,31 @@ export function RepositoryImportStatusPanel({
 
         <div className="grid gap-0 md:grid-cols-[1fr_260px]">
           <div className="p-5">
-            <p className="text-sm leading-6 text-[#59636e]" role="status">
+            <p
+              aria-live="polite"
+              className="text-sm leading-6 text-[#59636e]"
+              role="status"
+            >
               {repositoryImport.progressMessage}
             </p>
+
+            {shouldPoll(repositoryImport.status) ? (
+              <div className="mt-5 rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-4 text-sm text-[#59636e]">
+                <p className="font-semibold text-[#1f2328]">
+                  Import is in progress
+                </p>
+                <p className="mt-1">
+                  You can leave this page and return while opengithub fetches
+                  the default branch.
+                </p>
+                <Link
+                  className="mt-3 inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+                  href="/new/import"
+                >
+                  Start another import
+                </Link>
+              </div>
+            ) : null}
 
             {repositoryImport.status === "imported" ? (
               <div className="mt-5 rounded-md border border-[#1f883d] bg-[#dafbe1] p-4 text-sm text-[#1a7f37]">
@@ -140,11 +162,19 @@ export function RepositoryImportStatusPanel({
             <dl className="grid gap-4">
               <div>
                 <dt className="font-semibold text-[#1f2328]">Source</dt>
-                <dd className="mt-1 break-all text-[#59636e]">{sourceLabel}</dd>
+                <dd
+                  className="mt-1 max-w-full truncate text-[#59636e]"
+                  title={sourceLabel}
+                >
+                  {sourceLabel}
+                </dd>
               </div>
               <div>
                 <dt className="font-semibold text-[#1f2328]">Destination</dt>
-                <dd className="mt-1 break-all text-[#59636e]">
+                <dd
+                  className="mt-1 max-w-full truncate text-[#59636e]"
+                  title={repositoryImport.repositoryHref}
+                >
                   {repositoryImport.repositoryHref}
                 </dd>
               </div>

@@ -60,7 +60,7 @@
 
 ## Phase 4: Final Error UX, Notifications, Email Job, and QA Guardrails
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Finish repo-002 by hardening edge cases, visible status/error states, email/notification side effects, accessibility, mobile layout, and regression coverage. Mark the PRD complete only after the full import path is verified.
 

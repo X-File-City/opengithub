@@ -508,7 +508,11 @@ async fn insert_credential_metadata(
 }
 
 fn is_blocked_host(host: &str) -> bool {
-    let trimmed = host.trim_end_matches('.').to_ascii_lowercase();
+    let trimmed = host
+        .trim_end_matches('.')
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_ascii_lowercase();
     if matches!(trimmed.as_str(), "localhost" | "0.0.0.0")
         || trimmed.ends_with(".localhost")
         || trimmed.ends_with(".local")
