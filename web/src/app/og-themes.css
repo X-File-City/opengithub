@@ -1,0 +1,176 @@
+/* og-themes.css — three full themes, swap by class on <body> */
+
+/* ============ THEME 1: EDITORIAL (default — already in og.css) ============ */
+/* The base :root block in og.css IS the editorial light theme. */
+/* body.theme-dark in og.css is editorial dark. */
+
+/* ============ THEME 2: TERMINAL ============ */
+/* Mono-forward, dark-primary, terminal green accent, dense.       */
+body.theme-terminal {
+  --bg: #0c0e0b;
+  --surface: #11140f;
+  --surface-2: #161a14;
+  --surface-3: #1c2119;
+  --hover: rgba(180, 220, 170, 0.05);
+  --pressed: rgba(180, 220, 170, 0.10);
+
+  --ink-1: #d8e6cc;
+  --ink-2: #b8c8ac;
+  --ink-3: #7d8d72;
+  --ink-4: #56624e;
+  --ink-5: #38422f;
+
+  --line: #1f261a;
+  --line-strong: #2e3826;
+  --line-soft: #181c14;
+
+  --accent: oklch(0.78 0.17 135);    /* terminal green */
+  --accent-hover: oklch(0.85 0.19 135);
+  --accent-soft: oklch(0.30 0.08 135);
+  --accent-ink: #0c0e0b;
+
+  --ok: oklch(0.78 0.17 135);
+  --ok-soft: oklch(0.30 0.08 135);
+  --warn: oklch(0.80 0.16 75);
+  --warn-soft: oklch(0.30 0.08 75);
+  --err: oklch(0.70 0.20 25);
+  --err-soft: oklch(0.30 0.10 25);
+  --info: oklch(0.72 0.13 220);
+  --info-soft: oklch(0.28 0.06 220);
+
+  --code-add: oklch(0.30 0.10 135);
+  --code-add-strong: oklch(0.40 0.13 135);
+  --code-del: oklch(0.30 0.12 25);
+  --code-del-strong: oklch(0.40 0.16 25);
+  --code-comment: #56624e;
+  --code-keyword: oklch(0.78 0.16 75);   /* amber */
+  --code-string: oklch(0.78 0.17 135);   /* green */
+  --code-fn: oklch(0.74 0.13 200);
+
+  --display: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --sans: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --radius: 2px;
+  --radius-lg: 3px;
+  --radius-pill: 2px;
+
+  --shadow-sm: 0 0 0 1px rgba(180, 220, 170, 0.06);
+  --shadow-md: 0 0 0 1px rgba(180, 220, 170, 0.08);
+  --shadow-lg: 0 0 0 1px rgba(180, 220, 170, 0.12), 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  --header-h: 40px;
+}
+body.theme-terminal { letter-spacing: 0; }
+body.theme-terminal .t-display,
+body.theme-terminal .t-h1,
+body.theme-terminal .t-h2,
+body.theme-terminal .t-h3 {
+  font-family: var(--mono);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-style: normal;
+}
+body.theme-terminal .t-h1 { font-size: 26px; }
+body.theme-terminal .t-h2 { font-size: 18px; }
+body.theme-terminal .t-h3 { font-size: 14px; }
+body.theme-terminal { font-size: 13px; }
+body.theme-terminal em { font-style: normal; }
+body.theme-terminal em::before { content: '_'; }
+body.theme-terminal em::after { content: '_'; }
+body.theme-terminal .btn { border-radius: 2px; text-transform: lowercase; font-family: var(--mono); }
+body.theme-terminal .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+body.theme-terminal .btn.accent { background: var(--accent); color: var(--accent-ink); }
+body.theme-terminal .chip { border-radius: 2px; font-family: var(--mono); text-transform: lowercase; }
+body.theme-terminal .card { border-radius: 3px; }
+body.theme-terminal .input { border-radius: 2px; font-family: var(--mono); }
+body.theme-terminal .av { border-radius: 2px; font-family: var(--mono); background: var(--surface-3); color: var(--accent); }
+body.theme-terminal .palette { border-radius: 3px; border: 1px solid var(--accent); }
+body.theme-terminal .palette-input::before { content: '> '; color: var(--accent); font-family: var(--mono); }
+
+/* prefix prompt before primary buttons */
+body.theme-terminal .btn.primary::before,
+body.theme-terminal .btn.accent::before { content: '> '; opacity: 0.7; }
+
+/* scanline-ish accent pulse */
+body.theme-terminal .dot.live { background: var(--accent); }
+
+/* ============ THEME 3: STUDIO ============ */
+/* Crisp white, geometric sans, electric blue, generous whitespace, modern SaaS. */
+body.theme-studio {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --surface-3: #e9eaec;
+  --hover: rgba(0, 0, 0, 0.035);
+  --pressed: rgba(0, 0, 0, 0.07);
+
+  --ink-1: #09090b;
+  --ink-2: #18181b;
+  --ink-3: #52525b;
+  --ink-4: #8b8d95;
+  --ink-5: #c5c7cd;
+
+  --line: #e7e7ea;
+  --line-strong: #d4d4d8;
+  --line-soft: #f0f0f3;
+
+  --accent: oklch(0.55 0.20 260);     /* electric blue */
+  --accent-hover: oklch(0.50 0.22 260);
+  --accent-soft: oklch(0.95 0.04 260);
+  --accent-ink: #ffffff;
+
+  --ok: oklch(0.62 0.16 150);
+  --ok-soft: oklch(0.95 0.05 150);
+  --warn: oklch(0.74 0.15 75);
+  --warn-soft: oklch(0.96 0.06 80);
+  --err: oklch(0.58 0.20 25);
+  --err-soft: oklch(0.96 0.05 25);
+  --info: oklch(0.55 0.20 260);
+  --info-soft: oklch(0.95 0.04 260);
+
+  --code-add: oklch(0.95 0.05 150);
+  --code-add-strong: oklch(0.85 0.10 150);
+  --code-del: oklch(0.95 0.05 25);
+  --code-del-strong: oklch(0.85 0.10 25);
+  --code-comment: #8b8d95;
+  --code-keyword: oklch(0.50 0.22 295);
+  --code-string: oklch(0.55 0.16 30);
+  --code-fn: oklch(0.55 0.20 260);
+
+  --display: var(--font-inter-tight), -apple-system, system-ui, sans-serif;
+  --sans: var(--font-inter-tight), -apple-system, system-ui, sans-serif;
+  --mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --radius: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.05), 0 0 0 1px rgba(9, 9, 11, 0.04);
+  --shadow-md: 0 4px 8px rgba(9, 9, 11, 0.04), 0 16px 32px rgba(9, 9, 11, 0.06);
+  --shadow-lg: 0 12px 24px rgba(9, 9, 11, 0.08), 0 40px 80px rgba(9, 9, 11, 0.10);
+
+  --header-h: 56px;
+}
+body.theme-studio .t-display,
+body.theme-studio .t-h1,
+body.theme-studio .t-h2 {
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-style: normal;
+}
+body.theme-studio .t-h1 { font-size: 44px; line-height: 1.05; }
+body.theme-studio .t-h2 { font-size: 28px; line-height: 1.15; }
+body.theme-studio em { font-style: normal; color: var(--accent); }
+body.theme-studio .btn { border-radius: 8px; font-weight: 500; }
+body.theme-studio .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+body.theme-studio .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+body.theme-studio .card { border-radius: 14px; }
+body.theme-studio .chip { border-radius: 999px; font-weight: 500; }
+body.theme-studio .input { border-radius: 8px; }
+body.theme-studio .av { background: linear-gradient(135deg, var(--accent-soft), var(--surface-2)); color: var(--accent); font-weight: 600; }
+
+/* hover lift on studio cards */
+body.theme-studio .card { transition: box-shadow 160ms ease, transform 160ms ease; }
+body.theme-studio button.card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }

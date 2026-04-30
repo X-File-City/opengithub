@@ -63,8 +63,22 @@ Open clone in Ever CLI: `ever start --url http://localhost:3015` (reuse existing
 Test the feature thoroughly:
    - Navigate to the relevant page, `ever snapshot`
    - Follow `steps` from prd.json to verify each acceptance criterion
-   - Compare against `ralph/screenshots/inspect/` and `behavior` field
+   - Compare against `ralph/screenshots/inspect/` and `behavior` field for **information architecture and interactions** (NOT visual design)
    - Test edge cases: empty inputs, rapid clicks, unexpected data
+
+### Step A3b: Visual Design Fidelity (Editorial design system, NOT GitHub)
+**Critical**: this product clones GitHub's *capabilities* but uses the **Editorial** design system. The reference for visual design is `design/project/Prototype.html` and the `og-screens-*.jsx` files — NOT the original GitHub screenshots.
+
+Verify on every UI page touched by this feature:
+- Background is warm cream `var(--bg)` (`#faf7f2`), not white. Text is ink black `var(--ink-1)` (`#14120e`), not GitHub gray.
+- Primary type is **Fraunces** (display) + **Inter Tight** (body) + **JetBrains Mono** (code/IDs/kbd). System sans-serif (Arial, Helvetica) is a bug.
+- Accent color is deep rust `var(--accent)` (`oklch(0.56 0.16 32)`). Any GitHub blue (`#0969da`), GitHub green (`#1f883d`), or GitHub red (`#cf222e`) is a bug — file as critical visual regression.
+- UI uses the design-system primitives: `.btn`, `.chip`, `.card`, `.input`, `.av`, `.tabs`, `.list-row`, `.kbd`, `.t-display`, `.t-h1`-`.t-h3`, `.t-mono`, `.t-label`. Re-rolled buttons or arbitrary font-sizes are bugs.
+- Status uses semantic chips: `.chip.ok` / `.chip.warn` / `.chip.err` / `.chip.info`. Multiple accent colors on one page is a bug.
+- Borders use `var(--line)` / `var(--line-strong)`. Hardcoded `#d0d7de` or thick chunky borders are bugs.
+- No Octicons or Primer imports.
+
+If the page does NOT look Editorial — file the visual fidelity bugs and fix them before marking `qa_pass: true`. Take a screenshot for `ralph/screenshots/qa/` and compare side-by-side with the closest screen in `design/project/og-screens-*.jsx`.
 
 <important if="category is auth">
 ### Auth Feature Verification

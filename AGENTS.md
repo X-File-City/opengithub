@@ -1,3 +1,19 @@
+# Design System — READ THIS BEFORE WRITING ANY UI
+
+**The product clones GitHub's *capabilities*, NOT GitHub's visual design.** Do NOT use GitHub blue/green/red, Octicons, Primer chrome, or chunky borders. The visual system is **Editorial** — a calm, magazine-grade design.
+
+- **Reference**: `design/project/Prototype.html` (loader), `design/project/og.css` (tokens), `design/project/og-screens-*.jsx` (11 hi-fi screens — Landing, Login, Dashboard, Notifications, Repo, File, Pulls, PR detail, PR diff, Issues, Actions). Read these before designing or implementing any UI.
+- **Tokens (live)**: `web/src/app/og.css` and `web/src/app/og-themes.css` — imported globally via `web/src/app/globals.css`. All UI must use these CSS variables (`var(--ink-1)`, `var(--accent)`, `var(--display)`, etc.), NOT hardcoded hex.
+- **Type**: Fraunces (display), Inter Tight (body/sans), JetBrains Mono (code) — loaded via `next/font` in `web/src/app/layout.tsx` and exposed as `--font-fraunces` / `--font-inter-tight` / `--font-jetbrains-mono`.
+- **Component primitives**: `.btn` / `.chip` / `.card` / `.input` / `.av` / `.tabs` / `.list-row` / `.kbd` / `.palette` are pre-styled in `og.css`. Use them. Do not roll your own.
+- **Type ramp**: `.t-display`, `.t-h1`, `.t-h2`, `.t-h3`, `.t-body`, `.t-sm`, `.t-xs`, `.t-mono`, `.t-label`, `.t-num`. Use these classes — do not pick arbitrary font-sizes.
+- **Single accent rule**: only `--accent` (rust) for active/selected/primary; semantic chips for state (`.chip.ok`, `.chip.warn`, `.chip.err`).
+- **What NOT to do**: see `web/AGENTS.md` "What NOT to do" section.
+
+For full design rules, tokens, and component contracts, read `web/AGENTS.md` "Design System" section.
+
+---
+
 # Ralph-to-Ralph: QA Agent Guide
 
 ## Your Role

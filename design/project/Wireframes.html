@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>opengithub — Wireframes</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Kalam:wght@300;400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #faf8f3;
+    --paper-2: #f3efe5;
+    --ink: #1a1a1a;
+    --ink-2: #2a2a2a;
+    --ink-3: #555;
+    --ink-4: #888;
+    --line: #1a1a1a;
+    --line-soft: #b8b3a8;
+    --accent: oklch(0.62 0.16 30);   /* warm coral */
+    --accent-soft: oklch(0.85 0.07 30);
+    --highlight: oklch(0.92 0.10 95); /* yellow highlighter */
+    --hand: 'Caveat', cursive;
+    --body: 'Kalam', cursive;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  html, body { margin: 0; padding: 0; background: var(--paper); font-family: var(--body); color: var(--ink); }
+  body { min-height: 100vh; }
+
+  /* sketch-shaped containers via clip path noise */
+  .sketch {
+    border: 1.5px solid var(--line);
+    border-radius: 4px;
+    background: var(--paper);
+    position: relative;
+  }
+  .sketch.thick { border-width: 2px; }
+  .sketch.dashed { border-style: dashed; }
+  .sketch.thin { border-width: 1px; }
+  .sketch.fill-soft { background: var(--paper-2); }
+  .sketch.fill-accent { background: var(--accent-soft); }
+  .sketch.fill-highlight { background: var(--highlight); }
+
+  /* hand-drawn underline */
+  .underline-h {
+    background-image: linear-gradient(transparent 80%, var(--ink) 80%, var(--ink) 92%, transparent 92%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    padding-bottom: 2px;
+  }
+
+  /* dashed hand divider */
+  .hr-h { border: none; border-top: 1.5px dashed var(--line); margin: 8px 0; }
+  .hr-solid { border: none; border-top: 1.5px solid var(--line); margin: 8px 0; }
+
+  /* fonts */
+  .h1, .h2, .h3 { font-family: var(--hand); font-weight: 700; line-height: 1; }
+  .h1 { font-size: 32px; }
+  .h2 { font-size: 22px; }
+  .h3 { font-size: 18px; }
+  .lbl { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); }
+  .mono { font-family: var(--mono); font-size: 11px; }
+  .body { font-family: var(--body); font-size: 14px; line-height: 1.4; }
+  .body-sm { font-family: var(--body); font-size: 12px; line-height: 1.35; }
+  .hand { font-family: var(--hand); font-size: 18px; }
+
+  /* placeholders */
+  .ph {
+    background-image: repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(0,0,0,0.07) 6px, rgba(0,0,0,0.07) 7px);
+    border: 1.5px solid var(--line);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+    text-align: center; padding: 4px;
+  }
+  .ph.tall { min-height: 60px; }
+
+  /* glyph (hand-drawn icon stand-in) */
+  .glyph {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--ink); border-radius: 50%;
+    font-family: var(--hand); font-size: 14px; line-height: 1;
+    background: var(--paper);
+  }
+  .glyph.sq { border-radius: 3px; }
+  .glyph.sm { width: 14px; height: 14px; font-size: 11px; }
+  .glyph.lg { width: 28px; height: 28px; font-size: 18px; }
+  .glyph.solid { background: var(--ink); color: var(--paper); }
+  .glyph.accent { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* button / chip */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1.5px solid var(--line); border-radius: 4px;
+    padding: 4px 10px;
+    font-family: var(--hand); font-size: 16px;
+    background: var(--paper);
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn.sm { font-size: 14px; padding: 2px 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1.2px solid var(--line); border-radius: 12px;
+    padding: 1px 8px;
+    font-family: var(--body); font-size: 11px;
+    background: var(--paper);
+  }
+  .chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .chip.soft { background: var(--paper-2); }
+
+  /* sketchy border using filter */
+  .wobble { filter: url(#wobble); }
+  .wobble-strong { filter: url(#wobble-strong); }
+
+  /* row helpers */
+  .row { display: flex; align-items: center; }
+  .col { display: flex; flex-direction: column; }
+  .gap-2 { gap: 2px; } .gap-4 { gap: 4px; } .gap-6 { gap: 6px; } .gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .gap-16 { gap: 16px; }
+  .flex-1 { flex: 1; } .flex-2 { flex: 2; } .flex-3 { flex: 3; }
+  .center { display: flex; align-items: center; justify-content: center; }
+  .between { display: flex; align-items: center; justify-content: space-between; }
+  .start { align-items: flex-start; }
+
+  /* annotation */
+  .annot {
+    font-family: var(--hand);
+    color: var(--accent);
+    font-size: 16px;
+    position: absolute;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .annot::before {
+    content: '↳ ';
+  }
+  .annot.up::before { content: '↑ '; }
+  .annot.dn::before { content: '↓ '; }
+  .annot.rt::before { content: '→ '; }
+  .annot.lt::before { content: '← '; }
+
+  body.no-annotations .annot { display: none; }
+
+  /* dark sketch mode */
+  body.dark {
+    --paper: #1a1815;
+    --paper-2: #252320;
+    --ink: #e8e3d6;
+    --ink-2: #d0cabd;
+    --ink-3: #999385;
+    --ink-4: #6e6a5e;
+    --line: #d0cabd;
+    --line-soft: #4a463e;
+    --highlight: oklch(0.42 0.10 95);
+  }
+  body.dark .ph {
+    background-image: repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.07) 6px, rgba(255,255,255,0.07) 7px);
+  }
+
+  /* dense mode */
+  body.dense .h1 { font-size: 26px; }
+  body.dense .h2 { font-size: 18px; }
+  body.dense .h3 { font-size: 15px; }
+  body.dense .body { font-size: 12px; }
+  body.dense .hand { font-size: 15px; }
+
+  /* artboard inside */
+  .artboard {
+    width: 100%; height: 100%;
+    background: var(--paper);
+    overflow: hidden;
+    position: relative;
+    color: var(--ink);
+  }
+  .artboard.with-pad { padding: 14px; }
+
+  /* avatar circle */
+  .av {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid var(--line);
+    background: var(--paper-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--hand); font-size: 13px; flex-shrink: 0;
+  }
+  .av.lg { width: 36px; height: 36px; font-size: 18px; }
+  .av.xl { width: 64px; height: 64px; font-size: 32px; }
+  .av.sm { width: 16px; height: 16px; font-size: 10px; }
+
+  /* file row */
+  .file-row { display: grid; grid-template-columns: 16px 1fr auto auto; gap: 8px; align-items: center; padding: 4px 6px; font-size: 12px; }
+  .file-row:hover { background: var(--paper-2); }
+
+  /* nav bar style */
+  .navbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1.5px solid var(--line);
+    background: var(--paper);
+  }
+  .tabs { display: flex; gap: 0; border-bottom: 1.5px solid var(--line); }
+  .tabs > div { padding: 6px 12px; font-family: var(--hand); font-size: 16px; cursor: pointer; border-right: 1px dashed var(--line-soft); }
+  .tabs > div.active { background: var(--paper-2); border-bottom: 3px solid var(--accent); margin-bottom: -1.5px; }
+
+  /* design canvas tweaks */
+  body { background: var(--paper-2); }
+
+  /* scribble checkbox */
+  .check { width: 14px; height: 14px; border: 1.5px solid var(--line); border-radius: 2px; display: inline-block; flex-shrink: 0; }
+  .check.on { background: var(--ink); }
+
+  /* bar (for charts) */
+  .bar { background: var(--ink); height: 8px; border-radius: 1px; }
+  .bar.accent { background: var(--accent); }
+  .bar.soft { background: var(--line-soft); }
+
+  /* timeline rail */
+  .rail { position: relative; padding-left: 18px; }
+  .rail::before { content: ''; position: absolute; left: 6px; top: 4px; bottom: 4px; border-left: 1.5px dashed var(--line); }
+  .rail .dot { position: absolute; left: 0; width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--paper); }
+  .rail .item { position: relative; margin-bottom: 8px; }
+  .rail .item .dot { top: 4px; }
+
+  /* squiggle separator */
+  .squiggle {
+    height: 4px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 4'><path d='M0 2 Q5 0 10 2 T20 2 T30 2 T40 2' stroke='%231a1a1a' fill='none' stroke-width='1'/></svg>");
+    background-repeat: repeat-x;
+    background-size: 40px 4px;
+  }
+
+  /* sketch corner stamps */
+  .stamp {
+    position: absolute;
+    transform: rotate(-6deg);
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    padding: 2px 8px;
+    font-family: var(--hand);
+    font-size: 14px;
+    background: var(--paper);
+  }
+
+  /* page header for wireframe doc */
+  .doc-header {
+    padding: 24px 32px 12px;
+    border-bottom: 1.5px solid var(--line);
+    background: var(--paper);
+  }
+
+  /* tweaks panel host hooks */
+  body.hide-mobile .row-mobile { display: none; }
+</style>
+</head>
+<body>
+
+<!-- SVG filter for sketchy wobble -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="wobble">
+      <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="3"/>
+      <feDisplacementMap in="SourceGraphic" scale="1.5"/>
+    </filter>
+    <filter id="wobble-strong">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.5"/>
+    </filter>
+  </defs>
+</svg>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="wf-primitives.jsx"></script>
+<script type="text/babel" src="wf-auth.jsx"></script>
+<script type="text/babel" src="wf-repo.jsx"></script>
+<script type="text/babel" src="wf-issues-prs.jsx"></script>
+<script type="text/babel" src="wf-actions.jsx"></script>
+<script type="text/babel" src="wf-dashboard.jsx"></script>
+<script type="text/babel" src="wf-settings.jsx"></script>
+<script type="text/babel" src="wf-search.jsx"></script>
+<script type="text/babel" src="wf-profiles.jsx"></script>
+<script type="text/babel" src="wf-discussions.jsx"></script>
+<script type="text/babel" src="wf-mobile.jsx"></script>
+<script type="text/babel" src="wf-app.jsx"></script>
+</body>
+</html>
