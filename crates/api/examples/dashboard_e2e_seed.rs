@@ -180,6 +180,70 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
+        sqlx::query(
+            r#"
+            INSERT INTO user_follows (follower_user_id, followed_user_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(user.id)
+        .bind(reviewer.id)
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            r#"
+            INSERT INTO repository_watches (user_id, repository_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(user.id)
+        .bind(first_repository.id)
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            r#"
+            INSERT INTO repository_stars (user_id, repository_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(user.id)
+        .bind(second_repository.id)
+        .execute(&pool)
+        .await?;
+        seed_feed_event(
+            &pool,
+            user.id,
+            first_repository.id,
+            "push",
+            "Pushed dashboard activity feed",
+            format!(
+                "/{username}/{first_repository_name}/commit/{}",
+                &suffix[..12]
+            ),
+        )
+        .await?;
+        seed_feed_event(
+            &pool,
+            reviewer.id,
+            first_repository.id,
+            "help_wanted_pull_request",
+            "Asked for help reviewing dashboard feed",
+            format!("/{username}/{first_repository_name}/pull/1"),
+        )
+        .await?;
+        seed_feed_event(
+            &pool,
+            user.id,
+            second_repository.id,
+            "release",
+            "Published infrastructure preview",
+            format!("/{username}/{second_repository_name}/releases/tag/v0.1.0"),
+        )
+        .await?;
+
         (
             format!("/{username}/{first_repository_name}"),
             format!("/{username}/{second_repository_name}"),
@@ -207,6 +271,41 @@ async fn main() -> anyhow::Result<()> {
         second_repository_href,
     };
     println!("{}", serde_json::to_string(&output)?);
+    Ok(())
+}
+
+async fn seed_feed_event(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    repository_id: Uuid,
+    event_type: &str,
+    title: &str,
+    target_href: String,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO feed_events (
+            actor_user_id,
+            repository_id,
+            event_type,
+            title,
+            excerpt,
+            target_href,
+            occurred_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, now())
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(repository_id)
+    .bind(event_type)
+    .bind(title)
+    .bind(Some(
+        "Seeded dashboard feed event for browser smoke tests".to_owned(),
+    ))
+    .bind(target_href)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

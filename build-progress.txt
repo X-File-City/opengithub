@@ -303,3 +303,15 @@
 - Added `.qrspi/dashboard-003/structure.md` with four independently verifiable vertical phases: feed event data/API contract, feed preference persistence, Following/For you UI controls with event filtering, and final visual/regression guardrails.
 - Did not change `prd.json`; `dashboard-003.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - dashboard-003 phase 1 feed event contract
+
+- Implemented Phase 1 from `.qrspi/dashboard-003/structure.md`: durable feed-event schema plus permission-aware dashboard feed reads for Following and For you tabs.
+- Added SQLx migration `202604300010_dashboard_feed_events` for `user_follows`, `organization_follows`, `repository_watches`, `repository_stars`, `repository_forks`, `releases`, and `feed_events` with uniqueness constraints and feed query indexes.
+- Extended `GET /api/dashboard` query parsing with `feedTab` and repeated or comma-separated `eventType` filters while preserving anonymous 401 behavior and existing repository filtering.
+- Added `DashboardFeedEvent`, `DashboardFeedTab`, and `DashboardFeedEventType` DTOs; dashboard summaries now include `feedEvents`.
+- Updated the dashboard E2E seed helper to create realistic follow/watch/star relationships and seeded feed rows for later UI/browser phases.
+- Added Postgres-backed tests for Following source selection, For you source selection, event-type filtering, invalid query validation, ordering, and private repository non-leakage.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_summary -- --nocapture` passed; `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed.
+- Browser smoke test skipped because this phase is backend schema/API contract only.
+- Marked Phase 1 as done in `.qrspi/dashboard-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.

@@ -19,6 +19,7 @@ pub struct DashboardSummary {
     pub top_repositories: ListEnvelope<DashboardTopRepository>,
     pub has_repositories: bool,
     pub recent_activity: Vec<DashboardActivityItem>,
+    pub feed_events: Vec<DashboardFeedEvent>,
     pub assigned_issues: Vec<DashboardIssueSummary>,
     pub review_requests: Vec<DashboardReviewRequest>,
     pub dismissed_hints: Vec<DashboardHintDismissal>,
@@ -54,6 +55,104 @@ pub struct DashboardActivityItem {
     pub actor_avatar_url: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DashboardFeedTab {
+    #[default]
+    Following,
+    ForYou,
+}
+
+impl DashboardFeedTab {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Following => "following",
+            Self::ForYou => "for_you",
+        }
+    }
+}
+
+impl TryFrom<&str> for DashboardFeedTab {
+    type Error = DashboardError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "following" => Ok(Self::Following),
+            "for_you" | "for-you" | "foryou" => Ok(Self::ForYou),
+            other => Err(DashboardError::InvalidFeedTab(other.to_owned())),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DashboardFeedEventType {
+    Star,
+    Follow,
+    RepositoryCreate,
+    HelpWantedIssue,
+    HelpWantedPullRequest,
+    Push,
+    Fork,
+    Release,
+}
+
+impl DashboardFeedEventType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Star => "star",
+            Self::Follow => "follow",
+            Self::RepositoryCreate => "repository_create",
+            Self::HelpWantedIssue => "help_wanted_issue",
+            Self::HelpWantedPullRequest => "help_wanted_pull_request",
+            Self::Push => "push",
+            Self::Fork => "fork",
+            Self::Release => "release",
+        }
+    }
+}
+
+impl TryFrom<&str> for DashboardFeedEventType {
+    type Error = DashboardError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "star" | "stars" => Ok(Self::Star),
+            "follow" | "follows" => Ok(Self::Follow),
+            "repository_create" | "repository-create" | "repository" | "repository_creation" => {
+                Ok(Self::RepositoryCreate)
+            }
+            "help_wanted_issue" | "help-wanted-issue" | "help_wanted_issues" => {
+                Ok(Self::HelpWantedIssue)
+            }
+            "help_wanted_pull_request"
+            | "help-wanted-pull-request"
+            | "help_wanted_pr"
+            | "help_wanted_prs" => Ok(Self::HelpWantedPullRequest),
+            "push" | "pushes" => Ok(Self::Push),
+            "fork" | "forks" => Ok(Self::Fork),
+            "release" | "releases" => Ok(Self::Release),
+            other => Err(DashboardError::InvalidFeedEventType(other.to_owned())),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardFeedEvent {
+    pub id: Uuid,
+    pub event_type: DashboardFeedEventType,
+    pub title: String,
+    pub excerpt: Option<String>,
+    pub occurred_at: DateTime<Utc>,
+    pub actor_login: String,
+    pub actor_avatar_url: Option<String>,
+    pub repository_name: String,
+    pub repository_href: String,
+    pub target_href: String,
+    pub action_summary: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct DashboardIssueSummary {
@@ -82,6 +181,10 @@ pub enum DashboardError {
     Repositories(#[from] RepositoryError),
     #[error(transparent)]
     Onboarding(#[from] OnboardingError),
+    #[error("invalid dashboard feed tab `{0}`")]
+    InvalidFeedTab(String),
+    #[error("invalid dashboard feed event type `{0}`")]
+    InvalidFeedEventType(String),
 }
 
 pub async fn dashboard_summary(
@@ -90,6 +193,8 @@ pub async fn dashboard_summary(
     page: i64,
     page_size: i64,
     repository_filter: Option<&str>,
+    feed_tab: DashboardFeedTab,
+    event_types: &[DashboardFeedEventType],
 ) -> Result<DashboardSummary, DashboardError> {
     let page = page.max(1);
     let page_size = page_size.clamp(1, 30);
@@ -98,6 +203,7 @@ pub async fn dashboard_summary(
         list_top_repositories(pool, user.id, page, page_size, repository_filter).await?;
     let has_repositories = repositories.total > 0;
     let recent_activity = list_recent_activity(pool, user.id).await?;
+    let feed_events = list_dashboard_feed_events(pool, user.id, feed_tab, event_types).await?;
     let assigned_issues = list_assigned_issues(pool, user.id).await?;
     let review_requests = list_review_requests(pool, user.id).await?;
     let dismissed_hints = list_dashboard_hint_dismissals(pool, user.id).await?;
@@ -108,10 +214,176 @@ pub async fn dashboard_summary(
         top_repositories,
         has_repositories,
         recent_activity,
+        feed_events,
         assigned_issues,
         review_requests,
         dismissed_hints,
     })
+}
+
+pub async fn list_dashboard_feed_events(
+    pool: &PgPool,
+    user_id: Uuid,
+    feed_tab: DashboardFeedTab,
+    event_types: &[DashboardFeedEventType],
+) -> Result<Vec<DashboardFeedEvent>, RepositoryError> {
+    let event_type_values = event_types
+        .iter()
+        .map(|event_type| event_type.as_str().to_owned())
+        .collect::<Vec<_>>();
+
+    let rows = sqlx::query(
+        r#"
+        WITH visible_repositories AS (
+            SELECT
+                repositories.id,
+                repositories.name,
+                repositories.owner_user_id,
+                repositories.owner_organization_id,
+                COALESCE(NULLIF(owner_user.username, ''), owner_user.email, organizations.slug) AS owner_login
+            FROM repositories
+            LEFT JOIN users owner_user
+              ON owner_user.id = repositories.owner_user_id
+            LEFT JOIN organizations
+              ON organizations.id = repositories.owner_organization_id
+            WHERE repositories.visibility = 'public'
+               OR EXISTS (
+                   SELECT 1 FROM repository_permissions
+                   WHERE repository_permissions.repository_id = repositories.id
+                     AND repository_permissions.user_id = $1
+               )
+        )
+        SELECT
+            feed_events.id,
+            feed_events.event_type,
+            feed_events.title,
+            feed_events.excerpt,
+            feed_events.occurred_at,
+            COALESCE(NULLIF(actor.username, ''), actor.display_name, actor.email) AS actor_login,
+            actor.avatar_url AS actor_avatar_url,
+            visible_repositories.owner_login || '/' || visible_repositories.name AS repository_name,
+            '/' || visible_repositories.owner_login || '/' || visible_repositories.name AS repository_href,
+            feed_events.target_href
+        FROM feed_events
+        JOIN visible_repositories
+          ON visible_repositories.id = feed_events.repository_id
+        JOIN users actor
+          ON actor.id = feed_events.actor_user_id
+        WHERE (
+            array_length($3::text[], 1) IS NULL
+            OR feed_events.event_type = ANY($3::text[])
+        )
+          AND (
+              (
+                  $2 = 'following'
+                  AND (
+                      EXISTS (
+                          SELECT 1 FROM user_follows
+                          WHERE user_follows.follower_user_id = $1
+                            AND user_follows.followed_user_id = feed_events.actor_user_id
+                      )
+                      OR EXISTS (
+                          SELECT 1 FROM repository_watches
+                          WHERE repository_watches.user_id = $1
+                            AND repository_watches.repository_id = feed_events.repository_id
+                      )
+                      OR EXISTS (
+                          SELECT 1 FROM organization_follows
+                          WHERE organization_follows.user_id = $1
+                            AND organization_follows.organization_id = visible_repositories.owner_organization_id
+                      )
+                  )
+              )
+              OR (
+                  $2 = 'for_you'
+                  AND (
+                      EXISTS (
+                          SELECT 1 FROM repository_stars
+                          WHERE repository_stars.user_id = $1
+                            AND repository_stars.repository_id = feed_events.repository_id
+                      )
+                      OR EXISTS (
+                          SELECT 1 FROM repository_permissions
+                          WHERE repository_permissions.user_id = $1
+                            AND repository_permissions.repository_id = feed_events.repository_id
+                      )
+                      OR EXISTS (
+                          SELECT 1 FROM organization_follows
+                          WHERE organization_follows.user_id = $1
+                            AND organization_follows.organization_id = visible_repositories.owner_organization_id
+                      )
+                      OR EXISTS (
+                          SELECT 1
+                          FROM repository_permissions viewer_permissions
+                          JOIN repository_permissions actor_permissions
+                            ON actor_permissions.repository_id = viewer_permissions.repository_id
+                          WHERE viewer_permissions.user_id = $1
+                            AND actor_permissions.user_id = feed_events.actor_user_id
+                      )
+                  )
+              )
+          )
+        ORDER BY feed_events.occurred_at DESC, feed_events.id DESC
+        LIMIT 20
+        "#,
+    )
+    .bind(user_id)
+    .bind(feed_tab.as_str())
+    .bind(&event_type_values)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter()
+        .map(|row| {
+            let event_type_value = row.get::<String, _>("event_type");
+            let event_type =
+                DashboardFeedEventType::try_from(event_type_value.as_str()).map_err(|error| {
+                    match error {
+                        DashboardError::InvalidFeedEventType(value) => {
+                            RepositoryError::InvalidVisibility(value)
+                        }
+                        _ => RepositoryError::InvalidVisibility(event_type_value.clone()),
+                    }
+                })?;
+            let actor_login = row.get::<String, _>("actor_login");
+            let repository_name = row.get::<String, _>("repository_name");
+            let action_summary =
+                feed_action_summary(actor_login.as_str(), event_type, &repository_name);
+
+            Ok(DashboardFeedEvent {
+                id: row.get("id"),
+                event_type,
+                title: row.get("title"),
+                excerpt: row.get("excerpt"),
+                occurred_at: row.get("occurred_at"),
+                actor_login,
+                actor_avatar_url: row.get("actor_avatar_url"),
+                repository_name,
+                repository_href: row.get("repository_href"),
+                target_href: row.get("target_href"),
+                action_summary,
+            })
+        })
+        .collect()
+}
+
+fn feed_action_summary(
+    actor_login: &str,
+    event_type: DashboardFeedEventType,
+    repository_name: &str,
+) -> String {
+    let action = match event_type {
+        DashboardFeedEventType::Star => "starred",
+        DashboardFeedEventType::Follow => "followed",
+        DashboardFeedEventType::RepositoryCreate => "created",
+        DashboardFeedEventType::HelpWantedIssue => "opened a help wanted issue in",
+        DashboardFeedEventType::HelpWantedPullRequest => "opened a help wanted pull request in",
+        DashboardFeedEventType::Push => "pushed to",
+        DashboardFeedEventType::Fork => "forked",
+        DashboardFeedEventType::Release => "released",
+    };
+
+    format!("{actor_login} {action} {repository_name}")
 }
 
 pub async fn list_top_repositories(

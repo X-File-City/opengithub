@@ -425,5 +425,24 @@
       "The Explore repositories empty-state destination is a functional placeholder until repository discovery/search surfaces ship",
       "Issue and pull request detail pages are intentionally minimal placeholders in this slice; QA should retest full timelines and review interactions when the dedicated issue/PR detail features ship"
     ]
+  },
+  {
+    "feature_id": "dashboard-003",
+    "tests_written": [
+      "Added feed-event migrations for user follows, organization follows, repository watches, stars, forks, releases, and dashboard feed events",
+      "GET /api/dashboard now accepts feedTab=following|for_you plus repeated or comma-separated eventType filters",
+      "Postgres-backed dashboard_summary tests cover Following feed from followed users and watched repositories",
+      "Postgres-backed dashboard_summary tests cover For you feed from starred/contributed/collaborator repositories with deterministic event-type filtering",
+      "Postgres-backed dashboard_summary tests prove private watched feed events do not leak without repository permission",
+      "Invalid feed tabs and event types return validation_failed JSON envelopes before touching the database",
+      "make check, make test, and TEST_DATABASE_URL-backed make test passed"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke test skipped because dashboard-003 Phase 1 is backend schema/API contract only",
+      "Feed ranking is currently ordered by occurred_at and source inclusion; recommendation scoring should be retested when Phase 3 UI exposes mixed dense feeds",
+      "Organization follow paths are schema/query-ready but need richer org-owned feed seed coverage in later phases",
+      "Optional star/follow feed actions are not UI-wired until dashboard-003 Phase 3",
+      "Filter persistence is intentionally deferred to dashboard-003 Phase 2"
+    ]
   }
 ]

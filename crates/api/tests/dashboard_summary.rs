@@ -167,6 +167,7 @@ async fn dashboard_summary_returns_empty_state_contract_for_new_user() {
         .is_empty());
     assert_eq!(body["hasRepositories"], false);
     assert_eq!(body["recentActivity"].as_array().unwrap().len(), 0);
+    assert_eq!(body["feedEvents"].as_array().unwrap().len(), 0);
     assert_eq!(body["assignedIssues"].as_array().unwrap().len(), 0);
     assert_eq!(body["reviewRequests"].as_array().unwrap().len(), 0);
     assert_eq!(body["dismissedHints"].as_array().unwrap().len(), 0);
@@ -626,4 +627,309 @@ async fn dashboard_summary_populates_activity_assignments_and_review_requests() 
         )
     );
     assert!(!body.to_string().contains(&hidden_repo_name));
+}
+
+#[tokio::test]
+async fn dashboard_feed_following_reads_followed_and_watched_activity_without_private_leaks() {
+    let Some(pool) = database_pool().await else {
+        eprintln!(
+            "skipping Postgres dashboard feed scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
+        return;
+    };
+
+    let config = app_config();
+    let viewer = create_user(&pool, "feed-viewer").await;
+    let followed_actor = create_user(&pool, "feed-followed").await;
+    let watched_actor = create_user(&pool, "feed-watched").await;
+    let hidden_actor = create_user(&pool, "feed-hidden").await;
+    let cookie = cookie_header(&pool, &config, &viewer).await;
+    let followed_repo_name = format!("followed-{}", Uuid::new_v4().simple());
+    let watched_repo_name = format!("watched-{}", Uuid::new_v4().simple());
+    let hidden_repo_name = format!("hidden-{}", Uuid::new_v4().simple());
+
+    let followed_repo = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User {
+                id: followed_actor.id,
+            },
+            name: followed_repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: followed_actor.id,
+        },
+    )
+    .await
+    .expect("followed public repo should create");
+    let watched_repo = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User {
+                id: watched_actor.id,
+            },
+            name: watched_repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: watched_actor.id,
+        },
+    )
+    .await
+    .expect("watched public repo should create");
+    let hidden_repo = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User {
+                id: hidden_actor.id,
+            },
+            name: hidden_repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: hidden_actor.id,
+        },
+    )
+    .await
+    .expect("hidden private repo should create");
+
+    sqlx::query(
+        r#"
+        INSERT INTO user_follows (follower_user_id, followed_user_id)
+        VALUES ($1, $2)
+        "#,
+    )
+    .bind(viewer.id)
+    .bind(followed_actor.id)
+    .execute(&pool)
+    .await
+    .expect("follow should insert");
+    sqlx::query(
+        r#"
+        INSERT INTO repository_watches (user_id, repository_id)
+        VALUES ($1, $2), ($1, $3)
+        "#,
+    )
+    .bind(viewer.id)
+    .bind(watched_repo.id)
+    .bind(hidden_repo.id)
+    .execute(&pool)
+    .await
+    .expect("watches should insert");
+
+    insert_feed_event(
+        &pool,
+        followed_actor.id,
+        followed_repo.id,
+        "push",
+        "Pushed dashboard feed changes",
+        "2026-04-30T12:00:00Z",
+    )
+    .await;
+    insert_feed_event(
+        &pool,
+        watched_actor.id,
+        watched_repo.id,
+        "release",
+        "Published v1.0.0",
+        "2026-04-30T11:00:00Z",
+    )
+    .await;
+    insert_feed_event(
+        &pool,
+        hidden_actor.id,
+        hidden_repo.id,
+        "push",
+        "Private roadmap update",
+        "2026-04-30T13:00:00Z",
+    )
+    .await;
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let (status, body) = send_json(app, "/api/dashboard?feedTab=following", Some(&cookie)).await;
+
+    assert_eq!(status, StatusCode::OK);
+    let feed_events = body["feedEvents"]
+        .as_array()
+        .expect("feed events should be an array");
+    assert_eq!(feed_events.len(), 2);
+    assert_eq!(feed_events[0]["eventType"], "push");
+    assert_eq!(feed_events[0]["title"], "Pushed dashboard feed changes");
+    assert_eq!(
+        feed_events[0]["repositoryName"],
+        format!("{}/{}", followed_actor.email, followed_repo_name)
+    );
+    assert_eq!(
+        feed_events[0]["actionSummary"],
+        format!(
+            "feed-followed pushed to {}/{}",
+            followed_actor.email, followed_repo_name
+        )
+    );
+    assert_eq!(feed_events[1]["eventType"], "release");
+    assert_eq!(feed_events[1]["title"], "Published v1.0.0");
+    assert!(!body.to_string().contains(&hidden_repo_name));
+    assert!(!body.to_string().contains("Private roadmap update"));
+}
+
+#[tokio::test]
+async fn dashboard_feed_for_you_filters_recommended_events_by_type() {
+    let Some(pool) = database_pool().await else {
+        eprintln!(
+            "skipping Postgres dashboard feed scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
+        return;
+    };
+
+    let config = app_config();
+    let viewer = create_user(&pool, "feed-recommend-viewer").await;
+    let actor = create_user(&pool, "feed-recommend-actor").await;
+    let cookie = cookie_header(&pool, &config, &viewer).await;
+    let repo_name = format!("recommended-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: actor.id },
+            name: repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: actor.id,
+        },
+    )
+    .await
+    .expect("recommended repo should create");
+
+    sqlx::query(
+        r#"
+        INSERT INTO repository_stars (user_id, repository_id)
+        VALUES ($1, $2)
+        "#,
+    )
+    .bind(viewer.id)
+    .bind(repository.id)
+    .execute(&pool)
+    .await
+    .expect("star should insert");
+    insert_feed_event(
+        &pool,
+        actor.id,
+        repository.id,
+        "fork",
+        "Forked the dashboard feed repo",
+        "2026-04-30T10:00:00Z",
+    )
+    .await;
+    insert_feed_event(
+        &pool,
+        actor.id,
+        repository.id,
+        "release",
+        "Published dashboard feed v2",
+        "2026-04-30T09:00:00Z",
+    )
+    .await;
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let (status, body) = send_json(
+        app,
+        "/api/dashboard?feedTab=for_you&eventType=release,fork&eventType=release",
+        Some(&cookie),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    let feed_events = body["feedEvents"]
+        .as_array()
+        .expect("feed events should be an array");
+    assert_eq!(feed_events.len(), 2);
+    assert_eq!(feed_events[0]["eventType"], "fork");
+    assert_eq!(feed_events[1]["eventType"], "release");
+
+    let app = opengithub_api::build_app_with_config(
+        Some(database_pool().await.expect("pool should reconnect")),
+        app_config(),
+    );
+    let (status, body) = send_json(
+        app,
+        "/api/dashboard?feedTab=for_you&eventType=release",
+        Some(&cookie),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    let feed_events = body["feedEvents"]
+        .as_array()
+        .expect("feed events should be an array");
+    assert_eq!(feed_events.len(), 1);
+    assert_eq!(feed_events[0]["eventType"], "release");
+    assert_eq!(feed_events[0]["title"], "Published dashboard feed v2");
+}
+
+#[tokio::test]
+async fn dashboard_feed_rejects_unknown_tabs_and_event_types() {
+    let config = app_config();
+    let app = opengithub_api::build_app_with_config(None, config.clone());
+    let cookie = session::set_cookie_header(
+        &config,
+        "dashboard-feed-invalid-query",
+        Utc::now() + Duration::minutes(5),
+    )
+    .expect("signed cookie should be created");
+    let cookie_value =
+        session::cookie_value_from_set_cookie(&cookie).expect("cookie value should exist");
+    let cookie_header = format!("{}={cookie_value}", config.session_cookie_name);
+
+    let (status, body) = send_json(
+        app.clone(),
+        "/api/dashboard?feedTab=popular",
+        Some(&cookie_header),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "validation_failed");
+
+    let (status, body) = send_json(
+        app,
+        "/api/dashboard?eventType=unknown",
+        Some(&cookie_header),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "validation_failed");
+}
+
+async fn insert_feed_event(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    repository_id: Uuid,
+    event_type: &str,
+    title: &str,
+    occurred_at: &str,
+) {
+    sqlx::query(
+        r#"
+        INSERT INTO feed_events (
+            actor_user_id,
+            repository_id,
+            event_type,
+            title,
+            excerpt,
+            target_href,
+            occurred_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(repository_id)
+    .bind(event_type)
+    .bind(title)
+    .bind(Some(format!("Excerpt for {title}")))
+    .bind(format!("/feed/{event_type}/{}", Uuid::new_v4()))
+    .bind(occurred_at)
+    .execute(pool)
+    .await
+    .expect("feed event should insert");
 }

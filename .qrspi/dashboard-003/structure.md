@@ -6,7 +6,7 @@
 
 ## Phase 1: Feed Event Contract - persist and read permission-aware dashboard feed events
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the minimal durable feed-event layer needed for Following/For you tabs and event-type filters without replacing the existing issue/PR recent activity contract yet.
 
