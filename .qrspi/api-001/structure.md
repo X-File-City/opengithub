@@ -57,7 +57,7 @@
 
 ## Phase 4: API Docs Page and Consumer Smoke - make the REST surface discoverable
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the visible developer-experience surface for `api-001`: a `/docs/api` page with endpoint cards, method badges, paths, request and response examples, auth notes, and pagination/error examples. The page must document only implemented opengithub-owned APIs and every visible control/link must work.
 

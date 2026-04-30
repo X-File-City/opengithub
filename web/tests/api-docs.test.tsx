@@ -1,0 +1,79 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { ApiDocsPage } from "@/components/ApiDocsPage";
+import { apiEndpointDocs } from "@/lib/api-docs";
+
+describe("ApiDocsPage", () => {
+  it("documents every implemented api-001 resource family", () => {
+    render(<ApiDocsPage />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Build against implemented opengithub APIs",
+      }),
+    ).toBeVisible();
+    expect(apiEndpointDocs).toHaveLength(9);
+
+    for (const endpoint of apiEndpointDocs) {
+      const card = screen
+        .getByRole("heading", { name: endpoint.title })
+        .closest("section");
+      expect(card).not.toBeNull();
+      expect(
+        within(card as HTMLElement).getByText(endpoint.method),
+      ).toBeVisible();
+      expect(
+        within(card as HTMLElement).getByText(endpoint.path),
+      ).toBeVisible();
+      expect(
+        within(card as HTMLElement).getByText(endpoint.auth),
+      ).toBeVisible();
+    }
+
+    expect(screen.getByText("/api/user")).toBeVisible();
+    expect(screen.getByText("/api/repos/{owner}/{repo}/issues")).toBeVisible();
+    expect(screen.getByText("/api/repos/{owner}/{repo}/pulls")).toBeVisible();
+    expect(
+      screen.getByText("/api/repos/{owner}/{repo}/actions/runs"),
+    ).toBeVisible();
+    expect(
+      screen.getByText("/api/repos/{owner}/{repo}/packages"),
+    ).toBeVisible();
+    expect(
+      screen.getByText("/api/search?q=router&type=code&page=1&pageSize=30"),
+    ).toBeVisible();
+  });
+
+  it("opens examples without placeholder links or inert controls", () => {
+    const { container } = render(<ApiDocsPage />);
+
+    expect(
+      container.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+    for (const link of screen.getAllByRole("link")) {
+      expect(link).toHaveAttribute("href", expect.stringMatching(/^\/docs\//));
+    }
+
+    const firstSummary = screen.getAllByText(
+      "Request and response examples",
+    )[0];
+    const details = firstSummary.closest("details");
+    expect(details).not.toBeNull();
+    expect(details).not.toHaveAttribute("open");
+
+    fireEvent.click(firstSummary);
+
+    expect(details).toHaveAttribute("open");
+    expect(
+      screen.getByText((content) => content.includes('"login": "mona"')),
+    ).toBeVisible();
+    expect(
+      screen.getByText((content) =>
+        content.includes('"code": "validation_failed"'),
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText((content) => content.includes('"items": []')),
+    ).toBeVisible();
+  });
+});

@@ -718,3 +718,13 @@
 - Verification: `bash .scratch/api-collaboration-automation-contract-scenario.sh` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 73 frontend tests.
 - Browser smoke and `make test-e2e` skipped because this phase is backend API-only and changed no UI surface.
 - Marked Phase 3 as done in `.qrspi/api-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.
+
+2026-05-01 - api-001 phase 4 API docs page and consumer smoke
+
+- Implemented Phase 4 from `.qrspi/api-001/structure.md`: added `/docs/api` as the visible developer-experience surface for the implemented opengithub REST API.
+- Added `web/src/lib/api-docs.ts` and `web/src/components/ApiDocsPage.tsx` with endpoint cards for `/api/user`, repositories, issues, pull requests, Actions runs, packages, and search, including method badges, paths, auth notes, request/response examples, pagination guidance, and the standard error envelope.
+- Linked `/docs/git` to `/docs/api` and kept the docs catalog opengithub-owned only, with no `api.github.com` references or placeholder links.
+- Added `web/tests/api-docs.test.tsx` and `web/tests/e2e/api-docs.spec.ts` covering endpoint catalog visibility, expandable examples, dead-control checks, mobile no-overflow, and saved screenshots.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 75 frontend tests plus cargo tests; targeted API docs Playwright passed; a transient full-suite repository blob E2E failure passed on targeted rerun; final `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 33 Playwright tests.
+- Browser smoke saved `ralph/screenshots/build/api-001-docs.jpg` and `ralph/screenshots/build/api-001-docs-mobile.jpg`.
+- Marked Phase 4 as done in `.qrspi/api-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.

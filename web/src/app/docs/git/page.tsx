@@ -74,6 +74,12 @@ curl -L -o octo-app.zip ${archiveUrl}`}
           >
             Setup guide
           </Link>
+          <Link
+            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+            href="/docs/api"
+          >
+            API docs
+          </Link>
         </div>
       </article>
     </AppShell>

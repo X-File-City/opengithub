@@ -1008,5 +1008,24 @@
       "Session-cookie auth is now authoritative for these REST routes; PAT actor support for external API consumers still needs final API hardening",
       "Issue and pull request APIs expose basic list/create/read/comment/reaction/state flows; labels, milestones, assignees, reviews, checks, merge mechanics, and rich timeline parity remain later PRD features"
     ]
+  },
+  {
+    "feature_id": "api-001",
+    "tests_written": [
+      "Added /docs/api with implemented endpoint cards for user, repositories, issues, pulls, Actions runs, packages, and search",
+      "Added a typed API docs catalog with request examples, response examples, auth notes, pagination guidance, and standard error envelope examples",
+      "Linked the existing /docs/git page to /docs/api without adding placeholder links or GitHub API calls",
+      "Added Vitest coverage for documented resources, method/path/auth badges, expandable examples, no placeholder links, pagination, and error examples",
+      "Added Playwright coverage for /docs/api desktop and mobile, expandable examples, dead-control checks, no api.github.com text, and horizontal overflow protection",
+      "Browser smoke saved ralph/screenshots/build/api-001-docs.jpg and ralph/screenshots/build/api-001-docs-mobile.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 75 frontend tests, targeted API docs E2E, targeted repository blob retry for a transient full-suite failure, and final make test-e2e with 33 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "The docs intentionally list only implemented opengithub-owned APIs; GitHub REST parity beyond api-001 remains incomplete",
+      "Actions docs cover workflow run metadata and transitions only; runner execution, logs, jobs/steps, artifacts, and dispatch parity remain later feature work",
+      "Package docs cover metadata/version flows only; registry protocol, blob upload/download, and storage lifecycle remain later feature work",
+      "API examples currently describe signed-session cookie auth; PAT-based external API consumer auth still needs final API hardening",
+      "Pagination, validation, conflict, forbidden, and not-found behavior should still be cross-route probed in api-001 Phase 5"
+    ]
   }
 ]
