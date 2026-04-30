@@ -4,11 +4,12 @@ use serde_json::json;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+use crate::api_types::ListEnvelope;
+
 use super::{
     permissions::RepositoryRole,
     repositories::{
-        get_repository, get_repository_by_owner_name, repository_permission_for_user, ListEnvelope,
-        Repository,
+        get_repository, get_repository_by_owner_name, repository_permission_for_user, Repository,
     },
 };
 
@@ -214,7 +215,11 @@ pub async fn ensure_default_labels(
 ) -> Result<Vec<Label>, CollaborationError> {
     const DEFAULT_LABELS: [(&str, &str, &str); 4] = [
         ("bug", "d73a4a", "Something is not working"),
-        ("documentation", "0075ca", "Improvements or additions to documentation"),
+        (
+            "documentation",
+            "0075ca",
+            "Improvements or additions to documentation",
+        ),
         ("enhancement", "a2eeef", "New feature or request"),
         ("good first issue", "7057ff", "Good for newcomers"),
     ];
@@ -257,12 +262,14 @@ pub async fn list_labels(
     Ok(rows.into_iter().map(label_from_row).collect())
 }
 
-pub async fn create_issue(
-    pool: &PgPool,
-    input: CreateIssue,
-) -> Result<Issue, CollaborationError> {
-    require_repository_role(pool, input.repository_id, input.actor_user_id, RepositoryRole::Write)
-        .await?;
+pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, CollaborationError> {
+    require_repository_role(
+        pool,
+        input.repository_id,
+        input.actor_user_id,
+        RepositoryRole::Write,
+    )
+    .await?;
     let number = next_issue_number(pool, input.repository_id).await?;
     let issue = insert_issue_with_number(pool, input, number).await?;
     append_timeline_event(
@@ -375,7 +382,13 @@ pub async fn update_issue_state(
     input: UpdateIssueState,
 ) -> Result<Issue, CollaborationError> {
     let repository_id = issue_repository_id(pool, issue_id).await?;
-    require_repository_role(pool, repository_id, input.actor_user_id, RepositoryRole::Write).await?;
+    require_repository_role(
+        pool,
+        repository_id,
+        input.actor_user_id,
+        RepositoryRole::Write,
+    )
+    .await?;
 
     let row = sqlx::query(
         r#"
@@ -413,7 +426,13 @@ pub async fn add_issue_comment(
     input: CreateComment,
 ) -> Result<Comment, CollaborationError> {
     let repository_id = issue_repository_id(pool, issue_id).await?;
-    require_repository_role(pool, repository_id, input.actor_user_id, RepositoryRole::Write).await?;
+    require_repository_role(
+        pool,
+        repository_id,
+        input.actor_user_id,
+        RepositoryRole::Write,
+    )
+    .await?;
 
     let row = sqlx::query(
         r#"

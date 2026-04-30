@@ -47,3 +47,15 @@
 - `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make db-migrate` could not run because `sqlx-cli` is not installed in this environment; cargo tests still applied migrations through SQLx's migrator.
 - Browser smoke test skipped because this phase is backend schema/data access only.
 - Marked Phase 4 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.
+
+2026-04-30 - infra-001 phase 5 search, API contracts, and hardening
+
+- Implemented Phase 5 from `.qrspi/infra-001/structure.md`: search documents, Postgres full-text/trigram indexes, request logs, token hash storage for later PAT support, shared API envelope DTOs, and search/request-log Rust helpers.
+- Added SQLx migration `202604300005_search_and_observability` for `personal_access_tokens`, `search_documents`, and `api_request_logs` with supporting uniqueness, retention, and query indexes plus a down migration.
+- Added `crates/api/src/api_types.rs`, `crates/api/src/domain/search.rs`, `crates/api/src/middleware/request_log.rs`, and `crates/api/src/routes/search.rs`; the Axum app now wires request logging middleware and exposes `/api/search`.
+- Refactored foundational routes/domains to use the shared list/error envelope types.
+- Added `crates/api/tests/schema_contract.rs` covering permission-aware search, public/private result filtering, request log metadata redaction expectations, PAT uniqueness, envelope serialization, and representative query-plan compilation.
+- Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed against local Postgres.
+- `make db-migrate` was not run because previous iterations confirmed `sqlx-cli` is not installed in this environment; cargo tests applied all migrations through SQLx's migrator.
+- Browser smoke test skipped because this phase is backend schema/data access only.
+- Marked Phase 5 as done in `.qrspi/infra-001/structure.md` and set `infra-001.build_pass` to `true` in `prd.json`.

@@ -4,11 +4,12 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
+    api_types::{database_unavailable, error_response, ErrorEnvelope},
     domain::repositories::{
         create_repository, get_repository_by_owner_name, list_repositories_for_user,
         CreateRepository, RepositoryError, RepositoryOwner, RepositoryVisibility,
@@ -47,18 +48,6 @@ struct CreateRepositoryRequest {
 enum OwnerType {
     User,
     Organization,
-}
-
-#[derive(Debug, Serialize)]
-struct ErrorEnvelope {
-    error: ErrorBody,
-    status: u16,
-}
-
-#[derive(Debug, Serialize)]
-struct ErrorBody {
-    code: &'static str,
-    message: String,
 }
 
 async fn list(
@@ -127,14 +116,6 @@ async fn read(
     Ok(Json(json!(repository)))
 }
 
-fn database_unavailable() -> (StatusCode, Json<ErrorEnvelope>) {
-    error_response(
-        StatusCode::SERVICE_UNAVAILABLE,
-        "database_unavailable",
-        "database connection is not available".to_owned(),
-    )
-}
-
 fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelope>) {
     match error {
         RepositoryError::OwnerPermissionDenied => error_response(
@@ -165,18 +146,4 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
             "repository operation failed".to_owned(),
         ),
     }
-}
-
-fn error_response(
-    status: StatusCode,
-    code: &'static str,
-    message: String,
-) -> (StatusCode, Json<ErrorEnvelope>) {
-    (
-        status,
-        Json(ErrorEnvelope {
-            error: ErrorBody { code, message },
-            status: status.as_u16(),
-        }),
-    )
 }

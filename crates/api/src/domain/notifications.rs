@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-use super::repositories::ListEnvelope;
+use crate::api_types::ListEnvelope;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Notification {

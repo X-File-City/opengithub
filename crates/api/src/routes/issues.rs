@@ -4,11 +4,12 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
+    api_types::{database_unavailable, error_response, ErrorEnvelope},
     domain::{
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
@@ -91,18 +92,6 @@ struct CreateCommentRequest {
 struct ReactionRequest {
     user_id: Uuid,
     content: ReactionContent,
-}
-
-#[derive(Debug, Serialize)]
-pub(crate) struct ErrorEnvelope {
-    error: ErrorBody,
-    status: u16,
-}
-
-#[derive(Debug, Serialize)]
-struct ErrorBody {
-    code: &'static str,
-    message: String,
 }
 
 async fn list(
@@ -283,14 +272,6 @@ async fn reaction(
     Ok((StatusCode::CREATED, Json(json!(reaction))))
 }
 
-fn database_unavailable() -> (StatusCode, Json<ErrorEnvelope>) {
-    error_response(
-        StatusCode::SERVICE_UNAVAILABLE,
-        "database_unavailable",
-        "database connection is not available".to_owned(),
-    )
-}
-
 pub(crate) fn map_collaboration_error(
     error: CollaborationError,
 ) -> (StatusCode, Json<ErrorEnvelope>) {
@@ -327,18 +308,4 @@ pub(crate) fn map_collaboration_error(
             "collaboration operation failed".to_owned(),
         ),
     }
-}
-
-fn error_response(
-    status: StatusCode,
-    code: &'static str,
-    message: String,
-) -> (StatusCode, Json<ErrorEnvelope>) {
-    (
-        status,
-        Json(ErrorEnvelope {
-            error: ErrorBody { code, message },
-            status: status.as_u16(),
-        }),
-    )
 }

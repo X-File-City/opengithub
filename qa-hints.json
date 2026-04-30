@@ -63,5 +63,23 @@
       "make db-migrate still needs sqlx-cli installed; cargo tests applied the migration through SQLx's migrator",
       "Browser smoke test skipped because infra-001 phase 4 is backend schema/data access only"
     ]
+  },
+  {
+    "feature_id": "infra-001",
+    "tests_written": [
+      "search documents persist with full-text/trigram indexes and permission-aware query filtering",
+      "repository owners can index private search documents while unauthorized users cannot",
+      "public search documents remain visible to users without repository permissions",
+      "request logs persist method, path, status, duration, user agent, and selected non-secret metadata",
+      "personal access token prefixes and hashes are stored uniquely for later PAT support",
+      "shared list envelope serializes pageSize and shared error envelope preserves stable error codes",
+      "representative query plan for request log path lookup compiles against Postgres"
+    ],
+    "needs_deeper_qa": [
+      "Middleware request logging is wired into the Axum app but should be exercised over HTTP once authenticated routes are available",
+      "Search ranking is Postgres-based and should be tuned with real repository/code content after git ingestion ships",
+      "Down migrations exist for phase 5 tables but the environment still lacks sqlx-cli for make db-migrate",
+      "Browser smoke test skipped because infra-001 phase 5 is backend schema/data access only"
+    ]
   }
 ]

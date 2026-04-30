@@ -37,7 +37,9 @@ async fn database_pool() -> Option<PgPool> {
 #[tokio::test]
 async fn issues_comments_reactions_filters_and_permissions_round_trip() {
     let Some(pool) = database_pool().await else {
-        eprintln!("skipping Postgres collaboration scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        eprintln!(
+            "skipping Postgres collaboration scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
         return;
     };
 
@@ -127,13 +129,23 @@ async fn issues_comments_reactions_filters_and_permissions_round_trip() {
     )
     .await;
     assert!(
-        matches!(unauthorized, Err(CollaborationError::RepositoryAccessDenied)),
+        matches!(
+            unauthorized,
+            Err(CollaborationError::RepositoryAccessDenied)
+        ),
         "users without repository access must not create issues"
     );
 
-    let open = list_issues(&pool, repository.id, owner.id, Some(IssueState::Open), 1, 10)
-        .await
-        .expect("open issues should list");
+    let open = list_issues(
+        &pool,
+        repository.id,
+        owner.id,
+        Some(IssueState::Open),
+        1,
+        10,
+    )
+    .await
+    .expect("open issues should list");
     assert_eq!(open.total, 1);
     assert_eq!(open.items[0].id, issue.id);
 
@@ -167,9 +179,16 @@ async fn issues_comments_reactions_filters_and_permissions_round_trip() {
     assert_eq!(closed.state, IssueState::Closed);
     assert_eq!(closed.closed_by_user_id, Some(owner.id));
 
-    let no_open = list_issues(&pool, repository.id, owner.id, Some(IssueState::Open), 1, 10)
-        .await
-        .expect("open issues should list after close");
+    let no_open = list_issues(
+        &pool,
+        repository.id,
+        owner.id,
+        Some(IssueState::Open),
+        1,
+        10,
+    )
+    .await
+    .expect("open issues should list after close");
     assert_eq!(no_open.total, 0);
     let closed_list = list_issues(
         &pool,
@@ -196,7 +215,9 @@ async fn issues_comments_reactions_filters_and_permissions_round_trip() {
 #[tokio::test]
 async fn pull_requests_share_issue_numbers_and_timeline_state() {
     let Some(pool) = database_pool().await else {
-        eprintln!("skipping Postgres collaboration scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        eprintln!(
+            "skipping Postgres collaboration scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
         return;
     };
 

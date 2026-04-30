@@ -4,6 +4,8 @@ use serde_json::json;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+use crate::api_types::ListEnvelope;
+
 use super::{
     issues::{
         append_timeline_event, insert_issue_with_number, issue_from_row, next_issue_number,
@@ -11,7 +13,7 @@ use super::{
         TimelineEvent,
     },
     permissions::RepositoryRole,
-    repositories::{repository_permission_for_user, ListEnvelope},
+    repositories::repository_permission_for_user,
 };
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -412,9 +414,11 @@ pub async fn repository_for_actor_by_name(
     actor_user_id: Uuid,
     required_role: RepositoryRole,
 ) -> Result<Uuid, CollaborationError> {
-    Ok(repository_for_actor(pool, owner_login, repo_name, actor_user_id, required_role)
-        .await?
-        .id)
+    Ok(
+        repository_for_actor(pool, owner_login, repo_name, actor_user_id, required_role)
+            .await?
+            .id,
+    )
 }
 
 async fn require_repository_read(

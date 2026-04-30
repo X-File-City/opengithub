@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+use crate::api_types::ListEnvelope;
+
 use super::permissions::RepositoryRole;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -102,15 +104,6 @@ pub struct GitRef {
     pub target_commit_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ListEnvelope<T> {
-    pub items: Vec<T>,
-    pub total: i64,
-    pub page: i64,
-    #[serde(rename = "pageSize")]
-    pub page_size: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

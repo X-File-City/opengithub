@@ -64,7 +64,7 @@ Done: [x]
 
 ## Phase 5: Search, API Contracts, and Hardening - query indexes, common envelopes, and migration safety are locked
 
-Done: [ ]
+Done: [x]
 
 **Scope**: Complete the foundation feature by adding search documents, request logging, shared API response types, and full migration regression coverage.
 **Key changes**:

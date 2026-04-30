@@ -9,8 +9,9 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
+    api_types::{database_unavailable as shared_database_unavailable, ErrorEnvelope},
     domain::{
-        issues::{CreateComment, CollaborationError},
+        issues::CreateComment,
         permissions::RepositoryRole,
         pulls::{
             add_pull_request_comment, create_pull_request, get_pull_request, list_pull_requests,
@@ -84,7 +85,7 @@ async fn list(
     State(state): State<AppState>,
     Path((owner, repo)): Path<(String, String)>,
     Query(query): Query<ListQuery>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<crate::routes::issues::ErrorEnvelope>)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id =
         repository_for_actor_by_name(pool, &owner, &repo, query.user_id, RepositoryRole::Read)
@@ -108,7 +109,7 @@ async fn create(
     State(state): State<AppState>,
     Path((owner, repo)): Path<(String, String)>,
     Json(request): Json<CreatePullRequestRequest>,
-) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<crate::routes::issues::ErrorEnvelope>)> {
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id = repository_for_actor_by_name(
         pool,
@@ -141,7 +142,7 @@ async fn read(
     State(state): State<AppState>,
     Path((owner, repo, number)): Path<(String, String, i64)>,
     Query(query): Query<ActorQuery>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<crate::routes::issues::ErrorEnvelope>)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id =
         repository_for_actor_by_name(pool, &owner, &repo, query.user_id, RepositoryRole::Read)
@@ -158,7 +159,7 @@ async fn update_state(
     State(state): State<AppState>,
     Path((owner, repo, number)): Path<(String, String, i64)>,
     Json(request): Json<UpdatePullRequestStateRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<crate::routes::issues::ErrorEnvelope>)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id = repository_for_actor_by_name(
         pool,
@@ -191,7 +192,7 @@ async fn comment(
     State(state): State<AppState>,
     Path((owner, repo, number)): Path<(String, String, i64)>,
     Json(request): Json<CreateCommentRequest>,
-) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<crate::routes::issues::ErrorEnvelope>)> {
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id = repository_for_actor_by_name(
         pool,
@@ -223,7 +224,7 @@ async fn timeline(
     State(state): State<AppState>,
     Path((owner, repo, number)): Path<(String, String, i64)>,
     Query(query): Query<ActorQuery>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<crate::routes::issues::ErrorEnvelope>)> {
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id =
         repository_for_actor_by_name(pool, &owner, &repo, query.user_id, RepositoryRole::Read)
@@ -239,7 +240,6 @@ async fn timeline(
     Ok(Json(json!(events)))
 }
 
-fn database_unavailable(
-) -> (StatusCode, Json<crate::routes::issues::ErrorEnvelope>) {
-    map_collaboration_error(CollaborationError::Sqlx(sqlx::Error::PoolClosed))
+fn database_unavailable() -> (StatusCode, Json<ErrorEnvelope>) {
+    shared_database_unavailable()
 }

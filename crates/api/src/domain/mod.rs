@@ -5,4 +5,5 @@ pub mod notifications;
 pub mod permissions;
 pub mod pulls;
 pub mod repositories;
+pub mod search;
 pub mod webhooks;
