@@ -57,7 +57,7 @@
 
 ## Phase 4: Dismissible Hints and Non-Empty Dashboard State - UI writes hint state and changes after repository creation
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Connect dismiss buttons to the Rust API and render the non-empty repository/activity dashboard once at least one repository exists.
 

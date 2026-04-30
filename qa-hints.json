@@ -270,5 +270,22 @@
       "Dismiss buttons and persistence are intentionally deferred to onboarding-001 Phase 4",
       "Check visual spacing against GitHub dashboard references after Phase 4 adds dismissible/non-empty dashboard behavior"
     ]
+  },
+  {
+    "feature_id": "onboarding-001",
+    "tests_written": [
+      "dashboard onboarding unit tests cover dismiss success, dismiss failure feedback, previously dismissed hints, and non-empty repository feed rendering",
+      "Next.js dashboard hint proxy route forwards the signed session cookie to the Rust onboarding API",
+      "non-empty dashboard feed renders recent activity, assigned issues, and review request panels without the first-run welcome copy",
+      "repository rows navigate to a reachable repository overview destination instead of a 404",
+      "make check, make test, and make test-e2e passed",
+      "Ever browser smoke used a real Rust-signed Postgres session cookie, dismissed a hint, verified persistence after reload, created a repository through POST /api/repos, verified the non-empty dashboard, clicked a repository row, and saved ralph/screenshots/build/onboarding-001-phase4-dashboard.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Repeat the signed-in dashboard flow through real Google OAuth with TEST_ACCOUNT_EMAIL once the Google consent/test-user configuration is confirmed",
+      "Repository overview is a minimal reachable destination for dashboard rows; full code browsing belongs to the repository overview feature",
+      "Recent activity, assigned issues, and review requests remain placeholder panels until their underlying domains expose feed data",
+      "Check keyboard and screen-reader behavior for the dismiss buttons during the final onboarding visual/a11y phase"
+    ]
   }
 ]

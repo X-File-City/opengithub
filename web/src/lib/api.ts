@@ -127,6 +127,31 @@ export async function getDashboardSummaryFromCookie(
   return (await response.json()) as DashboardSummary;
 }
 
+export async function getRepositoryFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+): Promise<RepositorySummary | null> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}/api/repos/${encodeURI(owner)}/${encodeURI(repo)}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as RepositorySummary;
+}
+
 export async function logout(cookie: string | null): Promise<string | null> {
   const response = await fetch(`${apiBaseUrl()}/api/auth/logout`, {
     method: "POST",

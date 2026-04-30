@@ -194,3 +194,14 @@
 - Verification: `make check` passed; `make test` passed with 12 frontend tests plus cargo tests; `make test-e2e` passed with 8 Playwright tests.
 - Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session for a zero-repository user, verified `/dashboard`, clicked `/new`, `/new/import`, and `/docs/get-started` with Ever, and saved `ralph/screenshots/build/onboarding-001-phase3-dashboard.jpg`.
 - Marked Phase 3 as done in `.qrspi/onboarding-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.
+
+2026-04-30 - onboarding-001 phase 4 dismissible hints and non-empty dashboard state
+
+- Implemented Phase 4 from `.qrspi/onboarding-001/structure.md`: dashboard onboarding hints are now dismissible client-side, persist through a same-origin Next.js proxy route to the Rust API, and show success/error feedback.
+- Added `web/src/components/DashboardRepositoryFeed.tsx` for the non-empty dashboard state with recent activity, assigned issues, and review request panels while suppressing the first-run welcome copy.
+- Added `web/src/app/dashboard/onboarding/hints/[hintKey]/route.ts` to forward signed session cookies to `POST /api/dashboard/onboarding/hints/:hint_key`.
+- Added a minimal `web/src/app/[owner]/[repo]/page.tsx` repository overview destination so dashboard repository rows navigate to a real page instead of a 404; full code browsing remains for the repository overview feature.
+- Extended `web/tests/dashboard-onboarding.test.tsx` for dismiss success, dismiss failure, previously dismissed hints, proxy forwarding, and non-empty dashboard behavior.
+- Verification: `make check` passed; `make test` passed with 16 frontend tests plus cargo tests; `make test-e2e` passed with 8 Playwright tests.
+- Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session, verified hint dismissal persistence after reload, created a repository through `POST /api/repos`, verified the non-empty dashboard, clicked a repository row, and saved `ralph/screenshots/build/onboarding-001-phase4-dashboard.jpg`.
+- Marked Phase 4 as done in `.qrspi/onboarding-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.
