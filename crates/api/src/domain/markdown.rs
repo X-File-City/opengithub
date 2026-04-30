@@ -126,7 +126,11 @@ fn content_sha(markdown: &str) -> String {
 }
 
 fn render_html(input: &RenderMarkdownInput) -> String {
-    let markdown = rewrite_references(&input.markdown, input.owner.as_deref(), input.repo.as_deref());
+    let markdown = rewrite_references(
+        &input.markdown,
+        input.owner.as_deref(),
+        input.repo.as_deref(),
+    );
     let parser = Parser::new_ext(&markdown, Options::all());
     let mut raw_html = String::new();
     html::push_html(&mut raw_html, parser);
@@ -139,7 +143,10 @@ fn render_html(input: &RenderMarkdownInput) -> String {
         input.ref_name.as_deref().unwrap_or("main"),
     );
     let with_heading_anchors = add_heading_anchors(&linked);
-    let decorated = decorate_code_blocks(&with_heading_anchors, input.enable_task_toggles.unwrap_or(false));
+    let decorated = decorate_code_blocks(
+        &with_heading_anchors,
+        input.enable_task_toggles.unwrap_or(false),
+    );
     format!(r#"<div class="markdown-body">{decorated}</div>"#)
 }
 
@@ -181,7 +188,12 @@ fn rewrite_references(markdown: &str, owner: Option<&str>, repo: Option<&str>) -
         .to_string()
 }
 
-fn rewrite_relative_paths(html: &str, owner: Option<&str>, repo: Option<&str>, ref_name: &str) -> String {
+fn rewrite_relative_paths(
+    html: &str,
+    owner: Option<&str>,
+    repo: Option<&str>,
+    ref_name: &str,
+) -> String {
     let (Some(owner), Some(repo)) = (owner, repo) else {
         return html.to_owned();
     };

@@ -251,7 +251,9 @@ async fn protected_api_auth_failures_use_json_envelopes_without_stack_traces() {
     assert_eq!(current_user_status, StatusCode::UNAUTHORIZED);
     assert_eq!(current_user_body["error"]["code"], "not_authenticated");
     assert_eq!(current_user_body["status"], 401);
-    assert!(!current_user_body.to_string().contains("not-a-valid-session"));
+    assert!(!current_user_body
+        .to_string()
+        .contains("not-a-valid-session"));
     assert!(!current_user_body.to_string().contains("stack"));
 
     let (repos_status, repos_body) = send_json(app, Method::GET, "/api/repos", vec![]).await;
@@ -263,7 +265,9 @@ async fn protected_api_auth_failures_use_json_envelopes_without_stack_traces() {
 #[tokio::test]
 async fn private_repository_denial_uses_json_403_without_hiding_auth_state() {
     let Some(pool) = database_pool().await else {
-        eprintln!("skipping Postgres auth security scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        eprintln!(
+            "skipping Postgres auth security scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
         return;
     };
 

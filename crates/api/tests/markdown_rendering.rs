@@ -139,7 +139,9 @@ async fn markdown_api_returns_error_envelopes_for_invalid_toggle() {
 #[tokio::test]
 async fn markdown_cache_returns_cached_hit_with_database() {
     let Some(pool) = database_pool().await else {
-        eprintln!("skipping Postgres markdown cache scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        eprintln!(
+            "skipping Postgres markdown cache scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
         return;
     };
 
