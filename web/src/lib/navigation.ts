@@ -615,6 +615,70 @@ export function repositoryTabHref(
   return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}${tab.href}`;
 }
 
+export type RepositoryIssueHrefQuery = {
+  q?: string | null;
+  state?: string | null;
+  labels?: string[] | null;
+  milestone?: string | null;
+  assignee?: string | null;
+  sort?: string | null;
+  page?: number | null;
+};
+
+export function repositoryIssuesHref(
+  owner: string,
+  repo: string,
+  query: RepositoryIssueHrefQuery = {},
+) {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) {
+    params.set("q", query.q.trim());
+  }
+  if (query.state?.trim()) {
+    params.set("state", query.state.trim());
+  }
+  if (query.labels?.length) {
+    params.set("labels", query.labels.join(","));
+  }
+  if (query.milestone?.trim()) {
+    params.set("milestone", query.milestone.trim());
+  }
+  if (query.assignee?.trim()) {
+    params.set("assignee", query.assignee.trim());
+  }
+  if (query.sort?.trim()) {
+    params.set("sort", query.sort.trim());
+  }
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues${suffix}`;
+}
+
+export function repositoryIssueDetailHref(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+) {
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`;
+}
+
+export function repositoryIssueStateHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  state: "open" | "closed",
+) {
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    state,
+    q: `is:issue state:${state}`,
+    page: null,
+  });
+}
+
 export function activeRepositoryTab(pathname: string): string {
   const [, , , segment = ""] = pathname.split("/");
 

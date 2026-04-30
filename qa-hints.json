@@ -1328,5 +1328,22 @@
       "Public issue list access is verified for authenticated non-members, matching the current repository API contract; fully anonymous public repository browsing remains a later hardening target.",
       "Linked pull request hints are derived from issue_cross_references where a pull request backing issue references the listed issue; richer closing/reference semantics should be stress-tested when issue detail and PR detail ship."
     ]
+  },
+  {
+    "feature_id": "issues-001",
+    "tests_written": [
+      "Implemented Phase 2 repository Issues page rendering from the Phase 1 issue-list API contract inside the shared RepositoryShell.",
+      "Added RepositoryIssuesPage with Editorial primitives for query input, Labels/Milestones/New issue links, Open/Closed tabs, dense issue rows, labels, milestones, assignees, comment counts, and empty-state clear query.",
+      "Added concrete placeholder routes for /issues/new, /labels, and /milestones so the Phase 2 list actions do not point at missing pages.",
+      "Added Vitest coverage for default open query rendering, row links, label/milestone/comment metadata, empty state, navigation hrefs, and no inert anchors.",
+      "Added Playwright coverage that signs in with a real Rust session, creates a repository, creates an issue through the Rust API, verifies the Issues tab and row navigation, and saves ralph/screenshots/build/issues-001-phase2-open-list.jpg.",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 116 frontend tests plus cargo tests, focused repository-issues Playwright, and make test-e2e with 52 Playwright tests."
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 intentionally renders the default list and concrete action destinations; full URL filter interactions, sorting, pagination controls, and clear-query behavior are scheduled for Phase 3.",
+      "New issue, Labels, and Milestones destinations are concrete placeholder pages until their dedicated creation/management features ship.",
+      "Issue detail row navigation lands on the existing issue detail placeholder; full timelines/comments/state controls are later issues features.",
+      "The browser smoke uses a simple unlabelled issue created through the real API; richer label, milestone, assignee, and linked-PR combinations are covered in unit/API tests and should get deeper browser QA in later phases."
+    ]
   }
 ]

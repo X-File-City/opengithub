@@ -11,9 +11,11 @@ import {
   getRepositoryFileFinderFromCookie,
   getRepositoryFromCookie,
   getRepositoryImportFromCookie,
+  getRepositoryIssuesFromCookie,
   getRepositoryPathFromCookie,
   getRepositoryRefsFromCookie,
   getSessionFromHeaders,
+  type RepositoryIssueListQuery,
   searchGlobalFromCookie,
 } from "@/lib/api";
 
@@ -147,4 +149,18 @@ export async function getRepositoryCreationOptions() {
 export async function getRepositoryImport(importId: string) {
   const requestHeaders = await headers();
   return getRepositoryImportFromCookie(requestHeaders.get("cookie"), importId);
+}
+
+export async function getRepositoryIssues(
+  owner: string,
+  repo: string,
+  query: RepositoryIssueListQuery = {},
+) {
+  const requestHeaders = await headers();
+  return getRepositoryIssuesFromCookie(
+    requestHeaders.get("cookie"),
+    owner,
+    repo,
+    query,
+  );
 }

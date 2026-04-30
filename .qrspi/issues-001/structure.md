@@ -23,7 +23,7 @@
 
 ## Phase 2: Repository Issues Page - default open list renders real data
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder `/{owner}/{repo}/issues` route with an Editorial repository issue list that fetches Phase 1 data server-side and renders the default `is:issue state:open` list with repository tabs, heading, query input, Labels/Milestones links, New issue link, Open/Closed tabs, and dense issue rows.
 

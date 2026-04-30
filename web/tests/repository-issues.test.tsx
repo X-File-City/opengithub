@@ -1,0 +1,251 @@
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { RepositoryIssuesPage } from "@/components/RepositoryIssuesPage";
+import type {
+  IssueListItem,
+  IssueListView,
+  RepositoryOverview,
+} from "@/lib/api";
+import {
+  repositoryIssueDetailHref,
+  repositoryIssueStateHref,
+  repositoryIssuesHref,
+} from "@/lib/navigation";
+
+function repositoryOverview(
+  overrides: Partial<RepositoryOverview> = {},
+): RepositoryOverview {
+  const base: RepositoryOverview = {
+    id: "repo-1",
+    owner_user_id: "user-1",
+    owner_organization_id: null,
+    owner_login: "mona",
+    name: "octo-app",
+    description: "Issue tracker test repository",
+    visibility: "public",
+    default_branch: "main",
+    is_archived: false,
+    created_by_user_id: "user-1",
+    created_at: "2026-04-30T00:00:00Z",
+    updated_at: "2026-04-30T00:00:00Z",
+    viewerPermission: "owner",
+    branchCount: 1,
+    tagCount: 0,
+    defaultBranchRef: null,
+    latestCommit: null,
+    rootEntries: [],
+    files: [],
+    readme: null,
+    sidebar: {
+      about: null,
+      websiteUrl: null,
+      topics: [],
+      starsCount: 0,
+      watchersCount: 0,
+      forksCount: 0,
+      releasesCount: 0,
+      deploymentsCount: 0,
+      contributorsCount: 1,
+      languages: [],
+    },
+    viewerState: {
+      starred: false,
+      watching: false,
+      forkedRepositoryHref: null,
+    },
+    cloneUrls: {
+      https: "https://opengithub.namuh.co/mona/octo-app.git",
+      git: "git@opengithub.namuh.co:mona/octo-app.git",
+      zip: "/mona/octo-app/archive/refs/heads/main.zip",
+    },
+  };
+  return { ...base, ...overrides };
+}
+
+function issueItem(overrides: Partial<IssueListItem> = {}): IssueListItem {
+  const base: IssueListItem = {
+    id: "issue-1",
+    repositoryId: "repo-1",
+    repositoryOwner: "mona",
+    repositoryName: "octo-app",
+    number: 42,
+    title: "Fix `runner` queue backoff",
+    body: "Investigate retry windows",
+    state: "open",
+    author: {
+      id: "user-1",
+      login: "mona",
+      displayName: "Mona",
+      avatarUrl: null,
+    },
+    labels: [
+      {
+        id: "label-1",
+        name: "bug",
+        color: "var(--err)",
+        description: "Something is not working",
+      },
+    ],
+    milestone: {
+      id: "milestone-1",
+      title: "MVP",
+      state: "open",
+    },
+    assignees: [
+      {
+        id: "user-2",
+        login: "hubot",
+        displayName: "Hubot",
+        avatarUrl: null,
+      },
+    ],
+    commentCount: 3,
+    linkedPullRequest: null,
+    href: "/mona/octo-app/issues/42",
+    locked: false,
+    createdAt: "2026-04-30T00:00:00Z",
+    updatedAt: "2026-04-30T01:00:00Z",
+    closedAt: null,
+  };
+  return { ...base, ...overrides };
+}
+
+function issueListView(overrides: Partial<IssueListView> = {}): IssueListView {
+  const items = overrides.items ?? [issueItem()];
+  const base: IssueListView = {
+    items,
+    total: items.length,
+    page: 1,
+    pageSize: 30,
+    openCount: items.filter((item) => item.state === "open").length,
+    closedCount: items.filter((item) => item.state === "closed").length,
+    counts: {
+      open: items.filter((item) => item.state === "open").length,
+      closed: items.filter((item) => item.state === "closed").length,
+    },
+    filters: {
+      query: "is:issue state:open",
+      state: "open",
+      labels: [],
+      milestone: null,
+      assignee: null,
+      sort: "updated-desc",
+    },
+    viewerPermission: "owner",
+    repository: {
+      id: "repo-1",
+      ownerLogin: "mona",
+      name: "octo-app",
+      visibility: "public",
+    },
+  };
+  return { ...base, ...overrides };
+}
+
+describe("RepositoryIssuesPage", () => {
+  it("renders the default open issue list with real row metadata", () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView()}
+        query={{ q: "is:issue state:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Issues" })).toBeVisible();
+    expect(screen.getByLabelText("issue-query")).toHaveValue(
+      "is:issue state:open",
+    );
+    expect(screen.getByRole("link", { name: /New issue/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues/new",
+    );
+    expect(screen.getByRole("link", { name: /Labels/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/labels",
+    );
+    expect(screen.getByRole("link", { name: /Milestones/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/milestones",
+    );
+
+    const row = screen.getByRole("article");
+    expect(within(row).getByRole("link", { name: /Fix/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues/42",
+    );
+    expect(within(row).getByText("runner")).toBeVisible();
+    expect(within(row).getByText("bug")).toHaveAttribute(
+      "title",
+      "Something is not working",
+    );
+    expect(within(row).getByText("MVP")).toBeVisible();
+    expect(within(row).getByText("@hubot")).toBeVisible();
+    expect(within(row).getByText("3")).toBeVisible();
+    expect(within(row).getByText("#42")).toBeVisible();
+  });
+
+  it("builds issue list hrefs without inert targets", () => {
+    expect(repositoryIssueDetailHref("mona", "octo-app", 7)).toBe(
+      "/mona/octo-app/issues/7",
+    );
+    expect(
+      repositoryIssuesHref("mona", "octo-app", {
+        q: "is:issue state:open",
+        state: "open",
+        labels: ["bug"],
+        page: 2,
+      }),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open&labels=bug&page=2",
+    );
+    expect(
+      repositoryIssueStateHref(
+        "mona",
+        "octo-app",
+        { q: "label:bug", labels: ["bug"], page: 3 },
+        "closed",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed&state=closed&labels=bug",
+    );
+  });
+
+  it("renders closed and empty states with a clear query affordance", () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView({
+          items: [],
+          total: 0,
+          openCount: 4,
+          closedCount: 2,
+          counts: { open: 4, closed: 2 },
+          filters: {
+            query: "is:issue state:closed label:missing",
+            state: "closed",
+            labels: ["missing"],
+            milestone: null,
+            assignee: null,
+            sort: "updated-desc",
+          },
+        })}
+        query={{ q: "is:issue state:closed label:missing", state: "closed" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /Closed/ })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByText("No issues matched this query")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Clear query" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open",
+    );
+    expect(screen.queryAllByRole("article")).toHaveLength(0);
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+  });
+});
