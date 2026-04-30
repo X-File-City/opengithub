@@ -874,3 +874,13 @@
 - Updated signed-in Playwright shell smoke to verify the suggestion popover, direct recent-repository suggestion href, default search submit URL, and screenshot `ralph/screenshots/build/search-001-phase1-header-suggestions.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 100 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 44 Playwright tests.
 - Marked Phase 1 as done in `.qrspi/search-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
+
+2026-05-01 - search-001 phase 2 repository and people results
+
+- Implemented Phase 2 from `.qrspi/search-001/structure.md`: `/search` now fetches the Rust `/api/search` endpoint server-side and renders real repository, user, and organization result types with Editorial tabs, refine sidebar, result count, pagination, validation errors, and syntax-tip empty states.
+- Extended the Rust search route to accept UI `type=` aliases (`repositories`, `users`, `organizations`, etc.) while preserving legacy `kind=`, and enriched search result projections with browser-friendly `type`, `href`, `owner_login`, `repository_name`, `display_name`, summary, visibility, and updated metadata.
+- Added `SearchResultsPage`, typed frontend search DTOs/fetch helpers, server-session search forwarding, and deterministic Playwright search seeding through `dashboard_e2e_seed`.
+- Added Rust contract coverage for UI type aliases and people/organization projections, Vitest coverage for result rendering/empty/error states, and Playwright coverage for seeded repository/users/organizations result tabs with no dead controls.
+- Browser smoke/E2E saved `ralph/screenshots/build/search-001-phase2-results.jpg`.
+- Verification: `.scratch/search-001-results-scenario.sh` passed against `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`; targeted `npx vitest run tests/search-results.test.tsx` passed; targeted `npx playwright test tests/e2e/search.spec.ts` passed; `make check` passed; `make test` passed with cargo tests and 104 frontend tests; `make test-e2e` passed with 45 Playwright tests; mandatory Editorial banned-value scan passed.
+- Marked Phase 2 as done in `.qrspi/search-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.

@@ -328,3 +328,119 @@ async fn search_rest_route_uses_session_actor_and_filters_private_results() {
     assert_eq!(bad_query_body["status"], 422);
     assert_eq!(bad_query_body["error"]["code"], "validation_failed");
 }
+
+#[tokio::test]
+async fn search_rest_route_accepts_ui_types_and_projects_people_results() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping search UI type contract scenario; set TEST_DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let actor = create_user(&pool, "api-search-ui-actor").await;
+    let person = create_user(&pool, "api-search-person").await;
+    let actor_cookie = cookie_header(&pool, &config, &actor).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let marker = format!("finder{}", Uuid::new_v4().simple());
+    let person_login = format!("person-{}", &marker[..14]);
+    let organization_slug = format!("org-{}", &marker[..14]);
+
+    sqlx::query("UPDATE users SET username = $1, display_name = $2 WHERE id = $3")
+        .bind(&person_login)
+        .bind(format!("Search Person {marker}"))
+        .bind(person.id)
+        .execute(&pool)
+        .await
+        .expect("person username should persist");
+
+    let organization_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO organizations (slug, display_name, description, owner_user_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+        "#,
+    )
+    .bind(&organization_slug)
+    .bind(format!("Search Organization {marker}"))
+    .bind(Some("Organization search projection"))
+    .bind(actor.id)
+    .fetch_one(&pool)
+    .await
+    .expect("organization should persist");
+
+    upsert_search_document(
+        &pool,
+        actor.id,
+        UpsertSearchDocument {
+            repository_id: None,
+            owner_user_id: Some(person.id),
+            owner_organization_id: None,
+            kind: SearchDocumentKind::User,
+            resource_id: person_login.clone(),
+            title: format!("Search Person {marker}"),
+            body: Some("Maintainer profile indexed for people search".to_owned()),
+            path: None,
+            language: None,
+            branch: None,
+            visibility: opengithub_api::domain::repositories::RepositoryVisibility::Public,
+            metadata: json!({}),
+        },
+    )
+    .await
+    .expect("user search document should persist");
+    upsert_search_document(
+        &pool,
+        actor.id,
+        UpsertSearchDocument {
+            repository_id: None,
+            owner_user_id: None,
+            owner_organization_id: Some(organization_id),
+            kind: SearchDocumentKind::Organization,
+            resource_id: organization_slug.clone(),
+            title: format!("Search Organization {marker}"),
+            body: Some("Organization search projection".to_owned()),
+            path: None,
+            language: None,
+            branch: None,
+            visibility: opengithub_api::domain::repositories::RepositoryVisibility::Public,
+            metadata: json!({}),
+        },
+    )
+    .await
+    .expect("organization search document should persist");
+
+    let (users_status, _users_headers, users_body) = send_json(
+        app.clone(),
+        Method::GET,
+        &format!("/api/search?q={marker}&type=users"),
+        Some(&actor_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(users_status, StatusCode::OK);
+    assert_eq!(users_body["total"], 1);
+    assert_eq!(users_body["items"][0]["type"], "users");
+    assert_eq!(users_body["items"][0]["href"], format!("/{person_login}"));
+    assert_eq!(users_body["items"][0]["owner_login"], person_login);
+    assert_eq!(
+        users_body["items"][0]["display_name"],
+        format!("Search Person {marker}")
+    );
+
+    let (orgs_status, _orgs_headers, orgs_body) = send_json(
+        app,
+        Method::GET,
+        &format!("/api/search?q={marker}&type=organizations"),
+        Some(&actor_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(orgs_status, StatusCode::OK);
+    assert_eq!(orgs_body["total"], 1);
+    assert_eq!(orgs_body["items"][0]["type"], "organizations");
+    assert_eq!(
+        orgs_body["items"][0]["href"],
+        format!("/orgs/{organization_slug}")
+    );
+    assert_eq!(orgs_body["items"][0]["owner_login"], organization_slug);
+}

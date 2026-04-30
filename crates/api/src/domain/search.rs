@@ -103,6 +103,17 @@ pub struct SearchQuery {
 pub struct SearchResult {
     pub document: SearchDocument,
     pub rank: f64,
+    #[serde(rename = "type")]
+    pub result_type: String,
+    pub href: String,
+    pub title: String,
+    pub summary: Option<String>,
+    pub owner_login: Option<String>,
+    pub repository_name: Option<String>,
+    pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub visibility: RepositoryVisibility,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -246,12 +257,46 @@ pub async fn search_documents(
                search_documents.indexed_at,
                search_documents.created_at,
                search_documents.updated_at,
+               COALESCE(
+                   NULLIF(repo_owner_user.username, ''),
+                   repo_owner_user.email,
+                   repo_owner_org.slug,
+                   NULLIF(owner_user.username, ''),
+                   owner_user.email,
+                   owner_org.slug,
+                   search_documents.metadata->>'ownerLogin'
+               ) AS owner_login,
+               repositories.name AS repository_name,
+               COALESCE(
+                   NULLIF(search_documents.metadata->>'description', ''),
+                   repositories.description,
+                   search_documents.body
+               ) AS result_summary,
+               COALESCE(
+                   NULLIF(owner_user.display_name, ''),
+                   NULLIF(owner_user.username, ''),
+                   owner_user.email,
+                   owner_org.display_name,
+                   search_documents.metadata->>'displayName',
+                   search_documents.title
+               ) AS display_name,
+               COALESCE(owner_user.avatar_url, search_documents.metadata->>'avatarUrl') AS avatar_url,
                (
                    ts_rank(search_documents.search_vector, plainto_tsquery('simple', $3))
                    + similarity(search_documents.title, $3)
                    + COALESCE(similarity(search_documents.path, $3), 0)
                )::float8 AS rank
         FROM search_documents
+        LEFT JOIN repositories
+          ON repositories.id = search_documents.repository_id
+        LEFT JOIN users repo_owner_user
+          ON repo_owner_user.id = repositories.owner_user_id
+        LEFT JOIN organizations repo_owner_org
+          ON repo_owner_org.id = repositories.owner_organization_id
+        LEFT JOIN users owner_user
+          ON owner_user.id = search_documents.owner_user_id
+        LEFT JOIN organizations owner_org
+          ON owner_org.id = search_documents.owner_organization_id
         LEFT JOIN repository_permissions
           ON repository_permissions.repository_id = search_documents.repository_id
          AND repository_permissions.user_id = $1
@@ -282,9 +327,31 @@ pub async fn search_documents(
     let mut items = Vec::with_capacity(rows.len());
     for row in rows {
         let rank = row.get::<f64, _>("rank");
+        let owner_login: Option<String> = row.get("owner_login");
+        let repository_name: Option<String> = row.get("repository_name");
+        let summary: Option<String> = row.get("result_summary");
+        let display_name: Option<String> = row.get("display_name");
+        let avatar_url: Option<String> = row.get("avatar_url");
+        let document = document_from_row(row)?;
+        let result_type = ui_type_for_kind(&document.kind).to_owned();
+        let href = result_href(
+            &document,
+            owner_login.as_deref(),
+            repository_name.as_deref(),
+        );
         items.push(SearchResult {
-            document: document_from_row(row)?,
+            title: document.title.clone(),
+            visibility: document.visibility.clone(),
+            updated_at: document.updated_at,
+            document,
             rank,
+            result_type,
+            href,
+            summary,
+            owner_login,
+            repository_name,
+            display_name,
+            avatar_url,
         });
     }
 
@@ -294,6 +361,69 @@ pub async fn search_documents(
         page,
         page_size,
     })
+}
+
+fn ui_type_for_kind(kind: &SearchDocumentKind) -> &'static str {
+    match kind {
+        SearchDocumentKind::Repository => "repositories",
+        SearchDocumentKind::Code => "code",
+        SearchDocumentKind::Commit => "commits",
+        SearchDocumentKind::Issue => "issues",
+        SearchDocumentKind::PullRequest => "pull_requests",
+        SearchDocumentKind::User => "users",
+        SearchDocumentKind::Organization => "organizations",
+        SearchDocumentKind::Package => "packages",
+    }
+}
+
+fn result_href(
+    document: &SearchDocument,
+    owner_login: Option<&str>,
+    repository_name: Option<&str>,
+) -> String {
+    if let Some(href) = document
+        .metadata
+        .get("href")
+        .and_then(serde_json::Value::as_str)
+    {
+        if href.starts_with('/') && !href.starts_with("//") {
+            return href.to_owned();
+        }
+    }
+
+    match document.kind {
+        SearchDocumentKind::Repository => owner_login
+            .zip(repository_name)
+            .map(|(owner, repo)| format!("/{owner}/{repo}"))
+            .unwrap_or_else(|| "/search?type=repositories".to_owned()),
+        SearchDocumentKind::User => owner_login
+            .map(|owner| format!("/{owner}"))
+            .unwrap_or_else(|| "/search?type=users".to_owned()),
+        SearchDocumentKind::Organization => owner_login
+            .map(|org| format!("/orgs/{org}"))
+            .unwrap_or_else(|| "/search?type=organizations".to_owned()),
+        SearchDocumentKind::Code => owner_login
+            .zip(repository_name)
+            .map(|(owner, repo)| {
+                let branch = document.branch.as_deref().unwrap_or("main");
+                let path = document.path.as_deref().unwrap_or("");
+                format!("/{owner}/{repo}/blob/{branch}/{path}")
+            })
+            .unwrap_or_else(|| "/search?type=code".to_owned()),
+        SearchDocumentKind::Commit => owner_login
+            .zip(repository_name)
+            .map(|(owner, repo)| format!("/{owner}/{repo}/commit/{}", document.resource_id))
+            .unwrap_or_else(|| "/search?type=commits".to_owned()),
+        SearchDocumentKind::Issue => owner_login
+            .zip(repository_name)
+            .map(|(owner, repo)| format!("/{owner}/{repo}/issues/{}", document.resource_id))
+            .unwrap_or_else(|| "/search?type=issues".to_owned()),
+        SearchDocumentKind::PullRequest => owner_login
+            .zip(repository_name)
+            .map(|(owner, repo)| format!("/{owner}/{repo}/pull/{}", document.resource_id))
+            .unwrap_or_else(|| "/search?type=pull_requests".to_owned()),
+        SearchDocumentKind::Package => "/search?type=packages".to_owned(),
+    }
 }
 
 fn document_from_row(row: sqlx::postgres::PgRow) -> Result<SearchDocument, SearchError> {

@@ -96,10 +96,11 @@ test("profile, organization, team, and search skeleton routes stay navigable", a
   await expect(
     page.getByRole("heading", { name: "Search opengithub" }),
   ).toBeVisible();
-  await expect(page.getByText('Code results for "router"')).toBeVisible();
+  await expect(page.getByText("0 code results")).toBeVisible();
+  await expect(page.getByText('Nothing matched "router".')).toBeVisible();
   await page.getByRole("link", { name: "Users" }).click();
   await expect(page).toHaveURL(/\/search\?q=router&type=users$/);
-  await expect(page.getByText('Users results for "router"')).toBeVisible();
+  await expect(page.getByText("0 users results")).toBeVisible();
   await expectNoDeadControls(page);
 
   await page.goto("/organizations/new");

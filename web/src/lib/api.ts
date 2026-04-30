@@ -563,6 +563,66 @@ export type HighlightedFile = {
   supportedLanguages: LanguageOption[];
 };
 
+export type SearchResultType =
+  | "repositories"
+  | "code"
+  | "issues"
+  | "pull_requests"
+  | "commits"
+  | "users"
+  | "organizations";
+
+export type SearchDocumentKind =
+  | "repository"
+  | "code"
+  | "commit"
+  | "issue"
+  | "pull_request"
+  | "user"
+  | "organization"
+  | "package";
+
+export type SearchDocument = {
+  id: string;
+  repository_id: string | null;
+  owner_user_id: string | null;
+  owner_organization_id: string | null;
+  kind: SearchDocumentKind;
+  resource_id: string;
+  title: string;
+  body: string;
+  path: string | null;
+  language: string | null;
+  branch: string | null;
+  visibility: RepositoryVisibility;
+  metadata: Record<string, unknown>;
+  indexed_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GlobalSearchResult = {
+  document: SearchDocument;
+  rank: number;
+  type: SearchResultType | string;
+  href: string;
+  title: string;
+  summary: string | null;
+  owner_login: string | null;
+  repository_name: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  visibility: RepositoryVisibility;
+  updated_at: string;
+};
+
+export type GlobalSearchQuery = {
+  query: string;
+  type: SearchResultType | string;
+  page?: number;
+  pageSize?: number;
+};
+
 const DEFAULT_API_URL = "http://localhost:3016";
 
 export function apiBaseUrl(): string {
@@ -637,6 +697,55 @@ export async function getAppShellContextFromCookie(
   }
 
   return (await response.json()) as AppShellContext;
+}
+
+export function globalSearchPath(query: GlobalSearchQuery): string {
+  const params = new URLSearchParams();
+  params.set("q", query.query);
+  params.set("type", query.type);
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+  if (query.pageSize) {
+    params.set("pageSize", String(query.pageSize));
+  }
+  return `/api/search?${params.toString()}`;
+}
+
+export async function searchGlobalFromCookie(
+  cookie: string | null | undefined,
+  query: GlobalSearchQuery,
+): Promise<ListEnvelope<GlobalSearchResult> | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}${globalSearchPath(query)}`, {
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Search is temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "search_failed",
+          message: "Search failed.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as ListEnvelope<GlobalSearchResult>;
 }
 
 export type DashboardSummaryQuery = {

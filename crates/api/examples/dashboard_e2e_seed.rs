@@ -12,6 +12,7 @@ use opengithub_api::{
             CreateCommit, CreateRepository, RepositoryBootstrapRequest, RepositoryOwner,
             RepositoryVisibility,
         },
+        search::{upsert_search_document, SearchDocumentKind, UpsertSearchDocument},
     },
 };
 use serde::Serialize;
@@ -51,6 +52,12 @@ fn seed_blob_edge_files() -> bool {
         std::env::var("DASHBOARD_E2E_BLOB_EDGE").as_deref(),
         Ok("1" | "true" | "yes")
     )
+}
+
+fn search_e2e_marker() -> Option<String> {
+    std::env::var("SEARCH_E2E_MARKER")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
 }
 
 fn app_config() -> AppConfig {
@@ -328,6 +335,10 @@ async fn main() -> anyhow::Result<()> {
         )
     };
 
+    if let Some(marker) = search_e2e_marker() {
+        seed_search_documents(&pool, user.id, &username, &marker).await?;
+    }
+
     let session_id = Uuid::new_v4().to_string();
     let expires_at = Utc::now() + Duration::hours(1);
     upsert_session(
@@ -354,6 +365,104 @@ async fn main() -> anyhow::Result<()> {
         tree_repository_href,
     };
     println!("{}", serde_json::to_string(&output)?);
+    Ok(())
+}
+
+async fn seed_search_documents(
+    pool: &PgPool,
+    user_id: Uuid,
+    username: &str,
+    marker: &str,
+) -> anyhow::Result<()> {
+    let repository_name = format!("search-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: user_id },
+            name: repository_name.clone(),
+            description: Some(format!("Repository result seeded for {marker}")),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: user_id,
+        },
+    )
+    .await?;
+
+    upsert_search_document(
+        pool,
+        user_id,
+        UpsertSearchDocument {
+            repository_id: Some(repository.id),
+            owner_user_id: Some(user_id),
+            owner_organization_id: None,
+            kind: SearchDocumentKind::Repository,
+            resource_id: format!("repo-{}", repository.id),
+            title: format!("{repository_name} {marker}"),
+            body: Some(format!("Repository result seeded for {marker}")),
+            path: None,
+            language: None,
+            branch: None,
+            visibility: RepositoryVisibility::Public,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await?;
+
+    upsert_search_document(
+        pool,
+        user_id,
+        UpsertSearchDocument {
+            repository_id: None,
+            owner_user_id: Some(user_id),
+            owner_organization_id: None,
+            kind: SearchDocumentKind::User,
+            resource_id: username.to_owned(),
+            title: format!("Dashboard Tester {marker}"),
+            body: Some("Searchable profile result".to_owned()),
+            path: None,
+            language: None,
+            branch: None,
+            visibility: RepositoryVisibility::Public,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await?;
+
+    let organization_slug = format!("search-org-{}", Uuid::new_v4().simple());
+    let organization_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO organizations (slug, display_name, description, owner_user_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+        "#,
+    )
+    .bind(&organization_slug)
+    .bind(format!("Search Organization {marker}"))
+    .bind(Some(format!("Organization result seeded for {marker}")))
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?;
+
+    upsert_search_document(
+        pool,
+        user_id,
+        UpsertSearchDocument {
+            repository_id: None,
+            owner_user_id: None,
+            owner_organization_id: Some(organization_id),
+            kind: SearchDocumentKind::Organization,
+            resource_id: organization_slug,
+            title: format!("Search Organization {marker}"),
+            body: Some("Organization result seeded for people search".to_owned()),
+            path: None,
+            language: None,
+            branch: None,
+            visibility: RepositoryVisibility::Public,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await?;
+
     Ok(())
 }
 

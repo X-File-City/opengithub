@@ -22,7 +22,9 @@ pub fn router() -> Router<AppState> {
 #[serde(rename_all = "camelCase")]
 struct SearchRequest {
     q: Option<String>,
-    kind: Option<SearchDocumentKind>,
+    kind: Option<String>,
+    #[serde(rename = "type")]
+    result_type: Option<String>,
     page: Option<i64>,
     #[serde(alias = "page_size")]
     page_size: Option<i64>,
@@ -36,12 +38,19 @@ async fn search(
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let pagination = normalize_pagination(request.page, request.page_size);
+    let kind = request
+        .result_type
+        .as_deref()
+        .or(request.kind.as_deref())
+        .map(search_kind_from_param)
+        .transpose()
+        .map_err(map_search_error)?;
     let results = search_documents(
         pool,
         SearchQuery {
             actor_user_id: actor.0.id,
             query: request.q.unwrap_or_default(),
-            kind: request.kind,
+            kind,
             page: pagination.page,
             page_size: pagination.page_size,
         },
@@ -50,6 +59,20 @@ async fn search(
     .map_err(map_search_error)?;
 
     Ok(Json(json!(results)))
+}
+
+fn search_kind_from_param(value: &str) -> Result<SearchDocumentKind, SearchError> {
+    match value {
+        "repositories" | "repository" => Ok(SearchDocumentKind::Repository),
+        "code" => Ok(SearchDocumentKind::Code),
+        "commits" | "commit" => Ok(SearchDocumentKind::Commit),
+        "issues" | "issue" => Ok(SearchDocumentKind::Issue),
+        "pull_requests" | "pull_request" | "pulls" | "pull" => Ok(SearchDocumentKind::PullRequest),
+        "users" | "user" => Ok(SearchDocumentKind::User),
+        "organizations" | "organization" | "orgs" | "org" => Ok(SearchDocumentKind::Organization),
+        "packages" | "package" => Ok(SearchDocumentKind::Package),
+        other => Err(SearchError::InvalidKind(other.to_owned())),
+    }
 }
 
 fn map_search_error(error: SearchError) -> (StatusCode, Json<ErrorEnvelope>) {

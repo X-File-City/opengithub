@@ -22,7 +22,7 @@
 
 ## Phase 2: Repository and People Results - `/search` renders real indexed results
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Connect the search page to the Rust API for repository, user, and organization result types. The page should render result count, filter sidebar, pagination, empty state with syntax tips, and type tabs using the existing Editorial shell instead of placeholder copy.
 

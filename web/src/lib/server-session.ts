@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import {
   type DashboardSummaryQuery,
+  type GlobalSearchQuery,
   getAppShellContextFromCookie,
   getDashboardSummaryFromCookie,
   getRepositoryBlameFromCookie,
@@ -13,6 +14,7 @@ import {
   getRepositoryPathFromCookie,
   getRepositoryRefsFromCookie,
   getSessionFromHeaders,
+  searchGlobalFromCookie,
 } from "@/lib/api";
 
 export async function getSession() {
@@ -33,6 +35,11 @@ export async function getSessionAndShellContext() {
 export async function getAppShellContext() {
   const requestHeaders = await headers();
   return getAppShellContextFromCookie(requestHeaders.get("cookie"));
+}
+
+export async function searchGlobal(query: GlobalSearchQuery) {
+  const requestHeaders = await headers();
+  return searchGlobalFromCookie(requestHeaders.get("cookie"), query);
 }
 
 export async function getDashboardSummary(query: DashboardSummaryQuery = {}) {

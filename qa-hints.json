@@ -1232,5 +1232,21 @@
       "Suggestions are sourced from the shell context only, so recently visited repository ordering and team/org availability should be checked against richer real account data",
       "Mobile keeps the existing drawer behavior and does not expose the desktop jump popover because the header search field is desktop-only in this phase"
     ]
+  },
+  {
+    "feature_id": "search-001",
+    "tests_written": [
+      "Rust API contract covers /api/search accepting UI type=users and type=organizations while preserving legacy kind filtering",
+      "Rust API contract verifies browser-friendly people/organization href, owner_login, display_name, and type projections",
+      "Vitest renders repository, user, and organization result cards with concrete links and no inert anchors",
+      "Vitest covers empty results syntax tips, validation error UX, and /api/search query path construction",
+      "Playwright signs in with a real Rust session, seeds search_documents, verifies repository/users/organizations tabs, no-results state, dead controls, and screenshot output"
+    ],
+    "needs_deeper_qa": [
+      "Search ranking is still Postgres full-text/trigram based and should be tuned with larger real repository content",
+      "Phase 2 covers repositories/users/organizations only; code, commits, issues, pull requests, and discussions are intentionally later search-001 phases",
+      "People and organization results depend on search_documents being indexed by future mutation paths; this phase verifies rendering and API projection with seeded documents",
+      "Full E2E emits many dynamic screenshots; only search-001-phase2-results.jpg is the intended new handoff screenshot for this phase"
+    ]
   }
 ]
