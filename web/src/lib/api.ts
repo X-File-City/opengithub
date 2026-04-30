@@ -106,6 +106,44 @@ export type CreatedRepository = RepositoryOverview & {
   href: string;
 };
 
+export type RepositoryImportRequest = {
+  sourceUrl: string;
+  sourceUsername?: string | null;
+  sourceToken?: string | null;
+  sourcePassword?: string | null;
+  ownerType: RepositoryOwnerType;
+  ownerId: string;
+  name: string;
+  description?: string | null;
+  visibility: Exclude<RepositoryVisibility, "internal">;
+};
+
+export type RepositoryImportStatusName =
+  | "queued"
+  | "importing"
+  | "imported"
+  | "failed";
+
+export type RepositoryImportStatus = {
+  id: string;
+  repositoryId: string;
+  requestedByUserId: string;
+  source: {
+    url: string;
+    host: string;
+    path: string;
+  };
+  status: RepositoryImportStatusName;
+  progressMessage: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  jobLeaseId: string | null;
+  repositoryHref: string;
+  statusHref: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ApiErrorEnvelope = {
   error: {
     code: string;
@@ -533,6 +571,56 @@ export async function createRepositoryFromCookie(
   }
 
   return (await response.json()) as CreatedRepository;
+}
+
+export async function createRepositoryImportFromCookie(
+  cookie: string | null | undefined,
+  request: RepositoryImportRequest,
+): Promise<RepositoryImportStatus> {
+  const response = await fetch(`${apiBaseUrl()}/api/repos/imports`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(cookie ? { cookie } : {}),
+    },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      body?.error.message ?? "Repository import could not start",
+      {
+        cause: body,
+      },
+    );
+  }
+
+  return (await response.json()) as RepositoryImportStatus;
+}
+
+export async function getRepositoryImportFromCookie(
+  cookie: string | null | undefined,
+  importId: string,
+): Promise<RepositoryImportStatus | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}/api/repos/imports/${importId}`, {
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as RepositoryImportStatus;
 }
 
 export async function logout(cookie: string | null): Promise<string | null> {

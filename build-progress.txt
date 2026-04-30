@@ -229,6 +229,16 @@
 - Browser smoke and `make test-e2e` skipped because this phase is backend worker ingestion only; the visible import wizard/status UI is Phase 3.
 - Marked Phase 2 as done in `.qrspi/repo-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
 
+2026-04-30 - repo-002 phase 3 import wizard and status page
+
+- Implemented Phase 3 from `.qrspi/repo-002/structure.md`: `/new/import` now renders a signed-in GitHub-style repository import wizard with source URL, optional credentials, owner/name, visibility, and a real `Begin import` submission.
+- Added same-origin Next.js proxy routes at `/new/imports` and `/new/imports/[importId]` that forward signed cookies to the Rust import create/status API without exposing submitted credentials back to the UI.
+- Added `/new/import/[importId]` plus `RepositoryImportStatusPanel` with queued/importing polling, imported completion CTA, failed callout, source/destination metadata, and no inert controls.
+- Added `web/tests/repository-import.test.tsx` and `web/tests/e2e/repository-import.spec.ts` covering API helpers, proxy route errors, form payloads, inline validation, status polling, dead-control checks, and a signed-in queued import flow against real Postgres.
+- Browser smoke: started `make dev` with a real local Postgres database, seeded a Rust-signed session, drove `/new/import` with Ever, submitted `https://github.com/octocat/Hello-World.git`, verified the queued status page, and saved `ralph/screenshots/build/repo-002-phase3-import-wizard.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 52 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 22 Playwright tests.
+- Marked Phase 3 as done in `.qrspi/repo-002/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
+
 - Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
 - Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
 - Did not change `prd.json`; `dashboard-001.build_pass` remains `false` until all implementation phases pass verification.

@@ -4,6 +4,7 @@ import {
   getDashboardSummaryFromCookie,
   getRepositoryCreationOptionsFromCookie,
   getRepositoryFromCookie,
+  getRepositoryImportFromCookie,
   getSessionFromHeaders,
 } from "@/lib/api";
 
@@ -24,4 +25,9 @@ export async function getRepository(owner: string, repo: string) {
 export async function getRepositoryCreationOptions() {
   const requestHeaders = await headers();
   return getRepositoryCreationOptionsFromCookie(requestHeaders.get("cookie"));
+}
+
+export async function getRepositoryImport(importId: string) {
+  const requestHeaders = await headers();
+  return getRepositoryImportFromCookie(requestHeaders.get("cookie"), importId);
 }

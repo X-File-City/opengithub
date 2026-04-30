@@ -42,7 +42,7 @@
 
 ## Phase 3: Import Wizard and Status Page - signed-in users can submit and watch progress
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace `/new/import` with the GitHub-style wizard and add a status page that polls the Rust import status until queued/importing/imported/failed. Every visible control submits real data, and completion links to the imported repository.
 

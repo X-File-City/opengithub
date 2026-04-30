@@ -1,33 +1,41 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { RepositoryImportForm } from "@/components/RepositoryImportForm";
-import { getRepositoryCreationOptions, getSession } from "@/lib/server-session";
+import { RepositoryImportStatusPanel } from "@/components/RepositoryImportStatusPanel";
+import { getRepositoryImport, getSession } from "@/lib/server-session";
 
-export default async function ImportRepositoryPage() {
-  const [session, options] = await Promise.all([
+type ImportStatusPageProps = {
+  params: Promise<{
+    importId: string;
+  }>;
+};
+
+export default async function ImportStatusPage({
+  params,
+}: ImportStatusPageProps) {
+  const { importId } = await params;
+  const [session, repositoryImport] = await Promise.all([
     getSession(),
-    getRepositoryCreationOptions(),
+    getRepositoryImport(importId),
   ]);
 
   return (
     <AppShell session={session}>
-      {options ? (
-        <RepositoryImportForm options={options} />
+      {repositoryImport ? (
+        <RepositoryImportStatusPanel initialImport={repositoryImport} />
       ) : (
         <section className="mx-auto max-w-3xl px-6 py-8">
           <div className="rounded-md border border-[#d0d7de] bg-white p-6">
             <h1 className="text-2xl font-semibold tracking-normal text-[#1f2328]">
-              Import your project to opengithub
+              Import not found
             </h1>
             <p className="mt-3 text-sm leading-6 text-[#59636e]">
-              Repository import options could not be loaded. Sign in again or
-              retry after the API is available.
+              This repository import is unavailable or belongs to another user.
             </p>
             <Link
               className="mt-5 inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-              href="/dashboard"
+              href="/new/import"
             >
-              Back to dashboard
+              Start another import
             </Link>
           </div>
         </section>

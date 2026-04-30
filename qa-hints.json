@@ -604,5 +604,22 @@
       "Browser import wizard/status polling remains deferred to repo-002 Phase 3",
       "Email/notification completion side effects remain deferred to repo-002 Phase 4"
     ]
+  },
+  {
+    "feature_id": "repo-002",
+    "tests_written": [
+      "Added typed frontend import API helpers for POST /api/repos/imports and GET /api/repos/imports/:id with signed-cookie forwarding",
+      "Vitest covers the import wizard defaults, source URL name derivation, normalized submission payloads, inline validation errors, same-origin create/status proxy routes, status polling, imported completion CTA, failed callout, and credential non-rendering",
+      "Playwright E2E uses a real Rust-signed Postgres session to load /new/import, verify required controls, reject a private-network source URL, submit a GitHub remote import, and land on the queued status page",
+      "Ever browser smoke used a real Rust-signed Postgres session, submitted a GitHub remote import through /new/import, verified the queued status page, and saved ralph/screenshots/build/repo-002-phase3-import-wizard.jpg",
+      "TEST_DATABASE_URL-backed make check, make test, and make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Phase 3 verifies queued UI/status polling but does not run the importer worker from the browser; Phase 4 should include completed and failed screenshots after worker execution hooks are exposed",
+      "Private-source username/token/password fields submit to the API and are not displayed back in UI, but credential use during git clone remains a Phase 4/security QA concern",
+      "Polling uses a 2.5s client interval and stops on imported/failed; QA should stress longer-running imports and refresh behavior",
+      "Email and in-app notification side effects are still deferred to repo-002 Phase 4",
+      "Large repositories, LFS objects, provider-specific auth failures, and DNS-rebinding/private-network resolution remain deeper QA targets"
+    ]
   }
 ]
