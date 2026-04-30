@@ -24,7 +24,7 @@
 
 ## Phase 2: Basic Repository Submit - create public/private repositories and redirect to overview
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Make the primary submit path work end-to-end for name, owner, description, visibility, and default branch without advanced bootstrap files. Successful creates redirect to `/{owner}/{repo}`; validation and availability errors stay inline without clearing the form.
 

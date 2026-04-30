@@ -12,7 +12,8 @@ use crate::{
     api_types::{database_unavailable, error_response, ErrorEnvelope},
     auth::extractor::AuthenticatedUser,
     domain::repositories::{
-        create_repository, get_repository_for_actor_by_owner_name, list_repositories_for_user,
+        create_repository, get_repository_for_actor_by_owner_name,
+        insert_repository_create_feed_event, list_repositories_for_user,
         repository_creation_options, repository_name_availability, CreateRepository,
         RepositoryError, RepositoryOwner, RepositoryVisibility,
     },
@@ -107,8 +108,13 @@ async fn create(
     )
     .await
     .map_err(map_repository_error)?;
+    insert_repository_create_feed_event(pool, &repository, actor.0.id)
+        .await
+        .map_err(map_repository_error)?;
+    let mut body = json!(repository);
+    body["href"] = json!(format!("/{}/{}", repository.owner_login, repository.name));
 
-    Ok((StatusCode::CREATED, Json(json!(repository))))
+    Ok((StatusCode::CREATED, Json(body)))
 }
 
 async fn creation_options(
@@ -176,7 +182,7 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
             "validation_failed",
             error.to_string(),
         ),
-        RepositoryError::InvalidName(_) => error_response(
+        RepositoryError::InvalidName(_) | RepositoryError::InvalidDescription(_) => error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
             "validation_failed",
             error.to_string(),

@@ -366,3 +366,13 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 37 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 19 Playwright tests.
 - Browser smoke: started `make dev` with `.env` loaded and the local Postgres test DB, seeded a real Rust-signed session, verified `/new` with Ever, checked normalized availability feedback, toggled README, exercised gitignore/license controls, and saved `ralph/screenshots/build/repo-001-phase1-form-options.jpg`.
 - Marked Phase 1 as done in `.qrspi/repo-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
+
+2026-04-30 - repo-001 phase 2 basic repository submit
+
+- Implemented Phase 2 from `.qrspi/repo-001/structure.md`: `/new` now submits repository creation through a same-origin Next.js route to Rust `POST /api/repos`, preserves form values on validation/conflict errors, and redirects to the created repository overview on success.
+- Rust repository creation now normalizes spaces to hyphens, trims and validates descriptions, enforces actor-owned personal/org owners, creates default labels, and route-level feed events for real HTTP creates while keeping direct seed/test helpers neutral.
+- Repository overview now shows owner/name, visibility, default branch, description, and empty-code guidance for newly created repositories.
+- Added `crates/api/tests/repository_create_flow.rs`, expanded `web/tests/repository-create.test.tsx`, and expanded `web/tests/e2e/repository-create.spec.ts` for successful creates, duplicate conflicts, owner denial, description validation, redirects, and overview content.
+- Verification: `make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 20 Playwright tests; `.scratch/repository-create-flow-scenario.sh` passed against the live Rust API.
+- Browser smoke: seeded a real Rust-signed Postgres session, started `make dev`, created a repository through `/new`, verified redirect, and saved `ralph/screenshots/build/repo-001-phase2-create-submit.jpg`.
+- Marked Phase 2 as done in `.qrspi/repo-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.

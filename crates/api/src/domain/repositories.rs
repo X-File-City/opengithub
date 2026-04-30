@@ -205,6 +205,8 @@ pub enum RepositoryError {
     InvalidVisibility(String),
     #[error("invalid repository name `{0}`")]
     InvalidName(String),
+    #[error("invalid repository description `{0}`")]
+    InvalidDescription(String),
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 }
@@ -383,7 +385,9 @@ pub async fn create_repository(
     input: CreateRepository,
 ) -> Result<Repository, RepositoryError> {
     ensure_owner_can_create(pool, &input.owner, input.created_by_user_id).await?;
-    validate_repository_name(&input.name).map_err(RepositoryError::InvalidName)?;
+    let normalized_name = normalize_repository_name(&input.name);
+    validate_repository_name(&normalized_name).map_err(RepositoryError::InvalidName)?;
+    let description = normalize_repository_description(input.description)?;
 
     let (owner_user_id, owner_organization_id) = match input.owner {
         RepositoryOwner::User { id } => (Some(id), None),
@@ -407,8 +411,8 @@ pub async fn create_repository(
     )
     .bind(owner_user_id)
     .bind(owner_organization_id)
-    .bind(&input.name)
-    .bind(&input.description)
+    .bind(&normalized_name)
+    .bind(&description)
     .bind(input.visibility.as_str())
     .bind(&input.default_branch)
     .bind(input.created_by_user_id)
@@ -426,6 +430,7 @@ pub async fn create_repository(
         "owner",
     )
     .await?;
+    ensure_default_repository_labels(pool, repository.id).await?;
     Ok(repository)
 }
 
@@ -852,6 +857,24 @@ pub fn normalize_repository_name(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join("-")
 }
 
+fn normalize_repository_description(
+    value: Option<String>,
+) -> Result<Option<String>, RepositoryError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let trimmed = value.trim().to_owned();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if trimmed.chars().count() > 350 {
+        return Err(RepositoryError::InvalidDescription(
+            "Repository description must be 350 characters or fewer.".to_owned(),
+        ));
+    }
+    Ok(Some(trimmed))
+}
+
 fn validate_repository_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
         return Err("Repository name is required.".to_owned());
@@ -870,6 +893,79 @@ fn validate_repository_name(name: &str) -> Result<(), String> {
                 .to_owned(),
         )
     }
+}
+
+async fn ensure_default_repository_labels(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<(), RepositoryError> {
+    const DEFAULT_LABELS: [(&str, &str, &str); 4] = [
+        ("bug", "d73a4a", "Something is not working"),
+        (
+            "documentation",
+            "0075ca",
+            "Improvements or additions to documentation",
+        ),
+        ("enhancement", "a2eeef", "New feature or request"),
+        ("good first issue", "7057ff", "Good for newcomers"),
+    ];
+
+    for (name, color, description) in DEFAULT_LABELS {
+        sqlx::query(
+            r#"
+            INSERT INTO labels (repository_id, name, color, description, is_default)
+            VALUES ($1, $2, $3, $4, true)
+            ON CONFLICT (repository_id, lower(name)) DO NOTHING
+            "#,
+        )
+        .bind(repository_id)
+        .bind(name)
+        .bind(color)
+        .bind(description)
+        .execute(pool)
+        .await?;
+    }
+
+    Ok(())
+}
+
+pub async fn insert_repository_create_feed_event(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<(), RepositoryError> {
+    sqlx::query(
+        r#"
+        INSERT INTO feed_events (
+            actor_user_id,
+            repository_id,
+            event_type,
+            title,
+            excerpt,
+            target_href,
+            subject_type,
+            subject_id,
+            metadata
+        )
+        VALUES ($1, $2, 'repository_create', $3, $4, $5, 'repository', $2, $6)
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(repository.id)
+    .bind(format!(
+        "Created repository {}/{}",
+        repository.owner_login, repository.name
+    ))
+    .bind(repository.description.as_deref())
+    .bind(format!("/{}/{}", repository.owner_login, repository.name))
+    .bind(serde_json::json!({
+        "visibility": repository.visibility.as_str(),
+        "defaultBranch": repository.default_branch,
+    }))
+    .execute(pool)
+    .await?;
+
+    Ok(())
 }
 
 fn suggested_repository_name(actor_user_id: Uuid) -> String {

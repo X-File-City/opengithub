@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useMemo, useState } from "react";
 import type {
   RepositoryCreationOptions,
   RepositoryNameAvailability,
@@ -28,6 +29,7 @@ function ownerKey(ownerType: RepositoryOwnerType, ownerId: string) {
 }
 
 export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
+  const router = useRouter();
   const [selectedOwnerKey, setSelectedOwnerKey] = useState(() => {
     const firstOwner = options.owners[0];
     return firstOwner
@@ -47,6 +49,9 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
   const [availabilityStatus, setAvailabilityStatus] = useState<
     "idle" | "checking" | "error"
   >("idle");
+  const [submitting, setSubmitting] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const selectedOwner = useMemo(
     () =>
@@ -98,10 +103,64 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
     }
   }
 
-  const createDisabled = true;
+  async function submitRepository(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNameError(null);
+    setFormError(null);
+
+    if (!selectedOwner) {
+      setFormError("Choose an owner before creating the repository.");
+      return;
+    }
+    if (!normalizedName) {
+      setNameError("Repository name is required.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await fetch("/new/repositories", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ownerType: selectedOwner.ownerType,
+          ownerId: selectedOwner.id,
+          name,
+          description,
+          visibility,
+          defaultBranch: "main",
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        const message =
+          body?.error?.message ?? "Repository could not be created.";
+        if (
+          body?.error?.code === "conflict" ||
+          body?.error?.code === "validation_failed"
+        ) {
+          setNameError(message);
+        } else {
+          setFormError(message);
+        }
+        setSubmitting(false);
+        return;
+      }
+
+      router.push(body.href ?? `/${selectedOwner.login}/${normalizedName}`);
+    } catch {
+      setFormError("Repository could not be created. Try again.");
+      setSubmitting(false);
+    }
+  }
+
+  const createDisabled = submitting || !selectedOwner || !normalizedName;
 
   return (
-    <form className="mx-auto max-w-[760px] px-4 py-7 sm:px-6">
+    <form
+      className="mx-auto max-w-[760px] px-4 py-7 sm:px-6"
+      onSubmit={(event) => void submitRepository(event)}
+    >
       <header className="border-b border-[#d0d7de] pb-5">
         <h1 className="text-2xl font-semibold tracking-normal text-[#1f2328]">
           Create a new repository
@@ -161,6 +220,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                 onChange={(event) => {
                   setName(event.target.value);
                   setAvailability(null);
+                  setNameError(null);
                 }}
                 required
               />
@@ -207,6 +267,11 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
               {availability.available
                 ? `${availability.normalizedName} is available.`
                 : availability.reason}
+            </p>
+          ) : null}
+          {nameError ? (
+            <p className="mt-2 text-sm text-[#cf222e]" role="alert">
+              {nameError}
             </p>
           ) : null}
           <label className="mt-4 block">
@@ -386,13 +451,17 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
       </section>
 
       <div className="ml-[52px] flex justify-end border-t border-[#d0d7de] pt-5">
+        {formError ? (
+          <p className="mr-4 self-center text-sm text-[#cf222e]" role="alert">
+            {formError}
+          </p>
+        ) : null}
         <button
           className="h-9 rounded-md bg-[#1f883d] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           disabled={createDisabled}
-          type="button"
-          title="Repository creation submit is enabled in the next phase"
+          type="submit"
         >
-          Create repository
+          {submitting ? "Creating..." : "Create repository"}
         </button>
       </div>
     </form>

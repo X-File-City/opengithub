@@ -73,6 +73,27 @@ export type RepositoryNameAvailability = {
   reason: string | null;
 };
 
+export type CreateRepositoryRequest = {
+  ownerType: RepositoryOwnerType;
+  ownerId: string;
+  name: string;
+  description?: string | null;
+  visibility: Exclude<RepositoryVisibility, "internal">;
+  defaultBranch?: string | null;
+};
+
+export type CreatedRepository = RepositorySummary & {
+  href: string;
+};
+
+export type ApiErrorEnvelope = {
+  error: {
+    code: string;
+    message: string;
+  };
+  status: number;
+};
+
 export type DashboardTopRepository = {
   ownerLogin: string;
   name: string;
@@ -466,6 +487,32 @@ export async function getRepositoryNameAvailabilityFromCookie(
   }
 
   return (await response.json()) as RepositoryNameAvailability;
+}
+
+export async function createRepositoryFromCookie(
+  cookie: string | null | undefined,
+  request: CreateRepositoryRequest,
+): Promise<CreatedRepository> {
+  const response = await fetch(`${apiBaseUrl()}/api/repos`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(cookie ? { cookie } : {}),
+    },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(body?.error.message ?? "Repository could not be created", {
+      cause: body,
+    });
+  }
+
+  return (await response.json()) as CreatedRepository;
 }
 
 export async function logout(cookie: string | null): Promise<string | null> {

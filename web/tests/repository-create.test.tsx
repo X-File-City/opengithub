@@ -8,12 +8,22 @@ import {
 import type { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET as nameAvailabilityRoute } from "@/app/new/name-availability/route";
+import { POST as createRepositoryRoute } from "@/app/new/repositories/route";
 import { RepositoryCreateForm } from "@/components/RepositoryCreateForm";
-import type { RepositoryCreationOptions } from "@/lib/api";
+import type { CreatedRepository, RepositoryCreationOptions } from "@/lib/api";
 import {
+  createRepositoryFromCookie,
   getRepositoryCreationOptionsFromCookie,
   repositoryNameAvailabilityPath,
 } from "@/lib/api";
+
+const routerPush = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: routerPush,
+  }),
+}));
 
 function creationOptions(): RepositoryCreationOptions {
   return {
@@ -68,9 +78,28 @@ function creationOptions(): RepositoryCreationOptions {
   };
 }
 
+function createdRepository(): CreatedRepository {
+  return {
+    id: "repo-1",
+    owner_user_id: "user-1",
+    owner_organization_id: null,
+    owner_login: "mona",
+    name: "my-new-repo",
+    description: "Created through the form",
+    visibility: "public",
+    default_branch: "main",
+    is_archived: false,
+    created_by_user_id: "user-1",
+    created_at: "2026-04-30T00:00:00Z",
+    updated_at: "2026-04-30T00:00:00Z",
+    href: "/mona/my-new-repo",
+  };
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  routerPush.mockReset();
 });
 
 describe("repository creation API helpers", () => {
@@ -148,10 +177,115 @@ describe("repository creation API helpers", () => {
       },
     );
   });
+
+  it("creates repositories with the signed session cookie", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(createdRepository()), {
+        status: 201,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("API_URL", "http://api.local");
+
+    await expect(
+      createRepositoryFromCookie("og_session=value", {
+        ownerType: "user",
+        ownerId: "user-1",
+        name: "my new repo",
+        description: "Created through the form",
+        visibility: "public",
+        defaultBranch: "main",
+      }),
+    ).resolves.toMatchObject({ href: "/mona/my-new-repo" });
+    expect(fetchMock).toHaveBeenCalledWith("http://api.local/api/repos", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: "og_session=value",
+      },
+      body: JSON.stringify({
+        ownerType: "user",
+        ownerId: "user-1",
+        name: "my new repo",
+        description: "Created through the form",
+        visibility: "public",
+        defaultBranch: "main",
+      }),
+      cache: "no-store",
+    });
+  });
+
+  it("proxies repository creation and preserves API error envelopes", async () => {
+    const successFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(createdRepository()), {
+        status: 201,
+      }),
+    );
+    vi.stubGlobal("fetch", successFetch);
+    vi.stubEnv("API_URL", "http://api.local");
+    const successRequest = new Request(
+      "http://localhost:3015/new/repositories",
+      {
+        method: "POST",
+        headers: {
+          cookie: "og_session=value",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          ownerType: "user",
+          ownerId: "user-1",
+          name: "my new repo",
+          description: "Created through the form",
+          visibility: "public",
+          defaultBranch: "main",
+        }),
+      },
+    ) as NextRequest;
+
+    const successResponse = await createRepositoryRoute(successRequest);
+    expect(successResponse.status).toBe(201);
+    await expect(successResponse.json()).resolves.toMatchObject({
+      href: "/mona/my-new-repo",
+    });
+
+    const conflictFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "conflict",
+            message: "A repository with this name already exists.",
+          },
+          status: 409,
+        }),
+        { status: 409 },
+      ),
+    );
+    vi.stubGlobal("fetch", conflictFetch);
+    const conflictRequest = new Request(
+      "http://localhost:3015/new/repositories",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ownerType: "user",
+          ownerId: "user-1",
+          name: "my-new-repo",
+          visibility: "public",
+        }),
+      },
+    ) as NextRequest;
+
+    const conflictResponse = await createRepositoryRoute(conflictRequest);
+    expect(conflictResponse.status).toBe(409);
+    await expect(conflictResponse.json()).resolves.toMatchObject({
+      error: { code: "conflict" },
+      status: 409,
+    });
+  });
 });
 
 describe("RepositoryCreateForm", () => {
-  it("renders GitHub-style owner, name, configuration, and disabled submit controls", () => {
+  it("renders GitHub-style owner, name, configuration, and submit controls", () => {
     render(<RepositoryCreateForm options={creationOptions()} />);
 
     expect(
@@ -173,6 +307,82 @@ describe("RepositoryCreateForm", () => {
       screen.getByRole("button", { name: "Create repository" }),
     ).toBeDisabled();
     expect(screen.queryByRole("link", { name: "#" })).not.toBeInTheDocument();
+  });
+
+  it("submits repository creation and redirects without clearing selected fields", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(createdRepository()), {
+        status: 201,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RepositoryCreateForm options={creationOptions()} />);
+
+    fireEvent.change(screen.getByLabelText("Repository name *"), {
+      target: { value: "my new repo" },
+    });
+    fireEvent.change(screen.getByLabelText(/Description/), {
+      target: { value: "Created through the form" },
+    });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: /Choose visibility/ }),
+      {
+        target: { value: "private" },
+      },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+
+    await waitFor(() =>
+      expect(routerPush).toHaveBeenCalledWith("/mona/my-new-repo"),
+    );
+    expect(fetchMock).toHaveBeenCalledWith("/new/repositories", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ownerType: "user",
+        ownerId: "user-1",
+        name: "my new repo",
+        description: "Created through the form",
+        visibility: "private",
+        defaultBranch: "main",
+      }),
+    });
+  });
+
+  it("keeps form values and shows inline conflict errors", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "conflict",
+            message: "A repository with this name already exists.",
+          },
+          status: 409,
+        }),
+        { status: 409 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RepositoryCreateForm options={creationOptions()} />);
+
+    fireEvent.change(screen.getByLabelText("Repository name *"), {
+      target: { value: "my-new-repo" },
+    });
+    fireEvent.change(screen.getByLabelText(/Description/), {
+      target: { value: "Keep me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("A repository with this name already exists."),
+      ).toBeVisible(),
+    );
+    expect(screen.getByLabelText("Repository name *")).toHaveValue(
+      "my-new-repo",
+    );
+    expect(screen.getByLabelText(/Description/)).toHaveValue("Keep me");
+    expect(routerPush).not.toHaveBeenCalled();
   });
 
   it("normalizes spaces, fills suggested names, and reports availability", async () => {

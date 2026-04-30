@@ -105,3 +105,40 @@ test("signed-in repository creation options render and check availability", asyn
   ).toBeVisible();
   await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
 });
+
+test("signed-in repository creation submits, redirects, and reports duplicates", async ({
+  page,
+}) => {
+  const seeded = seedSession();
+  await signIn(page, seeded);
+  const repositoryName = `playwright repo ${Date.now().toString(36)}`;
+
+  await page.goto("/new");
+  await page.getByLabel("Repository name *").fill(repositoryName);
+  await page
+    .getByLabel(/Description/)
+    .fill("Created by the Playwright submit flow");
+  await page
+    .getByRole("combobox", { name: /Choose visibility/ })
+    .selectOption("private");
+  await page.getByRole("button", { name: "Create repository" }).click();
+
+  const normalizedName = repositoryName.replaceAll(/\s+/g, "-");
+  await expect(page).toHaveURL(new RegExp(`/${normalizedName}$`));
+  await expect(
+    page.getByRole("heading", { name: normalizedName }),
+  ).toBeVisible();
+  await expect(page.getByText("private")).toBeVisible();
+  await expect(page.getByText("Default branch")).toBeVisible();
+  await expect(
+    page.getByText("Created by the Playwright submit flow"),
+  ).toBeVisible();
+
+  await page.goto("/new");
+  await page.getByLabel("Repository name *").fill(repositoryName);
+  await page.getByRole("button", { name: "Create repository" }).click();
+  await expect(page.getByText(/already exists|duplicate/i)).toBeVisible();
+  await expect(page.getByLabel("Repository name *")).toHaveValue(
+    repositoryName,
+  );
+});

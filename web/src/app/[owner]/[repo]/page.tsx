@@ -27,21 +27,31 @@ export default async function RepositoryOverviewPage({
           <div className="space-y-5">
             <div className="border-b border-[#d0d7de] pb-4">
               <p className="text-sm text-[#59636e]">{repository.owner_login}</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-normal text-[#1f2328]">
-                {repository.name}
-              </h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-normal text-[#1f2328]">
+                  {repository.name}
+                </h1>
+                <span className="rounded-full border border-[#d0d7de] px-2 py-0.5 text-xs font-semibold capitalize text-[#59636e]">
+                  {repository.visibility}
+                </span>
+              </div>
               {repository.description ? (
                 <p className="mt-2 text-sm leading-6 text-[#59636e]">
                   {repository.description}
                 </p>
               ) : null}
+              <p className="mt-3 text-sm text-[#59636e]">
+                Default branch{" "}
+                <span className="font-mono text-[#1f2328]">
+                  {repository.default_branch}
+                </span>
+              </p>
             </div>
             <div className="rounded-md border border-[#d0d7de] bg-white p-5">
               <h2 className="text-base font-semibold text-[#1f2328]">Code</h2>
               <p className="mt-2 text-sm leading-6 text-[#59636e]">
-                Branches, files, commits, and README rendering are scheduled for
-                the repository overview feature. This page keeps dashboard
-                repository rows navigable today.
+                This repository is ready. Add a README, push an existing
+                project, or choose bootstrap files in the next creation phase.
               </p>
             </div>
           </div>

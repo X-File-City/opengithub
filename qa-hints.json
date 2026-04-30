@@ -517,5 +517,23 @@
       "Availability checks normalize spaces to hyphens but do not reserve names client-side; race/conflict behavior belongs to Phase 2 create submit",
       "Manual screen reader review for details/listbox behavior should happen during Phase 4 polish"
     ]
+  },
+  {
+    "feature_id": "repo-001",
+    "tests_written": [
+      "Postgres-backed Rust tests cover repository submit normalization, description trimming, default labels, feed-event creation through the HTTP route, unauthorized owner denial, duplicate conflicts, and long-description validation",
+      "Vitest coverage verifies createRepositoryFromCookie, the same-origin /new/repositories proxy, successful form submit redirect, and inline conflict handling without clearing form values",
+      "Playwright E2E creates a signed-in private repository through /new, verifies redirect to /{owner}/{repo}, overview visibility/default branch/description, and duplicate-name inline feedback",
+      "Live .scratch scenario created a repository over HTTP through the Rust API with a real Postgres-backed signed session",
+      "Browser smoke created a repository through the live Next.js form and saved ralph/screenshots/build/repo-001-phase2-create-submit.jpg",
+      "make check, TEST_DATABASE_URL-backed make test, and TEST_DATABASE_URL-backed make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Bootstrap selections for README, template, gitignore, and license are still not submitted; Phase 3 owns content creation and file-list verification",
+      "Feed-event insertion is route-level so test/seed helpers do not pollute dashboard fixtures; QA should retest dashboard feed visibility for repository_create events created through the UI",
+      "Default labels are created for new repositories, but label management UI is a later feature",
+      "Duplicate-name handling is verified sequentially; QA should probe concurrent duplicate creates for race behavior",
+      "Phase 4 still needs keyboard/mobile polish for dense selectors and broader accessibility review"
+    ]
   }
 ]
