@@ -54,6 +54,35 @@
     "qa_pass": false
   },
   {
+    "id": "markdown-001",
+    "category": "feature",
+    "description": "Site-wide Markdown rendering pipeline (CommonMark + GFM + extensions). Renders README.md, issue/PR/discussion bodies, comments, and wiki pages. Supports fenced code blocks with language hints, mermaid diagrams, math (KaTeX), task lists, footnotes, autolinks, @-mentions, #issue-links, and emoji shortcodes.",
+    "page": "cross-cutting (every surface that displays user-authored Markdown)",
+    "priority": "P1",
+    "ui_details": "Sanitized HTML inside .markdown-body container with Primer-style typography. Headings get auto anchor links (hover paragraph mark). Code blocks have copy button + language label. Tables get sticky header on long tables. Task lists are interactive when viewer has write access (POST toggle). Mermaid renders as SVG. KaTeX for math. Images autoresize <= container width. External links get rel=noopener noreferrer. Markdown editor toolbar (bold/italic/code/link/image/list/task/quote) with live Preview tab.",
+    "behavior": "Server-side render via pulldown-cmark -> AST -> HTML; sanitize via ammonia (allowlist tags/attrs); rewrite relative image/link paths to repo blob URLs at the current ref; resolve @username and #issue references to live links; cache rendered HTML keyed by (content_sha, repo_id, ref). Editor preview hits the same render endpoint for fidelity.",
+    "data_model": "rendered_markdown_cache(content_sha, repository_id|null, ref|null, html, rendered_at) \u2014 TTL-managed; no user data of its own.",
+    "dependent_on": [
+      "infra-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "highlight-001",
+    "category": "feature",
+    "description": "Source-file syntax highlighting via Tree-sitter. Powers the file viewer, diff viewer, and PR review thread code excerpts. Supports 50+ languages with semantic token classes. Falls back to Linguist-style heuristic detection for ambiguous extensions.",
+    "page": "/<owner>/<repo>/blob/<ref>/<path>, /<owner>/<repo>/pull/<n>/files, /<owner>/<repo>/commit/<sha>",
+    "priority": "P1",
+    "ui_details": "Code surface with line numbers, gutter blame/comment-add button on hover, theme-aware token colors (light + dark), language label dropdown to override detection, Symbols sidebar (functions/classes from Tree-sitter outline), Wrap toggle, Find-in-file (Cmd-F).",
+    "behavior": "At index time (search-006 worker), generate Tree-sitter token stream and store as compact byte ranges per (sha, path). At render: server returns text + token map; client renders HTML with token classes mapped to CSS variables defined by theme-001. Diff viewer applies same highlighting per line. Tree-sitter grammars compiled into the API binary.",
+    "data_model": "file_tokens(repository_id, sha, path, language, token_ranges bytea, generated_at) \u2014 generated once per (sha, path), cached.",
+    "dependent_on": [
+      "theme-001",
+      "search-006"
+    ],
+    "build_pass": false
+  },
+  {
     "id": "onboarding-001",
     "category": "onboarding",
     "description": "Create first-run dashboard onboarding for users with no repositories.",
@@ -2223,6 +2252,54 @@
     "dependent_on": [
       "auth-001",
       "infra-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "social-001",
+    "category": "feature",
+    "description": "Social loop primitives: star, fork, watch (subscribe), and follow (user-to-user). Drives the home activity feed, repo discoverability, and notification fan-out.",
+    "page": "repo header (Star/Fork/Watch buttons), /<owner>/<repo>/stargazers, /<owner>/<repo>/network/members, /<user> (Follow button), /<user>/followers, /<user>/following, /stars",
+    "priority": "P2",
+    "ui_details": "Star button with count and hover popover \"Add to list\" submenu (named star lists). Fork modal: destination owner, default name with -fork suffix, \"Copy main branch only\" toggle. Watch dropdown (Participating / All / Releases only / Custom / Ignore). Follow button on profiles + suggested-people sidebar. /stars page with list filter, sort, search.",
+    "behavior": "Stars: insert into stars(user_id, repo_id, list_id|null). Forks: server-side git clone within S3-backed git storage (shared object dedup), new repository row owned by destination with parent_repository_id set, refs copied. Watch: subscriptions(user_id, repo_id, mode) feeds notification routing. Follow: follows(follower_id, followee_id) feeds the home feed query.",
+    "data_model": "stars(user_id, repository_id, list_id nullable, created_at); star_lists(id, user_id, name, description, is_private); subscriptions(user_id, repository_id, mode enum, ignored_at nullable); follows(follower_id, followee_id, created_at). repositories extended with parent_repository_id, source_repository_id, forks_count, stargazers_count.",
+    "dependent_on": [
+      "infra-001",
+      "repo-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "gist-001",
+    "category": "feature",
+    "description": "Gists \u2014 single-file or multi-file snippets at /gist/<id> with their own git history, public/secret visibility, fork/star, embeds, and revisions.",
+    "page": "/gist (your gists), /gist/new, /gist/<id>, /gist/<id>/edit, /gist/<id>/revisions",
+    "priority": "P3",
+    "ui_details": "New-gist form with file tabs (+ add file), per-file language detection, Public vs Secret toggle, description input. View page with embed snippet (<script src=...>), Star/Fork buttons (reuses social-001), comments section. Profile sidebar gets a Public gists widget.",
+    "behavior": "Each gist is a real git repo backed by the same S3-backed storage; `git clone https://opengithub.namuh.co/gist/<id>.git` works. Embed endpoint returns a self-contained <div> + token CSS to render in third-party pages. Secret gists are unlisted (URL-only access, not in search) but not auth-gated.",
+    "data_model": "gists(id, owner_id, description, is_public, created_at, updated_at); gist_files(gist_id, filename, language, size_bytes, content_sha); gist_comments mirrors issue_comments shape.",
+    "dependent_on": [
+      "infra-001",
+      "social-001",
+      "markdown-001",
+      "highlight-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "ai-001",
+    "category": "feature",
+    "description": "AI surface \u2014 repository auto-summary card, AI-generated PR summary + suggested reviewers, AI changelog from commit history. Uses the same Codex/OpenAI provider backing the build loop.",
+    "page": "repo header (AI summary card), /<owner>/<repo>/pull/<n> (AI summary tab), /<owner>/<repo>/releases/<tag> (Generate changelog with AI button)",
+    "priority": "P2",
+    "ui_details": "Repo summary card under repo header with skeleton loader + Regenerate action, fed by README + top-level files + recent commit messages. PR AI tab: TL;DR, files-of-interest list with one-line risk note each, suggested reviewers (CODEOWNERS + recent committers heuristic), inline-comment seed visible only to PR author. AI changelog modal in releases (Compare from <prev tag>) with grouped Added/Changed/Fixed/Deprecated bullets, Edit before publish.",
+    "behavior": "Inference behind /api/ai/* endpoints. Per-repo opt-in setting; private-repo content never leaves the cluster unless toggled. Server-side caching keyed on (content_hash, prompt_version, model). Rate-limited per user via api-003 buckets. For PR summary: send diff (truncated to ~30k tokens), file tree, commit messages; for changelog: send commit log between two refs.",
+    "data_model": "ai_outputs(id, kind enum [repo_summary, pr_summary, changelog, ...], scope_type, scope_id, content_hash, prompt_version, model, output text, generated_at, regenerated_count); user_settings.ai_features_enabled; repository_settings.ai_features_enabled.",
+    "dependent_on": [
+      "auth-002",
+      "api-003",
+      "markdown-001"
     ],
     "build_pass": false
   }
