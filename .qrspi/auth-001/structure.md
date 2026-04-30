@@ -42,7 +42,7 @@
 
 ## Phase 3: Next.js Login and Protected Shell — users can enter and leave auth-walled pages
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Scaffold `web/` if still absent, add the compact opengithub login page, API client primitives, protected dashboard route, and redirect behavior for unauthenticated users. The UI remains a thin client over the Rust API.
 

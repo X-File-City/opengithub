@@ -112,5 +112,21 @@
       "Cookie Secure/__Host behavior should be rechecked in Phase 4 hardening because local dev currently permits insecure cookies",
       "Browser smoke test skipped because auth-001 Phase 2 is backend callback/session API only"
     ]
+  },
+  {
+    "feature_id": "auth-001",
+    "tests_written": [
+      "Next.js /login renders a compact opengithub sign-in card with only Continue with Google",
+      "OAuth start URL generation preserves safe next paths and normalizes unsafe external URLs",
+      "Login page renders inline oauth_failed callback errors",
+      "Anonymous /dashboard redirects to /login?next=/dashboard",
+      "Ever browser smoke verified the Google button navigates to the Rust /api/auth/google/start flow and reaches Google OAuth"
+    ],
+    "needs_deeper_qa": [
+      "Complete real Google account selection and callback with TEST_ACCOUNT_EMAIL in Phase 4",
+      "Authenticated dashboard rendering was not browser-verified because it requires a real Google callback session",
+      "Playwright auth setup and stored auth state are intentionally deferred to auth-001 Phase 4",
+      "npm install reported transitive dependency audit findings from scaffold/test tooling; no production dependency audit remediation was done in this phase"
+    ]
   }
 ]

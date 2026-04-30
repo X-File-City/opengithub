@@ -88,3 +88,15 @@
 - Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test auth_callback_session -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed.
 - Browser smoke test skipped because Phase 2 is backend callback/session API only; Next.js login UI and E2E auth foundation are Phases 3 and 4.
 - Marked Phase 2 as done in `.qrspi/auth-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
+
+2026-04-30 - auth-001 phase 3 Next.js login and protected shell
+
+- Implemented Phase 3 from `.qrspi/auth-001/structure.md`: scaffolded `web/` with Next.js + TypeScript + Tailwind, registered Vitest/Playwright/Biome scripts, and pinned the dev/start port to `3015`.
+- Added `web/src/lib/api.ts` with typed Rust API helpers for `GET /api/auth/me`, `POST /api/auth/logout`, safe `next` handling, and Google OAuth start URL construction.
+- Added the opengithub-styled `/login` page with a single `Continue with Google` action, inline OAuth error state, footer links, and no password/email/passkey/Apple login fields.
+- Added protected `/dashboard` server route behavior that redirects anonymous users to `/login?next=/dashboard` and renders signed-in identity when a Rust session is present.
+- Added `/logout` route handler that calls the Rust logout endpoint and forwards the clearing cookie before redirecting home.
+- Added `web/tests/auth-login.test.tsx` covering OAuth start URL generation, unsafe next-path normalization, login UI field exclusions, and inline callback error rendering.
+- Verification: `make check` passed; `make test` passed with 4 frontend tests plus cargo tests.
+- Browser smoke: started `make dev` with `.env` loaded, verified `/login`, clicked `Continue with Google` through `/api/auth/google/start` to Google OAuth, verified `/dashboard` redirects to `/login?next=/dashboard`, and saved `ralph/screenshots/build/auth-001-phase3-login.jpg`.
+- Marked Phase 3 as done in `.qrspi/auth-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
