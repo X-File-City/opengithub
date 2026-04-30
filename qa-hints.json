@@ -146,5 +146,22 @@
       "Local __Host-session plus insecure localhost behavior should be checked in the target browsers used by QA; current local config follows BUILD_GUIDE by not setting Secure on localhost",
       "Playwright auth setup currently stores anonymous state only; upgrade it to a real authenticated state after the real Google callback path is stable"
     ]
+  },
+  {
+    "feature_id": "auth-002",
+    "tests_written": [
+      "protected /api/auth/current-user rejects missing cookies with a standard JSON 401 envelope",
+      "protected route rejects tampered signed session cookies without leaking cookie values",
+      "protected route rejects expired and revoked Postgres sessions with JSON 401",
+      "protected route returns the authenticated user for a valid signed __Host-session cookie",
+      "valid cookies return database_unavailable when the API has no database pool",
+      ".scratch/auth-route-guard-scenario.sh passed against TEST_DATABASE_URL-backed Postgres",
+      "make check and make test passed"
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 protects only the representative /api/auth/current-user route; repository APIs are intentionally deferred to auth-002 Phase 2",
+      "Browser smoke test skipped because this phase is backend-only and changed no UI surface",
+      "Real Google-created browser sessions should be rechecked once Next.js middleware and authenticated shell land in later phases"
+    ]
   }
 ]

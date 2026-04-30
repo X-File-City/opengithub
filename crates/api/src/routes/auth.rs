@@ -8,9 +8,10 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{
-    api_types::{database_unavailable, error_response, ErrorEnvelope},
+    api_types::{database_unavailable, error_response, unauthorized, ErrorEnvelope},
     auth::{
         self,
+        extractor::AuthenticatedUser,
         google::GoogleUserInfo,
         session::{self, SessionError},
         AuthError,
@@ -24,6 +25,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/auth/google/start", get(start_google))
         .route("/api/auth/google/callback", get(callback_google))
         .route("/api/auth/me", get(me))
+        .route("/api/auth/current-user", get(current_user))
         .route("/api/auth/logout", post(logout))
 }
 
@@ -112,6 +114,17 @@ pub async fn me(
             user: None,
         },
     }))
+}
+
+pub async fn current_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<AuthUser>, (StatusCode, Json<ErrorEnvelope>)> {
+    Ok(Json(
+        AuthenticatedUser::from_headers(&state, &headers)
+            .await?
+            .into_auth_user(),
+    ))
 }
 
 pub async fn logout(
@@ -269,11 +282,7 @@ fn map_session_error(error: SessionError) -> (StatusCode, Json<ErrorEnvelope>) {
     match error {
         SessionError::Database(_) => database_unavailable(),
         SessionError::MissingConfig | SessionError::InvalidCookie | SessionError::Signing => {
-            error_response(
-                StatusCode::UNAUTHORIZED,
-                "not_authenticated",
-                "No active session is available",
-            )
+            unauthorized()
         }
     }
 }

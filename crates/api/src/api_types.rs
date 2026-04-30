@@ -46,3 +46,15 @@ pub fn database_unavailable() -> (StatusCode, Json<ErrorEnvelope>) {
         "database connection is not available",
     )
 }
+
+pub fn unauthorized() -> (StatusCode, Json<ErrorEnvelope>) {
+    error_response(
+        StatusCode::UNAUTHORIZED,
+        "not_authenticated",
+        "No active session is available",
+    )
+}
+
+pub fn forbidden(message: impl Into<String>) -> (StatusCode, Json<ErrorEnvelope>) {
+    error_response(StatusCode::FORBIDDEN, "forbidden", message)
+}

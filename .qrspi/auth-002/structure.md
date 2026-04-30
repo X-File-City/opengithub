@@ -6,7 +6,7 @@
 
 ## Phase 1: Rust Session Guard - protected API routes reject anonymous requests consistently
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Turn the existing signed cookie/session helpers into reusable Axum request guards for protected JSON APIs. This phase should protect one narrow representative route before broader permission rewiring.
 

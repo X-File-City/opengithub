@@ -34,6 +34,22 @@ pub enum SessionError {
     Database(#[from] sqlx::Error),
 }
 
+#[derive(Debug, Error)]
+pub enum SessionVerificationError {
+    #[error("database connection is not available")]
+    MissingDatabase,
+    #[error("session cookie is missing")]
+    MissingCookie,
+    #[error("session cookie is malformed")]
+    InvalidCookie,
+    #[error("auth is not configured")]
+    MissingConfig,
+    #[error("session is expired or revoked")]
+    NoActiveSession,
+    #[error(transparent)]
+    Database(#[from] sqlx::Error),
+}
+
 pub async fn issue_session(
     pool: &sqlx::PgPool,
     config: &AppConfig,
@@ -68,6 +84,26 @@ pub async fn current_user_from_headers(
     };
 
     Ok(Some(user))
+}
+
+pub async fn require_current_user_from_headers(
+    pool: Option<&sqlx::PgPool>,
+    config: &AppConfig,
+    headers: &HeaderMap,
+) -> Result<User, SessionVerificationError> {
+    let session_id = session_id_from_headers(config, headers).map_err(|error| match error {
+        SessionError::MissingConfig => SessionVerificationError::MissingConfig,
+        SessionError::InvalidCookie | SessionError::Signing => {
+            SessionVerificationError::InvalidCookie
+        }
+        SessionError::Database(error) => SessionVerificationError::Database(error),
+    })?;
+    let session_id = session_id.ok_or(SessionVerificationError::MissingCookie)?;
+    let pool = pool.ok_or(SessionVerificationError::MissingDatabase)?;
+
+    identity::get_user_by_active_session(pool, &session_id)
+        .await?
+        .ok_or(SessionVerificationError::NoActiveSession)
 }
 
 pub async fn revoke_from_headers(

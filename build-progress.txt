@@ -117,3 +117,12 @@
 - Added `.qrspi/auth-002/structure.md` with four independently verifiable vertical phases: Rust session guard, repository API authorization, Next.js middleware/protected shell, and E2E/error-UX hardening.
 - Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - auth-002 phase 1 Rust session guard
+
+- Implemented Phase 1 from `.qrspi/auth-002/structure.md`: added a reusable session verification primitive, `AuthenticatedUser` guard helper, shared `unauthorized`/`forbidden` API envelope helpers, and representative protected `GET /api/auth/current-user`.
+- Kept `GET /api/auth/me` anonymous-friendly while routing protected JSON behavior through the same signed-cookie/session verification path.
+- Added `crates/api/tests/auth_route_guard.rs` covering missing cookies, tampered cookies, expired sessions, revoked sessions, DB-unavailable behavior after a valid cookie, and valid session success.
+- Verification: `cargo test --test auth_route_guard` passed; `.scratch/auth-route-guard-scenario.sh` passed against `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`; `make check` passed; `make test` passed.
+- Browser smoke test skipped because this phase is backend-only and changed no UI surface.
+- Marked Phase 1 as done in `.qrspi/auth-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
