@@ -316,7 +316,7 @@
       "api-001"
     ],
     "needs_structure": false,
-    "build_pass": false,
+    "build_pass": true,
     "qa_pass": false
   },
   {

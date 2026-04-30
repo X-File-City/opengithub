@@ -738,3 +738,15 @@
 - Browser smoke/E2E refreshed the API docs screenshots through the existing `/docs/api` Playwright flow: `ralph/screenshots/build/api-001-docs.jpg` and `ralph/screenshots/build/api-001-docs-mobile.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test .scratch/api-contract-hardening-scenario.sh` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 75 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 33 Playwright tests.
 - Marked Phase 5 as done in `.qrspi/api-001/structure.md` and set `api-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - dx-001 developer workflow docs and token settings
+
+- Implemented the simple `dx-001` feature end-to-end: added protected `/settings/tokens` with Personal access token guidance, recommended scopes, opengithub-only REST/Git command snippets, and working copy buttons.
+- Added reusable `CopyButton` and `DeveloperCommandBlock` components, then wired copy buttons into `/docs/api` request/response examples and `/docs/git` clone/push/raw/archive examples.
+- Linked developer references between `/settings/tokens`, `/docs/api`, `/docs/git`, and `/docs/get-started`; the AppShell avatar menu now exposes Developer settings.
+- Token creation/revocation controls were intentionally not added because `dx-001` describes creation as a later write path and the current feature only documents token-protected workflows.
+- Added Vitest coverage for token workflow docs, copy behavior, no placeholder links, no dead Create token control, and no `api.github.com` leakage.
+- Added Playwright coverage for authenticated `/settings/tokens`, docs copy buttons, internal links, dead-control scans, and browser screenshots.
+- Browser smoke/E2E saved `ralph/screenshots/build/dx-001-settings-tokens.jpg` and `ralph/screenshots/build/dx-001-docs-copy.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 79 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 35 Playwright tests.
+- Set `dx-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

@@ -1042,5 +1042,21 @@
       "Request logging redaction now verifies selected metadata only; QA should recheck future middleware changes do not add raw request bodies or sensitive headers to api_request_logs",
       "Malformed query extraction for unknown enum/query values outside JSON bodies should be retested when richer query parsers are added"
     ]
+  },
+  {
+    "feature_id": "dx-001",
+    "tests_written": [
+      "Added /settings/tokens developer settings page with Personal access token guidance, recommended scopes, opengithub-only API/Git command snippets, and copy buttons",
+      "Updated /docs/api and /docs/git snippets to use working copy buttons and added links to /settings/tokens",
+      "Added Vitest coverage for token workflow docs, copy behavior, no placeholder links, no create-token dead control, and no api.github.com leakage",
+      "Added Playwright coverage for authenticated /settings/tokens, docs copy buttons, internal docs/settings links, dead-control scans, and screenshots",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 79 frontend tests plus cargo tests, and make test-e2e with 35 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Token creation and revocation are intentionally deferred to a later security settings feature; QA should not expect a working Create token action yet",
+      "Examples use placeholder <opengithub_pat> values and opengithub.namuh.co commands; real PAT issuance still needs backend write APIs and audit events",
+      "Clipboard behavior depends on browser clipboard permission; E2E accepts copied or unavailable status but verifies the buttons are wired",
+      "Webhook documentation links are represented through /docs/api and Git/docs references; full webhook management docs remain for the webhooks/settings feature"
+    ]
   }
 ]

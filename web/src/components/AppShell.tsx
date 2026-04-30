@@ -71,6 +71,12 @@ export function AppShell({ children, session }: AppShellProps) {
                 >
                   Your profile
                 </Link>
+                <Link
+                  className="block px-4 py-2 hover:bg-[#f6f8fa]"
+                  href="/settings/tokens"
+                >
+                  Developer settings
+                </Link>
                 <a
                   className="block px-4 py-2 hover:bg-[#f6f8fa]"
                   href="/logout"

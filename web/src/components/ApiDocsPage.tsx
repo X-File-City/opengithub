@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeveloperCommandBlock } from "@/components/DeveloperCommandBlock";
 import {
   type ApiDocMethod,
   apiEndpointDocs,
@@ -12,19 +13,6 @@ const methodClassName: Record<ApiDocMethod, string> = {
   PATCH: "border-[#d4a72c] bg-[#fff8c5] text-[#7d4e00]",
   DELETE: "border-[#ff8182] bg-[#ffebe9] text-[#cf222e]",
 };
-
-function CodeBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="mb-2 text-xs font-semibold uppercase text-[#59636e]">
-        {label}
-      </p>
-      <pre className="max-w-full overflow-x-auto rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-3 font-mono text-xs leading-5 text-[#1f2328]">
-        {value}
-      </pre>
-    </div>
-  );
-}
 
 export function ApiDocsPage() {
   return (
@@ -50,6 +38,12 @@ export function ApiDocsPage() {
             href="/docs/git"
           >
             Git docs
+          </Link>
+          <Link
+            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+            href="/settings/tokens"
+          >
+            Tokens
           </Link>
           <Link
             className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
@@ -130,14 +124,23 @@ export function ApiDocsPage() {
                 </summary>
                 <div className="grid gap-4 border-t border-[#d0d7de] p-3 lg:grid-cols-2">
                   {endpoint.request ? (
-                    <CodeBlock label="Request" value={endpoint.request} />
+                    <DeveloperCommandBlock
+                      copyLabel="Copy request"
+                      label="Request"
+                      value={endpoint.request}
+                    />
                   ) : (
-                    <CodeBlock
+                    <DeveloperCommandBlock
+                      copyLabel="Copy request"
                       label="Request"
                       value={`${endpoint.method} ${endpoint.path}`}
                     />
                   )}
-                  <CodeBlock label="Response" value={endpoint.response} />
+                  <DeveloperCommandBlock
+                    copyLabel="Copy response"
+                    label="Response"
+                    value={endpoint.response}
+                  />
                 </div>
               </details>
 
@@ -157,7 +160,11 @@ export function ApiDocsPage() {
             Pagination example
           </h2>
           <div className="mt-3">
-            <CodeBlock label="List envelope" value={paginationExample} />
+            <DeveloperCommandBlock
+              copyLabel="Copy pagination"
+              label="List envelope"
+              value={paginationExample}
+            />
           </div>
         </div>
         <div className="rounded-md border border-[#d0d7de] bg-white p-4">
@@ -165,7 +172,11 @@ export function ApiDocsPage() {
             Error example
           </h2>
           <div className="mt-3">
-            <CodeBlock label="Error envelope" value={errorEnvelopeExample} />
+            <DeveloperCommandBlock
+              copyLabel="Copy error"
+              label="Error envelope"
+              value={errorEnvelopeExample}
+            />
           </div>
         </div>
       </section>

@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
+import { DeveloperCommandBlock } from "@/components/DeveloperCommandBlock";
 import { getSession } from "@/lib/server-session";
 
 const publicRemote = "https://opengithub.namuh.co/mona/octo-app.git";
 const rawUrl = "https://opengithub.namuh.co/mona/octo-app/raw/main/README.md";
 const archiveUrl =
   "https://opengithub.namuh.co/mona/octo-app/archive/refs/heads/main.zip";
+const cloneFetchCommands = `git clone ${publicRemote}
+cd octo-app
+git fetch origin main`;
+const pushCommands = `git remote add origin ${publicRemote}
+git branch -M main
+git push -u origin main`;
+const rawArchiveCommands = `curl -L ${rawUrl}
+curl -L -o octo-app.zip ${archiveUrl}`;
 
 export default async function GitDocsPage() {
   const session = await getSession();
@@ -28,22 +37,22 @@ export default async function GitDocsPage() {
           <h2 className="text-base font-semibold text-[#1f2328]">
             Clone and fetch
           </h2>
-          <pre className="overflow-x-auto rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-4 font-mono text-xs leading-6 text-[#1f2328]">
-            {`git clone ${publicRemote}
-cd octo-app
-git fetch origin main`}
-          </pre>
+          <DeveloperCommandBlock
+            copyLabel="Copy clone"
+            label="HTTPS commands"
+            value={cloneFetchCommands}
+          />
         </section>
 
         <section className="mt-8 space-y-3">
           <h2 className="text-base font-semibold text-[#1f2328]">
             Push changes
           </h2>
-          <pre className="overflow-x-auto rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-4 font-mono text-xs leading-6 text-[#1f2328]">
-            {`git remote add origin ${publicRemote}
-git branch -M main
-git push -u origin main`}
-          </pre>
+          <DeveloperCommandBlock
+            copyLabel="Copy push"
+            label="Push commands"
+            value={pushCommands}
+          />
           <p className="text-sm leading-6 text-[#59636e]">
             For private repositories or command-line pushes, use a personal
             access token as the HTTPS password. Tokens are stored hashed by the
@@ -55,10 +64,11 @@ git push -u origin main`}
           <h2 className="text-base font-semibold text-[#1f2328]">
             Raw files and archives
           </h2>
-          <pre className="overflow-x-auto rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-4 font-mono text-xs leading-6 text-[#1f2328]">
-            {`curl -L ${rawUrl}
-curl -L -o octo-app.zip ${archiveUrl}`}
-          </pre>
+          <DeveloperCommandBlock
+            copyLabel="Copy curl"
+            label="Raw and archive"
+            value={rawArchiveCommands}
+          />
         </section>
 
         <div className="mt-8 flex flex-wrap gap-3">
@@ -67,6 +77,12 @@ curl -L -o octo-app.zip ${archiveUrl}`}
             href="/new"
           >
             Create repository
+          </Link>
+          <Link
+            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+            href="/settings/tokens"
+          >
+            Token settings
           </Link>
           <Link
             className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ApiDocsPage } from "@/components/ApiDocsPage";
 import { apiEndpointDocs } from "@/lib/api-docs";
 
@@ -50,8 +50,18 @@ describe("ApiDocsPage", () => {
     expect(
       container.querySelectorAll('a[href="#"], a:not([href])'),
     ).toHaveLength(0);
-    for (const link of screen.getAllByRole("link")) {
-      expect(link).toHaveAttribute("href", expect.stringMatching(/^\/docs\//));
+    const linkHrefs = screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+    expect(linkHrefs).toEqual(
+      expect.arrayContaining([
+        "/docs/git",
+        "/docs/get-started",
+        "/settings/tokens",
+      ]),
+    );
+    for (const href of linkHrefs) {
+      expect(href).toMatch(/^\/(?:docs|settings)\//);
     }
 
     const firstSummary = screen.getAllByText(
@@ -75,5 +85,21 @@ describe("ApiDocsPage", () => {
     expect(
       screen.getByText((content) => content.includes('"items": []')),
     ).toBeVisible();
+  });
+
+  it("copies request examples from docs snippets", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<ApiDocsPage />);
+
+    fireEvent.click(screen.getAllByText("Request and response examples")[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Copy request" })[0]);
+
+    expect(writeText).toHaveBeenCalledWith("GET /api/user");
+    expect(await screen.findByRole("status")).toHaveTextContent("Copied");
   });
 });
