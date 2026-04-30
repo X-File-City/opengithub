@@ -78,6 +78,46 @@ export type RenderedMarkdown = {
   cached: boolean;
 };
 
+export type HighlightToken = {
+  text: string;
+  className: string;
+};
+
+export type HighlightedLine = {
+  number: number;
+  text: string;
+  tokens: HighlightToken[];
+};
+
+export type CodeSymbol = {
+  name: string;
+  kind: string;
+  line: number;
+};
+
+export type LanguageOption = {
+  id: string;
+  label: string;
+};
+
+export type HighlightCodeRequest = {
+  source: string;
+  path?: string | null;
+  sha?: string | null;
+  repositoryId?: string | null;
+  language?: string | null;
+};
+
+export type HighlightedFile = {
+  sha: string;
+  path: string;
+  language: string;
+  cached: boolean;
+  lines: HighlightedLine[];
+  symbols: CodeSymbol[];
+  supportedLanguages: LanguageOption[];
+};
+
 const DEFAULT_API_URL = "http://localhost:3016";
 
 export function apiBaseUrl(): string {
@@ -204,4 +244,21 @@ export async function renderMarkdown(
   }
 
   return (await response.json()) as RenderedMarkdown;
+}
+
+export async function highlightCode(
+  request: HighlightCodeRequest,
+): Promise<HighlightedFile> {
+  const response = await fetch(`${apiBaseUrl()}/api/highlight/render`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Syntax highlighting failed");
+  }
+
+  return (await response.json()) as HighlightedFile;
 }

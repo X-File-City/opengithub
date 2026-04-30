@@ -337,5 +337,21 @@
       "Rendered markdown cache was unit-tested with TEST_DATABASE_URL when available; production TTL cleanup is still a later retention-job concern",
       "Relative path rewriting is covered for repository context; QA should retest against real README/blob pages after repository file browsing ships"
     ]
+  },
+  {
+    "feature_id": "highlight-001",
+    "tests_written": [
+      "Rust highlight_rendering tests cover extension-based language detection, semantic token classes, symbol extraction, language override behavior, API error envelopes, 50+ advertised language options, and optional Postgres file_tokens cache hits",
+      "Vitest highlight-rendering tests cover the CodeViewer line anchors, hover comment buttons, Symbols sidebar links, find-in-file line marking, Wrap toggle, language override refresh, and the Next.js highlight proxy route",
+      "Playwright highlight E2E covers /docs/highlight, line anchors, comment buttons, symbol links, Find, Wrap, language override, and dead-link checks",
+      "make check, make test, and make test-e2e passed",
+      "Ever smoke verified /docs/highlight, 56 language options, Find input, Wrap toggle, Rust language override, and saved ralph/screenshots/build/highlight-001-code-viewer-smoke.jpg"
+    ],
+    "needs_deeper_qa": [
+      "The current tokenizer is a local semantic highlighter and language heuristic layer, not real compiled Tree-sitter grammars; revisit when repository indexing/search-006 lands",
+      "Diff viewer, PR file excerpts, and commit file excerpts are not yet built, so this slice exposes the reusable API/component through /docs/highlight",
+      "Theme-aware dark-mode token colors should be rechecked when theme-001 ships",
+      "file_tokens cache was unit-tested with TEST_DATABASE_URL when available; production index-time generation still belongs to the future search-006 worker"
+    ]
   }
 ]

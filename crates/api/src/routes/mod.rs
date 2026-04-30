@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod dashboard;
 pub mod health;
+pub mod highlight;
 pub mod issues;
 pub mod markdown;
 pub mod onboarding;

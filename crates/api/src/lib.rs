@@ -40,6 +40,7 @@ pub fn build_app_with_config(db: Option<DbPool>, config: AppConfig) -> Router {
         .merge(routes::pulls::router())
         .merge(routes::search::router())
         .merge(routes::markdown::router())
+        .merge(routes::highlight::router())
         .merge(routes::dashboard::router())
         .merge(routes::onboarding::router())
         .route_layer(axum_middleware::from_fn_with_state(

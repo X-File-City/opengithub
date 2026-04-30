@@ -243,3 +243,14 @@
 - Verification: `make check` passed; `make test` passed with cargo tests plus 20 frontend tests; `make test-e2e` passed with 12 Playwright tests.
 - Browser smoke: started `make dev` with `.env` loaded, verified `/docs/markdown`, clicked the editor toolbar, switched to Preview, confirmed rendered GFM/table/task/code output, and saved `ralph/screenshots/build/markdown-001-renderer-smoke.jpg`.
 - Set `markdown-001.build_pass` to `true` in `prd.json`; `qa_pass` remains untouched for the QA agent.
+
+2026-04-30 - highlight-001 source-file syntax highlighting
+
+- Implemented the first unbuilt PRD feature `highlight-001`: Rust syntax highlighting API, cached `file_tokens` storage, language detection/override support, semantic token classes, Symbols extraction, and a reusable Next.js code viewer surface.
+- Added SQLx migration `202604300009_file_tokens` for cached token streams keyed by `(repository_id, sha, path, language)` with `token_ranges bytea` and lookup indexes.
+- Added `crates/api/src/domain/highlight.rs` and `crates/api/src/routes/highlight.rs`; `POST /api/highlight/render` returns text, token classes, supported language options, and symbol metadata.
+- Added `web/src/components/CodeViewer.tsx`, `/docs/highlight`, and `/highlight/render` proxy route with line anchors, hover comment buttons, Find, Wrap, Symbols sidebar, and a 56-language override dropdown.
+- Added Rust, Vitest, and Playwright coverage for token classification, language override, cache hits, API errors, viewer controls, proxy forwarding, and dead-link checks.
+- Verification: `make check` passed; `make test` passed with cargo tests plus 24 frontend tests; `make test-e2e` passed with 13 Playwright tests.
+- Browser smoke: started `make dev`, verified `/docs/highlight` with Ever, confirmed 56 language options, Find, Wrap, Rust language override, line/comment controls, and saved `ralph/screenshots/build/highlight-001-code-viewer-smoke.jpg`.
+- Set `highlight-001.build_pass` to `true` in `prd.json`; `qa_pass` remains untouched for the QA agent.

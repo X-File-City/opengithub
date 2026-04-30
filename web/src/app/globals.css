@@ -189,3 +189,93 @@ a {
   height: auto;
   max-width: 100%;
 }
+
+.code-viewer {
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
+    monospace;
+}
+
+.code-line {
+  display: grid;
+  grid-template-columns: 56px 28px minmax(max-content, 1fr);
+  min-height: 20px;
+}
+
+.code-viewer-wrap .code-line {
+  grid-template-columns: 56px 28px minmax(0, 1fr);
+}
+
+.line-number {
+  color: #6e7781;
+  padding-right: 12px;
+  text-align: right;
+  text-decoration: none;
+  user-select: none;
+}
+
+.line-comment {
+  align-self: center;
+  background: #1f883d;
+  border: 0;
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  height: 18px;
+  opacity: 0;
+  width: 18px;
+}
+
+.code-line:hover .line-comment,
+.line-comment:focus {
+  opacity: 1;
+}
+
+.line-code {
+  min-width: 0;
+  padding-right: 16px;
+  white-space: pre;
+}
+
+.code-viewer-wrap .line-code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code-line:hover {
+  background: #f6f8fa;
+}
+
+.code-line-match {
+  background: #fff8c5;
+}
+
+.tok-keyword {
+  color: #cf222e;
+}
+
+.tok-string {
+  color: #0a3069;
+}
+
+.tok-number,
+.tok-constant {
+  color: #0550ae;
+}
+
+.tok-comment {
+  color: #6e7781;
+}
+
+.tok-type {
+  color: #953800;
+}
+
+.tok-punctuation {
+  color: #24292f;
+}
+
+.tok-identifier,
+.tok-plain {
+  color: #1f2328;
+}
