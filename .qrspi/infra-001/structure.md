@@ -49,7 +49,7 @@ Done: [x]
 
 ## Phase 4: Automation and Delivery Surfaces - Actions, packages, webhooks, notifications, and jobs become testable
 
-Done: [ ]
+Done: [x]
 
 **Scope**: Add durable metadata for background-driven product surfaces while keeping actual workers for later features.
 **Key changes**:

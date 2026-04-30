@@ -45,5 +45,23 @@
       "Milestone, cross-reference, and label editing APIs are schema-ready but not exposed until their product features are selected",
       "Browser smoke test skipped because infra-001 phase 3 is backend schema/data access only"
     ]
+  },
+  {
+    "feature_id": "infra-001",
+    "tests_written": [
+      "Actions workflows, workflow runs, jobs, and steps round-trip through Postgres",
+      "Workflow run lifecycle transitions record started/completed timestamps and conclusions",
+      "Package records and package versions persist with case-insensitive per-package version uniqueness",
+      "Webhook registration and webhook delivery retry metadata persist, including response status and next retry time",
+      "Notifications can be created, listed, counted as unread, and marked read",
+      "Postgres-backed job leases enforce single-worker acquisition, failure retry, and completion"
+    ],
+    "needs_deeper_qa": [
+      "Actual Actions worker execution, logs, artifacts, and S3 storage are metadata-ready but not implemented in this phase",
+      "Webhook HTTP delivery signing and receiver calls need full QA when the delivery worker ships",
+      "Notification fanout and email delivery are schema-ready but not connected to SES yet",
+      "make db-migrate still needs sqlx-cli installed; cargo tests applied the migration through SQLx's migrator",
+      "Browser smoke test skipped because infra-001 phase 4 is backend schema/data access only"
+    ]
   }
 ]

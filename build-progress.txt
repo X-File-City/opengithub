@@ -36,3 +36,14 @@
 - Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed against local Postgres.
 - Browser smoke test skipped because this phase is backend schema/data access only.
 - Marked Phase 3 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because later infra-001 phases remain.
+
+2026-04-30 - infra-001 phase 4 automation and delivery surfaces
+
+- Implemented Phase 4 from `.qrspi/infra-001/structure.md`: Actions workflow/run/job/step metadata, package/version metadata, webhook registration/delivery logs, notifications, and Postgres job leases.
+- Added SQLx migration `202604300004_automation_delivery` for `actions_workflows`, `workflow_runs`, `workflow_jobs`, `workflow_steps`, `packages`, `package_versions`, `webhooks`, `webhook_deliveries`, `notifications`, and `job_leases`.
+- Added `crates/api/src/domain/actions.rs`, `crates/api/src/domain/webhooks.rs`, `crates/api/src/domain/notifications.rs`, and `crates/api/src/jobs/mod.rs` with permission-aware accessors and durable lease helpers.
+- Added Postgres-backed tests for workflow lifecycle transitions, package version uniqueness, webhook retry metadata, notification unread/read state, and single-worker job lease acquisition/fail/retry/complete behavior.
+- Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `.scratch/automation-delivery-scenario.sh` passed against local Postgres.
+- `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make db-migrate` could not run because `sqlx-cli` is not installed in this environment; cargo tests still applied migrations through SQLx's migrator.
+- Browser smoke test skipped because this phase is backend schema/data access only.
+- Marked Phase 4 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.

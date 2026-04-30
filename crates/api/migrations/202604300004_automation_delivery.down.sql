@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS job_leases;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS webhook_deliveries;
+DROP TABLE IF EXISTS webhooks;
+DROP TABLE IF EXISTS package_versions;
+DROP TABLE IF EXISTS packages;
+DROP TABLE IF EXISTS workflow_steps;
+DROP TABLE IF EXISTS workflow_jobs;
+DROP TABLE IF EXISTS workflow_runs;
+DROP TABLE IF EXISTS actions_workflows;

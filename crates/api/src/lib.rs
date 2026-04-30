@@ -1,5 +1,6 @@
 pub mod db;
 pub mod domain;
+pub mod jobs;
 pub mod routes;
 
 use axum::{routing::get, Json, Router};
