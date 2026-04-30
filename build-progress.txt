@@ -67,3 +67,14 @@
 - Added `.qrspi/auth-001/structure.md` with four independently verifiable vertical phases: OAuth start route, callback/session API, Next.js login/protected shell, and E2E/security hardening.
 - Did not change `prd.json`; `build_pass` remains `false` until all auth implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - auth-001 phase 1 OAuth start route
+
+- Implemented Phase 1 from `.qrspi/auth-001/structure.md`: Rust app/auth configuration, Google OAuth authorization URL construction, HMAC-signed state payloads, safe `next` URL handling, and `GET /api/auth/google/start`.
+- Added auth dependencies in the Rust workspace manifests: `oauth2`, `tower-sessions`, `axum-login`, `base64`, `hmac`, and `sha2`.
+- Added `crates/api/src/config.rs`, `crates/api/src/auth/mod.rs`, `crates/api/src/routes/auth.rs`, and route wiring through `crates/api/src/lib.rs`; app startup still falls back to a local config if optional auth env vars are absent.
+- Updated `.env.example` and `BUILD_GUIDE.md` with the Rust-native auth env contract and local/production Google redirect URIs.
+- Added `crates/api/tests/auth_oauth_start.rs` covering missing config, open-redirect sanitization, Google redirect parameters, signed state decoding, and the HTTP start route.
+- Verification: `make check` passed; `make test` passed; `.scratch/auth-oauth-start-scenario.sh` passed against the real Axum binary on `localhost:3016`.
+- Browser smoke test skipped because Phase 1 is a backend redirect endpoint only; real Google callback/session/browser UI are later auth-001 phases.
+- Marked Phase 1 as done in `.qrspi/auth-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.

@@ -81,5 +81,20 @@
       "Down migrations exist for phase 5 tables but the environment still lacks sqlx-cli for make db-migrate",
       "Browser smoke test skipped because infra-001 phase 5 is backend schema/data access only"
     ]
+  },
+  {
+    "feature_id": "auth-001",
+    "tests_written": [
+      "missing Google OAuth config returns a safe auth_not_configured error",
+      "unsafe next URLs are normalized to /dashboard to prevent open redirects",
+      "Google authorization URLs include callback URI, code response type, profile/email/openid scopes, and signed state",
+      "signed OAuth state decodes and preserves the sanitized next URL",
+      ".scratch/auth-oauth-start-scenario.sh starts the real Axum API and verifies HTTP 302 to Google"
+    ],
+    "needs_deeper_qa": [
+      "Real Google callback, token exchange, and userinfo fetch are Phase 2 and were not implemented in this phase",
+      "Session cookie issuance is not present until Phase 2, so QA should not expect /api/auth/me yet",
+      "Browser smoke test skipped because Phase 1 is a backend OAuth redirect endpoint only"
+    ]
   }
 ]

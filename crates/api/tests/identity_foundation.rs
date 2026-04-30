@@ -1,6 +1,7 @@
 use chrono::{Duration, Utc};
 use opengithub_api::{
     build_app,
+    config::AppConfig,
     domain::identity::{
         get_active_session, get_oauth_account, get_user, revoke_session, upsert_oauth_account,
         upsert_session, upsert_user_by_email, AuthMe, AuthUser,
@@ -29,7 +30,11 @@ async fn database_pool() -> Option<PgPool> {
 
 #[tokio::test]
 async fn health_returns_degraded_without_database_but_keeps_http_200() {
-    let (status, body) = health(axum::extract::State(AppState { db: None })).await;
+    let (status, body) = health(axum::extract::State(AppState {
+        db: None,
+        config: AppConfig::local_development(),
+    }))
+    .await;
 
     assert_eq!(status, axum::http::StatusCode::OK);
     assert_eq!(body.status, "degraded");

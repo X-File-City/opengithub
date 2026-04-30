@@ -9,6 +9,18 @@ Authoritative stack reference for the build loop. Read this before running any c
 - **Auth**: Native Rust — `oauth2` crate (Google OAuth code flow) + `tower-sessions` (Postgres-backed signed cookie sessions) + `axum-login` (extractor). No Better Auth, no JS-side auth library. Next.js is a thin client.
 - **Cloud**: AWS — ECS Fargate (Rust API), RDS Postgres, S3, SES, CloudFront, ECR. DNS on Cloudflare (zone `namuh.co`).
 
+## Auth env contract
+- `APP_URL` / `PUBLIC_APP_URL`: browser-facing Next.js origin, local default `http://localhost:3015`.
+- `API_URL`: Rust API origin used for OAuth callbacks, local default `http://localhost:3016`.
+- `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`: Google OAuth client credentials.
+- `SESSION_SECRET`: signing secret for OAuth state and the later session cookie.
+- `SESSION_COOKIE_NAME`: defaults to `__Host-session`.
+- `SESSION_COOKIE_SECURE`: defaults to `false` for localhost and `true` for non-local API URLs.
+
+Google OAuth redirect URIs:
+- Local: `http://localhost:3016/api/auth/google/callback`
+- Production: `https://opengithub.namuh.co/api/auth/google/callback`
+
 ## Repo layout
 ```
 .

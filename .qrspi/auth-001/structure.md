@@ -6,7 +6,7 @@
 
 ## Phase 1: OAuth Configuration and Start Route — Google redirect can be initiated
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the Rust auth module, environment contract, OAuth client construction, state/next-url handling, and `GET /api/auth/google/start`. This phase is testable without a live Google callback by asserting generated redirects and validation behavior.
 
