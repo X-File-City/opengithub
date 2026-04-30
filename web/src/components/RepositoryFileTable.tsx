@@ -80,7 +80,7 @@ export function RepositoryFileTable({
           <li className="border-b border-[#d0d7de]">
             <Link
               aria-label={parentLabel}
-              className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-[#f6f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0969da] max-md:grid-cols-1"
+              className="grid min-h-[54px] grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-[#f6f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0969da] max-md:grid-cols-1"
               href={parentHref}
             >
               <span className="flex min-w-0 items-center gap-2 font-semibold text-[#0969da]">
@@ -104,7 +104,7 @@ export function RepositoryFileTable({
             key={entry.path}
           >
             <Link
-              className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-[#f6f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0969da] max-md:grid-cols-1"
+              className="grid min-h-[54px] grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-[#f6f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0969da] max-md:grid-cols-1"
               href={entry.href}
             >
               <span className="flex min-w-0 items-center gap-2 font-semibold text-[#0969da]">

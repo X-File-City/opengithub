@@ -119,6 +119,7 @@ pub struct RepositoryPathOverview {
     pub resolved_ref: RepositoryResolvedRef,
     pub default_branch_href: String,
     pub recovery_href: String,
+    pub total: i64,
     pub page: i64,
     pub page_size: i64,
     pub has_more: bool,
@@ -180,6 +181,22 @@ pub struct RepositoryRefsQuery<'a> {
     pub query: Option<&'a str>,
     pub current_path: Option<&'a str>,
     pub active_ref: Option<&'a str>,
+    pub page: i64,
+    pub page_size: i64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RepositoryPathQuery<'a> {
+    pub ref_name: Option<&'a str>,
+    pub path: &'a str,
+    pub page: i64,
+    pub page_size: i64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RepositoryFileFinderQuery<'a> {
+    pub ref_name: Option<&'a str>,
+    pub query: Option<&'a str>,
     pub page: i64,
     pub page_size: i64,
 }
@@ -859,23 +876,23 @@ pub async fn repository_file_finder_for_actor_by_owner_name(
     actor_user_id: Uuid,
     owner_login: &str,
     name: &str,
-    ref_name: Option<&str>,
-    query: Option<&str>,
+    query: RepositoryFileFinderQuery<'_>,
 ) -> Result<Option<RepositoryFileFinderResult>, RepositoryError> {
     let Some(repository) =
         get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
     else {
         return Ok(None);
     };
-    let resolved_ref = resolve_repository_ref(pool, &repository, ref_name).await?;
-    let normalized_query = query.unwrap_or("").trim().to_lowercase();
+    let resolved_ref = resolve_repository_ref(pool, &repository, query.ref_name).await?;
+    let normalized_query = query.query.unwrap_or("").trim().to_lowercase();
+    let page = query.page.max(1);
+    let page_size = query.page_size.clamp(1, 100);
     let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
     let mut items = files
         .into_iter()
         .filter(|file| {
             normalized_query.is_empty() || file.path.to_lowercase().contains(&normalized_query)
         })
-        .take(20)
         .map(|file| {
             let name = file
                 .path
@@ -901,15 +918,22 @@ pub async fn repository_file_finder_for_actor_by_owner_name(
         })
         .collect::<Vec<_>>();
     items.sort_by(|left, right| left.path.to_lowercase().cmp(&right.path.to_lowercase()));
+    let total = items.len() as i64;
+    let offset = ((page - 1) * page_size) as usize;
+    items = items
+        .into_iter()
+        .skip(offset)
+        .take(page_size as usize)
+        .collect();
 
     Ok(Some(RepositoryFileFinderResult {
         default_branch_href: repository_default_branch_href(&repository),
         recovery_href: repository_default_branch_href(&repository),
         resolved_ref,
         envelope: ListEnvelope {
-            total: items.len() as i64,
-            page: 1,
-            page_size: 20,
+            total,
+            page,
+            page_size,
             items,
         },
     }))
@@ -1110,15 +1134,14 @@ pub async fn repository_path_overview_for_actor_by_owner_name(
     actor_user_id: Uuid,
     owner_login: &str,
     name: &str,
-    ref_name: Option<&str>,
-    path: &str,
+    query: RepositoryPathQuery<'_>,
 ) -> Result<Option<RepositoryPathOverview>, RepositoryError> {
     let Some(repository) =
         get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
     else {
         return Ok(None);
     };
-    repository_path_overview_for_actor(pool, repository, actor_user_id, ref_name, path)
+    repository_path_overview_for_actor(pool, repository, actor_user_id, query)
         .await
         .map(Some)
 }
@@ -1179,18 +1202,27 @@ async fn repository_path_overview_for_actor(
     pool: &PgPool,
     repository: Repository,
     actor_user_id: Uuid,
-    ref_name: Option<&str>,
-    path: &str,
+    query: RepositoryPathQuery<'_>,
 ) -> Result<RepositoryPathOverview, RepositoryError> {
-    let resolved_ref = resolve_repository_ref(pool, &repository, ref_name).await?;
+    let resolved_ref = resolve_repository_ref(pool, &repository, query.ref_name).await?;
     let ref_name = resolved_ref.short_name.clone();
-    let path = normalize_repository_path(path)?;
+    let path = normalize_repository_path(query.path)?;
+    let page = query.page.max(1);
+    let page_size = query.page_size.clamp(1, 100);
     let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
-    let entries = repository_entries_for_path(&repository, &ref_name, &files, &path);
+    let all_entries = repository_entries_for_path(&repository, &ref_name, &files, &path);
     let readme = readme_for_path(&files, &path);
-    if !path.is_empty() && entries.is_empty() && readme.is_none() {
+    if !path.is_empty() && all_entries.is_empty() && readme.is_none() {
         return Err(repository_path_not_found_error(&repository, &path));
     }
+    let total = all_entries.len() as i64;
+    let offset = ((page - 1) * page_size) as usize;
+    let entries = all_entries
+        .into_iter()
+        .skip(offset)
+        .take(page_size as usize)
+        .collect::<Vec<_>>();
+    let has_more = (offset as i64) + (entries.len() as i64) < total;
     let latest_commit = latest_commit_for_repository(pool, &repository).await?;
     let viewer_permission = viewer_permission_for_user(pool, &repository, actor_user_id).await?;
     let history_href = repository_history_href(&repository, &ref_name, &path);
@@ -1201,9 +1233,10 @@ async fn repository_path_overview_for_actor(
         resolved_ref,
         default_branch_href: repository_default_branch_href(&repository),
         recovery_href: repository_tree_href(&repository, &ref_name, &path),
-        page: 1,
-        page_size: entries.len().max(1) as i64,
-        has_more: false,
+        total,
+        page,
+        page_size,
+        has_more,
         path_name: path
             .rsplit('/')
             .next()

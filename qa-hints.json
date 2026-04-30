@@ -771,5 +771,21 @@
       "Go to file searches metadata-backed repository_files records; retest after real smart HTTP push/fetch and importer indexing land",
       "Large-directory pagination/virtualization is still Phase 4, so QA should defer high-cardinality folder stress until that slice is implemented"
     ]
+  },
+  {
+    "feature_id": "repo-004",
+    "tests_written": [
+      "Tree contents API now paginates stable folder/file/name-sorted entries with total, page, pageSize, and hasMore metadata; Rust tests cover large docs directories, clamped page sizes, file-finder pagination, private access, invalid refs, missing paths, and traversal-like encoded paths",
+      "RepositoryTreeBrowser renders fixed-height file rows plus Load more directory entries links for large folders without moving the latest commit/header rows",
+      "Go to file aborts stale search requests so broad initial results cannot overwrite a narrower query result",
+      "Playwright verifies large-directory paging, no table layout shift across page changes, invalid-path recovery to the default branch, dead-control scans, mobile no-overflow behavior, branch/tag switching, and Go to file at the selected ref",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test, and make test-e2e with 27 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Large-directory paging is page-link based, not infinite scroll; QA should compare against GitHub behavior for directories with hundreds or thousands of entries",
+      "The left file tree mirrors the current loaded page plus breadcrumb ancestors, not a full recursive repository tree",
+      "File-finder searches metadata-backed repository_files records; retest after real Git push/fetch indexing lands",
+      "Slash-containing refs such as feature/foo/bar should keep getting browser QA as more repository routes are added"
+    ]
   }
 ]

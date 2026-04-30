@@ -19,8 +19,9 @@ use crate::{
         repository_name_availability, repository_overview_for_actor_by_owner_name,
         repository_path_overview_for_actor_by_owner_name, repository_refs_for_actor_by_owner_name,
         set_repository_star_by_owner_name, set_repository_watch_by_owner_name, CreateRepository,
-        RepositoryBootstrapRequest, RepositoryCommitHistoryQuery, RepositoryError, RepositoryOwner,
-        RepositoryRefsQuery, RepositoryVisibility,
+        RepositoryBootstrapRequest, RepositoryCommitHistoryQuery, RepositoryError,
+        RepositoryFileFinderQuery, RepositoryOwner, RepositoryPathQuery, RepositoryRefsQuery,
+        RepositoryVisibility,
     },
     AppState,
 };
@@ -76,6 +77,8 @@ struct NameAvailabilityQuery {
 struct ContentsQuery {
     #[serde(rename = "ref")]
     ref_name: Option<String>,
+    page: Option<i64>,
+    page_size: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,6 +107,8 @@ struct FileFinderQuery {
     #[serde(rename = "ref")]
     ref_name: Option<String>,
     q: Option<String>,
+    page: Option<i64>,
+    page_size: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -240,8 +245,12 @@ async fn contents(
         actor.0.id,
         &owner,
         &repo,
-        query.ref_name.as_deref(),
-        &path,
+        RepositoryPathQuery {
+            ref_name: query.ref_name.as_deref(),
+            path: &path,
+            page: query.page.unwrap_or(1),
+            page_size: query.page_size.unwrap_or(30),
+        },
     )
     .await
     .map_err(map_repository_error)?
@@ -365,8 +374,12 @@ async fn file_finder(
         actor.0.id,
         &owner,
         &repo,
-        query.ref_name.as_deref(),
-        query.q.as_deref(),
+        RepositoryFileFinderQuery {
+            ref_name: query.ref_name.as_deref(),
+            query: query.q.as_deref(),
+            page: query.page.unwrap_or(1),
+            page_size: query.page_size.unwrap_or(20),
+        },
     )
     .await
     .map_err(map_repository_error)?

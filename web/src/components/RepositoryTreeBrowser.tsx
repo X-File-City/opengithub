@@ -33,6 +33,18 @@ function directoryHref(overview: RepositoryPathOverview, path: string) {
   )}${suffix}`;
 }
 
+function currentDirectoryHref(overview: RepositoryPathOverview) {
+  return directoryHref(overview, overview.path);
+}
+
+function pagedDirectoryHref(overview: RepositoryPathOverview, page: number) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(overview.pageSize),
+  });
+  return `${currentDirectoryHref(overview)}?${params.toString()}`;
+}
+
 function TreePane({
   entries,
   overview,
@@ -86,6 +98,14 @@ function TreePane({
             <span className="truncate">{entry.name}</span>
           </Link>
         ))}
+        {overview.hasMore ? (
+          <Link
+            className="mt-2 block rounded-md px-2 py-1.5 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+            href={pagedDirectoryHref(overview, overview.page + 1)}
+          >
+            Load more entries
+          </Link>
+        ) : null}
       </div>
     </nav>
   );
@@ -278,6 +298,27 @@ export function RepositoryTreeBrowser({
         ) : null}
         <div className="min-w-0 flex-1 space-y-4">
           <BreadcrumbTitle overview={overview} />
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-4 py-2 text-sm text-[#59636e]">
+            <span>
+              Showing{" "}
+              <strong className="font-semibold text-[#1f2328]">
+                {overview.entries.length}
+              </strong>{" "}
+              of{" "}
+              <strong className="font-semibold text-[#1f2328]">
+                {overview.total}
+              </strong>{" "}
+              entries
+            </span>
+            {overview.hasMore ? (
+              <Link
+                className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+                href={pagedDirectoryHref(overview, overview.page + 1)}
+              >
+                Load more directory entries
+              </Link>
+            ) : null}
+          </div>
           <RepositoryFileTable
             compact
             entries={visibleEntries}

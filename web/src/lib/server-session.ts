@@ -32,6 +32,7 @@ export async function getRepositoryPath(
   repo: string,
   refName: string,
   path: string,
+  options: { page?: number; pageSize?: number } = {},
 ) {
   const requestHeaders = await headers();
   return getRepositoryPathFromCookie(
@@ -40,6 +41,7 @@ export async function getRepositoryPath(
     repo,
     refName,
     path,
+    options,
   );
 }
 

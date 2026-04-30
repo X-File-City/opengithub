@@ -397,6 +397,24 @@ async fn seed_tree_refs(pool: &PgPool, user_id: Uuid, repository_id: Uuid) -> an
         .execute(pool)
         .await?;
     }
+    for index in 0..72 {
+        let path = format!("docs/example-{index:03}.md");
+        let content = format!("# Example {index}\n");
+        sqlx::query(
+            r#"
+            INSERT INTO repository_files (repository_id, commit_id, path, content, oid, byte_size)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(repository_id)
+        .bind(feature_commit.id)
+        .bind(&path)
+        .bind(&content)
+        .bind(format!("{}-{}", feature_commit.oid, path.replace('/', "-")))
+        .bind(content.len() as i64)
+        .execute(pool)
+        .await?;
+    }
     upsert_git_ref(
         pool,
         repository_id,

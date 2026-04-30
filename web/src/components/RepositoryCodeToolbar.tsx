@@ -194,6 +194,7 @@ export function RepositoryFileFinder({
       return;
     }
 
+    const controller = new AbortController();
     const normalizedQuery = query.trim().toLowerCase();
     setItems(
       files
@@ -225,19 +226,29 @@ export function RepositoryFileFinder({
           ref: currentRef,
           q: query,
         });
-        const response = await fetch(`${base}/file-finder?${params}`);
+        const response = await fetch(`${base}/file-finder?${params}`, {
+          signal: controller.signal,
+        });
         if (!response.ok) {
-          setItems([]);
+          if (!controller.signal.aborted) {
+            setItems([]);
+          }
           return;
         }
         const envelope =
           (await response.json()) as ListEnvelope<RepositoryFileFinderItem>;
-        setItems(envelope.items);
-        setActiveIndex(0);
+        if (!controller.signal.aborted) {
+          setItems(envelope.items);
+          setActiveIndex(0);
+        }
       } catch {
-        setItems([]);
+        if (!controller.signal.aborted) {
+          setItems([]);
+        }
       }
     });
+
+    return () => controller.abort();
   }, [base, currentRef, files, open, query]);
 
   function openActiveItem() {

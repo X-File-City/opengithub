@@ -156,6 +156,7 @@ function pathOverview(): RepositoryPathOverview {
     },
     defaultBranchHref: "/mona/octo-app/tree/main",
     recoveryHref: "/mona/octo-app/tree/main/src",
+    total: 1,
     page: 1,
     pageSize: 1,
     hasMore: false,
@@ -581,6 +582,49 @@ describe("RepositoryCodeOverview", () => {
     expect(
       screen.getByRole("navigation", { name: "Repository file tree" }),
     ).toBeVisible();
+  });
+
+  it("renders stable large-directory paging controls", () => {
+    const overview = pathOverview();
+    render(
+      <RepositoryTreeView
+        overview={{
+          ...overview,
+          total: 75,
+          page: 1,
+          pageSize: 30,
+          hasMore: true,
+          entries: Array.from({ length: 30 }, (_, index) => ({
+            kind: "file",
+            name: `example-${index.toString().padStart(3, "0")}.md`,
+            path: `src/example-${index.toString().padStart(3, "0")}.md`,
+            href: `/mona/octo-app/blob/main/src/example-${index
+              .toString()
+              .padStart(3, "0")}.md`,
+            byteSize: 12,
+            latestCommitMessage: "Initial commit",
+            latestCommitHref: "/mona/octo-app/commit/abcdef1234567890",
+            updatedAt: "2026-04-30T00:00:00Z",
+          })),
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/Showing/)).toHaveTextContent(
+      "Showing 30 of 75 entries",
+    );
+    expect(
+      screen.getByRole("link", { name: "Load more directory entries" }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/tree/main/src?page=2&pageSize=30",
+    );
+    expect(
+      screen.getAllByRole("link", { name: "Load more entries" })[0],
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/tree/main/src?page=2&pageSize=30",
+    );
   });
 
   it("renders blob previews with raw, download, parent, and history actions", () => {

@@ -544,3 +544,14 @@
 - Browser smoke: `make test-e2e` saved `ralph/screenshots/build/repo-004-phase3-ref-file-controls.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 66 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 26 Playwright tests.
 - Marked Phase 3 as done in `.qrspi/repo-004/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
+
+2026-04-30 - repo-004 phase 4 large directory and visual guardrails
+
+- Implemented Phase 4 from `.qrspi/repo-004/structure.md`: repository tree contents and file-finder APIs now paginate large result sets with stable folder/file/name sorting, `total`, `page`, `pageSize`, and `hasMore` metadata.
+- Added Load more directory entries controls and fixed-height file table rows in `RepositoryTreeBrowser`/`RepositoryFileTable` so large-directory paging does not shift the latest commit/header layout.
+- Hardened Go to file by aborting stale search requests; this fixed a real E2E race where an initial broad file-finder response could overwrite a narrower `guide` search.
+- Added repository-scoped default-branch recovery on unavailable tree paths and extended the E2E seed repository with a high-cardinality docs directory.
+- Added Rust, Vitest, and Playwright coverage for large-directory paging, file-finder pagination, clamped page sizes, traversal-like path errors, no dead controls, invalid-path recovery, mobile no-overflow behavior, and layout stability.
+- Browser smoke: `make test-e2e` exercised branch/tag switching, Go to file, nested tree browsing, large-directory paging, invalid-path recovery, and mobile layout; saved `ralph/screenshots/build/repo-004-phase4-large-directory-mobile.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 67 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 27 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/repo-004/structure.md` and set `repo-004.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

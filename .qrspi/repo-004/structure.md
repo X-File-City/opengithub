@@ -57,7 +57,7 @@
 
 ## Phase 4: Large Directory and Visual Guardrails - finish repo-004 for QA handoff
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add bounded large-directory behavior, final responsive polish, and regression coverage. Large directories must paginate or virtualize without layout shift, every visible menu/button/link must perform a real action, and invalid refs/paths must have repository-scoped recovery.
 

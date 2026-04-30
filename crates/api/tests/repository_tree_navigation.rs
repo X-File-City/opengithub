@@ -215,6 +215,16 @@ async fn repository_tree_contract_resolves_branches_tags_and_recovery_links() {
         "# Guide\n",
     )
     .await;
+    for index in 0..105 {
+        insert_file(
+            &pool,
+            repository.id,
+            feature_commit.id,
+            &format!("docs/example-{index:03}.md"),
+            &format!("# Example {index}\n"),
+        )
+        .await;
+    }
     upsert_git_ref(
         &pool,
         repository.id,
@@ -252,16 +262,42 @@ async fn repository_tree_contract_resolves_branches_tags_and_recovery_links() {
     );
     assert_eq!(feature_body["path"], "docs");
     assert_eq!(feature_body["page"], 1);
-    assert_eq!(feature_body["hasMore"], false);
+    assert_eq!(feature_body["pageSize"], 30);
+    assert_eq!(feature_body["total"], 106);
+    assert_eq!(feature_body["hasMore"], true);
+    assert_eq!(
+        feature_body["entries"][0]["name"],
+        "example-000.md",
+        "files sort by stable path name"
+    );
     assert!(feature_body["entries"]
         .as_array()
         .expect("entries should be an array")
         .iter()
-        .any(|entry| entry["name"] == "guide.md"
+        .any(|entry| entry["name"] == "example-000.md"
             && entry["href"]
                 .as_str()
                 .expect("entry href")
-                .contains("/blob/feature%2Ftree-nav/docs/guide.md")));
+                .contains("/blob/feature%2Ftree-nav/docs/example-000.md")));
+
+    let (paged_status, paged_body) = send_json(
+        app.clone(),
+        &format!("{base}/contents/docs?ref={encoded_feature}&page=3&pageSize=50"),
+        Some(&owner_cookie),
+    )
+    .await;
+    assert_eq!(paged_status, StatusCode::OK);
+    assert_eq!(paged_body["page"], 3);
+    assert_eq!(paged_body["pageSize"], 50);
+    assert_eq!(paged_body["total"], 106);
+    assert_eq!(paged_body["hasMore"], false);
+    assert_eq!(
+        paged_body["entries"]
+            .as_array()
+            .expect("entries should be an array")
+            .len(),
+        6
+    );
 
     let (tag_status, tag_body) = send_json(
         app.clone(),
@@ -288,6 +324,27 @@ async fn repository_tree_contract_resolves_branches_tags_and_recovery_links() {
     assert_eq!(finder_body["page"], 1);
     assert_eq!(finder_body["pageSize"], 20);
     assert_eq!(finder_body["items"][0]["path"], "docs/guide.md");
+
+    let (finder_page_status, finder_page_body) = send_json(
+        app.clone(),
+        &format!("{base}/file-finder?ref={encoded_feature}&q=example&page=2&pageSize=40"),
+        Some(&owner_cookie),
+    )
+    .await;
+    assert_eq!(finder_page_status, StatusCode::OK);
+    assert_eq!(finder_page_body["page"], 2);
+    assert_eq!(finder_page_body["pageSize"], 40);
+    assert_eq!(finder_page_body["total"], 105);
+    assert_eq!(finder_page_body["items"][0]["path"], "docs/example-040.md");
+
+    let (bad_path_status, bad_path_body) = send_json(
+        app.clone(),
+        &format!("{base}/contents/%2E%2E/secrets?ref={encoded_feature}"),
+        Some(&owner_cookie),
+    )
+    .await;
+    assert_eq!(bad_path_status, StatusCode::NOT_FOUND);
+    assert!(!bad_path_body.to_string().to_lowercase().contains("stack"));
 
     let (refs_status, refs_body) = send_json(
         app.clone(),
@@ -366,5 +423,7 @@ async fn repository_tree_contract_resolves_branches_tags_and_recovery_links() {
     )
     .await;
     assert_eq!(allowed_status, StatusCode::OK);
-    assert_eq!(allowed_body["entries"][0]["name"], "guide.md");
+    assert_eq!(allowed_body["page"], 1);
+    assert_eq!(allowed_body["pageSize"], 100);
+    assert_eq!(allowed_body["entries"][0]["name"], "example-000.md");
 }

@@ -79,6 +79,7 @@ export type RepositoryPathOverview = RepositorySummary & {
   resolvedRef: RepositoryResolvedRef;
   defaultBranchHref: string;
   recoveryHref: string;
+  total: number;
   page: number;
   pageSize: number;
   hasMore: boolean;
@@ -660,6 +661,7 @@ export async function getRepositoryPathFromCookie(
   repo: string,
   refName: string,
   path: string,
+  options: { page?: number; pageSize?: number } = {},
 ): Promise<RepositoryPathOverview | null> {
   const normalizedPath = path.replace(/^\/+|\/+$/g, "");
   const encodedPath = normalizedPath
@@ -668,6 +670,12 @@ export async function getRepositoryPathFromCookie(
     .map(encodeURIComponent)
     .join("/");
   const params = new URLSearchParams({ ref: refName });
+  if (options.page) {
+    params.set("page", String(options.page));
+  }
+  if (options.pageSize) {
+    params.set("pageSize", String(options.pageSize));
+  }
   let response: Response;
   try {
     response = await fetch(
@@ -809,10 +817,17 @@ export async function getRepositoryFileFinderFromCookie(
   repo: string,
   refName: string,
   query: string,
+  options: { page?: number; pageSize?: number } = {},
 ): Promise<RepositoryFileFinderResult | null> {
   const params = new URLSearchParams({ ref: refName });
   if (query.trim()) {
     params.set("q", query.trim());
+  }
+  if (options.page) {
+    params.set("page", String(options.page));
+  }
+  if (options.pageSize) {
+    params.set("pageSize", String(options.pageSize));
   }
   let response: Response;
   try {

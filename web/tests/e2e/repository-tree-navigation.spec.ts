@@ -136,3 +136,72 @@ test("signed-in tree page supports split-pane browsing and row navigation", asyn
     path: "../ralph/screenshots/build/repo-004-phase2-tree-browser.jpg",
   });
 });
+
+test("large tree directories page without layout shift and recover missing paths", async ({
+  page,
+}) => {
+  const seeded = JSON.parse(
+    execFileSync(
+      "cargo",
+      [
+        "run",
+        "--quiet",
+        "-p",
+        "opengithub-api",
+        "--example",
+        "dashboard_e2e_seed",
+      ],
+      {
+        cwd: "..",
+        env: {
+          ...process.env,
+          DASHBOARD_E2E_EMPTY: "1",
+          DASHBOARD_E2E_TREE_REFS: "1",
+          SESSION_COOKIE_NAME: "og_session",
+        },
+      },
+    ).toString(),
+  ) as SeededSession & { treeRepositoryHref: string };
+  await signIn(page, seeded);
+  const repositoryHref = seeded.treeRepositoryHref;
+  const repositoryName = repositoryHref.split("/").at(-1);
+
+  await page.goto(`${repositoryHref}/tree/feature%2Ftree-nav/docs?pageSize=30`);
+  await expect(page.getByText("Showing 30 of 74 entries")).toBeVisible();
+  const tableBoxBefore = await page.locator("main ul").boundingBox();
+  await page.getByRole("link", { name: "Load more directory entries" }).click();
+  await expect(page).toHaveURL(/page=2&pageSize=30/);
+  await expect(page.getByText("Showing 30 of 74 entries")).toBeVisible();
+  await expect(
+    page
+      .locator("main ul")
+      .last()
+      .getByRole("link", {
+        name: /example-029\.md/,
+      }),
+  ).toBeVisible();
+  const tableBoxAfter = await page.locator("main ul").boundingBox();
+  expect(
+    Math.abs((tableBoxAfter?.height ?? 0) - (tableBoxBefore?.height ?? 0)),
+  ).toBeLessThanOrEqual(2);
+
+  await page.goto(`${repositoryHref}/tree/feature%2Ftree-nav/missing/path`);
+  await expect(
+    page.getByRole("heading", { name: "Path unavailable" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Open default branch" }).click();
+  await expect(page).toHaveURL(new RegExp(`${repositoryName}/tree/main$`));
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${repositoryHref}/tree/feature%2Ftree-nav/docs?pageSize=30`);
+  await expect(page.getByText("Showing 30 of 74 entries")).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(overflow).toBe(false);
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-004-phase4-large-directory-mobile.jpg",
+  });
+});
