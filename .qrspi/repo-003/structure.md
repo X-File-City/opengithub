@@ -75,7 +75,7 @@
 
 ## Phase 5: Final Visual QA and Regression Guardrails - finish repo-003 for QA handoff
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Lock down the completed repository Code tab against visual, accessibility, API-contract, and regression failures; update bookkeeping only after the full feature passes.
 

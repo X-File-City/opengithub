@@ -704,5 +704,23 @@
       "Topics remain rendered from the overview contract when present, but topic CRUD/population is not yet implemented",
       "Language/release/deployment/contributor sidebar freshness should be retested after importer, Git push, Actions, and releases features mature"
     ]
+  },
+  {
+    "feature_id": "repo-003",
+    "tests_written": [
+      "Added repository_code_security Rust coverage for anonymous Code tab auth bypass, private repository access denial, private social mutation denial, path traversal-like inputs, malformed encoded paths, invalid refs, and error envelope hygiene with no stack/secret leakage",
+      "Expanded repository-code-overview Playwright coverage to save final screenshots for action state, branch selector, nested tree, history, blob view, clone menu, default overview, empty quick setup, and mobile layout",
+      "Playwright E2E now covers empty repository quick setup links, mobile no-horizontal-overflow guardrails, visible button accessible names, dead href scanning, file-table navigation, Star/Watch persistence, and fork navigation",
+      "Focused verification passed: TEST_DATABASE_URL-backed cargo test --test repository_code_security and repository-code-overview Playwright spec",
+      "Full verification passed: TEST_DATABASE_URL-backed make check, make test, and make test-e2e with 24 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Git metadata fidelity is still metadata-backed; QA should retest branch/tag/path behavior after real smart HTTP clone/fetch/push and pack storage land",
+      "Large and binary blob rendering remains bounded placeholder behavior from Phase 2; QA should test real imported large files once S3-backed blob storage is active",
+      "Branch names containing slashes remain a known route-shape edge case for the current /tree/[ref]/... implementation",
+      "Fork creation snapshots repository metadata/files for MVP; QA should retest fork object fidelity and permission inheritance after full Git storage and org sharing features ship",
+      "Optimistic Star/Watch actions are covered for normal latency and reload persistence; QA should stress rapid repeated clicks and slow/failing API responses",
+      "Sidebar counts and language bars read current metadata tables; QA should recheck freshness after importer, Git push, releases, deployments, contributors, and topic CRUD mature"
+    ]
   }
 ]
