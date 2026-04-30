@@ -199,5 +199,24 @@
       "Future repository creation and settings pages should add page-specific smoke coverage once those pages exist",
       "Next 16 uses proxy.ts for middleware behavior; QA should look for proxy auth-wall regressions rather than a middleware.ts file"
     ]
+  },
+  {
+    "feature_id": "auth-002",
+    "tests_written": [
+      "Playwright E2E covers anonymous /dashboard redirects, protected next preservation for /dashboard?tab=activity, /new, and repository settings paths",
+      "Playwright E2E covers the public Sign in CTA reaching the shared Google-only login page",
+      "Playwright E2E covers logout returning anonymous users home and reapplying the /dashboard auth wall",
+      "Playwright API probes cover malformed Authorization/Cookie credentials returning generic JSON 401 envelopes for /api/auth/current-user and anonymous /api/repos",
+      "Rust auth_security tests cover JSON 401 envelopes without stack traces or cookie-value leaks and TEST_DATABASE_URL-backed private repository 403 envelopes",
+      ".scratch/auth-002-phase4-scenario.sh passed against a live make dev server",
+      "Browser smoke screenshot saved to ralph/screenshots/build/auth-002-phase4-auth-wall.jpg",
+      "make check, make test, and make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Real Google OAuth account selection and callback with TEST_ACCOUNT_EMAIL still needs QA once Google consent/test-user configuration is confirmed",
+      "Authenticated browser rendering of /dashboard with a real Postgres-backed session was not smoke-tested in this local environment because no DATABASE_URL or TEST_DATABASE_URL is present in .env",
+      "Playwright auth.setup.ts intentionally stores deterministic anonymous state only; upgrade to a generated signed-session fixture after a stable local test database bootstrap exists",
+      "Issue, pull request, and search route hardening remains for their own feature phases; auth-002 finalized the shared session wall and repository route examples"
+    ]
   }
 ]

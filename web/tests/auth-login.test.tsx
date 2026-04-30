@@ -2,7 +2,11 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import LoginPage from "@/app/login/page";
 import { AppShell } from "@/components/AppShell";
-import { googleStartUrl, sanitizeNextPath } from "@/lib/api";
+import {
+  getSessionFromCookie,
+  googleStartUrl,
+  sanitizeNextPath,
+} from "@/lib/api";
 import {
   isProtectedPath,
   loginRedirectUrl,
@@ -84,6 +88,22 @@ describe("protected app routes", () => {
     expect(loginRedirectUrl(request).toString()).toBe(
       "http://localhost:3015/login?next=%2Fdashboard%3Ftab%3Dactivity",
     );
+  });
+
+  it("treats session API fetch failures as anonymous", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("connect refused")),
+    );
+
+    await expect(getSessionFromCookie("__Host-session=value")).resolves.toEqual(
+      {
+        authenticated: false,
+        user: null,
+      },
+    );
+
+    vi.unstubAllGlobals();
   });
 });
 

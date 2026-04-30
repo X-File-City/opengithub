@@ -57,7 +57,7 @@
 
 ## Phase 4: End-to-End Auth Wall and Error UX - shared protection is regression-tested across UI and API
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Lock the shared auth wall with Playwright coverage and QA hints so future feature work can safely build authenticated repository flows.
 

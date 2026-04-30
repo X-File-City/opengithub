@@ -43,10 +43,15 @@ export function googleStartUrl(nextPath: string): string {
 export async function getSessionFromCookie(
   cookie: string | null | undefined,
 ): Promise<AuthSession> {
-  const response = await fetch(`${apiBaseUrl()}/api/auth/me`, {
-    headers: cookie ? { cookie } : undefined,
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}/api/auth/me`, {
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    return { authenticated: false, user: null };
+  }
 
   if (!response.ok) {
     return { authenticated: false, user: null };

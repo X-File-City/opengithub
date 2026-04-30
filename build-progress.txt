@@ -147,3 +147,12 @@
 - Browser smoke: started `make dev`, verified `/dashboard` redirects to `/login?next=%2Fdashboard`, `/new` redirects to `/login?next=%2Fnew`, public home still exposes a working Sign in CTA, and saved `ralph/screenshots/build/auth-002-phase3-proxy-login.jpg`.
 - Authenticated browser shell was not smoke-tested because `.env` has no `DATABASE_URL` or `TEST_DATABASE_URL`; unit coverage verifies the signed-in shell state and real-session browser QA remains for Phase 4.
 - Marked Phase 3 as done in `.qrspi/auth-002/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
+
+2026-04-30 - auth-002 phase 4 E2E auth wall and error UX
+
+- Implemented Phase 4 from `.qrspi/auth-002/structure.md`: extended Playwright auth wall coverage, documented deterministic anonymous auth setup, added API-envelope probes, and hardened `getSessionFromCookie` so proxy/session fetch failures degrade to anonymous redirects instead of throwing.
+- Added Rust security coverage in `crates/api/tests/auth_security.rs` for protected API JSON 401 envelopes with malformed Authorization/Cookie inputs, no stack/cookie leaks, and TEST_DATABASE_URL-backed private repository 403 envelopes.
+- Added `.scratch/auth-002-phase4-scenario.sh` for live HTTP validation against `make dev`; scenario passed and remains ignored under `.scratch/`.
+- Browser smoke: started `make dev`, verified login error UX and auth-wall API behavior through the scenario, and saved `ralph/screenshots/build/auth-002-phase4-auth-wall.jpg`.
+- Verification: `cargo test --test auth_security -- --nocapture` passed; `cd web && npx vitest run tests/auth-login.test.tsx` passed; `cd web && npx playwright test tests/e2e/auth.spec.ts` passed; `make check` passed; `make test` passed; `make test-e2e` passed with 8 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/auth-002/structure.md` and set `auth-002.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
