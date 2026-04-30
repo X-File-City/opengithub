@@ -295,3 +295,11 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 28 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 17 Playwright tests.
 - Browser smoke: started `make dev` with `.env` loaded and the local Postgres test DB, seeded a real Rust-signed session, verified issue and pull request activity cards, clicked issue and PR titles to non-404 detail placeholder pages, and saved `ralph/screenshots/build/dashboard-002-recent-activity.jpg`.
 - Set `dashboard-002.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - dashboard-003 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing dashboard QRSPI outlines, current dashboard API/UI code, migrations, and the dashboard E2E seed helper.
+- Determined `dashboard-003` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-003/structure.md` did not exist.
+- Added `.qrspi/dashboard-003/structure.md` with four independently verifiable vertical phases: feed event data/API contract, feed preference persistence, Following/For you UI controls with event filtering, and final visual/regression guardrails.
+- Did not change `prd.json`; `dashboard-003.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
