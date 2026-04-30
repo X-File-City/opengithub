@@ -447,3 +447,11 @@
 - Saved screenshots: `ralph/screenshots/build/repo-002-phase4-empty-wizard.jpg`, `repo-002-phase4-validation-error.jpg`, `repo-002-phase4-queued-status.jpg`, `repo-002-phase4-completed-status.jpg`, `repo-002-phase4-failed-status.jpg`, and `repo-002-phase4-mobile-status.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_import_worker -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_import_security -- --nocapture` passed; `cd web && npx vitest run tests/repository-import.test.tsx` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 53 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 22 Playwright tests.
 - Marked Phase 4 as done in `.qrspi/repo-002/structure.md` and set `repo-002.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - repo-003 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing repository creation/import outlines, and current repository overview API/UI code.
+- Determined `repo-003` requires structure planning before implementation because `needs_structure: true` and `.qrspi/repo-003/structure.md` did not exist.
+- Added `.qrspi/repo-003/structure.md` with five independently verifiable vertical phases: Code overview read contract, tree/blob/history navigation, Watch/Star/Fork actions, branch/file-finder/sidebar polish, and final QA guardrails.
+- Did not change `prd.json`; `build_pass` remains `false` until all repository Code tab implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
