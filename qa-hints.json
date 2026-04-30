@@ -1199,5 +1199,22 @@
       "Search type tabs preserve q/type but do not yet render real result lists or filter sidebars",
       "Very long user, organization, and team slugs should be stress-tested on narrow mobile screens during the final navigation sweep"
     ]
+  },
+  {
+    "feature_id": "nav-001",
+    "tests_written": [
+      "Added Playwright sitemap sweep for signed-in global routes, create/import routes, settings routes, repository tabs, repository settings, profile/org routes, search type tabs, and mobile drawer navigation",
+      "Sitemap sweep verifies HTTP status below 400, visible headings, no Next.js 404 text, no inert hrefs, accessible visible buttons, active tab/sidebar state, and no horizontal overflow",
+      "Saved final navigation screenshots for global placeholder, repository tabs, personal settings, repository settings, profile/org skeleton, search tabs, and mobile navigation",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 98 frontend tests plus cargo tests, targeted navigation-sitemap Playwright, and make test-e2e with 44 Playwright tests",
+      "Mandatory Editorial banned-value scan completed with no matches using ripgrep-compatible -e syntax"
+    ],
+    "needs_deeper_qa": [
+      "Most nav-001 destinations are concrete skeletons, not full feature implementations; QA should verify they clearly present not-yet-built states rather than expecting Issues/Pulls/Actions/Search data parity yet",
+      "Repository Settings visibility is owner/admin based; QA should separately probe non-owner/private repository access as permission scenarios deepen",
+      "Profile-vs-repository slug ambiguity is routed by path shape today: /{owner} for profile and /{owner}/{repo} for repositories; QA should stress real user/org slugs once profile data is persisted",
+      "Mobile drawer is covered for visibility, links, and overflow; deeper screen-reader focus-trap and long-name truncation QA should happen in accessibility passes",
+      "The prompt-provided rg -nE banned-value command is incompatible with this ripgrep build because -E is encoding; use rg -n -e for the same pattern in local QA"
+    ]
   }
 ]

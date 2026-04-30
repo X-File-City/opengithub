@@ -74,7 +74,7 @@
 
 ## Phase 5: Cross-Route Navigation Guardrails and QA Handoff - finish nav-001
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Lock down the navigation skeleton across desktop, mobile, auth redirects, repository workspaces, profiles, organizations, search, notifications, and settings. Mark `nav-001` complete only after route coverage, visual screenshots, dead-control scans, and bookkeeping are done.
 
