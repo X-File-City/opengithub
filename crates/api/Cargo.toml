@@ -33,3 +33,4 @@ reqwest.workspace = true
 pulldown-cmark.workspace = true
 ammonia.workspace = true
 regex.workspace = true
+dotenvy.workspace = true
