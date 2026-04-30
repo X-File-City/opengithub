@@ -6,7 +6,7 @@
 
 ## Phase 1: Read-Only Smart HTTP Clone - public repositories clone with real Git
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the durable Git backing store and the upload-pack smart HTTP routes needed for `git clone` and `git fetch` on public repositories. Existing repository creation/import paths must materialize or refresh a bare Git repository so the UI clone URL points at a working endpoint, not only metadata.
 

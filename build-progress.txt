@@ -197,7 +197,8 @@
 
 - Implemented Phase 3 from `.qrspi/onboarding-001/structure.md`: `/dashboard` now fetches the protected dashboard summary API server-side and renders a GitHub-style zero-repository onboarding state inside the shared signed-in `AppShell`.
 - Added `web/src/components/DashboardOnboarding.tsx` with the Top repositories panel, repository search input, green `New` CTA, empty list copy, welcome panel, and working CTAs for Create repository, Import repository, and Read setup guide.
-- Added reachable CTA destinations at `web/src/app/new/page.tsx`, `web/src/app/new/import/page.tsx`, and `web/src/app/docs/get-started/page.tsx`; `/new` is intentionally a placeholder because the full repository creation form is a later feature.
+  - Added reachable CTA destinations at `web/src/app/new/page.tsx`, `web/src/app/new/import/page.tsx`, and `web/src/app/docs/get-started/page.tsx`; `/new` is intentionally a placeholder because the full repository creation form is a later feature.
+
 - Added `web/tests/dashboard-onboarding.test.tsx` covering empty-state rendering, CTA hrefs, no inert `href="#"` or placeholder buttons, and the non-empty repository row fallback without first-run welcome copy.
 - Verification: `make check` passed; `make test` passed with 12 frontend tests plus cargo tests; `make test-e2e` passed with 8 Playwright tests.
 - Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session for a zero-repository user, verified `/dashboard`, clicked `/new`, `/new/import`, and `/docs/get-started` with Ever, and saved `ralph/screenshots/build/onboarding-001-phase3-dashboard.jpg`.
@@ -621,3 +622,15 @@
 - Browser smoke/E2E saved final screenshots: `repo-005-final-code-view.jpg`, `repo-005-final-blame-mode.jpg`, `repo-005-final-symbol-panel.jpg`, `repo-005-final-binary-fallback.jpg`, `repo-005-final-invalid-path.jpg`, and `repo-005-final-mobile.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_blob_security -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 72 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 29 Playwright tests.
 - Marked Phase 5 as done in `.qrspi/repo-005/structure.md` and set `repo-005.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - git-001 phase 1 read-only smart HTTP clone
+
+- Implemented Phase 1 from `.qrspi/git-001/structure.md`: public repositories now materialize database snapshots into real local bare Git repositories and expose anonymous `git-upload-pack` smart HTTP routes.
+- Added SQLx migration `202604300016_git_transport` for `repository_git_storage` with storage kind/path, last materialized commit, and audit timestamps.
+- Added `crates/api/src/domain/git_transport.rs` and `crates/api/src/routes/git.rs`; `GET /{owner}/{repo}.git/info/refs?service=git-upload-pack` advertises public refs and `POST /{owner}/{repo}.git/git-upload-pack` serves fetch/clone responses.
+- Repository bootstrap and import snapshot writes now refresh bare Git storage through the materialization helper; private repositories deny anonymous upload-pack until Phase 2 adds session/PAT auth.
+- Updated the Code menu to show only the HTTPS clone field while SSH remains unavailable, and documented `OPENGITHUB_GIT_STORAGE_DIR` in `BUILD_GUIDE.md` and `.env.example`.
+- Added `crates/api/tests/git_transport.rs` covering storage metadata, smart HTTP advertisement, real `git clone` against an Axum server, cloned README/default branch verification, and private anonymous denial.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 29 Playwright tests.
+- Browser smoke: E2E opened a real repository Code menu and the saved screenshot is `ralph/screenshots/build/git-001-phase1-code-menu.jpg`.
+- Marked Phase 1 as done in `.qrspi/git-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

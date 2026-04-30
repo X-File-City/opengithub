@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod dashboard;
+pub mod git_transport;
 pub mod highlight;
 pub mod identity;
 pub mod issues;

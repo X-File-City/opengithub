@@ -568,6 +568,8 @@ pub enum RepositoryError {
     UnknownLicenseTemplate(String),
     #[error("repository has already been forked by this user")]
     ForkAlreadyExists,
+    #[error("repository git storage failed")]
+    GitStorageFailed,
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 }
@@ -1925,6 +1927,9 @@ pub async fn replace_repository_snapshot(
     .await?;
 
     transaction.commit().await?;
+    super::git_transport::materialize_bare_repository_by_id(pool, repository_id)
+        .await
+        .map_err(|_| RepositoryError::GitStorageFailed)?;
     Ok(commit)
 }
 
@@ -2037,6 +2042,10 @@ async fn bootstrap_repository(
         Some(commit.id),
     )
     .await?;
+
+    super::git_transport::materialize_bare_repository(pool, repository)
+        .await
+        .map_err(|_| RepositoryError::GitStorageFailed)?;
 
     Ok(())
 }

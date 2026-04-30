@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod dashboard;
+pub mod git;
 pub mod health;
 pub mod highlight;
 pub mod issues;

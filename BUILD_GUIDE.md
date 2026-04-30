@@ -17,6 +17,10 @@ Authoritative stack reference for the build loop. Read this before running any c
 - `SESSION_COOKIE_NAME`: defaults to `__Host-session`.
 - `SESSION_COOKIE_SECURE`: defaults to `false` for localhost and `true` for non-local API URLs.
 
+## Git transport env contract (git-001)
+- `OPENGITHUB_GIT_STORAGE_DIR`: local bare-repository root for development and tests. Defaults to `${TMPDIR}/opengithub-git-storage`.
+- Production ECS tasks should mount or provision durable Git object storage. The current Phase 1 implementation records `repository_git_storage.storage_kind='local_bare'`; later S3-backed phases should preserve the same table contract while moving object bytes under the AWS git storage prefix.
+
 Google OAuth redirect URIs:
 - Local: `http://localhost:3016/api/auth/google/callback`
 - Production: `https://opengithub.namuh.co/api/auth/google/callback`

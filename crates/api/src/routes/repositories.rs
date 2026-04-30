@@ -605,6 +605,11 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
         RepositoryError::ForkAlreadyExists => {
             error_response(StatusCode::CONFLICT, "conflict", error.to_string())
         }
+        RepositoryError::GitStorageFailed => error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "git_storage_failed",
+            "repository git storage failed".to_owned(),
+        ),
         RepositoryError::Sqlx(sqlx::Error::Database(database_error))
             if database_error.is_unique_violation() =>
         {

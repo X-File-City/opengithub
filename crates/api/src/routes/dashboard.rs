@@ -220,7 +220,8 @@ fn map_dashboard_error(error: DashboardError) -> (StatusCode, Json<ErrorEnvelope
         | DashboardError::Repositories(RepositoryError::RefNotFoundWithRecovery { .. }) => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
-        DashboardError::Repositories(RepositoryError::Sqlx(_))
+        DashboardError::Repositories(RepositoryError::GitStorageFailed)
+        | DashboardError::Repositories(RepositoryError::Sqlx(_))
         | DashboardError::Onboarding(OnboardingError::Sqlx(_))
         | DashboardError::Sqlx(_) => error_response(
             StatusCode::INTERNAL_SERVER_ERROR,

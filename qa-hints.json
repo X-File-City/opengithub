@@ -870,5 +870,22 @@
       "Keyboard shortcuts y, b, and l are covered in Playwright but should receive manual QA for focus conflicts with browser extensions and assistive tech",
       "Binary detection is heuristic because the current text column cannot store NUL bytes; retest with real Git object storage/S3 blobs"
     ]
+  },
+  {
+    "feature_id": "git-001",
+    "tests_written": [
+      "Added repository_git_storage migration to track local bare Git storage materialization for each repository",
+      "Added Rust git transport domain/routes for anonymous public git-upload-pack discovery and POST smart HTTP fetches",
+      "Materialized bootstrap/import snapshots into real bare Git repositories using the system git binary after repository snapshot writes",
+      "Added crates/api/tests/git_transport.rs covering public smart HTTP advertisement, real git clone over an Axum server, cloned README/default branch verification, storage metadata persistence, and anonymous private repository denial",
+      "Updated the Code menu to expose only HTTPS clone controls until SSH support ships",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test, and make test-e2e"
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 is read-only and public-only; private clone/fetch with session/PAT auth is intentionally deferred to Phase 2",
+      "Materialized Git commit SHAs are real Git commits generated from the database snapshot and may differ from pre-existing deterministic metadata OIDs until push/history sync lands",
+      "Storage is local bare repositories under OPENGITHUB_GIT_STORAGE_DIR; production S3/ECS durability and object lifecycle need deeper QA in later phases",
+      "Browser smoke reused the freshly generated repository Code menu screenshot at ralph/screenshots/build/git-001-phase1-code-menu.jpg; QA should manually verify clipboard permissions across browsers"
+    ]
   }
 ]

@@ -357,8 +357,12 @@ describe("RepositoryCodeOverview", () => {
     expect(screen.getByText("2 watching")).toBeVisible();
     expect(screen.getByText("1 forks")).toBeVisible();
     expect(screen.getByText("TypeScript")).toBeVisible();
-    expect(screen.getAllByDisplayValue(/octo-app\.git$/)).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "Copy" })).toHaveLength(2);
+    expect(screen.getAllByDisplayValue(/octo-app\.git$/)).toHaveLength(1);
+    expect(
+      screen.getByDisplayValue(/^https:\/\/.*octo-app\.git$/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("SSH")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Copy" })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Download ZIP" })).toHaveAttribute(
       "href",
       "/mona/octo-app/archive/refs/heads/main.zip",

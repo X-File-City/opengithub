@@ -377,33 +377,29 @@ function CloneMenu({ repository }: RepositoryCodeToolbarProps) {
       </summary>
       <div className="absolute right-0 z-20 mt-2 w-80 rounded-md border border-[#d0d7de] bg-white p-3 text-sm text-[#1f2328] shadow-lg max-sm:w-[calc(100vw-3rem)]">
         <p className="font-semibold">Clone</p>
-        {(["https", "git"] as const).map((kind) => (
-          <div className="mt-3" key={kind}>
-            <label
-              className="block text-xs font-semibold uppercase text-[#59636e]"
-              htmlFor={`clone-${kind}`}
+        <div className="mt-3">
+          <label
+            className="block text-xs font-semibold uppercase text-[#59636e]"
+            htmlFor="clone-https"
+          >
+            HTTPS
+          </label>
+          <div className="mt-1 flex">
+            <input
+              className="min-w-0 flex-1 rounded-l-md border border-[#d0d7de] px-2 font-mono text-xs"
+              id="clone-https"
+              readOnly
+              value={repository.cloneUrls.https}
+            />
+            <button
+              className="h-8 rounded-r-md border border-l-0 border-[#d0d7de] bg-[#f6f8fa] px-3 text-xs font-semibold hover:bg-[#eef1f4]"
+              onClick={() => copy(repository.cloneUrls.https, "HTTPS")}
+              type="button"
             >
-              {kind === "https" ? "HTTPS" : "SSH"}
-            </label>
-            <div className="mt-1 flex">
-              <input
-                className="min-w-0 flex-1 rounded-l-md border border-[#d0d7de] px-2 font-mono text-xs"
-                id={`clone-${kind}`}
-                readOnly
-                value={repository.cloneUrls[kind]}
-              />
-              <button
-                className="h-8 rounded-r-md border border-l-0 border-[#d0d7de] bg-[#f6f8fa] px-3 text-xs font-semibold hover:bg-[#eef1f4]"
-                onClick={() =>
-                  copy(repository.cloneUrls[kind], kind.toUpperCase())
-                }
-                type="button"
-              >
-                Copy
-              </button>
-            </div>
+              Copy
+            </button>
           </div>
-        ))}
+        </div>
         {copied ? (
           <p className="mt-2 text-xs text-[#1a7f37]" role="status">
             {copied}
