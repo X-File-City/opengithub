@@ -103,6 +103,71 @@ pub struct RepositoryTreeEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RepositoryPathBreadcrumb {
+    pub name: String,
+    pub path: String,
+    pub href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryPathOverview {
+    #[serde(flatten)]
+    pub repository: Repository,
+    pub viewer_permission: Option<String>,
+    pub ref_name: String,
+    pub path: String,
+    pub path_name: String,
+    pub breadcrumbs: Vec<RepositoryPathBreadcrumb>,
+    pub parent_href: Option<String>,
+    pub entries: Vec<RepositoryTreeEntry>,
+    pub readme: Option<RepositoryFile>,
+    pub latest_commit: Option<RepositoryLatestCommit>,
+    pub history_href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryBlobView {
+    #[serde(flatten)]
+    pub repository: Repository,
+    pub viewer_permission: Option<String>,
+    pub ref_name: String,
+    pub path: String,
+    pub path_name: String,
+    pub breadcrumbs: Vec<RepositoryPathBreadcrumb>,
+    pub parent_href: Option<String>,
+    pub file: RepositoryFile,
+    pub language: Option<String>,
+    pub is_binary: bool,
+    pub is_large: bool,
+    pub latest_commit: Option<RepositoryLatestCommit>,
+    pub history_href: String,
+    pub raw_href: String,
+    pub download_href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryCommitHistoryItem {
+    pub oid: String,
+    pub short_oid: String,
+    pub message: String,
+    pub href: String,
+    pub committed_at: DateTime<Utc>,
+    pub author_login: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RepositoryCommitHistoryQuery<'a> {
+    pub ref_name: Option<&'a str>,
+    pub path: Option<&'a str>,
+    pub page: i64,
+    pub page_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryLatestCommit {
     pub oid: String,
     pub short_oid: String,
@@ -145,6 +210,34 @@ pub struct RepositorySidebarMetadata {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RepositoryViewerState {
+    pub starred: bool,
+    pub watching: bool,
+    pub forked_repository_href: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositorySocialState {
+    pub starred: bool,
+    pub watching: bool,
+    pub stars_count: i64,
+    pub watchers_count: i64,
+    pub forks_count: i64,
+    pub forked_repository_href: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryForkResult {
+    pub source_repository_id: Uuid,
+    pub fork_repository: Repository,
+    pub fork_href: String,
+    pub social: RepositorySocialState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryOverview {
     #[serde(flatten)]
     pub repository: Repository,
@@ -157,6 +250,7 @@ pub struct RepositoryOverview {
     pub files: Vec<RepositoryFile>,
     pub readme: Option<RepositoryFile>,
     pub sidebar: RepositorySidebarMetadata,
+    pub viewer_state: RepositoryViewerState,
     pub clone_urls: RepositoryCloneUrls,
 }
 
@@ -318,6 +412,10 @@ pub enum RepositoryError {
     PermissionDenied,
     #[error("repository was not found")]
     NotFound,
+    #[error("repository path was not found")]
+    PathNotFound,
+    #[error("repository ref was not found")]
+    RefNotFound,
     #[error("invalid repository visibility `{0}`")]
     InvalidVisibility(String),
     #[error("invalid repository name `{0}`")]
@@ -330,6 +428,8 @@ pub enum RepositoryError {
     UnknownGitignoreTemplate(String),
     #[error("unknown license template `{0}`")]
     UnknownLicenseTemplate(String),
+    #[error("repository has already been forked by this user")]
+    ForkAlreadyExists,
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 }
@@ -613,6 +713,7 @@ pub async fn repository_overview_for_actor(
     let latest_commit = latest_commit_for_repository(pool, &repository).await?;
     let root_entries = repository_root_entries(&repository, &files, latest_commit.as_ref());
     let sidebar = repository_sidebar_metadata(pool, &repository).await?;
+    let viewer_state = repository_viewer_state(pool, &repository, actor_user_id).await?;
     let clone_urls = repository_clone_urls(&repository);
     Ok(RepositoryOverview {
         repository,
@@ -625,7 +726,302 @@ pub async fn repository_overview_for_actor(
         files,
         readme,
         sidebar,
+        viewer_state,
         clone_urls,
+    })
+}
+
+pub async fn set_repository_star_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+    starred: bool,
+) -> Result<Option<RepositorySocialState>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+
+    if starred {
+        sqlx::query(
+            r#"
+            INSERT INTO repository_stars (user_id, repository_id)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id, repository_id) DO NOTHING
+            "#,
+        )
+        .bind(actor_user_id)
+        .bind(repository.id)
+        .execute(pool)
+        .await?;
+        insert_repository_social_feed_event(pool, &repository, actor_user_id, "star").await?;
+    } else {
+        sqlx::query("DELETE FROM repository_stars WHERE user_id = $1 AND repository_id = $2")
+            .bind(actor_user_id)
+            .bind(repository.id)
+            .execute(pool)
+            .await?;
+    }
+
+    repository_social_state(pool, &repository, actor_user_id)
+        .await
+        .map(Some)
+}
+
+pub async fn set_repository_watch_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+    watching: bool,
+) -> Result<Option<RepositorySocialState>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+
+    if watching {
+        sqlx::query(
+            r#"
+            INSERT INTO repository_watches (user_id, repository_id, reason)
+            VALUES ($1, $2, 'subscribed')
+            ON CONFLICT (user_id, repository_id) DO UPDATE SET reason = EXCLUDED.reason
+            "#,
+        )
+        .bind(actor_user_id)
+        .bind(repository.id)
+        .execute(pool)
+        .await?;
+    } else {
+        sqlx::query("DELETE FROM repository_watches WHERE user_id = $1 AND repository_id = $2")
+            .bind(actor_user_id)
+            .bind(repository.id)
+            .execute(pool)
+            .await?;
+    }
+
+    repository_social_state(pool, &repository, actor_user_id)
+        .await
+        .map(Some)
+}
+
+pub async fn fork_repository_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+) -> Result<Option<RepositoryForkResult>, RepositoryError> {
+    let Some(source_repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+
+    if existing_fork_href_for_user(pool, source_repository.id, actor_user_id)
+        .await?
+        .is_some()
+    {
+        return Err(RepositoryError::ForkAlreadyExists);
+    }
+
+    let fork_repository = create_repository_with_bootstrap(
+        pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: actor_user_id },
+            name: source_repository.name.clone(),
+            description: source_repository.description.clone(),
+            visibility: source_repository.visibility.clone(),
+            default_branch: Some(source_repository.default_branch.clone()),
+            created_by_user_id: actor_user_id,
+        },
+        RepositoryBootstrapRequest::default(),
+    )
+    .await?;
+
+    copy_repository_snapshot(pool, &source_repository, &fork_repository, actor_user_id).await?;
+    sqlx::query(
+        r#"
+        INSERT INTO repository_forks (source_repository_id, fork_repository_id, forked_by_user_id)
+        VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(source_repository.id)
+    .bind(fork_repository.id)
+    .bind(actor_user_id)
+    .execute(pool)
+    .await?;
+    insert_repository_fork_feed_event(pool, &source_repository, &fork_repository, actor_user_id)
+        .await?;
+    let fork_href = format!("/{}/{}", fork_repository.owner_login, fork_repository.name);
+    let social = repository_social_state(pool, &source_repository, actor_user_id).await?;
+
+    Ok(Some(RepositoryForkResult {
+        source_repository_id: source_repository.id,
+        fork_repository,
+        fork_href,
+        social,
+    }))
+}
+
+pub async fn repository_path_overview_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+    ref_name: Option<&str>,
+    path: &str,
+) -> Result<Option<RepositoryPathOverview>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+    repository_path_overview_for_actor(pool, repository, actor_user_id, ref_name, path)
+        .await
+        .map(Some)
+}
+
+pub async fn repository_blob_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+    ref_name: Option<&str>,
+    path: &str,
+) -> Result<Option<RepositoryBlobView>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+    repository_blob_for_actor(pool, repository, actor_user_id, ref_name, path)
+        .await
+        .map(Some)
+}
+
+pub async fn repository_commit_history_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+    query: RepositoryCommitHistoryQuery<'_>,
+) -> Result<Option<ListEnvelope<RepositoryCommitHistoryItem>>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+    let ref_name = resolve_repository_ref_name(pool, &repository, query.ref_name).await?;
+    let path = normalize_repository_path(query.path.unwrap_or(""))?;
+    let files = list_repository_files(pool, repository.id).await?;
+    if !path.is_empty()
+        && !files
+            .iter()
+            .any(|file| file.path == path || file.path.starts_with(&format!("{path}/")))
+    {
+        return Err(RepositoryError::PathNotFound);
+    }
+    repository_commit_history(
+        pool,
+        &repository,
+        &ref_name,
+        Some(path.as_str()).filter(|value| !value.is_empty()),
+        query.page,
+        query.page_size,
+    )
+    .await
+    .map(Some)
+}
+
+async fn repository_path_overview_for_actor(
+    pool: &PgPool,
+    repository: Repository,
+    actor_user_id: Uuid,
+    ref_name: Option<&str>,
+    path: &str,
+) -> Result<RepositoryPathOverview, RepositoryError> {
+    let ref_name = resolve_repository_ref_name(pool, &repository, ref_name).await?;
+    let path = normalize_repository_path(path)?;
+    let files = list_repository_files(pool, repository.id).await?;
+    let entries = repository_entries_for_path(&repository, &ref_name, &files, &path);
+    let readme = readme_for_path(&files, &path);
+    if !path.is_empty() && entries.is_empty() && readme.is_none() {
+        return Err(RepositoryError::PathNotFound);
+    }
+    let latest_commit = latest_commit_for_repository(pool, &repository).await?;
+    let viewer_permission = viewer_permission_for_user(pool, &repository, actor_user_id).await?;
+    let history_href = repository_history_href(&repository, &ref_name, &path);
+
+    Ok(RepositoryPathOverview {
+        viewer_permission,
+        ref_name: ref_name.clone(),
+        path_name: path
+            .rsplit('/')
+            .next()
+            .filter(|value| !value.is_empty())
+            .unwrap_or(&repository.name)
+            .to_owned(),
+        breadcrumbs: repository_breadcrumbs(&repository, &ref_name, &path),
+        parent_href: repository_parent_tree_href(&repository, &ref_name, &path),
+        entries,
+        readme,
+        latest_commit,
+        history_href,
+        path,
+        repository,
+    })
+}
+
+async fn repository_blob_for_actor(
+    pool: &PgPool,
+    repository: Repository,
+    actor_user_id: Uuid,
+    ref_name: Option<&str>,
+    path: &str,
+) -> Result<RepositoryBlobView, RepositoryError> {
+    let ref_name = resolve_repository_ref_name(pool, &repository, ref_name).await?;
+    let path = normalize_repository_path(path)?;
+    if path.is_empty() {
+        return Err(RepositoryError::PathNotFound);
+    }
+    let files = list_repository_files(pool, repository.id).await?;
+    let file = files
+        .iter()
+        .find(|file| file.path == path)
+        .cloned()
+        .ok_or(RepositoryError::PathNotFound)?;
+    let latest_commit = latest_commit_for_repository(pool, &repository).await?;
+    let viewer_permission = viewer_permission_for_user(pool, &repository, actor_user_id).await?;
+    let encoded_path = percent_encode_path(&path);
+    let base = format!(
+        "/{}/{}/{}",
+        repository.owner_login, repository.name, encoded_path
+    );
+
+    Ok(RepositoryBlobView {
+        viewer_permission,
+        ref_name: ref_name.clone(),
+        path_name: path
+            .rsplit('/')
+            .next()
+            .filter(|value| !value.is_empty())
+            .unwrap_or(&path)
+            .to_owned(),
+        breadcrumbs: repository_breadcrumbs(&repository, &ref_name, &path),
+        parent_href: repository_parent_tree_href(&repository, &ref_name, &path),
+        language: language_for_path(&path),
+        is_binary: is_probably_binary(&file.content),
+        is_large: file.byte_size > 512 * 1024,
+        history_href: repository_history_href(&repository, &ref_name, &path),
+        raw_href: format!("{base}?raw=1"),
+        download_href: format!("{base}?download=1"),
+        path,
+        file,
+        latest_commit,
+        repository,
     })
 }
 
@@ -1473,6 +1869,415 @@ fn repository_root_entries(
     entries
 }
 
+fn repository_entries_for_path(
+    repository: &Repository,
+    ref_name: &str,
+    files: &[RepositoryFile],
+    path: &str,
+) -> Vec<RepositoryTreeEntry> {
+    let prefix = if path.is_empty() {
+        String::new()
+    } else {
+        format!("{path}/")
+    };
+    let mut folders: BTreeMap<String, DateTime<Utc>> = BTreeMap::new();
+    let mut entries = Vec::new();
+
+    for file in files {
+        if !file.path.starts_with(&prefix) {
+            continue;
+        }
+        let remainder = &file.path[prefix.len()..];
+        if remainder.is_empty() {
+            continue;
+        }
+        if let Some((folder, _)) = remainder.split_once('/') {
+            let child_path = if path.is_empty() {
+                folder.to_owned()
+            } else {
+                format!("{path}/{folder}")
+            };
+            folders
+                .entry(child_path)
+                .and_modify(|updated_at| {
+                    if file.created_at > *updated_at {
+                        *updated_at = file.created_at;
+                    }
+                })
+                .or_insert(file.created_at);
+        } else {
+            entries.push(RepositoryTreeEntry {
+                kind: "file".to_owned(),
+                name: remainder.to_owned(),
+                path: file.path.clone(),
+                href: format!(
+                    "/{}/{}/blob/{}/{}",
+                    repository.owner_login,
+                    repository.name,
+                    percent_encode_segment(ref_name),
+                    percent_encode_path(&file.path)
+                ),
+                byte_size: Some(file.byte_size),
+                latest_commit_message: None,
+                latest_commit_href: None,
+                updated_at: file.created_at,
+            });
+        }
+    }
+
+    for (folder_path, updated_at) in folders {
+        entries.push(RepositoryTreeEntry {
+            kind: "folder".to_owned(),
+            name: folder_path
+                .rsplit('/')
+                .next()
+                .unwrap_or(folder_path.as_str())
+                .to_owned(),
+            path: folder_path.clone(),
+            href: format!(
+                "/{}/{}/tree/{}/{}",
+                repository.owner_login,
+                repository.name,
+                percent_encode_segment(ref_name),
+                percent_encode_path(&folder_path)
+            ),
+            byte_size: None,
+            latest_commit_message: None,
+            latest_commit_href: None,
+            updated_at,
+        });
+    }
+
+    entries.sort_by(
+        |left, right| match (left.kind.as_str(), right.kind.as_str()) {
+            ("folder", "file") => std::cmp::Ordering::Less,
+            ("file", "folder") => std::cmp::Ordering::Greater,
+            _ => left.name.to_lowercase().cmp(&right.name.to_lowercase()),
+        },
+    );
+    entries
+}
+
+fn readme_for_path(files: &[RepositoryFile], path: &str) -> Option<RepositoryFile> {
+    let prefix = if path.is_empty() {
+        String::new()
+    } else {
+        format!("{path}/")
+    };
+    files
+        .iter()
+        .find(|file| {
+            file.path
+                .strip_prefix(&prefix)
+                .is_some_and(|remainder| remainder.eq_ignore_ascii_case("README.md"))
+        })
+        .cloned()
+}
+
+fn repository_breadcrumbs(
+    repository: &Repository,
+    ref_name: &str,
+    path: &str,
+) -> Vec<RepositoryPathBreadcrumb> {
+    let mut breadcrumbs = vec![RepositoryPathBreadcrumb {
+        name: repository.name.clone(),
+        path: String::new(),
+        href: format!(
+            "/{}/{}/tree/{}",
+            repository.owner_login,
+            repository.name,
+            percent_encode_segment(ref_name)
+        ),
+    }];
+    let mut current = String::new();
+    for segment in path.split('/').filter(|segment| !segment.is_empty()) {
+        if current.is_empty() {
+            current.push_str(segment);
+        } else {
+            current.push('/');
+            current.push_str(segment);
+        }
+        breadcrumbs.push(RepositoryPathBreadcrumb {
+            name: segment.to_owned(),
+            path: current.clone(),
+            href: format!(
+                "/{}/{}/tree/{}/{}",
+                repository.owner_login,
+                repository.name,
+                percent_encode_segment(ref_name),
+                percent_encode_path(&current)
+            ),
+        });
+    }
+    breadcrumbs
+}
+
+fn repository_parent_tree_href(
+    repository: &Repository,
+    ref_name: &str,
+    path: &str,
+) -> Option<String> {
+    if path.is_empty() {
+        return None;
+    }
+    let parent = path
+        .rsplit_once('/')
+        .map(|(parent, _)| parent)
+        .unwrap_or("");
+    Some(if parent.is_empty() {
+        format!(
+            "/{}/{}/tree/{}",
+            repository.owner_login,
+            repository.name,
+            percent_encode_segment(ref_name)
+        )
+    } else {
+        format!(
+            "/{}/{}/tree/{}/{}",
+            repository.owner_login,
+            repository.name,
+            percent_encode_segment(ref_name),
+            percent_encode_path(parent)
+        )
+    })
+}
+
+fn repository_history_href(repository: &Repository, ref_name: &str, path: &str) -> String {
+    if path.is_empty() {
+        format!(
+            "/{}/{}/commits/{}",
+            repository.owner_login,
+            repository.name,
+            percent_encode_segment(ref_name)
+        )
+    } else {
+        format!(
+            "/{}/{}/commits/{}/{}",
+            repository.owner_login,
+            repository.name,
+            percent_encode_segment(ref_name),
+            percent_encode_path(path)
+        )
+    }
+}
+
+async fn viewer_permission_for_user(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<Option<String>, RepositoryError> {
+    Ok(
+        repository_permission_for_user(pool, repository.id, actor_user_id)
+            .await?
+            .map(|permission| permission.role.as_str().to_owned())
+            .or_else(|| {
+                if repository.visibility == RepositoryVisibility::Public {
+                    Some("read".to_owned())
+                } else {
+                    None
+                }
+            }),
+    )
+}
+
+async fn resolve_repository_ref_name(
+    pool: &PgPool,
+    repository: &Repository,
+    ref_name: Option<&str>,
+) -> Result<String, RepositoryError> {
+    let ref_name = ref_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&repository.default_branch);
+    let normalized = normalize_repository_path(ref_name)?;
+    if normalized == repository.default_branch {
+        return Ok(normalized);
+    }
+    let branch_ref = format!("refs/heads/{normalized}");
+    let tag_ref = format!("refs/tags/{normalized}");
+    let exists = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM repository_git_refs
+            WHERE repository_id = $1 AND name IN ($2, $3)
+        )
+        "#,
+    )
+    .bind(repository.id)
+    .bind(&branch_ref)
+    .bind(&tag_ref)
+    .fetch_one(pool)
+    .await?;
+    if exists {
+        Ok(normalized)
+    } else {
+        Err(RepositoryError::RefNotFound)
+    }
+}
+
+fn normalize_repository_path(value: &str) -> Result<String, RepositoryError> {
+    let trimmed = value.trim_matches('/');
+    if trimmed.is_empty() {
+        return Ok(String::new());
+    }
+    let mut segments = Vec::new();
+    for segment in trimmed.split('/') {
+        if segment.is_empty() || matches!(segment, "." | "..") || segment.contains('\\') {
+            return Err(RepositoryError::PathNotFound);
+        }
+        segments.push(segment);
+    }
+    Ok(segments.join("/"))
+}
+
+async fn repository_commit_history(
+    pool: &PgPool,
+    repository: &Repository,
+    _ref_name: &str,
+    path: Option<&str>,
+    page: i64,
+    page_size: i64,
+) -> Result<ListEnvelope<RepositoryCommitHistoryItem>, RepositoryError> {
+    let page = page.max(1);
+    let page_size = page_size.clamp(1, 100);
+    let offset = (page - 1) * page_size;
+    let path = path.unwrap_or("");
+    let path_prefix = if path.is_empty() {
+        None
+    } else {
+        Some(format!("{path}/%"))
+    };
+
+    let total = if path.is_empty() {
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM commits WHERE repository_id = $1")
+            .bind(repository.id)
+            .fetch_one(pool)
+            .await?
+    } else {
+        sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT count(DISTINCT commits.id)
+            FROM commits
+            JOIN repository_files ON repository_files.commit_id = commits.id
+            WHERE commits.repository_id = $1
+              AND (repository_files.path = $2 OR repository_files.path LIKE $3)
+            "#,
+        )
+        .bind(repository.id)
+        .bind(path)
+        .bind(path_prefix.as_deref().unwrap_or(""))
+        .fetch_one(pool)
+        .await?
+    };
+
+    let rows = if path.is_empty() {
+        sqlx::query(
+            r#"
+            SELECT commits.oid, commits.message, commits.committed_at,
+                   COALESCE(NULLIF(users.username, ''), users.email) AS author_login
+            FROM commits
+            LEFT JOIN users ON users.id = commits.author_user_id
+            WHERE commits.repository_id = $1
+            ORDER BY commits.committed_at DESC, commits.created_at DESC
+            LIMIT $2 OFFSET $3
+            "#,
+        )
+        .bind(repository.id)
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query(
+            r#"
+            SELECT DISTINCT commits.oid, commits.message, commits.committed_at,
+                   COALESCE(NULLIF(users.username, ''), users.email) AS author_login
+            FROM commits
+            JOIN repository_files ON repository_files.commit_id = commits.id
+            LEFT JOIN users ON users.id = commits.author_user_id
+            WHERE commits.repository_id = $1
+              AND (repository_files.path = $2 OR repository_files.path LIKE $3)
+            ORDER BY commits.committed_at DESC
+            LIMIT $4 OFFSET $5
+            "#,
+        )
+        .bind(repository.id)
+        .bind(path)
+        .bind(path_prefix.as_deref().unwrap_or(""))
+        .bind(page_size)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?
+    };
+
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let oid: String = row.get("oid");
+            RepositoryCommitHistoryItem {
+                short_oid: oid.chars().take(7).collect(),
+                href: format!(
+                    "/{}/{}/commit/{}",
+                    repository.owner_login, repository.name, oid
+                ),
+                oid,
+                message: row.get("message"),
+                committed_at: row.get("committed_at"),
+                author_login: row.get("author_login"),
+            }
+        })
+        .collect();
+
+    Ok(ListEnvelope {
+        items,
+        total,
+        page,
+        page_size,
+    })
+}
+
+fn language_for_path(path: &str) -> Option<String> {
+    let extension = path.rsplit('.').next()?;
+    let language = match extension.to_ascii_lowercase().as_str() {
+        "md" | "markdown" => "Markdown",
+        "rs" => "Rust",
+        "ts" | "tsx" => "TypeScript",
+        "js" | "jsx" => "JavaScript",
+        "json" => "JSON",
+        "toml" => "TOML",
+        "yml" | "yaml" => "YAML",
+        "sql" => "SQL",
+        "css" => "CSS",
+        "html" => "HTML",
+        _ => return None,
+    };
+    Some(language.to_owned())
+}
+
+fn is_probably_binary(content: &str) -> bool {
+    content.chars().any(|character| character == '\0')
+}
+
+fn percent_encode_path(path: &str) -> String {
+    path.split('/')
+        .map(percent_encode_segment)
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn percent_encode_segment(segment: &str) -> String {
+    let mut encoded = String::new();
+    for byte in segment.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
 async fn repository_sidebar_metadata(
     pool: &PgPool,
     repository: &Repository,
@@ -1555,6 +2360,149 @@ async fn repository_sidebar_metadata(
         contributors_count,
         languages,
     })
+}
+
+async fn repository_viewer_state(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<RepositoryViewerState, RepositoryError> {
+    let starred = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1 FROM repository_stars WHERE user_id = $1 AND repository_id = $2
+        )
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(repository.id)
+    .fetch_one(pool)
+    .await?;
+    let watching = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1 FROM repository_watches WHERE user_id = $1 AND repository_id = $2
+        )
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(repository.id)
+    .fetch_one(pool)
+    .await?;
+    let forked_repository_href =
+        existing_fork_href_for_user(pool, repository.id, actor_user_id).await?;
+
+    Ok(RepositoryViewerState {
+        starred,
+        watching,
+        forked_repository_href,
+    })
+}
+
+async fn repository_social_state(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<RepositorySocialState, RepositoryError> {
+    let sidebar = repository_sidebar_metadata(pool, repository).await?;
+    let viewer_state = repository_viewer_state(pool, repository, actor_user_id).await?;
+    Ok(RepositorySocialState {
+        starred: viewer_state.starred,
+        watching: viewer_state.watching,
+        stars_count: sidebar.stars_count,
+        watchers_count: sidebar.watchers_count,
+        forks_count: sidebar.forks_count,
+        forked_repository_href: viewer_state.forked_repository_href,
+    })
+}
+
+async fn existing_fork_href_for_user(
+    pool: &PgPool,
+    source_repository_id: Uuid,
+    actor_user_id: Uuid,
+) -> Result<Option<String>, RepositoryError> {
+    let row = sqlx::query(
+        r#"
+        SELECT COALESCE(NULLIF(owner_user.username, ''), owner_user.email, organizations.slug) AS owner_login,
+               forks.name
+        FROM repository_forks
+        JOIN repositories forks ON forks.id = repository_forks.fork_repository_id
+        LEFT JOIN users owner_user ON owner_user.id = forks.owner_user_id
+        LEFT JOIN organizations ON organizations.id = forks.owner_organization_id
+        WHERE repository_forks.source_repository_id = $1
+          AND repository_forks.forked_by_user_id = $2
+        ORDER BY repository_forks.created_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(source_repository_id)
+    .bind(actor_user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|row| {
+        format!(
+            "/{}/{}",
+            row.get::<String, _>("owner_login"),
+            row.get::<String, _>("name")
+        )
+    }))
+}
+
+async fn copy_repository_snapshot(
+    pool: &PgPool,
+    source: &Repository,
+    destination: &Repository,
+    actor_user_id: Uuid,
+) -> Result<(), RepositoryError> {
+    let files = list_repository_files(pool, source.id).await?;
+    if files.is_empty() {
+        return Ok(());
+    }
+    let source_commit = latest_commit_for_repository(pool, source).await?;
+    let source_oid = source_commit
+        .as_ref()
+        .map(|commit| commit.oid.as_str())
+        .unwrap_or("empty");
+    let files_for_hash = files
+        .iter()
+        .map(|file| format!("{}:{}", file.path, file.oid))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let tree_oid = deterministic_oid(
+        "fork-tree",
+        &format!("{}:{}:{}", destination.id, source_oid, files_for_hash),
+    );
+    let commit_oid = deterministic_oid(
+        "fork-commit",
+        &format!("{}:{}:{}", destination.id, source.id, source_oid),
+    );
+    let snapshot = RepositorySnapshot {
+        branch_name: destination.default_branch.clone(),
+        commit: CreateCommit {
+            oid: commit_oid,
+            author_user_id: Some(actor_user_id),
+            committer_user_id: Some(actor_user_id),
+            message: format!("Forked from {}/{}", source.owner_login, source.name),
+            tree_oid: Some(tree_oid),
+            parent_oids: source_commit
+                .as_ref()
+                .map(|commit| vec![commit.oid.clone()])
+                .unwrap_or_default(),
+            committed_at: Utc::now(),
+        },
+        files: files
+            .into_iter()
+            .map(|file| RepositorySnapshotFile {
+                path: file.path,
+                content: file.content,
+                oid: file.oid,
+                byte_size: file.byte_size,
+            })
+            .collect(),
+    };
+    replace_repository_snapshot(pool, destination.id, snapshot).await?;
+    Ok(())
 }
 
 fn repository_clone_urls(repository: &Repository) -> RepositoryCloneUrls {
@@ -1803,6 +2751,98 @@ pub async fn insert_repository_create_feed_event(
     .bind(serde_json::json!({
         "visibility": repository.visibility.as_str(),
         "defaultBranch": repository.default_branch,
+    }))
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn insert_repository_social_feed_event(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+    event_type: &str,
+) -> Result<(), RepositoryError> {
+    let (title, excerpt) = match event_type {
+        "star" => (
+            format!("Starred {}/{}", repository.owner_login, repository.name),
+            "Repository starred from the Code tab.",
+        ),
+        _ => return Ok(()),
+    };
+    sqlx::query(
+        r#"
+        INSERT INTO feed_events (
+            actor_user_id,
+            repository_id,
+            event_type,
+            title,
+            excerpt,
+            target_href,
+            subject_type,
+            subject_id,
+            metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, 'repository', $2, $7)
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(repository.id)
+    .bind(event_type)
+    .bind(title)
+    .bind(excerpt)
+    .bind(format!("/{}/{}", repository.owner_login, repository.name))
+    .bind(serde_json::json!({
+        "source": "repository_header",
+        "repository": format!("{}/{}", repository.owner_login, repository.name),
+    }))
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn insert_repository_fork_feed_event(
+    pool: &PgPool,
+    source_repository: &Repository,
+    fork_repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<(), RepositoryError> {
+    sqlx::query(
+        r#"
+        INSERT INTO feed_events (
+            actor_user_id,
+            repository_id,
+            event_type,
+            title,
+            excerpt,
+            target_href,
+            subject_type,
+            subject_id,
+            metadata
+        )
+        VALUES ($1, $2, 'fork', $3, $4, $5, 'repository', $6, $7)
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(source_repository.id)
+    .bind(format!(
+        "Forked {}/{}",
+        source_repository.owner_login, source_repository.name
+    ))
+    .bind(format!(
+        "Created fork {}/{}",
+        fork_repository.owner_login, fork_repository.name
+    ))
+    .bind(format!(
+        "/{}/{}",
+        fork_repository.owner_login, fork_repository.name
+    ))
+    .bind(fork_repository.id)
+    .bind(serde_json::json!({
+        "sourceRepository": format!("{}/{}", source_repository.owner_login, source_repository.name),
+        "forkRepository": format!("{}/{}", fork_repository.owner_login, fork_repository.name),
     }))
     .execute(pool)
     .await?;

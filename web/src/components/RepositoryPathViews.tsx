@@ -1,0 +1,232 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { RepositoryFileTable } from "@/components/RepositoryFileTable";
+import type {
+  ListEnvelope,
+  RepositoryBlobView,
+  RepositoryCommitHistoryItem,
+  RepositoryPathBreadcrumb,
+  RepositoryPathOverview,
+} from "@/lib/api";
+
+function Breadcrumbs({
+  breadcrumbs,
+}: {
+  breadcrumbs: RepositoryPathBreadcrumb[];
+}) {
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className="flex flex-wrap items-center gap-1 text-sm"
+    >
+      {breadcrumbs.map((breadcrumb, index) => (
+        <span className="flex min-w-0 items-center gap-1" key={breadcrumb.href}>
+          {index > 0 ? <span className="text-[#59636e]">/</span> : null}
+          <Link
+            className="max-w-48 truncate font-semibold text-[#0969da] hover:underline"
+            href={breadcrumb.href}
+          >
+            {breadcrumb.name}
+          </Link>
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function RepositoryPathHeader({
+  owner,
+  repo,
+  visibility,
+  children,
+}: {
+  owner: string;
+  repo: string;
+  visibility?: string;
+  children: ReactNode;
+}) {
+  return (
+    <header className="border-b border-[#d0d7de] bg-[#f6f8fa] px-6 py-5">
+      <div className="mx-auto max-w-7xl">
+        <p className="text-sm text-[#59636e]">{owner}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <Link
+            className="text-xl font-semibold tracking-normal text-[#0969da] hover:underline"
+            href={`/${owner}/${repo}`}
+          >
+            {repo}
+          </Link>
+          {visibility ? (
+            <span className="rounded-full border border-[#d0d7de] px-2 py-0.5 text-xs font-semibold capitalize text-[#59636e]">
+              {visibility}
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-5">{children}</div>
+      </div>
+    </header>
+  );
+}
+
+export function RepositoryTreeView({
+  overview,
+}: {
+  overview: RepositoryPathOverview;
+}) {
+  return (
+    <div>
+      <RepositoryPathHeader
+        owner={overview.owner_login}
+        repo={overview.name}
+        visibility={overview.visibility}
+      >
+        <Breadcrumbs breadcrumbs={overview.breadcrumbs} />
+      </RepositoryPathHeader>
+      <main className="mx-auto max-w-7xl space-y-4 px-6 py-6">
+        {overview.parentHref ? (
+          <Link
+            className="text-sm font-semibold text-[#0969da] hover:underline"
+            href={overview.parentHref}
+          >
+            Parent directory
+          </Link>
+        ) : null}
+        <RepositoryFileTable
+          entries={overview.entries}
+          historyHref={overview.historyHref}
+          latestCommit={overview.latestCommit}
+        />
+        {overview.readme ? (
+          <article className="rounded-md border border-[#d0d7de] bg-white">
+            <h2 className="border-b border-[#d0d7de] px-4 py-3 text-sm font-semibold text-[#1f2328]">
+              {overview.readme.path}
+            </h2>
+            <pre className="whitespace-pre-wrap px-4 py-4 text-sm leading-6 text-[#1f2328]">
+              {overview.readme.content}
+            </pre>
+          </article>
+        ) : null}
+      </main>
+    </div>
+  );
+}
+
+export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
+  const lineCount = blob.file.content.split("\n").length;
+  return (
+    <div>
+      <RepositoryPathHeader
+        owner={blob.owner_login}
+        repo={blob.name}
+        visibility={blob.visibility}
+      >
+        <Breadcrumbs breadcrumbs={blob.breadcrumbs} />
+      </RepositoryPathHeader>
+      <main className="mx-auto max-w-7xl space-y-4 px-6 py-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold text-[#1f2328]">
+              {blob.path}
+            </h1>
+            <p className="mt-1 text-sm text-[#59636e]">
+              {lineCount} lines · {blob.file.byteSize} bytes
+              {blob.language ? ` · ${blob.language}` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {blob.parentHref ? (
+              <Link
+                className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+                href={blob.parentHref}
+              >
+                Parent
+              </Link>
+            ) : null}
+            <Link
+              className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+              href={blob.historyHref}
+            >
+              History
+            </Link>
+            <Link
+              className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+              href={blob.rawHref}
+            >
+              Raw
+            </Link>
+            <Link
+              className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+              href={blob.downloadHref}
+            >
+              Download
+            </Link>
+          </div>
+        </div>
+        <section className="overflow-hidden rounded-md border border-[#d0d7de] bg-white">
+          {blob.isBinary || blob.isLarge ? (
+            <div className="p-6 text-sm text-[#59636e]">
+              This file cannot be previewed inline yet. Use Raw or Download to
+              inspect the stored blob.
+            </div>
+          ) : (
+            <pre className="max-h-[720px] overflow-auto p-4 text-xs leading-5 text-[#1f2328]">
+              <code>{blob.file.content}</code>
+            </pre>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export function RepositoryCommitHistoryView({
+  owner,
+  repo,
+  refName,
+  path,
+  history,
+}: {
+  owner: string;
+  repo: string;
+  refName: string;
+  path: string;
+  history: ListEnvelope<RepositoryCommitHistoryItem>;
+}) {
+  return (
+    <div>
+      <RepositoryPathHeader owner={owner} repo={repo}>
+        <h1 className="text-base font-semibold text-[#1f2328]">
+          Commit history for {path || refName}
+        </h1>
+      </RepositoryPathHeader>
+      <main className="mx-auto max-w-7xl px-6 py-6">
+        <div className="overflow-hidden rounded-md border border-[#d0d7de] bg-white">
+          {history.items.map((commit) => (
+            <Link
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-[#d0d7de] px-4 py-3 text-sm last:border-b-0 hover:bg-[#f6f8fa] max-md:grid-cols-1"
+              href={commit.href}
+              key={commit.oid}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-[#1f2328]">
+                  {commit.message}
+                </span>
+                <span className="mt-1 block text-xs text-[#59636e]">
+                  {commit.authorLogin ?? "Unknown author"}
+                </span>
+              </span>
+              <span className="font-mono text-xs text-[#0969da]">
+                {commit.shortOid}
+              </span>
+            </Link>
+          ))}
+          {history.items.length === 0 ? (
+            <p className="p-6 text-sm text-[#59636e]">
+              No commits are recorded for this path.
+            </p>
+          ) : null}
+        </div>
+      </main>
+    </div>
+  );
+}

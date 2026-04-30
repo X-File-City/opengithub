@@ -51,12 +51,57 @@ export type RepositoryTreeEntry = {
   updatedAt: string;
 };
 
+export type RepositoryPathBreadcrumb = {
+  name: string;
+  path: string;
+  href: string;
+};
+
 export type RepositoryLatestCommit = {
   oid: string;
   shortOid: string;
   message: string;
   href: string;
   committedAt: string;
+};
+
+export type RepositoryPathOverview = RepositorySummary & {
+  viewerPermission: string | null;
+  refName: string;
+  path: string;
+  pathName: string;
+  breadcrumbs: RepositoryPathBreadcrumb[];
+  parentHref: string | null;
+  entries: RepositoryTreeEntry[];
+  readme: RepositoryFile | null;
+  latestCommit: RepositoryLatestCommit | null;
+  historyHref: string;
+};
+
+export type RepositoryBlobView = RepositorySummary & {
+  viewerPermission: string | null;
+  refName: string;
+  path: string;
+  pathName: string;
+  breadcrumbs: RepositoryPathBreadcrumb[];
+  parentHref: string | null;
+  file: RepositoryFile;
+  language: string | null;
+  isBinary: boolean;
+  isLarge: boolean;
+  latestCommit: RepositoryLatestCommit | null;
+  historyHref: string;
+  rawHref: string;
+  downloadHref: string;
+};
+
+export type RepositoryCommitHistoryItem = {
+  oid: string;
+  shortOid: string;
+  message: string;
+  href: string;
+  committedAt: string;
+  authorLogin: string | null;
 };
 
 export type RepositoryLanguageSummary = {
@@ -77,6 +122,25 @@ export type RepositorySidebarMetadata = {
   deploymentsCount: number;
   contributorsCount: number;
   languages: RepositoryLanguageSummary[];
+};
+
+export type RepositoryViewerState = {
+  starred: boolean;
+  watching: boolean;
+  forkedRepositoryHref: string | null;
+};
+
+export type RepositorySocialState = RepositoryViewerState & {
+  starsCount: number;
+  watchersCount: number;
+  forksCount: number;
+};
+
+export type RepositoryForkResult = {
+  sourceRepositoryId: string;
+  forkRepository: RepositorySummary;
+  forkHref: string;
+  social: RepositorySocialState;
 };
 
 export type RepositoryCloneUrls = {
@@ -103,6 +167,7 @@ export type RepositoryOverview = RepositorySummary & {
   files: RepositoryFile[];
   readme: RepositoryFile | null;
   sidebar: RepositorySidebarMetadata;
+  viewerState: RepositoryViewerState;
   cloneUrls: RepositoryCloneUrls;
 };
 
@@ -543,6 +608,186 @@ export async function getRepositoryFromCookie(
   }
 
   return (await response.json()) as RepositoryOverview;
+}
+
+export async function getRepositoryPathFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  refName: string,
+  path: string,
+): Promise<RepositoryPathOverview | null> {
+  const normalizedPath = path.replace(/^\/+|\/+$/g, "");
+  const encodedPath = normalizedPath
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  const params = new URLSearchParams({ ref: refName });
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?${params.toString()}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as RepositoryPathOverview;
+}
+
+export async function getRepositoryBlobFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  refName: string,
+  path: string,
+): Promise<RepositoryBlobView | null> {
+  const encodedPath = path
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  const params = new URLSearchParams({ ref: refName });
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/blobs/${encodedPath}?${params.toString()}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as RepositoryBlobView;
+}
+
+export async function getRepositoryCommitHistoryFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  refName: string,
+  path = "",
+): Promise<ListEnvelope<RepositoryCommitHistoryItem> | null> {
+  const params = new URLSearchParams({ ref: refName });
+  const normalizedPath = path.replace(/^\/+|\/+$/g, "");
+  if (normalizedPath) {
+    params.set("path", normalizedPath);
+  }
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?${params.toString()}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as ListEnvelope<RepositoryCommitHistoryItem>;
+}
+
+export async function setRepositoryStarFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  starred: boolean,
+): Promise<RepositorySocialState> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/star`,
+    {
+      method: starred ? "PUT" : "DELETE",
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(body?.error.message ?? "Repository star update failed", {
+      cause: body,
+    });
+  }
+
+  return (await response.json()) as RepositorySocialState;
+}
+
+export async function setRepositoryWatchFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  watching: boolean,
+): Promise<RepositorySocialState> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/watch`,
+    {
+      method: watching ? "PUT" : "DELETE",
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(body?.error.message ?? "Repository watch update failed", {
+      cause: body,
+    });
+  }
+
+  return (await response.json()) as RepositorySocialState;
+}
+
+export async function forkRepositoryFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+): Promise<RepositoryForkResult> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/forks`,
+    {
+      method: "POST",
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(body?.error.message ?? "Repository fork failed", {
+      cause: body,
+    });
+  }
+
+  return (await response.json()) as RepositoryForkResult;
 }
 
 export async function getRepositoryCreationOptionsFromCookie(

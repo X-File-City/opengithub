@@ -654,5 +654,39 @@
       "Language percentages and contributor/release counts are read from existing metadata tables; QA should recheck freshness after importer and Git push flows evolve",
       "Current root entry latest-commit text uses the repository latest commit as a Phase 1 approximation; per-path commit attribution belongs in Phase 2"
     ]
+  },
+  {
+    "feature_id": "repo-003",
+    "tests_written": [
+      "Rust API tests cover nested tree, blob, path-scoped commit history, missing path 404, breadcrumbs, language inference, and history hrefs through real signed-session HTTP requests",
+      "Vitest covers nested tree breadcrumbs/parent links, blob preview raw/download/history controls, and commit history rows with real destinations",
+      "Playwright E2E creates a real Rust-template repository through /new, opens /tree/main/src, /commits/main/src, /blob/main/src/main.rs, verifies content and no dead controls, and saves ralph/screenshots/build/repo-003-phase2-tree-blob-history.jpg",
+      "Ever browser smoke used a real Rust-signed Postgres session to create a repository, navigate tree/history/blob pages, verify src/main.rs renders, and save ralph/screenshots/build/repo-003-phase2-ever-smoke.jpg",
+      "TEST_DATABASE_URL-backed make check, make test, and make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 commit history is bounded to repository_files metadata and current snapshots; full historical per-path attribution should be rechecked after real Git push/pack storage lands",
+      "Raw and Download are reachable links for blob pages, but streaming raw/download content is not implemented in this phase",
+      "Binary and large file handling renders an inline placeholder; QA should retest once S3-backed large blob storage is active",
+      "Branch names with slashes are not fully supported by the current Next.js /tree/[ref]/... route shape",
+      "Watch, Star, Fork, branch selector, and file finder remain deferred to later repo-003 phases"
+    ]
+  },
+  {
+    "feature_id": "repo-003",
+    "tests_written": [
+      "Rust API tests cover anonymous 401 for social mutations, idempotent star toggles, watch toggles, fork creation, duplicate fork conflicts, social count reconciliation, and viewer state reflected back in repository overview",
+      "Rust domain code records feed events for Code tab star and fork actions so dashboard activity can consume real repository mutations",
+      "Vitest covers optimistic Star and Watch updates through same-origin routes, rollback/error feedback on failed actions, and rendered Watch/Fork/Star header controls with accessible names",
+      "Playwright E2E uses a real Rust-signed Postgres session to toggle Star and Watch, reload to confirm persistence, create a real fork from a seeded public repository, navigate to the fork, and save ralph/screenshots/build/repo-003-phase3-header-actions.jpg",
+      "TEST_DATABASE_URL-backed make check, make test, and make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Optimistic action races should be stress-tested with rapid repeated clicks and slow API responses",
+      "Fork creation currently snapshots repository metadata/files for the MVP; full Git object pack fidelity should be retested after smart HTTP Git push/fetch lands",
+      "Watch reasons only use subscribed/unsubscribed from the Code tab; notification routing for participating/watch-only modes needs deeper QA when notifications mature",
+      "Private repository fork denial is permission-backed but should be rechecked through browser flows once org/private sharing UI ships",
+      "Branch selector, file finder, Add file menu polish, and sidebar topics/resources remain deferred to repo-003 Phase 4"
+    ]
   }
 ]

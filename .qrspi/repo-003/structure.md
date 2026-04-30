@@ -24,7 +24,7 @@
 
 ## Phase 2: Tree, Blob, and History Navigation - file rows lead to real destinations
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Make Code tab navigation useful beyond the root overview by adding tree/blob/history routes backed by the same repository file metadata. Folder rows open `tree/{ref}/{path}`, file rows open `blob/{ref}/{path}`, and History opens commit history for the current path.
 
@@ -41,7 +41,7 @@
 
 ## Phase 3: Watch, Star, Fork, and Repository Activity - header actions mutate real data
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the header action buttons with real optimistic UI and Rust write APIs. Watch/Star toggle rows in existing tables, Fork creates a new repository fork with permission checks, and each mutation records repository activity/feed events for later dashboard/search surfaces.
 

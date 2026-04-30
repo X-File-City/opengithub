@@ -150,7 +150,10 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
         RepositoryError::OwnerPermissionDenied | RepositoryError::PermissionDenied => {
             error_response(StatusCode::FORBIDDEN, "forbidden", error.to_string())
         }
-        RepositoryError::OwnerNotFound | RepositoryError::NotFound => {
+        RepositoryError::OwnerNotFound
+        | RepositoryError::NotFound
+        | RepositoryError::PathNotFound
+        | RepositoryError::RefNotFound => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
         RepositoryError::InvalidVisibility(_)
@@ -163,6 +166,9 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
             "validation_failed",
             error.to_string(),
         ),
+        RepositoryError::ForkAlreadyExists => {
+            error_response(StatusCode::CONFLICT, "conflict", error.to_string())
+        }
         RepositoryError::Sqlx(sqlx::Error::Database(database_error))
             if database_error.is_unique_violation() =>
         {

@@ -465,3 +465,23 @@
 - Browser smoke used Playwright with a real Rust-signed Postgres session to create a bootstrapped repository through `/new`, verify the Code tab and clone menu, scan for dead controls, and save `ralph/screenshots/build/repo-003-phase1-code-overview.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 57 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 23 Playwright tests.
 - Marked Phase 1 as done in `.qrspi/repo-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
+
+2026-04-30 - repo-003 phase 2 tree, blob, and history navigation
+
+- Implemented Phase 2 from `.qrspi/repo-003/structure.md`: repository Code tab rows now lead to real tree, blob, and path-scoped commit history pages backed by Rust API contracts.
+- Added Rust read models and routes for nested repository contents, blob previews, and commit history under `/api/repos/{owner}/{repo}/contents/*path`, `/blobs/*path`, and `/commits`.
+- Added typed frontend API helpers, server-session wrappers, shared `RepositoryFileTable`, and Next.js routes for `/{owner}/{repo}/tree/{ref}/...`, `blob/{ref}/...`, and `commits/{ref}/...`.
+- Added tests for nested file routing, breadcrumbs, parent links, missing path 404s, language/size metadata, commit history destinations, and live browser navigation.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 23 Playwright tests.
+- Browser smoke: used Ever with a real Rust-signed Postgres session to create a Rust-template repository, open `src`, open path history, open `src/main.rs`, verify source content, and save `ralph/screenshots/build/repo-003-phase2-ever-smoke.jpg`.
+- Marked Phase 2 as done in `.qrspi/repo-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-04-30 - repo-003 phase 3 Watch, Star, Fork, and repository activity
+
+- Implemented Phase 3 from `.qrspi/repo-003/structure.md`: repository headers now render Watch, Fork, and Star controls backed by real Rust write APIs and same-origin Next.js action routes.
+- Added/finished permission-aware Rust mutations for `PUT/DELETE /api/repos/:owner/:repo/star`, `PUT/DELETE /watch`, and `POST /forks`, including idempotent counts, duplicate fork conflicts, viewer state reconciliation, snapshot-based fork creation, and repository feed events for star/fork activity.
+- Added optimistic React controls in `web/src/components/RepositoryHeaderActions.tsx` with rollback/error feedback and fork navigation to the created repository.
+- Expanded Rust, Vitest, and Playwright coverage for anonymous 401, idempotent Star/Watch, fork creation/conflict handling, optimistic UI, reload persistence, and real browser fork navigation.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 63 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 23 Playwright tests.
+- Browser smoke: Playwright used a real Rust-signed Postgres session to create a repository, toggle Star and Watch, reload to confirm persistence, fork a seeded public repository, verify navigation to the fork, and save `ralph/screenshots/build/repo-003-phase3-header-actions.jpg`.
+- Marked Phase 3 as done in `.qrspi/repo-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.

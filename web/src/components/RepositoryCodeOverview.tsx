@@ -1,5 +1,7 @@
 import Link from "next/link";
-import type { RepositoryOverview, RepositoryTreeEntry } from "@/lib/api";
+import { RepositoryFileTable } from "@/components/RepositoryFileTable";
+import { RepositoryHeaderActions } from "@/components/RepositoryHeaderActions";
+import type { RepositoryOverview } from "@/lib/api";
 
 type RepositoryCodeOverviewProps = {
   repository: RepositoryOverview;
@@ -7,18 +9,6 @@ type RepositoryCodeOverviewProps = {
 
 function formatCount(value: number, label: string) {
   return `${new Intl.NumberFormat("en").format(value)} ${label}`;
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "recently";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-  }).format(date);
 }
 
 function RepositoryTabs({ repository }: RepositoryCodeOverviewProps) {
@@ -58,81 +48,6 @@ function RepositoryTabs({ repository }: RepositoryCodeOverviewProps) {
         </Link>
       ))}
     </nav>
-  );
-}
-
-function FileIcon({ kind }: { kind: RepositoryTreeEntry["kind"] }) {
-  return (
-    <span aria-hidden="true" className="w-5 text-center text-[#59636e]">
-      {kind === "folder" ? "▸" : "□"}
-    </span>
-  );
-}
-
-function RepositoryFileTable({ repository }: RepositoryCodeOverviewProps) {
-  if (repository.rootEntries.length === 0) {
-    return (
-      <div className="rounded-md border border-[#d0d7de] bg-white p-6">
-        <h2 className="text-base font-semibold text-[#1f2328]">Quick setup</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#59636e]">
-          This repository is ready. Push an existing project or create a new
-          file to start the default branch.
-        </p>
-        <div className="mt-4 rounded-md bg-[#f6f8fa] p-3 font-mono text-xs text-[#1f2328]">
-          git remote add origin {repository.cloneUrls.https}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-hidden rounded-md border border-[#d0d7de] bg-white">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d0d7de] bg-[#f6f8fa] px-4 py-3 text-sm">
-        <div className="min-w-0">
-          <span className="font-semibold text-[#1f2328]">
-            {repository.latestCommit?.message ?? "No commits yet"}
-          </span>
-          {repository.latestCommit ? (
-            <Link
-              className="ml-2 font-mono text-xs text-[#0969da] hover:underline"
-              href={repository.latestCommit.href}
-            >
-              {repository.latestCommit.shortOid}
-            </Link>
-          ) : null}
-        </div>
-        <Link
-          className="text-sm font-semibold text-[#0969da] hover:underline"
-          href={`/${repository.owner_login}/${repository.name}/commits/${repository.default_branch}`}
-        >
-          History
-        </Link>
-      </div>
-      <ul>
-        {repository.rootEntries.map((entry) => (
-          <li
-            className="border-b border-[#d0d7de] last:border-b-0"
-            key={entry.path}
-          >
-            <Link
-              className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_auto] items-center gap-3 px-4 py-3 text-sm hover:bg-[#f6f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#0969da] max-md:grid-cols-1"
-              href={entry.href}
-            >
-              <span className="flex min-w-0 items-center gap-2 font-semibold text-[#0969da]">
-                <FileIcon kind={entry.kind} />
-                <span className="truncate">{entry.name}</span>
-              </span>
-              <span className="truncate text-[#59636e]">
-                {entry.latestCommitMessage ?? "Repository file"}
-              </span>
-              <span className="whitespace-nowrap text-xs text-[#59636e]">
-                {formatDate(entry.updatedAt)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
@@ -297,6 +212,7 @@ export function RepositoryCodeOverview({
                 </span>
               </div>
             </div>
+            <RepositoryHeaderActions repository={repository} />
           </div>
           <RepositoryTabs repository={repository} />
         </div>
@@ -304,7 +220,25 @@ export function RepositoryCodeOverview({
       <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_296px] gap-8 px-6 py-6 max-lg:grid-cols-1">
         <div className="min-w-0 space-y-4">
           <RepositoryToolbar repository={repository} />
-          <RepositoryFileTable repository={repository} />
+          <RepositoryFileTable
+            emptyState={
+              <div className="rounded-md border border-[#d0d7de] bg-white p-6">
+                <h2 className="text-base font-semibold text-[#1f2328]">
+                  Quick setup
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#59636e]">
+                  This repository is ready. Push an existing project or create a
+                  new file to start the default branch.
+                </p>
+                <div className="mt-4 rounded-md bg-[#f6f8fa] p-3 font-mono text-xs text-[#1f2328]">
+                  git remote add origin {repository.cloneUrls.https}
+                </div>
+              </div>
+            }
+            entries={repository.rootEntries}
+            historyHref={`/${repository.owner_login}/${repository.name}/commits/${repository.default_branch}`}
+            latestCommit={repository.latestCommit}
+          />
           {repository.readme ? (
             <article className="rounded-md border border-[#d0d7de] bg-white">
               <h2 className="border-b border-[#d0d7de] px-4 py-3 text-sm font-semibold text-[#1f2328]">

@@ -89,7 +89,16 @@ async fn cookie_header(pool: &PgPool, config: &AppConfig, user: &User) -> String
 }
 
 async fn send_json(app: axum::Router, uri: &str, cookie: Option<&str>) -> (StatusCode, Value) {
-    let mut builder = Request::builder().method(Method::GET).uri(uri);
+    send_json_with_method(app, Method::GET, uri, cookie).await
+}
+
+async fn send_json_with_method(
+    app: axum::Router,
+    method: Method,
+    uri: &str,
+    cookie: Option<&str>,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder().method(method).uri(uri);
     if let Some(cookie) = cookie {
         builder = builder.header(header::COOKIE, cookie);
     }
@@ -226,4 +235,222 @@ async fn repository_code_overview_preserves_private_access_boundary() {
 
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error"]["code"], "forbidden");
+}
+
+#[tokio::test]
+async fn repository_tree_blob_and_history_routes_resolve_nested_paths() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping repository path navigation scenario; set TEST_DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "repo-path-owner").await;
+    let cookie = cookie_header(&pool, &config, &owner).await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("path-nav-{}", Uuid::new_v4().simple()),
+            description: Some("Path navigation repository".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("rust-axum".to_owned()),
+            ..RepositoryBootstrapRequest::default()
+        },
+    )
+    .await
+    .expect("repository should create");
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let (tree_status, tree_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{}/{}/contents/src?ref=main",
+            repository.owner_login, repository.name
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(tree_status, StatusCode::OK);
+    assert_eq!(tree_body["path"], "src");
+    assert!(tree_body["breadcrumbs"]
+        .as_array()
+        .expect("breadcrumbs should be an array")
+        .iter()
+        .any(|breadcrumb| breadcrumb["name"] == "src"));
+    assert!(tree_body["entries"]
+        .as_array()
+        .expect("entries should be an array")
+        .iter()
+        .any(|entry| entry["kind"] == "file" && entry["name"] == "main.rs"));
+
+    let (blob_status, blob_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{}/{}/blobs/src/main.rs?ref=main",
+            repository.owner_login, repository.name
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(blob_status, StatusCode::OK);
+    assert_eq!(blob_body["path"], "src/main.rs");
+    assert_eq!(blob_body["language"], "Rust");
+    assert!(blob_body["file"]["content"]
+        .as_str()
+        .expect("blob content should be present")
+        .contains("tokio::main"));
+    assert_eq!(
+        blob_body["historyHref"],
+        format!(
+            "/{}/{}/commits/main/src/main.rs",
+            repository.owner_login, repository.name
+        )
+    );
+
+    let (history_status, history_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{}/{}/commits?ref=main&path=src/main.rs",
+            repository.owner_login, repository.name
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(history_status, StatusCode::OK);
+    assert_eq!(history_body["total"], 1);
+    assert_eq!(history_body["items"][0]["message"], "Initial commit");
+
+    let (missing_status, missing_body) = send_json(
+        app,
+        &format!(
+            "/api/repos/{}/{}/contents/src/missing?ref=main",
+            repository.owner_login, repository.name
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(missing_status, StatusCode::NOT_FOUND);
+    assert_eq!(missing_body["error"]["code"], "not_found");
+}
+
+#[tokio::test]
+async fn repository_header_actions_toggle_social_state_and_create_fork() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping repository social action scenario; set TEST_DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "repo-social-owner").await;
+    let actor = create_user(&pool, "repo-social-actor").await;
+    let actor_cookie = cookie_header(&pool, &config, &actor).await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("social-source-{}", Uuid::new_v4().simple()),
+            description: Some("Social action source".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("rust-axum".to_owned()),
+            ..RepositoryBootstrapRequest::default()
+        },
+    )
+    .await
+    .expect("repository should create");
+
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let star_uri = format!(
+        "/api/repos/{}/{}/star",
+        repository.owner_login, repository.name
+    );
+    let watch_uri = format!(
+        "/api/repos/{}/{}/watch",
+        repository.owner_login, repository.name
+    );
+    let fork_uri = format!(
+        "/api/repos/{}/{}/forks",
+        repository.owner_login, repository.name
+    );
+
+    let (anonymous_status, anonymous_body) =
+        send_json_with_method(app.clone(), Method::PUT, &star_uri, None).await;
+    assert_eq!(anonymous_status, StatusCode::UNAUTHORIZED);
+    assert_eq!(anonymous_body["error"]["code"], "not_authenticated");
+
+    let (star_status, star_body) =
+        send_json_with_method(app.clone(), Method::PUT, &star_uri, Some(&actor_cookie)).await;
+    assert_eq!(star_status, StatusCode::OK);
+    assert_eq!(star_body["starred"], true);
+    assert_eq!(star_body["starsCount"], 1);
+
+    let (star_again_status, star_again_body) =
+        send_json_with_method(app.clone(), Method::PUT, &star_uri, Some(&actor_cookie)).await;
+    assert_eq!(star_again_status, StatusCode::OK);
+    assert_eq!(star_again_body["starsCount"], 1);
+
+    let (watch_status, watch_body) =
+        send_json_with_method(app.clone(), Method::PUT, &watch_uri, Some(&actor_cookie)).await;
+    assert_eq!(watch_status, StatusCode::OK);
+    assert_eq!(watch_body["watching"], true);
+    assert_eq!(watch_body["watchersCount"], 1);
+
+    let (fork_status, fork_body) =
+        send_json_with_method(app.clone(), Method::POST, &fork_uri, Some(&actor_cookie)).await;
+    assert_eq!(fork_status, StatusCode::CREATED);
+    assert!(fork_body["forkHref"]
+        .as_str()
+        .expect("fork href should exist")
+        .ends_with(&format!("/{}", repository.name)));
+    assert_eq!(fork_body["social"]["forksCount"], 1);
+    assert!(fork_body["social"]["forkedRepositoryHref"].is_string());
+
+    let (duplicate_status, duplicate_body) =
+        send_json_with_method(app.clone(), Method::POST, &fork_uri, Some(&actor_cookie)).await;
+    assert_eq!(duplicate_status, StatusCode::CONFLICT);
+    assert_eq!(duplicate_body["error"]["code"], "conflict");
+
+    let (overview_status, overview_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{}/{}", repository.owner_login, repository.name),
+        Some(&actor_cookie),
+    )
+    .await;
+    assert_eq!(overview_status, StatusCode::OK);
+    assert_eq!(overview_body["viewerState"]["starred"], true);
+    assert_eq!(overview_body["viewerState"]["watching"], true);
+    assert_eq!(overview_body["sidebar"]["starsCount"], 1);
+    assert_eq!(overview_body["sidebar"]["watchersCount"], 1);
+    assert_eq!(overview_body["sidebar"]["forksCount"], 1);
+
+    let (unstar_status, unstar_body) =
+        send_json_with_method(app.clone(), Method::DELETE, &star_uri, Some(&actor_cookie)).await;
+    assert_eq!(unstar_status, StatusCode::OK);
+    assert_eq!(unstar_body["starred"], false);
+    assert_eq!(unstar_body["starsCount"], 0);
+
+    let (unwatch_status, unwatch_body) =
+        send_json_with_method(app, Method::DELETE, &watch_uri, Some(&actor_cookie)).await;
+    assert_eq!(unwatch_status, StatusCode::OK);
+    assert_eq!(unwatch_body["watching"], false);
+    assert_eq!(unwatch_body["watchersCount"], 0);
+
+    let feed_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM feed_events WHERE repository_id = $1 AND event_type IN ('star', 'fork')",
+    )
+    .bind(repository.id)
+    .fetch_one(&pool)
+    .await
+    .expect("feed count should query");
+    assert!(feed_count >= 2);
 }

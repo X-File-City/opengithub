@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    routing::get,
+    routing::{get, post, put},
     Json, Router,
 };
 use serde::Deserialize;
@@ -12,11 +12,14 @@ use crate::{
     api_types::{database_unavailable, error_response, ErrorEnvelope},
     auth::extractor::AuthenticatedUser,
     domain::repositories::{
-        create_repository_with_bootstrap,
+        create_repository_with_bootstrap, fork_repository_by_owner_name,
         insert_repository_create_feed_event, list_repositories_for_user,
+        repository_blob_for_actor_by_owner_name, repository_commit_history_for_actor_by_owner_name,
         repository_creation_options, repository_name_availability,
-        repository_overview_for_actor_by_owner_name, CreateRepository, RepositoryBootstrapRequest,
-        RepositoryError, RepositoryOwner, RepositoryVisibility,
+        repository_overview_for_actor_by_owner_name,
+        repository_path_overview_for_actor_by_owner_name, set_repository_star_by_owner_name,
+        set_repository_watch_by_owner_name, CreateRepository, RepositoryBootstrapRequest,
+        RepositoryCommitHistoryQuery, RepositoryError, RepositoryOwner, RepositoryVisibility,
     },
     AppState,
 };
@@ -26,6 +29,12 @@ pub fn router() -> Router<AppState> {
         .route("/", get(list).post(create))
         .route("/creation-options", get(creation_options))
         .route("/name-availability", get(name_availability))
+        .route("/:owner/:repo/contents/*path", get(contents))
+        .route("/:owner/:repo/blobs/*path", get(blob))
+        .route("/:owner/:repo/commits", get(commits))
+        .route("/:owner/:repo/star", put(star).delete(unstar))
+        .route("/:owner/:repo/watch", put(watch).delete(unwatch))
+        .route("/:owner/:repo/forks", post(fork))
         .route("/:owner/:repo", get(read))
 }
 
@@ -57,6 +66,23 @@ struct NameAvailabilityQuery {
     owner_type: OwnerType,
     owner_id: Uuid,
     name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ContentsQuery {
+    #[serde(rename = "ref")]
+    ref_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CommitsQuery {
+    #[serde(rename = "ref")]
+    ref_name: Option<String>,
+    path: Option<String>,
+    page: Option<i64>,
+    page_size: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -180,12 +206,205 @@ async fn read(
     Ok(Json(json!(repository)))
 }
 
+async fn contents(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, path)): Path<(String, String, String)>,
+    Query(query): Query<ContentsQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let overview = repository_path_overview_for_actor_by_owner_name(
+        pool,
+        actor.0.id,
+        &owner,
+        &repo,
+        query.ref_name.as_deref(),
+        &path,
+    )
+    .await
+    .map_err(map_repository_error)?
+    .ok_or_else(|| {
+        error_response(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "repository was not found".to_owned(),
+        )
+    })?;
+
+    Ok(Json(json!(overview)))
+}
+
+async fn blob(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, path)): Path<(String, String, String)>,
+    Query(query): Query<ContentsQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let view = repository_blob_for_actor_by_owner_name(
+        pool,
+        actor.0.id,
+        &owner,
+        &repo,
+        query.ref_name.as_deref(),
+        &path,
+    )
+    .await
+    .map_err(map_repository_error)?
+    .ok_or_else(|| {
+        error_response(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "repository was not found".to_owned(),
+        )
+    })?;
+
+    Ok(Json(json!(view)))
+}
+
+async fn commits(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+    Query(query): Query<CommitsQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let envelope = repository_commit_history_for_actor_by_owner_name(
+        pool,
+        actor.0.id,
+        &owner,
+        &repo,
+        RepositoryCommitHistoryQuery {
+            ref_name: query.ref_name.as_deref(),
+            path: query.path.as_deref(),
+            page: query.page.unwrap_or(1),
+            page_size: query.page_size.unwrap_or(30),
+        },
+    )
+    .await
+    .map_err(map_repository_error)?
+    .ok_or_else(|| {
+        error_response(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "repository was not found".to_owned(),
+        )
+    })?;
+
+    Ok(Json(json!(envelope)))
+}
+
+async fn star(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    set_star(state, headers, owner, repo, true).await
+}
+
+async fn unstar(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    set_star(state, headers, owner, repo, false).await
+}
+
+async fn set_star(
+    state: AppState,
+    headers: HeaderMap,
+    owner: String,
+    repo: String,
+    starred: bool,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let social = set_repository_star_by_owner_name(pool, actor.0.id, &owner, &repo, starred)
+        .await
+        .map_err(map_repository_error)?
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "repository was not found".to_owned(),
+            )
+        })?;
+
+    Ok(Json(json!(social)))
+}
+
+async fn watch(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    set_watch(state, headers, owner, repo, true).await
+}
+
+async fn unwatch(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    set_watch(state, headers, owner, repo, false).await
+}
+
+async fn set_watch(
+    state: AppState,
+    headers: HeaderMap,
+    owner: String,
+    repo: String,
+    watching: bool,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let social = set_repository_watch_by_owner_name(pool, actor.0.id, &owner, &repo, watching)
+        .await
+        .map_err(map_repository_error)?
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "repository was not found".to_owned(),
+            )
+        })?;
+
+    Ok(Json(json!(social)))
+}
+
+async fn fork(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let fork = fork_repository_by_owner_name(pool, actor.0.id, &owner, &repo)
+        .await
+        .map_err(map_repository_error)?
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "repository was not found".to_owned(),
+            )
+        })?;
+
+    Ok((StatusCode::CREATED, Json(json!(fork))))
+}
+
 fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelope>) {
     match error {
         RepositoryError::OwnerPermissionDenied | RepositoryError::PermissionDenied => {
             error_response(StatusCode::FORBIDDEN, "forbidden", error.to_string())
         }
-        RepositoryError::OwnerNotFound | RepositoryError::NotFound => {
+        RepositoryError::OwnerNotFound
+        | RepositoryError::NotFound
+        | RepositoryError::PathNotFound
+        | RepositoryError::RefNotFound => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
         RepositoryError::InvalidVisibility(_)
@@ -193,8 +412,13 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
         | RepositoryError::InvalidDescription(_)
         | RepositoryError::UnknownTemplate(_)
         | RepositoryError::UnknownGitignoreTemplate(_)
-        | RepositoryError::UnknownLicenseTemplate(_) => {
-            error_response(StatusCode::UNPROCESSABLE_ENTITY, "validation_failed", error.to_string())
+        | RepositoryError::UnknownLicenseTemplate(_) => error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            error.to_string(),
+        ),
+        RepositoryError::ForkAlreadyExists => {
+            error_response(StatusCode::CONFLICT, "conflict", error.to_string())
         }
         RepositoryError::Sqlx(sqlx::Error::Database(database_error))
             if database_error.is_unique_violation() =>

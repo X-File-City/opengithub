@@ -8,7 +8,8 @@ use opengithub_api::{
         permissions::RepositoryRole,
         pulls::{create_pull_request, CreatePullRequest},
         repositories::{
-            create_repository, CreateRepository, RepositoryOwner, RepositoryVisibility,
+            create_repository, create_repository_with_bootstrap, CreateRepository,
+            RepositoryBootstrapRequest, RepositoryOwner, RepositoryVisibility,
         },
     },
 };
@@ -26,6 +27,7 @@ struct SeedOutput {
     cookie_value: String,
     first_repository_href: String,
     second_repository_href: String,
+    social_source_repository_href: String,
 }
 
 fn seed_empty_dashboard() -> bool {
@@ -76,6 +78,39 @@ async fn main() -> anyhow::Result<()> {
         .bind(user.id)
         .execute(&pool)
         .await?;
+    let source_owner_username = format!("source-{}", &suffix[..12]);
+    let source_owner = upsert_user_by_email(
+        &pool,
+        &format!("{source_owner_username}@opengithub.local"),
+        Some("Repository Source"),
+        None,
+    )
+    .await?;
+    sqlx::query("UPDATE users SET username = $1 WHERE id = $2")
+        .bind(&source_owner_username)
+        .bind(source_owner.id)
+        .execute(&pool)
+        .await?;
+    let social_source_name = format!("social-source-{}", &suffix[..12]);
+    let social_source_repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User {
+                id: source_owner.id,
+            },
+            name: social_source_name.clone(),
+            description: Some("Repository social action source".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: source_owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("rust-axum".to_owned()),
+            ..RepositoryBootstrapRequest::default()
+        },
+    )
+    .await?;
     let (first_repository_href, second_repository_href) = if seed_empty_dashboard() {
         (String::new(), String::new())
     } else {
@@ -269,6 +304,10 @@ async fn main() -> anyhow::Result<()> {
         cookie_value: cookie_value.to_owned(),
         first_repository_href,
         second_repository_href,
+        social_source_repository_href: format!(
+            "/{}/{}",
+            social_source_repository.owner_login, social_source_repository.name
+        ),
     };
     println!("{}", serde_json::to_string(&output)?);
     Ok(())

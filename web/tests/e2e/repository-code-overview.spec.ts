@@ -6,6 +6,7 @@ const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 type SeededSession = {
   cookieName: string;
   cookieValue: string;
+  socialSourceRepositoryHref: string;
 };
 
 function seedSession(): SeededSession {
@@ -82,6 +83,7 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
   await page.getByRole("button", { name: "Create repository" }).click();
 
   await expect(page).toHaveURL(new RegExp(`/${normalizedName}$`));
+  const repositoryUrl = page.url();
   await expect(
     page.getByRole("heading", { name: normalizedName }),
   ).toBeVisible();
@@ -105,6 +107,57 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
   await expect(
     page.getByText("Playwright Code tab overview", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Watch/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Star/ })).toBeVisible();
+
+  const starResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/${normalizedName}/actions/star`) &&
+      response.request().method() === "PUT" &&
+      response.status() === 200,
+  );
+  await page.getByRole("button", { name: /Star/ }).click();
+  await expect(page.getByRole("button", { name: /Unstar/ })).toBeVisible();
+  await starResponse;
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Unstar/ })).toBeVisible();
+  const watchResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/${normalizedName}/actions/watch`) &&
+      response.request().method() === "PUT" &&
+      response.status() === 200,
+  );
+  await page.getByRole("button", { name: /Watch/ }).click();
+  await expect(page.getByRole("button", { name: /Unwatch/ })).toBeVisible();
+  await watchResponse;
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Unwatch/ })).toBeVisible();
+
+  await page.getByRole("link", { name: /src/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/${normalizedName}/tree/main/src$`));
+  await expect(page.getByRole("link", { name: /main\.rs/ })).toHaveAttribute(
+    "href",
+    new RegExp(`/${normalizedName}/blob/main/src/main\\.rs$`),
+  );
+  await page.getByRole("link", { name: "History" }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/${normalizedName}/commits/main/src$`),
+  );
+  await expect(
+    page.getByRole("link", { name: /Initial commit/ }),
+  ).toBeVisible();
+  await page.goBack();
+  await page.getByRole("link", { name: /main\.rs/ }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/${normalizedName}/blob/main/src/main\\.rs$`),
+  );
+  await expect(
+    page.getByRole("heading", { name: "src/main.rs" }),
+  ).toBeVisible();
+  await expect(page.getByText(/tokio::main/)).toBeVisible();
+  await page.getByRole("link", { name: "Parent" }).click();
+  await expect(page).toHaveURL(new RegExp(`/${normalizedName}/tree/main/src$`));
+  await page.goto(repositoryUrl);
 
   await page.locator("summary").filter({ hasText: "Code" }).click();
   await expect(page.getByLabel("HTTPS")).toHaveValue(/opengithub\.namuh\.co/);
@@ -115,8 +168,22 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
     new RegExp(`/${normalizedName}/archive/refs/heads/main\\.zip$`),
   );
   await expectNoDeadControls(page);
+
+  await page.goto(seeded.socialSourceRepositoryHref);
+  const socialSourceName = seeded.socialSourceRepositoryHref.split("/").at(-1);
+  const forkResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/actions/fork") &&
+      response.request().method() === "POST" &&
+      response.status() === 201,
+  );
+  await page.getByRole("button", { name: /Fork/ }).click();
+  await forkResponse;
+  await expect(page).toHaveURL(new RegExp(`/[^/]+/${socialSourceName}$`));
+  await expect(page.getByRole("button", { name: /Star/ })).toBeVisible();
+
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/repo-003-phase1-code-overview.jpg",
+    path: "../ralph/screenshots/build/repo-003-phase3-header-actions.jpg",
   });
 });
