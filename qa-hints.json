@@ -287,5 +287,22 @@
       "Recent activity, assigned issues, and review requests remain placeholder panels until their underlying domains expose feed data",
       "Check keyboard and screen-reader behavior for the dismiss buttons during the final onboarding visual/a11y phase"
     ]
+  },
+  {
+    "feature_id": "onboarding-001",
+    "tests_written": [
+      "Playwright dashboard onboarding E2E covers protected /dashboard, /new, and /new/import redirects preserving intended next paths",
+      "Playwright dashboard onboarding E2E covers the setup guide destination, its Create repository CTA, and the repository overview fallback destination",
+      "Playwright checks onboarding-adjacent pages for href=\"#\"/missing href links and unnamed enabled buttons",
+      "real Postgres-backed scenario .scratch/dashboard-onboarding-scenario.sh passed for signed-session hint persistence",
+      "make check, make test, and make test-e2e passed with 11 Playwright tests",
+      "Ever browser smoke used a real Rust-signed Postgres session cookie, verified anonymous redirect, empty dashboard, dismiss success, API-created repository non-empty state, and repository-row navigation"
+    ],
+    "needs_deeper_qa": [
+      "Repeat the full signed-in dashboard flow through real Google OAuth with TEST_ACCOUNT_EMAIL after Google consent/test-user setup is confirmed",
+      "Run a dedicated screen-reader and keyboard pass over the AppShell profile menu, repository search input, dismiss buttons, and CTA focus order",
+      "Compare final dashboard spacing and typography against live GitHub dashboard references; current inspect assets include auth/dashboard redirect but not the signed-in empty dashboard",
+      "Repository creation still uses a direct API call in smoke because the full /new form is a later feature; QA should retest onboarding after repo-001 ships"
+    ]
   }
 ]

@@ -205,3 +205,12 @@
 - Verification: `make check` passed; `make test` passed with 16 frontend tests plus cargo tests; `make test-e2e` passed with 8 Playwright tests.
 - Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session, verified hint dismissal persistence after reload, created a repository through `POST /api/repos`, verified the non-empty dashboard, clicked a repository row, and saved `ralph/screenshots/build/onboarding-001-phase4-dashboard.jpg`.
 - Marked Phase 4 as done in `.qrspi/onboarding-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.
+
+2026-04-30 - onboarding-001 phase 5 QA handoff and visual polish
+
+- Implemented Phase 5 from `.qrspi/onboarding-001/structure.md`: added final Playwright dashboard onboarding guardrails for protected CTA redirects, setup guide navigation, repository overview fallback navigation, and dead-link/button checks on onboarding-adjacent pages.
+- Added `web/tests/e2e/dashboard-onboarding.spec.ts`; final E2E suite now includes 11 passing Playwright tests.
+- Verification: `make check` passed; `make test` passed with 16 frontend tests plus cargo tests; `make test-e2e` passed; `bash .scratch/dashboard-onboarding-scenario.sh` passed against real local Postgres.
+- Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session, verified anonymous redirect, empty dashboard, Create/Import/Read guide CTAs, dismiss success, repository creation through `POST /api/repos`, non-empty dashboard, and repository-row navigation.
+- Saved final screenshots: `ralph/screenshots/build/onboarding-001-phase5-anonymous-redirect.jpg`, `ralph/screenshots/build/onboarding-001-phase5-empty-dashboard.jpg`, `ralph/screenshots/build/onboarding-001-phase5-dismissed-hint-dashboard.jpg`, and `ralph/screenshots/build/onboarding-001-phase5-non-empty-dashboard.jpg`.
+- Marked Phase 5 as done in `.qrspi/onboarding-001/structure.md` and set `onboarding-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

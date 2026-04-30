@@ -74,7 +74,7 @@
 
 ## Phase 5: QA Handoff and Visual Polish - lock the dashboard against interaction regressions
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Final hardening for the onboarding feature: visual comparison against GitHub-like dashboard references, accessibility checks for the form/CTA controls, QA hints, and PRD completion.
 
