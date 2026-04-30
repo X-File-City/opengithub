@@ -4,6 +4,8 @@ use serde_json::Value;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+pub mod repository_imports;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct JobLease {
     pub id: Uuid,

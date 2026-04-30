@@ -24,7 +24,7 @@
 
 ## Phase 2: Import Worker Ingestion - process public remotes into repository files and refs
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the worker-side importer that acquires queued import jobs, clones/fetches a public Git remote into temporary storage, snapshots the default branch into existing repository commit/ref/file/object metadata, updates status transitions, and records failure reasons. This phase makes a public remote import finish without UI involvement.
 

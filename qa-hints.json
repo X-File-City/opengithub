@@ -587,5 +587,22 @@
       "Private-network source blocking currently covers literal IPs and localhost-style hostnames; DNS rebinding and resolved private addresses need deeper security QA in Phase 4",
       "Real email/notification side effects are deferred to repo-002 Phase 4"
     ]
+  },
+  {
+    "feature_id": "repo-002",
+    "tests_written": [
+      "Added worker ingestion coverage that creates a real local Git repository fixture, queues an import, runs the repository_import worker once, and verifies imported status",
+      "Verified the worker snapshots HEAD into commits, repository_git_refs, git_objects, and repository_files, including README content visible through repository_overview_for_actor_by_owner_name",
+      "Added controlled failure coverage for an unreachable source that marks the import failed, records a retryable job error, and avoids leaking local filesystem paths or raw git stderr in the user-facing error",
+      "Targeted TEST_DATABASE_URL-backed cargo test --test repository_import_worker passed",
+      "TEST_DATABASE_URL-backed make check and make test passed"
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 uses the installed git CLI for clone/snapshot execution; QA should retest provider diversity and very large remotes before production",
+      "Private source credentials are still not exchanged with git during clone; Phase 4 should verify credential redaction once credential use is wired",
+      "Importer stores text snapshots for MVP repository overview, not full Git pack/object storage or LFS objects",
+      "Browser import wizard/status polling remains deferred to repo-002 Phase 3",
+      "Email/notification completion side effects remain deferred to repo-002 Phase 4"
+    ]
   }
 ]

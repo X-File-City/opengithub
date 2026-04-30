@@ -219,6 +219,16 @@
 
 - Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, current dashboard/frontend components, and dashboard API code.
 
+2026-04-30 - repo-002 phase 2 import worker ingestion
+
+- Implemented Phase 2 from `.qrspi/repo-002/structure.md`: repository import worker acquisition, status transitions, real Git clone/fetch through a temporary checkout, default branch snapshotting, and controlled failure handling.
+- Added `crates/api/src/jobs/repository_imports.rs` with `run_repository_import_once` and `run_next_repository_import`; it acquires `repository_import` job leases, marks imports importing/imported/failed, completes or fails the lease, and bounds imported file count/size for the MVP importer.
+- Added repository domain snapshot helpers in `crates/api/src/domain/repositories.rs` plus import status/work-item helpers in `crates/api/src/domain/repository_imports.rs`; snapshots write commits, git_objects, repository_files, and repository_git_refs transactionally.
+- Added `crates/api/tests/repository_import_worker.rs` with a real local Git fixture import and controlled unreachable-source failure coverage against Postgres.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_import_worker -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed.
+- Browser smoke and `make test-e2e` skipped because this phase is backend worker ingestion only; the visible import wizard/status UI is Phase 3.
+- Marked Phase 2 as done in `.qrspi/repo-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
+
 - Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
 - Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
 - Did not change `prd.json`; `dashboard-001.build_pass` remains `false` until all implementation phases pass verification.

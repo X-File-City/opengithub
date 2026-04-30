@@ -218,6 +218,21 @@ pub struct BootstrapFile {
     pub oid: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RepositorySnapshotFile {
+    pub path: String,
+    pub content: String,
+    pub oid: String,
+    pub byte_size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepositorySnapshot {
+    pub commit: CreateCommit,
+    pub branch_name: String,
+    pub files: Vec<RepositorySnapshotFile>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateCommit {
     pub oid: String,
@@ -829,6 +844,153 @@ pub async fn upsert_git_ref(
     .await?;
 
     Ok(git_ref_from_row(row))
+}
+
+pub async fn replace_repository_snapshot(
+    pool: &PgPool,
+    repository_id: Uuid,
+    snapshot: RepositorySnapshot,
+) -> Result<Commit, RepositoryError> {
+    let mut transaction = pool.begin().await?;
+    let existing_commit_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM commits WHERE repository_id = $1 AND oid = $2",
+    )
+    .bind(repository_id)
+    .bind(&snapshot.commit.oid)
+    .fetch_optional(&mut *transaction)
+    .await?;
+
+    let commit = if let Some(commit_id) = existing_commit_id {
+        sqlx::query(
+            r#"
+            SELECT id, repository_id, oid, author_user_id, committer_user_id, message,
+                   tree_oid, parent_oids, committed_at, created_at
+            FROM commits
+            WHERE id = $1
+            "#,
+        )
+        .bind(commit_id)
+        .fetch_one(&mut *transaction)
+        .await
+        .map(commit_from_row)?
+    } else {
+        let row = sqlx::query(
+            r#"
+            INSERT INTO commits (
+                repository_id,
+                oid,
+                author_user_id,
+                committer_user_id,
+                message,
+                tree_oid,
+                parent_oids,
+                committed_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING
+                id,
+                repository_id,
+                oid,
+                author_user_id,
+                committer_user_id,
+                message,
+                tree_oid,
+                parent_oids,
+                committed_at,
+                created_at
+            "#,
+        )
+        .bind(repository_id)
+        .bind(&snapshot.commit.oid)
+        .bind(snapshot.commit.author_user_id)
+        .bind(snapshot.commit.committer_user_id)
+        .bind(&snapshot.commit.message)
+        .bind(&snapshot.commit.tree_oid)
+        .bind(&snapshot.commit.parent_oids)
+        .bind(snapshot.commit.committed_at)
+        .fetch_one(&mut *transaction)
+        .await?;
+        commit_from_row(row)
+    };
+
+    if let Some(tree_oid) = snapshot.commit.tree_oid.as_deref() {
+        sqlx::query(
+            r#"
+            INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
+            VALUES ($1, $2, 'tree', $3)
+            ON CONFLICT (repository_id, oid) DO NOTHING
+            "#,
+        )
+        .bind(repository_id)
+        .bind(tree_oid)
+        .bind(snapshot.files.len() as i64)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    sqlx::query(
+        r#"
+        INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
+        VALUES ($1, $2, 'commit', 0)
+        ON CONFLICT (repository_id, oid) DO NOTHING
+        "#,
+    )
+    .bind(repository_id)
+    .bind(&commit.oid)
+    .execute(&mut *transaction)
+    .await?;
+
+    sqlx::query("DELETE FROM repository_files WHERE repository_id = $1")
+        .bind(repository_id)
+        .execute(&mut *transaction)
+        .await?;
+
+    for file in snapshot.files {
+        sqlx::query(
+            r#"
+            INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
+            VALUES ($1, $2, 'blob', $3)
+            ON CONFLICT (repository_id, oid) DO NOTHING
+            "#,
+        )
+        .bind(repository_id)
+        .bind(&file.oid)
+        .bind(file.byte_size)
+        .execute(&mut *transaction)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO repository_files (repository_id, commit_id, path, content, oid, byte_size)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(repository_id)
+        .bind(commit.id)
+        .bind(&file.path)
+        .bind(&file.content)
+        .bind(&file.oid)
+        .bind(file.byte_size)
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    sqlx::query(
+        r#"
+        INSERT INTO repository_git_refs (repository_id, name, kind, target_commit_id)
+        VALUES ($1, $2, 'branch', $3)
+        ON CONFLICT (repository_id, name)
+        DO UPDATE SET kind = EXCLUDED.kind, target_commit_id = EXCLUDED.target_commit_id
+        "#,
+    )
+    .bind(repository_id)
+    .bind(format!("refs/heads/{}", snapshot.branch_name))
+    .bind(commit.id)
+    .execute(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    Ok(commit)
 }
 
 async fn bootstrap_repository(

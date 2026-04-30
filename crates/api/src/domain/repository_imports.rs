@@ -117,6 +117,12 @@ pub enum RepositoryImportError {
     Sqlx(#[from] sqlx::Error),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RepositoryImportWorkItem {
+    pub import: RepositoryImport,
+    pub repository: Repository,
+}
+
 pub fn validate_import_source_url(
     value: &str,
 ) -> Result<RepositoryImportSource, RepositoryImportError> {
@@ -256,6 +262,67 @@ pub async fn get_repository_import_for_actor(
     Err(RepositoryImportError::PermissionDenied)
 }
 
+pub async fn get_repository_import_work_item(
+    pool: &PgPool,
+    import_id: Uuid,
+) -> Result<Option<RepositoryImportWorkItem>, RepositoryImportError> {
+    Ok(get_repository_import(pool, import_id)
+        .await?
+        .map(|(import, repository)| RepositoryImportWorkItem { import, repository }))
+}
+
+pub async fn mark_repository_import_importing(
+    pool: &PgPool,
+    import_id: Uuid,
+    progress_message: &str,
+) -> Result<RepositoryImportStatus, RepositoryImportError> {
+    let status = update_import_status(
+        pool,
+        import_id,
+        RepositoryImportStatus::Importing,
+        progress_message,
+        None,
+        None,
+    )
+    .await?;
+    Ok(status)
+}
+
+pub async fn mark_repository_import_imported(
+    pool: &PgPool,
+    import_id: Uuid,
+    progress_message: &str,
+) -> Result<RepositoryImportStatus, RepositoryImportError> {
+    let status = update_import_status(
+        pool,
+        import_id,
+        RepositoryImportStatus::Imported,
+        progress_message,
+        None,
+        None,
+    )
+    .await?;
+    Ok(status)
+}
+
+pub async fn mark_repository_import_failed(
+    pool: &PgPool,
+    import_id: Uuid,
+    error_code: &str,
+    error_message: &str,
+) -> Result<RepositoryImportStatus, RepositoryImportError> {
+    let status = update_import_status(
+        pool,
+        import_id,
+        RepositoryImportStatus::Failed,
+        "Repository import failed.",
+        Some(error_code),
+        Some(error_message),
+    )
+    .await?;
+    Ok(status)
+}
+
 pub async fn repository_import_credential_metadata(
     pool: &PgPool,
     import_id: Uuid,
@@ -326,6 +393,53 @@ async fn get_repository_import(
         Ok((import, repository))
     })
     .transpose()
+}
+
+async fn update_import_status(
+    pool: &PgPool,
+    import_id: Uuid,
+    status: RepositoryImportStatus,
+    progress_message: &str,
+    error_code: Option<&str>,
+    error_message: Option<&str>,
+) -> Result<RepositoryImportStatus, RepositoryImportError> {
+    let started_at_expr = if status == RepositoryImportStatus::Importing {
+        "COALESCE(started_at, now())"
+    } else {
+        "started_at"
+    };
+    let completed_at_expr = if matches!(
+        status,
+        RepositoryImportStatus::Imported | RepositoryImportStatus::Failed
+    ) {
+        "COALESCE(completed_at, now())"
+    } else {
+        "completed_at"
+    };
+    let query = format!(
+        r#"
+        UPDATE repository_imports
+        SET status = $2,
+            progress_message = $3,
+            error_code = $4,
+            error_message = $5,
+            started_at = {started_at_expr},
+            completed_at = {completed_at_expr}
+        WHERE id = $1
+        RETURNING status
+        "#
+    );
+    let next_status = sqlx::query_scalar::<_, String>(&query)
+        .bind(import_id)
+        .bind(status.as_str())
+        .bind(progress_message)
+        .bind(error_code)
+        .bind(error_message)
+        .fetch_optional(pool)
+        .await?
+        .ok_or(RepositoryImportError::NotFound)?;
+
+    RepositoryImportStatus::try_from(next_status.as_str())
 }
 
 fn insert_secret_ref(import_id: Uuid, secret: &str) -> String {
