@@ -1,0 +1,147 @@
+[
+  {
+    "id": "process-topology-rust-api-nextjs-worker",
+    "title": "Rust API, Next.js Client, And Rust Worker",
+    "decision": "Deploy a Rust Axum API, a Next.js frontend, and a separate Rust worker process built from the same workspace. The API owns HTTP JSON, auth, Git smart HTTP, raw/archive streaming, packages, webhooks, and permission checks. The worker owns repository imports, webhook delivery, email, indexing, archive generation, Pages publishing, Actions orchestration, retention, and scheduled maintenance.",
+    "rationale": "The P0/P2 feature set is broader than a pure request/response app, but the simplest production topology is still one API plus one worker image rather than separate services per feature. Long-running and retryable work should not block Axum request handlers, while keeping the worker in the Rust workspace preserves the stack contract.",
+    "evidence": [
+      "ralph-config.json: language=rust, framework=axum, frontend=Next.js in web/, cloudProvider=aws, compute=ecs-fargate.",
+      "BUILD_GUIDE.md: Rust API runs on :3016, Next.js runs on :3015, Rust code lives under crates/api, commands are make targets.",
+      "prd.json infra-001: core schema backs users, sessions, repositories, refs, commits, issues, PRs, Actions runs, packages, webhooks, and notifications.",
+      "prd.json repo-002: repository import creates queued import jobs and sends completion email.",
+      "prd.json actions-005: Actions backend requires workflow discovery, event triggers, runners, logs, artifacts, caches, and check-run integration.",
+      "target-docs/content/webhooks/about-webhooks.md: webhooks deliver event data when subscribed events occur rather than relying on polling.",
+      "ralph/screenshots/inspect/actions-runs-list.jpg: Actions UI shows queued/in-progress/completed runs that require asynchronous state changes."
+    ],
+    "impact": "crates/api, crates/api/src/routes, crates/api/src/jobs, ECS Fargate service/task definitions, Makefile dev targets"
+  },
+  {
+    "id": "no-dedicated-realtime-server",
+    "title": "No Dedicated Realtime Server",
+    "decision": "Do not build a dedicated WebSocket server in the MVP. Use HTTP polling for Actions runs/logs, notification inbox changes, repository import status, and search-indexing progress; add SSE later only behind the Rust API if polling becomes insufficient.",
+    "rationale": "The inspected product has many near-realtime surfaces, but none require bidirectional low-latency collaboration for the initial clone. Polling keeps deployment and auth simpler while preserving correctness.",
+    "evidence": [
+      "prd.json actions-001/actions-003/actions-004: run lists, run detail, and log viewer need state refresh, filters, and downloads but do not require bidirectional client messages.",
+      "prd.json notifications-001: notifications inbox is a list/search/sort surface backed by notifications and thread rows.",
+      "prd.json repo-002: import status page polls until queued/importing/imported/failed.",
+      "ralph/screenshots/inspect/actions-runs-list.jpg: run statuses are list rows with queued/in-progress/completed states.",
+      "ralph-config.json services list includes Postgres/S3/SES/ECS/CloudFront/search but no realtime service."
+    ],
+    "impact": "web polling hooks, Rust status endpoints, no websocket infra"
+  },
+  {
+    "id": "relational-postgres-core-model",
+    "title": "Relational Postgres Core Model",
+    "decision": "Use Postgres as the authoritative store for users, sessions, organizations, teams, repositories, permissions, refs, commit metadata, issues, pull requests, labels, milestones, comments, timeline events, Actions state, packages, webhooks, notifications, search documents, audit events, and job leases.",
+    "rationale": "The feature inventory is dominated by relational ownership, permissions, filters, counts, timelines, and cross-resource links. A relational model gives enforceable ownership boundaries and composable queries for GitHub-like list/detail/search pages.",
+    "evidence": [
+      "prd.json category survey: 44 CRUD features, 18 settings features, 10 search features, and 6 data features.",
+      "prd.json infra-001: explicitly calls for Postgres schema and Rust data access layer for the platform entities.",
+      "prd.json auth-002: session verification reads users, repository permissions, organization memberships, team memberships, and tokens.",
+      "prd.json issues-004 and prs-004: detail pages require conversations, timeline events, comments, reactions, linked PRs/issues, metadata sidebars, and subscriptions.",
+      "BUILD_GUIDE.md: Database is Postgres on AWS RDS with SQLx migrations under crates/api/migrations."
+    ],
+    "impact": "crates/api/migrations, SQLx query modules, permission model, query indexes"
+  },
+  {
+    "id": "s3-for-binary-and-large-assets",
+    "title": "S3 For Binary And Large Assets",
+    "decision": "Store large binary content and generated artifacts in S3 with Postgres metadata and permission checks: Git pack/object bytes as needed, release assets, package blobs, Actions logs/artifacts/caches, Pages output, avatars, attachments, raw/archive downloads, and generated ZIPs.",
+    "rationale": "Repository hosting, packages, Actions, releases, Pages, and uploads all need byte storage that should not live directly in relational rows. Postgres remains the authorization and index layer; S3 handles large content and signed download URLs.",
+    "evidence": [
+      "ralph-config.json services.storage.provider=s3 and cdn.provider=cloudfront.",
+      "prd.json git-001: Git clone/fetch/push, raw streaming, and archive downloads read/write Git objects and repository_archives.",
+      "prd.json actions-004: workflow log downloads read log archives from S3 through signed URLs.",
+      "prd.json actions-005: Actions backend includes logs, artifacts, and caches.",
+      "prd.json releases-001/packages-002: release assets, package blobs, package versions, and downloads are first-class data.",
+      "target-docs/content/actions/concepts/workflows-and-actions/workflow-artifacts.md: artifacts are files or collections of files preserved after workflow jobs complete."
+    ],
+    "impact": "S3 buckets/prefixes, signed URL helpers, storage metadata tables, CloudFront policies"
+  },
+  {
+    "id": "postgres-job-queue-before-redis-or-sqs",
+    "title": "Postgres Job Queue Before Redis Or SQS",
+    "decision": "Use Postgres-backed job tables with leases, retry metadata, and dead-letter states for MVP async work. Do not add Redis. Defer SQS until measured worker volume, isolation, or retry behavior requires a managed queue.",
+    "rationale": "The current stack already requires RDS and SQLx. Postgres leases are sufficient for a team-tier MVP and avoid adding another operational dependency before the product has real queue pressure.",
+    "evidence": [
+      "ralph-config.json services list does not include Redis or SQS.",
+      "BUILD_GUIDE.md: Database is the required persistence layer; no queue service is part of the authoritative stack.",
+      "prd.json repo-002: imports need queued/importing/imported/failed state, which maps cleanly to a job table.",
+      "prd.json actions-002/actions-003/actions-005: dispatch, rerun, cancel, and execution records already require workflow_runs, attempts, jobs, and audit rows.",
+      "target-docs/content/webhooks/using-webhooks/handling-webhook-deliveries.md: webhook handlers should respond quickly and process event-specific logic separately."
+    ],
+    "impact": "job tables, worker lease queries, retry scheduler, no Redis dependency"
+  },
+  {
+    "id": "rust-native-google-session-auth",
+    "title": "Rust-Native Google Session Auth",
+    "decision": "Implement Google OAuth in Rust using `oauth2`, `tower-sessions`, and `axum-login`. Store users, oauth accounts, and sessions in Postgres. Set a signed `__Host-session` cookie and keep Rust authoritative for API, Git, package, and settings authorization. Next.js only renders and routes.",
+    "rationale": "The product needs browser sessions plus server-side permission checks across API, Git, package, and admin routes. The stack contract explicitly chooses native Rust auth and Google only, overriding scraped docs that mention unsupported auth modes.",
+    "evidence": [
+      "ralph-config.json: authMode=native-rust and authProviders=[google].",
+      "BUILD_GUIDE.md: Auth is oauth2 crate + tower-sessions Postgres-backed signed cookie sessions + axum-login; no Better Auth or JS-side auth library.",
+      "CLAUDE.md: Google OAuth only; auth lives entirely in the Rust API; endpoints are /api/auth/google/start, /api/auth/google/callback, /api/auth/logout, /api/auth/me.",
+      "prd.json auth-001: implement Google OAuth login natively in the Rust API.",
+      "prd.json auth-002: protect Next.js routes and Rust API routes with shared session verification.",
+      "target-docs/auth-flow.md: target GitHub login has password/passkey/Apple surfaces, but opengithub scope reduces this to a compact Google sign-in page.",
+      "ralph/screenshots/inspect/auth-login.jpg: visual evidence for compact centered login layout and social auth button placement."
+    ],
+    "impact": "crates/api auth routes/middleware, sessions migration, web/login, Next.js middleware"
+  },
+  {
+    "id": "github-style-rest-api-with-opengithub-data",
+    "title": "GitHub-Style REST API With opengithub Data",
+    "decision": "Expose REST endpoints under the Rust API using GitHub-like resources, pagination, status codes, and error envelopes, but serve only opengithub-owned data. Do not proxy GitHub APIs or depend on GitHub as a backend.",
+    "rationale": "The OpenAPI reference is valuable for resource vocabulary, but the clone must be functionally independent. A REST-first API is enough for the PRD and simpler than adding GraphQL in the first build.",
+    "evidence": [
+      "ralph-config.json research.apiEndpoints notes REST v3 and GraphQL v4 as inspected references, not implementation dependencies.",
+      "target-docs/openapi.json: tags include repos, git, issues, pulls, actions, activity, orgs, packages, search, teams, users, and projects.",
+      "prd.json api-001: initial GitHub-style REST API for authenticated user, repository create/detail, repository issues, pull requests, Actions runs, packages, and code search.",
+      "prd.json credentials-001: personal access tokens support REST API calls, Git over HTTPS, package registry auth, and automation credentials.",
+      "CLAUDE.md: the clone must not call GitHub APIs for product functionality; docs/OpenAPI are reference material only."
+    ],
+    "impact": "crates/api/src/routes, API error envelope, pagination helpers, PAT middleware"
+  },
+  {
+    "id": "postgres-search-mvp",
+    "title": "Postgres Search MVP",
+    "decision": "Implement permission-aware search with Postgres full-text indexes and `pg_trgm` for MVP. Index repositories, paths, code documents, issues, pull requests, commits, users, organizations, packages, and saved searches in relational/search document tables. Defer a dedicated search engine.",
+    "rationale": "Search is a core product surface, but the configured stack already selects Postgres `pg_trgm`. Permission-aware filtering must happen at query time and index time before introducing a separate search service.",
+    "evidence": [
+      "ralph-config.json services.search.provider=postgres-pgtrgm.",
+      "BUILD_GUIDE.md: Search via pg_trgm.",
+      "prd.json search-005: permission-aware search backend, indexing, query parser, facets, saved searches, and repository file finder using Postgres tsvector and pg_trgm indexes.",
+      "prd.json search-002/search-003: global search bar and code search results need type counts, facets, query chips, snippets, and result expansion.",
+      "ralph/screenshots/inspect/search-code-results.jpg and search-issues-results.jpg exist as inspected visual references."
+    ],
+    "impact": "search document tables, Postgres indexes, Rust query parser, search UI routes"
+  },
+  {
+    "id": "single-repo-component-structure-no-sdk",
+    "title": "Single Repo Structure Without SDK Package",
+    "decision": "Keep one Rust workspace plus one Next.js app. Put API routes, jobs, domain services, and migrations under `crates/api`; put App Router pages, reusable Primer-like components, and typed API client code under `web`. Do not create a standalone SDK package in the initial build.",
+    "rationale": "The build guide and config define a single repo layout. The PRD asks for developer experience through APIs, tokens, Git, webhooks, and docs, while the config disables SDK generation.",
+    "evidence": [
+      "BUILD_GUIDE.md: authoritative repo layout has Cargo.toml, crates/api, crates/api/migrations, web, scripts, Makefile, and .env.",
+      "ralph-config.json sdk.enabled=false and sdk.languages=[].",
+      "prd.json api-001: API docs page later shows endpoint cards; no standalone SDK package in initial scope.",
+      "prd.json dx-001 and credentials-001: developer workflows are Git clone/push, REST API, PATs, and package/automation credentials.",
+      "ralph/screenshots/inspect/repo-code-overview.jpg, issues-list.jpg, pr-detail-conversation.jpg, and actions-runs-list.jpg: UI surfaces share a dense repository workspace shell suited to reusable Next.js components."
+    ],
+    "impact": "crates/api module layout, web/src/app, web/src/components, web/src/lib/api.ts, no packages/sdk"
+  },
+  {
+    "id": "scheduled-maintenance-in-worker",
+    "title": "Scheduled Maintenance In Worker",
+    "decision": "Implement cron-like maintenance inside the Rust worker using Postgres lease rows for due jobs: expired sessions/tokens, notification retention, webhook delivery retention and retry cleanup, Actions log/artifact retention, search backfills, stale import cleanup, archive cleanup, package garbage collection, and Pages deployment cleanup.",
+    "rationale": "Many PRD features create retained artifacts, notifications, tokens, logs, and generated assets. A worker scheduler keeps these concerns consistent without introducing an external cron service in the first pass.",
+    "evidence": [
+      "prd.json notifications-001/notifications-002/notifications-003: notification inbox, subscriptions, custom filters, and watch modes require durable notification/thread state.",
+      "prd.json actions-003/actions-004/actions-005: run detail, logs, artifacts, rerun/cancel/delete-log, caches, and annotations require lifecycle cleanup.",
+      "prd.json credentials-001/security-001: PATs, sessions, session revocation, and security logs require expiration and audit behavior.",
+      "prd.json repo-002: repository imports can fail or time out and need status cleanup.",
+      "target-docs/content/actions/concepts/workflows-and-actions/workflow-artifacts.md: workflow artifacts persist after jobs complete, implying retention policy."
+    ],
+    "impact": "crates/api/src/jobs/scheduler, retention migrations, audit events, S3 lifecycle coordination"
+  }
+]
