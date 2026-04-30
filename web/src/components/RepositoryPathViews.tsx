@@ -90,7 +90,7 @@ export function RepositoryTreeView({
 }
 
 export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
-  const lineCount = blob.file.content.split("\n").length;
+  const displayContent = blob.displayContent ?? blob.file.content;
   return (
     <div>
       <RepositoryPathHeader
@@ -107,7 +107,7 @@ export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
               {blob.path}
             </h1>
             <p className="mt-1 text-sm text-[#59636e]">
-              {lineCount} lines · {blob.file.byteSize} bytes
+              {blob.lineCount} lines ({blob.locCount} loc) · {blob.sizeLabel}
               {blob.language ? ` · ${blob.language}` : ""}
             </p>
           </div>
@@ -148,7 +148,7 @@ export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
             </div>
           ) : (
             <pre className="max-h-[720px] overflow-auto p-4 text-xs leading-5 text-[#1f2328]">
-              <code>{blob.file.content}</code>
+              <code>{displayContent}</code>
             </pre>
           )}
         </section>

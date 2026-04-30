@@ -107,10 +107,20 @@ export type RepositoryBlobView = RepositorySummary & {
   language: string | null;
   isBinary: boolean;
   isLarge: boolean;
+  lineCount: number;
+  locCount: number;
+  sizeLabel: string;
+  mimeType: string;
+  renderMode: "text" | "binary" | "large" | string;
+  displayContent: string | null;
   latestCommit: RepositoryLatestCommit | null;
+  latestPathCommit: RepositoryLatestCommit | null;
   historyHref: string;
   rawHref: string;
   downloadHref: string;
+  rawApiHref: string;
+  downloadApiHref: string;
+  permalinkHref: string;
 };
 
 export type RepositoryCommitHistoryItem = {

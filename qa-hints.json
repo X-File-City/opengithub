@@ -787,5 +787,21 @@
       "File-finder searches metadata-backed repository_files records; retest after real Git push/fetch indexing lands",
       "Slash-containing refs such as feature/foo/bar should keep getting browser QA as more repository routes are added"
     ]
+  },
+  {
+    "feature_id": "repo-005",
+    "tests_written": [
+      "Extended blob JSON contract with lineCount, locCount, sizeLabel, mimeType, renderMode, displayContent, latestPathCommit, raw/download API hrefs, and permalinkHref",
+      "Added raw and download streaming on the authenticated blob API with Content-Type and sanitized Content-Disposition headers",
+      "Recorded recent_repository_visits when a signed-in user opens a blob",
+      "Rust integration coverage checks public/private authenticated reads, private access denial, anonymous 401, raw body streaming, download headers, binary and large render modes, invalid refs, missing paths, and recent visit writes",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test repository_blob_view -- --nocapture, make check, and make test"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke was skipped because repo-005 Phase 1 is backend/API contract only; the GitHub-style file viewer UI is Phase 2",
+      "Binary detection is heuristic because repository_files.content is Postgres text and cannot store NUL bytes; retest once real Git object storage/S3-backed blobs land",
+      "Raw/download currently stream stored text content from Postgres; byte-perfect binary streaming should be revisited with the future git object storage layer",
+      "Large-file cutoff is 512 KiB for inline rendering and should be compared against UX expectations during final blob QA"
+    ]
   }
 ]

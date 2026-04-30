@@ -248,9 +248,26 @@ function blobView(): RepositoryBlobView {
     language: "TypeScript",
     isBinary: false,
     isLarge: false,
+    lineCount: 1,
+    locCount: 1,
+    sizeLabel: "26 bytes",
+    mimeType: "text/plain; charset=utf-8",
+    renderMode: "text",
+    displayContent: "export const answer = 42;\n",
     historyHref: "/mona/octo-app/commits/main/src/index.ts",
+    latestPathCommit: {
+      oid: "abcdef1234567890",
+      shortOid: "abcdef1",
+      message: "Add source",
+      href: "/mona/octo-app/commit/abcdef1234567890",
+      committedAt: "2026-04-30T00:00:00Z",
+    },
     rawHref: "/mona/octo-app/src/index.ts?raw=1",
     downloadHref: "/mona/octo-app/src/index.ts?download=1",
+    rawApiHref: "/api/repos/mona/octo-app/blobs/src/index.ts?ref=main&raw=1",
+    downloadApiHref:
+      "/api/repos/mona/octo-app/blobs/src/index.ts?ref=main&download=1",
+    permalinkHref: "/mona/octo-app/blob/abcdef1234567890/src/index.ts",
   };
 }
 

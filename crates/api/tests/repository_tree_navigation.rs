@@ -266,8 +266,7 @@ async fn repository_tree_contract_resolves_branches_tags_and_recovery_links() {
     assert_eq!(feature_body["total"], 106);
     assert_eq!(feature_body["hasMore"], true);
     assert_eq!(
-        feature_body["entries"][0]["name"],
-        "example-000.md",
+        feature_body["entries"][0]["name"], "example-000.md",
         "files sort by stable path name"
     );
     assert!(feature_body["entries"]

@@ -564,3 +564,14 @@
 - Added `.qrspi/repo-005/structure.md` with five independently verifiable vertical phases: blob read contract/raw streaming, GitHub-style code viewer UI, blame and keyboard shortcuts, syntax highlighting/symbol entry points, and final QA guardrails.
 - Did not change `prd.json`; `repo-005.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - repo-005 phase 1 blob read contract and raw streaming
+
+- Implemented Phase 1 from `.qrspi/repo-005/structure.md`: blob JSON now includes line/loc counts, size label, MIME type, render mode, bounded display content, latest path commit, raw/download API hrefs, and commit permalink hrefs.
+- Added authenticated raw/download streaming on `GET /api/repos/:owner/:repo/blobs/*path` with `raw=1` and `download=1`, including safe content type handling and sanitized attachment filenames.
+- Blob opens now update `recent_repository_visits` for the signed-in viewer while preserving existing permission, ref, path, large-file, and binary safeguards.
+- Added `crates/api/tests/repository_blob_view.rs` covering anonymous 401, authenticated public and private blob reads, private access denial, raw body streaming, download headers, binary/large non-renderable metadata, invalid refs, missing paths, and recent visit writes against real Postgres.
+- Updated the existing blob preview types and tests so the current UI consumes the richer contract without adding Phase 2 file-view UI yet.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_blob_view -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 67 frontend tests plus cargo tests.
+- Browser smoke test skipped because this phase is backend/API contract only; the full blob viewer UI and screenshots are Phase 2.
+- Marked Phase 1 as done in `.qrspi/repo-005/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

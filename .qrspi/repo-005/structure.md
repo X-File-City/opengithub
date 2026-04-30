@@ -6,7 +6,7 @@
 
 ## Phase 1: Blob Read Contract and Raw Streaming - file pages expose real content actions
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Upgrade the existing blob API from a preview DTO into a file-view contract that supports GitHub-like metadata, latest commit context, raw bytes, download headers, binary/large-file states, and recent-visit writes. This phase keeps the current UI usable while making every visible Raw/Download/History action backed by real Rust endpoints.
 

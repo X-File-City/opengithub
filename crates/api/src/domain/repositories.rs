@@ -151,10 +151,20 @@ pub struct RepositoryBlobView {
     pub language: Option<String>,
     pub is_binary: bool,
     pub is_large: bool,
+    pub line_count: i64,
+    pub loc_count: i64,
+    pub size_label: String,
+    pub mime_type: String,
+    pub render_mode: String,
+    pub display_content: Option<String>,
     pub latest_commit: Option<RepositoryLatestCommit>,
+    pub latest_path_commit: Option<RepositoryLatestCommit>,
     pub history_href: String,
     pub raw_href: String,
     pub download_href: String,
+    pub raw_api_href: String,
+    pub download_api_href: String,
+    pub permalink_href: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1274,12 +1284,29 @@ async fn repository_blob_for_actor(
         .cloned()
         .ok_or_else(|| repository_path_not_found_error(&repository, &path))?;
     let latest_commit = latest_commit_for_repository(pool, &repository).await?;
+    let latest_path_commit = latest_commit_for_file(pool, &repository, &file).await?;
     let viewer_permission = viewer_permission_for_user(pool, &repository, actor_user_id).await?;
+    record_recent_repository_visit(pool, actor_user_id, repository.id).await?;
     let encoded_path = percent_encode_path(&path);
     let base = format!(
         "/{}/{}/{}",
         repository.owner_login, repository.name, encoded_path
     );
+    let ref_segment = percent_encode_segment(&ref_name);
+    let api_base = format!(
+        "/api/repos/{}/{}/blobs/{}?ref={}",
+        percent_encode_segment(&repository.owner_login),
+        percent_encode_segment(&repository.name),
+        encoded_path,
+        ref_segment
+    );
+    let is_binary = is_probably_binary(&file.content);
+    let is_large = file.byte_size > 512 * 1024;
+    let display_content = if is_binary || is_large {
+        None
+    } else {
+        Some(file.content.chars().take(256 * 1024).collect())
+    };
 
     Ok(RepositoryBlobView {
         viewer_permission,
@@ -1296,14 +1323,35 @@ async fn repository_blob_for_actor(
         breadcrumbs: repository_breadcrumbs(&repository, &ref_name, &path),
         parent_href: repository_parent_tree_href(&repository, &ref_name, &path),
         language: language_for_path(&path),
-        is_binary: is_probably_binary(&file.content),
-        is_large: file.byte_size > 512 * 1024,
+        is_binary,
+        is_large,
+        line_count: line_count(&file.content),
+        loc_count: loc_count(&file.content),
+        size_label: format_byte_size(file.byte_size),
+        mime_type: mime_type_for_path(&path, is_binary),
+        render_mode: render_mode(is_binary, is_large).to_owned(),
+        display_content,
         history_href: repository_history_href(&repository, &ref_name, &path),
         raw_href: format!("{base}?raw=1"),
         download_href: format!("{base}?download=1"),
+        raw_api_href: format!("{api_base}&raw=1"),
+        download_api_href: format!("{api_base}&download=1"),
+        permalink_href: latest_path_commit
+            .as_ref()
+            .map(|commit| {
+                format!(
+                    "/{}/{}/blob/{}/{}",
+                    repository.owner_login,
+                    repository.name,
+                    percent_encode_segment(&commit.oid),
+                    encoded_path
+                )
+            })
+            .unwrap_or_else(|| repository_blob_href(&repository, &ref_name, &path)),
         path,
         file,
         latest_commit,
+        latest_path_commit,
         repository,
     })
 }
@@ -2158,6 +2206,61 @@ async fn latest_commit_for_repository(
     }))
 }
 
+async fn latest_commit_for_file(
+    pool: &PgPool,
+    repository: &Repository,
+    file: &RepositoryFile,
+) -> Result<Option<RepositoryLatestCommit>, RepositoryError> {
+    let row = sqlx::query(
+        r#"
+        SELECT oid, message, committed_at
+        FROM commits
+        WHERE id = $1
+          AND repository_id = $2
+        LIMIT 1
+        "#,
+    )
+    .bind(file.commit_id)
+    .bind(repository.id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|row| {
+        let oid: String = row.get("oid");
+        RepositoryLatestCommit {
+            short_oid: oid.chars().take(7).collect(),
+            href: format!(
+                "/{}/{}/commit/{}",
+                repository.owner_login, repository.name, oid
+            ),
+            oid,
+            message: row.get("message"),
+            committed_at: row.get("committed_at"),
+        }
+    }))
+}
+
+async fn record_recent_repository_visit(
+    pool: &PgPool,
+    user_id: Uuid,
+    repository_id: Uuid,
+) -> Result<(), RepositoryError> {
+    sqlx::query(
+        r#"
+        INSERT INTO recent_repository_visits (user_id, repository_id, visited_at)
+        VALUES ($1, $2, now())
+        ON CONFLICT (user_id, repository_id)
+        DO UPDATE SET visited_at = EXCLUDED.visited_at
+        "#,
+    )
+    .bind(user_id)
+    .bind(repository_id)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
 fn repository_root_entries(
     repository: &Repository,
     files: &[RepositoryFile],
@@ -2423,6 +2526,16 @@ fn repository_tree_href(repository: &Repository, ref_name: &str, path: &str) -> 
     }
 }
 
+fn repository_blob_href(repository: &Repository, ref_name: &str, path: &str) -> String {
+    format!(
+        "/{}/{}/blob/{}/{}",
+        repository.owner_login,
+        repository.name,
+        percent_encode_segment(ref_name),
+        percent_encode_path(path)
+    )
+}
+
 fn ref_matches_active(qualified_name: &str, short_name: &str, active_ref: &str) -> bool {
     let normalized = active_ref.trim();
     qualified_name == normalized
@@ -2673,8 +2786,75 @@ fn language_for_path(path: &str) -> Option<String> {
     Some(language.to_owned())
 }
 
+fn mime_type_for_path(path: &str, is_binary: bool) -> String {
+    if is_binary {
+        return "application/octet-stream".to_owned();
+    }
+    let mime_type = match path
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "md" | "markdown" => "text/markdown; charset=utf-8",
+        "json" => "application/json; charset=utf-8",
+        "html" => "text/html; charset=utf-8",
+        "css" => "text/css; charset=utf-8",
+        "js" | "jsx" | "ts" | "tsx" => "text/plain; charset=utf-8",
+        "toml" | "yml" | "yaml" | "sql" | "rs" => "text/plain; charset=utf-8",
+        _ => "text/plain; charset=utf-8",
+    };
+    mime_type.to_owned()
+}
+
 fn is_probably_binary(content: &str) -> bool {
-    content.chars().any(|character| character == '\0')
+    let mut control_count = 0usize;
+    let mut total_count = 0usize;
+    for character in content.chars() {
+        total_count += 1;
+        if character.is_control() && !matches!(character, '\n' | '\r' | '\t') {
+            control_count += 1;
+        }
+    }
+    total_count > 0 && control_count * 3 >= total_count
+}
+
+fn render_mode(is_binary: bool, is_large: bool) -> &'static str {
+    if is_binary {
+        "binary"
+    } else if is_large {
+        "large"
+    } else {
+        "text"
+    }
+}
+
+fn line_count(content: &str) -> i64 {
+    if content.is_empty() {
+        0
+    } else {
+        content.lines().count() as i64 + i64::from(content.ends_with('\n'))
+    }
+}
+
+fn loc_count(content: &str) -> i64 {
+    content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .count() as i64
+}
+
+fn format_byte_size(byte_size: i64) -> String {
+    if byte_size < 1024 {
+        return format!("{byte_size} bytes");
+    }
+    let kib = byte_size as f64 / 1024.0;
+    if kib < 1024.0 {
+        return format!("{kib:.1} KB");
+    }
+    let mib = kib / 1024.0;
+    format!("{mib:.1} MB")
 }
 
 fn percent_encode_path(path: &str) -> String {

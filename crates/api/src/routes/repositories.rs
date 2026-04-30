@@ -1,6 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
     routing::{get, post, put},
     Json, Router,
 };
@@ -79,6 +80,8 @@ struct ContentsQuery {
     ref_name: Option<String>,
     page: Option<i64>,
     page_size: Option<i64>,
+    raw: Option<String>,
+    download: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -270,7 +273,7 @@ async fn blob(
     headers: HeaderMap,
     Path((owner, repo, path)): Path<(String, String, String)>,
     Query(query): Query<ContentsQuery>,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+) -> Result<Response, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let view = repository_blob_for_actor_by_owner_name(
@@ -291,7 +294,33 @@ async fn blob(
         )
     })?;
 
-    Ok(Json(json!(view)))
+    let wants_raw = truthy_query(query.raw.as_deref());
+    let wants_download = truthy_query(query.download.as_deref());
+    if wants_raw || wants_download {
+        let mut response = view.file.content.clone().into_response();
+        let headers = response.headers_mut();
+        let content_type = if wants_download || view.is_binary {
+            "application/octet-stream"
+        } else {
+            view.mime_type.as_str()
+        };
+        headers.insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_str(content_type)
+                .unwrap_or_else(|_| HeaderValue::from_static("text/plain; charset=utf-8")),
+        );
+        if wants_download {
+            let filename = safe_download_filename(&view.path_name);
+            headers.insert(
+                header::CONTENT_DISPOSITION,
+                HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
+                    .unwrap_or_else(|_| HeaderValue::from_static("attachment")),
+            );
+        }
+        return Ok(response);
+    }
+
+    Ok(Json(json!(view)).into_response())
 }
 
 async fn commits(
@@ -560,4 +589,28 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
             "repository operation failed".to_owned(),
         ),
     }
+}
+
+fn safe_download_filename(path_name: &str) -> String {
+    let sanitized = path_name
+        .chars()
+        .map(|character| match character {
+            '"' | '\\' | '/' | '\r' | '\n' | '\t' => '_',
+            character if character.is_control() => '_',
+            character => character,
+        })
+        .collect::<String>();
+    let trimmed = sanitized.trim_matches('.').trim();
+    if trimmed.is_empty() {
+        "download".to_owned()
+    } else {
+        trimmed.chars().take(120).collect()
+    }
+}
+
+fn truthy_query(value: Option<&str>) -> bool {
+    matches!(
+        value.map(str::to_ascii_lowercase).as_deref(),
+        Some("1" | "true" | "yes" | "on" | "")
+    )
 }
