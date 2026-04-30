@@ -666,3 +666,42 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Projects v2 (`/{owner}/{repo}/projects`, org/user project table/board/roadmap views, fields, iterations, automation, drafts, settings) or Wiki to continue clearing the Required Coverage Backlog.
+
+Iteration 20 completed on 2026-04-30.
+
+Scope inspected: Projects v2 product (`/orgs/{org}/projects`, `/orgs/{org}/projects/{number}`, project View menu, Insights, and docs-backed settings/workflows/fields/items behavior).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for Projects v2 creation, layouts, views, fields, iterations, items, workflows, insights, and repository linking.
+- Ran the required `ever snapshot`; Ever was authenticated and usable on the prior Discussions page.
+- Navigated with Ever to `https://github.com/orgs/github/projects`, opened the public `GitHub Public Roadmap` project, opened the View menu, and opened project Insights.
+- Captured screenshots:
+  - ralph/screenshots/inspect/projects-org-list.jpg
+  - ralph/screenshots/inspect/projects-roadmap-table.jpg
+  - ralph/screenshots/inspect/projects-view-menu-board.jpg
+  - ralph/screenshots/inspect/projects-insights.jpg
+- Tested non-destructive interactions: opened the org Projects list, inspected search/open/closed/sort/project row/copy-project controls, opened a public project workspace, opened View configuration, and opened Insights without mutating data.
+- Attempted to navigate to the public project settings URL; Ever entered the known chrome-extension failure state, so admin-only project settings/workflows/fields behavior was completed from scraped target docs.
+- Updated build-spec.md with Projects v2 UI, behavior, data models, API examples, backend/cloud mapping, constraints, build order, and keyboard shortcuts.
+- Updated sitemap.md to mark Projects v2 routes completed and leave Wiki as the remaining high-value backlog surface.
+- Appended focused PRD entries:
+  - projects-001 Projects list/search/templates/copy flow
+  - projects-002 table workspace, saved views, filters, editable cells, add row
+  - projects-003 board and roadmap layouts
+  - projects-004 custom fields and iterations
+  - projects-005 project items, draft issues, conversion, archive/restore
+  - projects-006 workflows and automation
+  - projects-007 project settings, access, repository links, templates, status updates
+  - projects-008 Insights charts and status/charts sharing
+
+Key findings:
+- Projects v2 is an owner-level product, not just a repository tab. User and organization projects can link to repositories and show on repository Projects tabs when linked/defaulted.
+- The public Projects list has Projects/Templates tabs, query search, Open/Closed count tabs, Sort menu, project rows, status pills, and copy-project dialogs.
+- The project workspace is a dense virtualized grid with saved view tabs, query-builder filter, matching count, View configuration, slice/group side rail, field value chips, and draggable pane splitter.
+- View configuration exposes Table, Board, and Roadmap layouts with keyboard hints, plus Fields, Column by, Swimlanes, Sort by, Field sum, and Slice by settings.
+- Projects support custom fields, single-select options, date/text/number fields, iteration cycles/breaks, draft issues, issue/PR sync, built-in automations, templates, status updates, and Insights charts.
+- Draft issues are project-only until conversion and should not send notifications before conversion.
+- Project workflows must run as idempotent background automation and enforce project/repository permissions server-side.
+
+Next recommended iteration:
+- Inspect Wiki (`/{owner}/{repo}/wiki`, page create/edit, history, sidebar/footer customization) to continue clearing the Required Coverage Backlog.

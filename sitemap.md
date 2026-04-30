@@ -81,7 +81,7 @@ Template: `/{owner}/{repo}`.
 - `/{owner}/{repo}/discussions/new` — category-specific discussion/poll creation form with Markdown composer and required similar-search acknowledgement. Completed in iteration 19.
 - `/{owner}/{repo}/discussions/{number}` — discussion detail timeline with comments, replies, answer marking, reactions, sidebar metadata, subscription, and events. Completed in iteration 19.
 - `/{owner}/{repo}/discussions/categories/edit` — permissioned category/section management surface. Mapped from docs in iteration 19.
-- `/{owner}/{repo}/projects` — repository projects list; lower priority than issues/PRs.
+- `/{owner}/{repo}/projects` — repository projects list linked by default repository or explicit project/repository association. Completed in iteration 20 from live org Projects plus docs-backed repository linking behavior.
 - `/{owner}/{repo}/wiki` — repository wiki; lower priority.
 - `/{owner}/{repo}/security` — Security and quality overview. Completed in iteration 18 with live public security overview/policy/advisory inspection.
 - `/{owner}/{repo}/security/policy` — rendered SECURITY.md policy and maintainer setup/edit entry point. Completed in iteration 18.
@@ -111,9 +111,13 @@ Template: `/{owner}/{repo}`.
 - `/{user}` — user profile with avatar, bio, pinned repositories, contribution graph, achievements, followers/following, packages/projects tabs.
 - `/{user}?tab=repositories` — user repositories.
 - `/{user}?tab=stars` — starred repositories.
-- `/{user}?tab=projects` — user projects.
+- `/{user}?tab=projects` — user projects list with Projects/Templates tabs, open/closed filters, search, sort, copy-project flow, and project rows. Completed in iteration 20 from org/user-equivalent Projects inspection.
 - `/{org}` — organization overview/profile with pinned repos, people count, README/profile content.
 - `/{org}?tab=repositories` — organization repositories.
+- `/{org}?tab=projects` and `/orgs/{org}/projects` — organization Projects list with search, Open/Closed tabs, Templates tab, sort, status pills, row menus, and copy-project modal. Completed in iteration 20.
+- `/orgs/{org}/projects/{number}` — Projects v2 workspace with saved views, filter bar, table/board/roadmap layouts, item grid, grouping/slicing, and editable fields. Completed in iteration 20 with live GitHub Public Roadmap inspection.
+- `/orgs/{org}/projects/{number}/insights` — project Insights chart surface with Burn up chart, filter bar, range controls, custom charts, and data table. Completed in iteration 20.
+- `/orgs/{org}/projects/{number}/settings` and `/workflows` — project settings, access, fields, workflows, templates, status updates, repository linking, close/delete. Mapped from docs in iteration 20 because public project settings are permission-gated.
 - `/{org}?tab=people` — members list. Completed in iteration 15 for admin member list, export, row actions, and invite dialog.
 - `/{org}?tab=teams` — teams list. Completed in iteration 15 for empty state and new team form.
 - `/{org}/{team_slug}` — team page with repositories, members, discussions. Mapped from team docs; detail page still lower-priority if scope remains.
@@ -162,4 +166,5 @@ Template: `/{owner}/{repo}`.
 15. Insights graphs and dependency/fork analytics. Completed in iteration 17 with live `vercel/next.js` inspection for Pulse, period menu, Contributors, Network, Dependency graph dependencies/dependents, Forks, and docs-backed Traffic permission/retention behavior.
 16. Security overview and code security. Completed in iteration 18 with live inspection for security overview, policy, advisories, Dependabot disabled/settings menu, code scanning disabled, and secret scanning disabled.
 17. Discussions. Completed in iteration 19 with live `vercel/next.js` inspection for list/category/create/detail/answered/polls surfaces and docs-backed category/moderation behavior.
-18. Remaining high-value surfaces: wiki/projects if scope remains.
+18. Projects v2. Completed in iteration 20 with live `github` organization project list, GitHub Public Roadmap workspace, View menu, and Insights inspection; docs-backed settings, fields, workflows, draft issues, and repository linking behavior.
+19. Remaining high-value surface: wiki if scope remains.

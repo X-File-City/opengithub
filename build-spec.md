@@ -1088,6 +1088,63 @@ Implementation mapping:
 - Rust API owns discussion query parsing, repository visibility checks, category/form loading from Git, creation/comment/reaction/vote mutations, moderation permissions, answer marking, pin/lock/transfer/delete/convert actions, subscriptions, notifications, and audit events.
 - Postgres stores discussions, categories, sections, pins, comments, replies, votes, reactions, answers, labels, events, polls, poll options, and poll votes. S3 stores discussion/comment attachments. SES sends notification fanout where email notifications are enabled.
 
+## Projects V2
+
+Status: inspected in iteration 20 with live Ever access on `github` organization public Projects and GitHub Public Roadmap, plus docs-backed admin/workflow/settings behavior for permissioned controls.
+
+Screenshots:
+
+- `ralph/screenshots/inspect/projects-org-list.jpg`
+- `ralph/screenshots/inspect/projects-roadmap-table.jpg`
+- `ralph/screenshots/inspect/projects-view-menu-board.jpg`
+- `ralph/screenshots/inspect/projects-insights.jpg`
+
+Observed project list UI:
+
+- `/orgs/github/projects` uses the organization profile shell with active Projects tab and count. It has a dismissible "Welcome to Projects" banner describing table, board, roadmap, custom fields, saved views, workflows, and insights.
+- The page has Projects and Templates sub-tabs, a search input labeled "Search all projects" prefilled with `is:open`, Open and Closed tabs with counts, and a Sort action menu.
+- Project rows show title, optional description, project number, updated timestamp, optional status pill such as "On track", and a More project options menu.
+- Copy project flow is exposed from row action menus. The copy dialog includes a title input prefilled with `[COPY] <project name>`, an "Include draft issues" checkbox, Cancel, and submit button.
+
+Observed project workspace:
+
+- `/orgs/github/projects/4247` opens a dense `projects-v2` workspace with breadcrumb `github / Projects / GitHub Public Roadmap`, project title, project-view link, Insights link, saved view tabs, and a plus button for new views.
+- The inspected default view had tabs for All Items, General Availability Items, Public Previews, Server (GHES), and Recently Shipped.
+- A left slice rail grouped by Product Focus Area with counts. The filter bar used tokenized qualifiers such as `is:open -status:"Q3 2025 – Jul-Sep","Q4 2025 – Oct-Dec"` and displayed a matching item count.
+- The item grid was grouped by roadmap quarters (`Q1 2026 – Jan-Mar`, `Q2 2026 – Apr-Jun`, `Future`) and showed issue icons, source repository `roadmap`, issue numbers, titles, labels/field pills, product focus area, and release phase. Clicking field values filters the view.
+- The workspace uses virtualized scroll regions and a draggable pane splitter for dense data.
+
+Observed view configuration:
+
+- The View button opens a menu with layout choices Table, Board, and Roadmap. The buttons expose keyboard hints `t`, `b`, and `r`.
+- The same menu contains Fields, Column by, Swimlanes, Sort by, Field sum, and Slice by configuration rows.
+- Docs confirm table layout supports showing/hiding fields, grouping/slicing by field values, field/row reordering, sorting, and number field sums.
+- Docs confirm board layout supports columns from single-select/iteration fields, card dragging to update field values, optional column limits, shown/hidden columns, swimlane grouping, slicing, sorting, and field sums.
+- Docs confirm roadmap layout supports start/target date or iteration fields, vertical markers for iterations/milestones/item dates, Month/Quarter/Year zoom, slicing, sorting, grouping, and field sums.
+
+Observed insights:
+
+- `/orgs/github/projects/4247/insights` replaces the project grid with an Insights surface and "Return to project view" link.
+- Left sidebar has Default charts and Custom charts, with Burn up selected.
+- Burn up chart page has description text, filter bar (`is:issue` in the inspected project), matching item count, range links for 2 weeks, 1 month, 3 months, Max, Custom range button, chart action buttons, and an accessible interactive chart region with "View as data table".
+- Docs confirm custom charts can define filters, chart type, and displayed information, and are available to project viewers.
+
+Docs-backed admin and automation behavior:
+
+- Projects can exist at user or organization level and can be linked to repositories. A default repository makes new issues created from the project use that repository and makes the project appear on the repository Projects tab.
+- Project items may be issues, pull requests, or draft issues. Items can be added by URL paste, repository search with `#`, bulk add, issue/PR list selection, issue/PR sidebar, command palette, issue creation modal, or draft issue row.
+- Draft issues are project-only until converted to repository issues. They can have title, body, assignees, and custom fields, but repository, labels, and milestones require conversion.
+- Custom fields include text, number, date, single select, iteration, issue fields, pull-request fields, parent/sub-issue progress, and issue type. Projects can use up to 50 fields including built-ins.
+- Iteration fields create three iterations initially, support custom duration/start date, adding more iterations, editing names/date ranges, deleting iterations, inserting breaks, and bulk-moving items between iterations.
+- Built-in workflows can update Status when items are added/closed/merged/reopened, auto-add matching issues/PRs from repositories, and auto-archive matching items. Default workflows set closed issues/PRs and merged PRs to Done.
+- Project settings include title, description, README, visibility, default repository, repository links, access grants, templates, status updates, close/delete, and organization policies for base permissions/visibility/project enablement.
+
+Implementation mapping:
+
+- Next.js owns project list pages, dense project workspace, saved view tabs, filter query builder, table/board/roadmap renderers, editable cells, item side panel, view menu, field/settings pages, workflow forms, access controls, templates, status updates, and Insights charts.
+- Rust API owns project authorization, query parsing, view state persistence, item sync with issues/PRs, draft issue conversion, custom field mutation, workflow execution, repository linking, template copy, chart aggregation, status updates, and audit events.
+- Postgres stores projects, views, fields/options/iterations, items, item field values, draft issues, workflows, repositories links, access grants, charts, status updates, templates, events, and chart caches. SQS-style background jobs can process auto-add/archive workflows and chart cache refreshes. SES sends notification fanout only after draft issues become real issues or linked issue/PR changes require notifications.
+
 ## Repository Creation And Import
 
 Status: inspected in iteration 4. Ever was usable and authenticated for `/new`. Screenshots:
@@ -1404,6 +1461,23 @@ Initial model set inferred from docs/OpenAPI:
 - `discussion_polls`: id, discussion_id, question, allow_vote_change, closes_at, created_at, updated_at.
 - `discussion_poll_options`: id, poll_id, body, position, created_at.
 - `discussion_poll_votes`: id, poll_id, option_id, user_id, created_at, updated_at.
+- `projects`: id, owner_type, owner_id, number, title, short_description, readme_markdown, visibility, state, default_repository_id, template_source_project_id, is_template, created_by_id, created_at, updated_at, closed_at, deleted_at.
+- `project_repositories`: id, project_id, repository_id, link_type, added_by_id, created_at.
+- `project_views`: id, project_id, name, layout, position, filter_query, group_by_field_id, slice_by_field_id, sort_json, visible_fields_json, settings_json, created_by_id, updated_at.
+- `project_fields`: id, project_id, name, field_type, data_type, built_in_key, position, settings_json, created_by_id, created_at, updated_at, deleted_at.
+- `project_field_options`: id, field_id, name, color, description, position, created_at, updated_at.
+- `project_iterations`: id, field_id, name, starts_on, ends_on, duration_days, position, created_at, updated_at.
+- `project_iteration_breaks`: id, field_id, name, starts_on, ends_on, position, created_at, updated_at.
+- `project_items`: id, project_id, item_type, issue_id, pull_request_id, draft_issue_id, repository_id, position, archived_at, added_by_id, created_at, updated_at.
+- `draft_issues`: id, project_id, title, body_markdown, converted_issue_id, created_by_id, created_at, updated_at, converted_at.
+- `project_item_field_values`: id, project_item_id, field_id, text_value, number_value, date_value, option_id, iteration_id, user_id, label_id, milestone_id, repository_id, updated_by_id, updated_at.
+- `project_workflows`: id, project_id, name, trigger_type, enabled, conditions_json, actions_json, created_by_id, updated_at.
+- `project_workflow_execution_logs`: id, workflow_id, project_item_id, source_event_type, status, error_message, executed_at.
+- `project_access_grants`: id, project_id, principal_type, principal_id, role, granted_by_id, created_at, updated_at.
+- `project_status_updates`: id, project_id, status, starts_on, target_on, body_markdown, author_id, created_at, updated_at.
+- `project_charts`: id, project_id, name, chart_type, filter_query, x_field_id, y_field_id, group_by_field_id, range_json, position, created_by_id, created_at, updated_at.
+- `project_chart_series_cache`: id, chart_id, cache_key, data_json, computed_at, expires_at.
+- `project_events`: id, project_id, actor_id, event_type, subject_type, subject_id, payload_json, created_at.
 - `issues`: id, repository_id, number, title, body, state, author_id, assignee_id, milestone_id, closed_at, created_at, updated_at.
 - `issue_comments`: id, issue_id, author_id, body, rendered_html, created_at, updated_at, edited_at, deleted_at.
 - `issue_timeline_events`: id, issue_id, actor_id, event_type, payload_json, created_at.
@@ -2282,6 +2356,58 @@ Response: { "pollId": "uuid", "selectedOptionId": "uuid", "results": [{ "optionI
 Error: { "error": { "code": "already_voted", "message": "You have already voted in this poll" }, "status": 409 }
 ```
 
+```http
+GET /api/orgs/{org}/projects?query=is%3Aopen&sort=updated-desc&page=1&pageSize=20
+Response: {
+  "projects": [
+    { "id": "uuid", "number": 4247, "title": "GitHub Public Roadmap", "description": "The official GitHub product roadmap!", "state": "open", "status": null, "updatedAt": "2026-04-30T00:00:00Z" }
+  ],
+  "counts": { "open": 16, "closed": 0 },
+  "total": 16,
+  "page": 1,
+  "pageSize": 20
+}
+Error: { "error": { "code": "not_found", "message": "Organization not found" }, "status": 404 }
+
+GET /api/orgs/{org}/projects/{number}
+Response: {
+  "project": { "id": "uuid", "number": 4247, "title": "GitHub Public Roadmap", "visibility": "public", "state": "open" },
+  "views": [{ "id": "uuid", "name": "All Items", "layout": "table", "filterQuery": "is:open", "position": 1 }],
+  "fields": [{ "id": "uuid", "name": "Status", "type": "single_select", "options": [{ "id": "uuid", "name": "Todo", "color": "gray" }] }]
+}
+Error: { "error": { "code": "forbidden", "message": "Project access required" }, "status": 403 }
+
+GET /api/projects/{projectId}/views/{viewId}/items?filter=is%3Aopen&page=1&pageSize=50
+Response: {
+  "items": [
+    { "id": "uuid", "type": "issue", "repository": "github/roadmap", "number": 1040, "title": "Secret scanning indicators for alerts", "fieldValues": { "Status": "Q1 2026 - Jan-Mar", "Release Phase": "GA" } }
+  ],
+  "groups": [{ "field": "Status", "value": "Q1 2026 - Jan-Mar", "count": 17 }],
+  "total": 47,
+  "page": 1,
+  "pageSize": 50
+}
+Error: { "error": { "code": "validation_failed", "message": "Unsupported project filter qualifier" }, "status": 422 }
+
+PATCH /api/projects/{projectId}/items/{itemId}/fields/{fieldId}
+Request: { "value": { "optionId": "uuid" } }
+Response: { "itemId": "uuid", "fieldId": "uuid", "value": { "optionId": "uuid", "name": "Done" }, "updatedAt": "2026-04-30T00:00:00Z" }
+Error: { "error": { "code": "forbidden", "message": "Project write access required" }, "status": 403 }
+
+POST /api/projects/{projectId}/draft-issues
+Request: { "title": "Triage roadmap item", "body": "Capture early planning notes", "fieldValues": { "Status": "Todo" } }
+Response: { "id": "uuid", "type": "draft_issue", "title": "Triage roadmap item", "convertedIssue": null }
+Error: { "error": { "code": "validation_failed", "message": "title is required" }, "status": 422 }
+
+GET /api/projects/{projectId}/insights/charts/{chartId}?range=1m&filter=is%3Aissue
+Response: {
+  "chart": { "id": "uuid", "name": "Burn up", "type": "burn_up" },
+  "series": [{ "name": "Completed", "points": [{ "date": "2026-04-01", "value": 59 }] }],
+  "dataTable": [{ "date": "2026-04-01", "completed": 59, "total": 59 }]
+}
+Error: { "error": { "code": "not_found", "message": "Chart not found" }, "status": 404 }
+```
+
 ## Backend Architecture
 
 - Axum routes: auth verification middleware, REST JSON routes, Git smart HTTP endpoints, webhook receivers, SARIF upload ingestion, and security-alert management endpoints.
@@ -2289,6 +2415,7 @@ Error: { "error": { "code": "already_voted", "message": "You have already voted 
 - S3: repository large files if needed, Actions artifacts/log archives, package blobs, Pages static outputs, SARIF uploads, and generated security exports.
 - SES: transactional email for notifications, organization invites, security alert fanout, and advisory notifications. Password reset is not needed while auth remains Google-only.
 - Discussions: Rust owns query parsing, permission checks, category/form loading from Git, answer/moderation state, poll votes, notification fanout, and audit events; Next.js owns list/detail/create/moderator UI.
+- Projects: Rust owns project permissions, query parsing, view state, item/field mutations, issue/PR sync, draft issue conversion, workflow execution, chart aggregation, repository links, templates, and audit events; Next.js owns list/workspace layouts, table/board/roadmap, settings, workflows, access, status updates, and Insights UI.
 - ECS Fargate: Rust API and background workers.
 - ECR: container images.
 - CloudFront: Next.js/static asset delivery and Pages CDN.
@@ -2384,6 +2511,11 @@ Error: { "error": { "code": "already_voted", "message": "You have already voted 
 - Discussion category form YAML is repository content from the default branch. Malformed forms must not break discussion creation; render a maintainer-visible validation error and a generic fallback form.
 - Answer marking, lock/unlock, close/reopen, pin/unpin, transfer, delete, and issue-to-discussion conversion require triage/write/admin permissions and must create timeline/audit events.
 - Poll voting must enforce one vote per authenticated user per poll unless an explicit change-vote policy is implemented; results for private repositories must be permission checked.
+- Project permissions are independent from repository permissions. A user can see a public project item only if they can see the linked issue/PR/repository content; private item metadata must be redacted.
+- Project field updates that map to native issue/PR metadata must write through the issue/PR authorization path and emit normal timeline events.
+- Draft issues are project-only and should not send mention/assignee notifications until converted to real repository issues.
+- Built-in project workflows must be idempotent and attributed to an automation actor; they must never bypass repository visibility, organization policy, or branch/security rules.
+- Project views can be large and highly virtualized. API pagination, grouping, and chart aggregation must be server-backed rather than loading every item into Next.js.
 
 ## Build Order
 
@@ -2394,7 +2526,7 @@ Error: { "error": { "code": "already_voted", "message": "You have already voted 
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, tree/blob/raw/archive file browser.
 7. Issues and pull requests.
-8. Global search/code search, Actions, Discussions, security alerts/advisories, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
+8. Global search/code search, Actions, Discussions, Projects, security alerts/advisories, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
 9. Public marketing/home surfaces only after the core app is usable.
 10. Deployment and production hardening.
 
@@ -2433,6 +2565,9 @@ Partial inventory from GitHub command palette docs:
 | `x` | Issue detail | Link an issue or pull request from the same repository. |
 | `Ctrl+.` then `Ctrl+<number>` | Comment composer | Open saved replies menu and insert a saved reply. |
 | `Cmd+Enter` / `Ctrl+Enter` | Issue creation/comment form | Submit the issue or comment when valid. |
+| `t` / `b` / `r` | Projects View menu | Switch a project view to Table, Board, or Roadmap layout when the View menu is open. |
+| `f` / `c` / `s` | Projects View menu | Open Fields, Column by, Swimlanes, Sort by, Field sum, or Slice by rows depending on focused menu item. |
+| `#` | Projects add item row | Open repository issue/PR picker while adding project items. |
 | `p` | Repository Watch menu | Select Participating and @mentions. |
 | `a` | Repository Watch menu | Select All Activity. |
 | `i` | Repository Watch menu | Select Ignore. |
