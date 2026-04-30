@@ -6,7 +6,7 @@
 
 ## Phase 1: Dashboard Hint Persistence - dismissed onboarding hints are user-scoped API state
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the durable data model and protected API endpoints for per-user dashboard hint dismissal without changing the dashboard UI yet.
 

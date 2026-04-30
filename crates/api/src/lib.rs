@@ -39,6 +39,7 @@ pub fn build_app_with_config(db: Option<DbPool>, config: AppConfig) -> Router {
         .merge(routes::issues::router())
         .merge(routes::pulls::router())
         .merge(routes::search::router())
+        .merge(routes::onboarding::router())
         .route_layer(axum_middleware::from_fn_with_state(
             state.clone(),
             middleware::request_log::log_request,

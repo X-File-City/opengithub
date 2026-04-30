@@ -164,3 +164,13 @@
 - Added `.qrspi/onboarding-001/structure.md` with five independently verifiable vertical phases: dashboard hint persistence, dashboard summary API, first-run dashboard UI, dismissible/non-empty dashboard behavior, and final QA/visual polish.
 - Did not change `prd.json`; `build_pass` remains `false` until all onboarding implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - onboarding-001 phase 1 dashboard hint persistence
+
+- Implemented Phase 1 from `.qrspi/onboarding-001/structure.md`: durable per-user dashboard hint dismissal state and protected Rust API endpoints.
+- Added SQLx migration `202604300006_dashboard_onboarding` for `dashboard_hint_dismissals` with per-user uniqueness, lookup indexes, and updated-at trigger wiring.
+- Added `crates/api/src/domain/onboarding.rs` and `crates/api/src/routes/onboarding.rs`; `/api/dashboard/onboarding` lists dismissed hints, `POST /api/dashboard/onboarding/hints/:hint_key` dismisses idempotently, and `DELETE /api/dashboard/onboarding/hints/:hint_key` restores.
+- Added `crates/api/tests/dashboard_onboarding.rs` covering anonymous 401 envelopes, signed-session access, idempotent dismiss, restore, and cross-user isolation against real Postgres.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_onboarding -- --nocapture` passed; `.scratch/dashboard-onboarding-scenario.sh` passed; `make check` passed; `make test` passed.
+- Browser smoke test skipped because this phase is backend-only and changed no UI surface.
+- Marked Phase 1 as done in `.qrspi/onboarding-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

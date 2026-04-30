@@ -218,5 +218,23 @@
       "Playwright auth.setup.ts intentionally stores deterministic anonymous state only; upgrade to a generated signed-session fixture after a stable local test database bootstrap exists",
       "Issue, pull request, and search route hardening remains for their own feature phases; auth-002 finalized the shared session wall and repository route examples"
     ]
+  },
+  {
+    "feature_id": "onboarding-001",
+    "tests_written": [
+      "anonymous dashboard onboarding routes return the standard JSON 401 envelope",
+      "signed-session users can list dismissed dashboard hints from real Postgres state",
+      "POST /api/dashboard/onboarding/hints/:hint_key persists hints idempotently per user",
+      "DELETE /api/dashboard/onboarding/hints/:hint_key restores dismissed hints and is safe when no row exists",
+      "cross-user leakage is covered by separate signed sessions against the same database",
+      ".scratch/dashboard-onboarding-scenario.sh passed against TEST_DATABASE_URL-backed Postgres",
+      "make check and make test passed"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke test skipped because Phase 1 is backend-only and does not change /dashboard UI yet",
+      "Future phases still need the dashboard summary API and actual Next.js empty-state rendering",
+      "Dismiss hint controls are not wired in the UI until onboarding-001 Phase 4",
+      "Real Google-created browser sessions should verify these endpoints once the dashboard UI consumes them"
+    ]
   }
 ]
