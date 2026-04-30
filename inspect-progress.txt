@@ -698,6 +698,39 @@ Key findings:
 Next recommended iteration:
 - Continue clearing remaining backlog gaps by inspecting Labels/Milestones management or global cross-repo Issues/Pulls if not already covered in a later unrecorded iteration.
 
+Iteration 22 completed on 2026-04-30.
+
+Scope inspected: repository Labels and Milestones management (`/{owner}/{repo}/labels`, `/{owner}/{repo}/milestones`, and milestone detail issue list).
+
+What was done:
+- Read prior progress, inspect strategy, Ever command reference, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for labels, milestones, default labels, and REST label/milestone endpoints.
+- Ran the required `ever snapshot`; Ever was authenticated on the dashboard.
+- Navigated with Ever to `https://github.com/vercel/next.js/labels` and `https://github.com/vercel/next.js/milestones`.
+- Captured screenshots:
+  - ralph/screenshots/inspect/labels-list.jpg
+  - ralph/screenshots/inspect/labels-sort-menu.jpg
+  - ralph/screenshots/inspect/milestones-list.jpg
+  - ralph/screenshots/inspect/milestones-sort-menu.jpg
+  - ralph/screenshots/inspect/milestone-detail.jpg
+  - ralph/screenshots/inspect/milestone-detail-selected.jpg
+- Tested non-destructive interactions: opened label sort menu, opened milestone sort menu, opened milestone detail, and selected one issue row to verify selected-count behavior.
+- Updated build-spec.md with Repository Labels And Milestones UI, behavior, API examples, backend mapping, and constraints.
+- Updated sitemap.md to mark labels and milestones completed.
+- Appended focused PRD entries:
+  - labels-001 repository label management and label assignment behavior
+  - milestones-001 repository milestone management, progress, detail, and issue prioritization
+
+Key findings:
+- Labels page is a compact management list with `Search all labels`, count text, color/name/description rows, open issue/PR count links, and a Sort radio menu.
+- Label sort supports Name vs Total issue count and Ascending vs Descending.
+- New label/Edit/Delete are permission-gated on public repositories; docs confirm write users can mutate labels and triage users can apply/dismiss labels.
+- Milestones list has Open/Closed tabs, Sort, progress rows, due-date text, percent complete, and open/closed count links.
+- Milestone sort options include recently updated, due-date variants, completion variants, alphabetical variants, and issue-count variants.
+- Milestone detail scopes the issue list to that milestone and supports issue row selection; docs confirm New issue preselects the milestone, descriptions render Markdown, and deletion clears milestone links without deleting issues or pull requests.
+
+Next recommended iteration:
+- Inspect global cross-repo Issues and Pull requests (`/issues`, `/pulls`) to clear the required backlog item for global lists.
+
 Iteration 20 completed on 2026-04-30.
 
 Scope inspected: Projects v2 product (`/orgs/{org}/projects`, `/orgs/{org}/projects/{number}`, project View menu, Insights, and docs-backed settings/workflows/fields/items behavior).

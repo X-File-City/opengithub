@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 19 repository Discussions inspection.
+Status: partial, iteration 22 repository labels and milestones inspection.
 
 ## Product Overview
 
@@ -38,7 +38,7 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, user/organization profiles, repository settings/access/hooks/Pages, repository Insights, repository code-security surfaces, and repository Discussions.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository labels/milestones, repository pull requests, repository Actions workflow runs/logs, global search/code search, user/organization profiles, repository settings/access/hooks/Pages, repository Insights, repository code-security surfaces, repository Discussions, Projects v2, and Wiki.
 
 ## Repository Settings, Access, Webhooks, Secrets, And Pages
 
@@ -723,6 +723,72 @@ Implementation mapping:
 - Postgres stores issues, comments, issue timeline events, labels, milestones, issue templates/forms, issue types, field values, relationships, linked pull requests/commits, reactions, subscriptions, participants, and notification records.
 - `pg_trgm` and full-text indexes should back issue query search. Search qualifier parsing should be centralized so repository issues, global issues, and pull request lists share behavior.
 - SES sends subscribed issue/comment notifications after domain verification.
+
+## Repository Labels And Milestones
+
+Status: inspected live in iteration 22 against `https://github.com/vercel/next.js` while authenticated. Screenshots:
+
+- `ralph/screenshots/inspect/labels-list.jpg`
+- `ralph/screenshots/inspect/labels-sort-menu.jpg`
+- `ralph/screenshots/inspect/milestones-list.jpg`
+- `ralph/screenshots/inspect/milestones-sort-menu.jpg`
+- `ralph/screenshots/inspect/milestone-detail.jpg`
+- `ralph/screenshots/inspect/milestone-detail-selected.jpg`
+
+Labels:
+
+- `/labels` uses the repository workspace shell and a compact management list rather than the issue-list query builder.
+- Public read-only view showed a heading `Labels`, search input labelled `Search all labels`, label count (`86 labels`), Sort button, and a list of label rows.
+- Each label row shows a color swatch/pill, label name, optional description, and open issue/open pull request count links when nonzero. Observed labels included `adapters`, `After`, `Backport`, `benchmark`, `bug`, `Cache Components`, `create-next-app`, and `CSS`.
+- Sort is a radio menu with `Name` and `Total issue count`, plus order choices `Ascending` and `Descending`. The current checked state was Name + Ascending.
+- New label, Edit, and Delete controls are permission-gated; docs confirm write access can create/edit/delete labels, while triage access can apply/dismiss labels on issues, pull requests, and discussions.
+- Label creation/editing needs name, description, color hex input, random color affordance, validation, Save/Create action, and delete confirmation. Deleting a label removes it from conversations but does not delete issues, pull requests, or discussions.
+- Organization default labels seed new repositories only; changing org defaults must not mutate existing repository labels.
+
+Milestones:
+
+- `/milestones` uses the repository workspace shell and a list view with Open and Closed tabs, Sort button, and permissioned New milestone button.
+- Public `vercel/next.js` showed one open milestone named `backlog`, `No due date`, `213` closed out of `223` issues, `95 complete`, and links for `10 open` and `213 closed`.
+- Milestone sort is a radio menu with `Recently updated`, `Furthest due date`, `Closest due date`, `Least complete`, `Most complete`, `Alphabetical`, `Reverse alphabetical`, `Most issues`, and `Fewest issues`.
+- Detail page shows Back to Milestones, milestone title, New issue button, Open state, due date/no due date, last updated timestamp, percent complete, Open/Closed tabs, select-all checkbox, selected count, and issue rows scoped to that milestone.
+- Issue rows inside a milestone mirror issue list rows: checkbox, title, status, labels, issue number, repository context, author, opened date, linked PR count, comments, and assignee avatars.
+- Selecting an issue updates the selection state from `0 issues of 10 selected` to `1 issue of 10 selected`. No destructive action was taken.
+- Docs confirm milestones have title, Markdown description, due date, progress percentage, open/closed issue and pull request counts, create/edit/delete flows, and close/reopen state. Deleting a milestone does not delete associated issues or pull requests.
+- Docs also confirm maintainers can prioritize issues/PRs within a milestone by drag/drop unless there are more than 500 open items.
+
+API examples:
+
+```http
+GET /api/repos/{owner}/{repo}/labels?q=bug&sort=name&direction=asc
+Response: { "labels": [{ "id": "uuid", "name": "bug", "description": "Issue was opened via the bug report template.", "color": "d73a4a", "openIssues": 827, "openPullRequests": 0 }], "total": 1, "page": 1, "pageSize": 50 }
+Error: { "error": { "code": "not_found", "message": "Repository not found" }, "status": 404 }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/labels
+Request: { "name": "triage", "description": "Needs maintainer triage", "color": "ededed" }
+Response: { "label": { "id": "uuid", "name": "triage", "description": "Needs maintainer triage", "color": "ededed" } }
+Error: { "error": { "code": "forbidden", "message": "Write access required" }, "status": 403 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/milestones?state=open&sort=updated
+Response: { "milestones": [{ "id": "uuid", "number": 1, "title": "backlog", "description": "", "state": "open", "dueOn": null, "openIssues": 10, "closedIssues": 213, "completePercent": 95 }], "total": 1, "page": 1, "pageSize": 50 }
+Error: { "error": { "code": "not_found", "message": "Repository not found" }, "status": 404 }
+```
+
+```http
+PATCH /api/repos/{owner}/{repo}/milestones/{number}
+Request: { "title": "v1.0", "description": "Release tracking", "dueOn": "2026-06-01", "state": "open" }
+Response: { "milestone": { "id": "uuid", "number": 2, "title": "v1.0", "state": "open", "dueOn": "2026-06-01", "openIssues": 0, "closedIssues": 0, "completePercent": 0 } }
+Error: { "error": { "code": "validation_failed", "message": "Title is required" }, "status": 422 }
+```
+
+Implementation mapping:
+
+- Next.js owns `/labels`, `/milestones`, `/milestones/{number}`, search/sort menus, label and milestone forms, delete/close confirmations, progress bars, issue-row selection, and permission-gated controls.
+- Rust API owns permission checks, CRUD, search/sort, applying/dismissing labels, assigning/unassigning milestones, milestone progress aggregation, issue ordering within milestones, timeline events, notifications, and audit logging.
+- Postgres stores labels, label assignments for issues/pull requests/discussions, milestones, issue/pull request milestone links, milestone item ordering, timeline events, notification rows, and organization default-label templates.
 
 ## Repository Code And File Browser
 
@@ -2565,6 +2631,8 @@ Error: { "error": { "code": "not_found", "message": "Chart not found" }, "status
 - Public repositories allow issue reading and often issue creation by authenticated users with read access, but metadata mutation such as labels, assignees, milestones, pinning, transfer, and deletion requires triage/write/admin permission.
 - Issue templates/forms are repository content and configuration; invalid YAML/form schemas should not break issue creation. Show a blank issue fallback for malformed templates.
 - Issue search query parsing must be bounded: reject excessive nesting, unsupported qualifiers, and oversized URLs with structured errors.
+- Labels are repository-scoped. Deleting a label must remove assignments from issues, pull requests, and discussions without deleting those conversations; organization default-label changes only affect future repositories.
+- Milestone deletion must clear associated issue and pull request milestone links without deleting the items. Drag/drop prioritization should be disabled or server-rejected once a milestone has more than 500 open items.
 - Closing keywords in pull requests must create issue references but should only close issues when the PR is merged.
 - Actions workflow discovery must only read `.github/workflows/*.yml` and `.yaml` from the repository default branch unless a run targets a specific ref.
 - Workflow YAML parsing and expression evaluation must be sandboxed and bounded; invalid workflow files should show an invalid-workflow row instead of crashing the Actions tab.

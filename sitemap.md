@@ -65,8 +65,8 @@ Template: `/{owner}/{repo}`.
 - `/{owner}/{repo}/issues` — repository issue list.
 - `/{owner}/{repo}/issues/new` — new issue form.
 - `/{owner}/{repo}/issues/{number}` — issue detail conversation with labels, assignees, milestone, project links, timeline, comments, reactions, close/reopen.
-- `/{owner}/{repo}/labels` — label management.
-- `/{owner}/{repo}/milestones` — milestone management.
+- `/{owner}/{repo}/labels` — label management with search, sort, counts, and permissioned create/edit/delete. Completed in iteration 22.
+- `/{owner}/{repo}/milestones` — milestone management with Open/Closed tabs, progress rows, sort, detail issue list, selection, and permissioned create/edit/close/delete. Completed in iteration 22.
 - `/{owner}/{repo}/pulls` — repository pull request list.
 - `/{owner}/{repo}/compare/{base}...{head}` — compare branches and create pull request.
 - `/{owner}/{repo}/pull/{number}` — pull request conversation.
@@ -172,3 +172,4 @@ Template: `/{owner}/{repo}`.
 17. Discussions. Completed in iteration 19 with live `vercel/next.js` inspection for list/category/create/detail/answered/polls surfaces and docs-backed category/moderation behavior.
 18. Projects v2. Completed in iteration 20 with live `github` organization project list, GitHub Public Roadmap workspace, View menu, and Insights inspection; docs-backed settings, fields, workflows, draft issues, and repository linking behavior.
 19. Wiki. Completed in iteration 21 with live public TypeScript wiki screenshots for Home, Pages, and History plus docs-backed create/edit/sidebar/footer/access behavior.
+20. Labels and milestones. Completed in iteration 22 with live `vercel/next.js` inspection for label list/search/sort/count links and milestone list/detail/sort/selection; docs-backed create/edit/delete/permission behavior.
