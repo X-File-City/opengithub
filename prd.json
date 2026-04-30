@@ -9,7 +9,11 @@
     "ui_details": "No direct UI. This backs every Next.js page and must expose stable JSON shapes for app shell, repository, issue, PR, profile, organization, and settings screens.",
     "behavior": "Migrations run through SQLx against Postgres. Foreign keys enforce ownership and permissions. Seed no mock data; create records only through real auth/API flows.",
     "data_model": "Writes SQLx migrations under crates/api/migrations for users, auth_accounts, sessions, repositories, repository_git_refs, commits, issues, pull_requests, labels, organizations, teams, actions_workflows, workflow_runs, packages, webhooks, notifications.",
-    "dependent_on": ["auth-001", "repo-001", "api-001"],
+    "dependent_on": [
+      "auth-001",
+      "repo-001",
+      "api-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -24,7 +28,9 @@
     "ui_details": "Centered narrow auth card on neutral background. Octocat-style mark at top, heading 'Sign in to opengithub', single full-width primary button 'Continue with Google', small terms/privacy links below. No email/password fields.",
     "behavior": "Unauthenticated protected routes redirect to /login?next=<url>. Clicking Continue with Google hits GET /api/auth/google/start (Rust API), which redirects to Google. Google redirects back to GET /api/auth/google/callback; the Rust handler exchanges the code, upserts the user, sets a signed __Host-session cookie, and 302s to next URL or /dashboard. Failed callback shows inline error in the card.",
     "data_model": "Rust-owned tables: users (id, email, display_name, avatar_url, created_at, updated_at), oauth_accounts (provider, provider_user_id, user_id), sessions (id, user_id, expires_at, data). Cookie signed with SESSION_SECRET via tower-sessions.",
-    "dependent_on": ["infra-001"],
+    "dependent_on": [
+      "infra-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -39,7 +45,10 @@
     "ui_details": "Protected UI pages show logged-in avatar/menu in the header. Unauthenticated users see sign-in CTA. API errors render through existing page-level error components.",
     "behavior": "Rust Axum middleware (axum-login extractor) validates the signed __Host-session cookie on every protected route. Next.js middleware calls GET /api/auth/me to gate protected pages. Protected API calls return 401 JSON when the session is missing/expired, 403 when authenticated but unauthorized.",
     "data_model": "Reads sessions, users, repository permissions, organization memberships, team memberships, and personal access tokens when token auth is added.",
-    "dependent_on": ["infra-001", "auth-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -54,7 +63,11 @@
     "ui_details": "Signed-in dashboard empty state inside the global app shell. Left column has a 'Top repositories' panel with an empty list, repository search input, and green 'New' button. Main column has a bordered welcome/get-started panel with CTAs for Create repository, Import repository, and Read setup guide. Use Primer-style 6px radius cards, #0969da blue links/buttons, #1f883d green create button, #d0d7de borders, and compact 14px body text.",
     "behavior": "After first Google login, users with zero repositories land on this empty state. Create repository opens /new. Import repository opens /new/import placeholder. Read setup guide opens local docs/get-started page. Dismiss buttons hide individual hints and persist per user. Once a repository exists, dashboard switches from empty welcome to recent activity and repository feed.",
     "data_model": "Reads current user, repositories owned by user/org memberships, recent activity, assigned issues, review requests, and dismissed_onboarding_hints. Writes dashboard_hint_dismissals with user_id, hint_key, dismissed_at.",
-    "dependent_on": ["infra-001", "auth-001", "auth-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-001",
+      "auth-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -69,7 +82,12 @@
     "ui_details": "Two-column dashboard under the compact signed-in header. Left sidebar is 296px desktop width with 'Top repositories' heading, green 'New' button, repository filter input, and a vertical repo list with 16px owner/repo text, visibility badge, language color dot, and updated time. Main feed column is fluid, max 720px, with stacked activity cards. Right rail is optional for later recommendations on wide screens.",
     "behavior": "GitHub mark routes here after login. Repository filter narrows the sidebar list client-side after server data loads. Clicking a repository opens /{owner}/{repo}. New opens /new. Empty sidebar shows first-run CTAs. Mobile stacks sidebar above feed and keeps controls reachable without horizontal scroll.",
     "data_model": "Reads current user, repositories ranked by direct interaction, organization memberships, team memberships, recent_visits, repository languages, repository visibility, and latest repository activity timestamp.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "nav-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "nav-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -84,7 +102,12 @@
     "ui_details": "Recent activity section at the top of the main dashboard feed. Show up to four compact rows/cards with issue or pull request icon, repository full name, title, number, state badge, updated relative time, and small actor avatar. Use muted gray metadata and blue linked titles.",
     "behavior": "Preview the four most recent qualifying issue/PR updates from the last two weeks. Clicking the title navigates to the issue or pull request. Empty state says there is no recent activity and offers Create repository and Explore repositories links. Activity updates after issue/PR comments, assignments, review requests, state changes, and mentions.",
     "data_model": "Reads issues, pull_requests, comments, review_requests, assignments, mentions, repository permissions, users, and activity_events filtered to current user and updated_at >= now - 14 days.",
-    "dependent_on": ["infra-001", "auth-002", "dashboard-001", "repo-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "dashboard-001",
+      "repo-001"
+    ],
     "needs_structure": false,
     "build_pass": false,
     "qa_pass": false
@@ -99,7 +122,12 @@
     "ui_details": "Main dashboard feed below recent activity. Header has segmented tabs or filter pills for Following and For you, plus a right-aligned Filter dropdown with checkbox event types. Feed cards include actor avatar, action summary, repository link, excerpt/title, timestamp, and optional star/follow action.",
     "behavior": "Following shows activity from followed users and watched repositories. For you shows recommendations from starred repositories, contributed repositories, collaborators, and followed organizations. Filter dropdown limits event types such as stars, follows, repository creation, help-wanted issues/PRs, pushes, forks, and releases. Empty filtered state offers Clear filters.",
     "data_model": "Reads follows, repository_watches, stars, forks, releases, issues, pull_requests, commits, organizations, users, repositories, and feed_events. Writes no records except optional feed preference/filter persistence.",
-    "dependent_on": ["infra-001", "auth-002", "dashboard-001", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "dashboard-001",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -114,7 +142,11 @@
     "ui_details": "Centered Primer-style form under signed-in header. Page title 'Create a new repository', helper text, inline 'Import a repository' link. General section has owner dropdown, required repository name input with suggestion button, optional description input with 350-character counter. Configuration section has visibility dropdown with Public/Private descriptions, template dropdown, README On/Off toggle, searchable .gitignore selector dialog, license dropdown, and green primary 'Create repository' button.",
     "behavior": "Owner dropdown lists personal account and writable organizations. Repository name input shows suggested names and previews normalized names when spaces are typed, while server validation remains authoritative. Visibility menu toggles Public/Private. README toggle changes pressed state immediately. .gitignore selector opens searchable listbox of templates. Submit creates repository through Rust API; if README/template/gitignore/license are selected, bootstrap default branch and first commit. Success redirects to /{owner}/{repo}; validation and availability errors remain inline without clearing the form.",
     "data_model": "Reads users, organizations, memberships, repository_creation_templates, gitignore_templates, license_templates, name availability, and owner permissions. Writes repositories, repository_git_refs, commits, git trees/blobs or object storage records, repository feature flags, default labels, and repository_activity_events.",
-    "dependent_on": ["infra-001", "auth-002", "onboarding-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "onboarding-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -129,7 +161,11 @@
     "ui_details": "Wizard-style form titled 'Import your project to opengithub'. Step content uses compact labels and explanatory text. Fields include source repository URL, optional private-source credentials, destination owner dropdown, destination repository name input, Public/Private visibility dropdown, and green 'Begin import' button. After submission, show a status page with repository name, progress message, spinner/progress state, and completion/error callout.",
     "behavior": "User enters a public Git remote URL, optionally provides credentials for private remotes, chooses owner/name/visibility, then clicks Begin import. API creates a repository and queued import job, then redirects to a preparing/status page. Status polls until queued/importing/imported/failed. Completion links to /{owner}/{repo} and sends an email. Errors explain unreachable sources, invalid credentials, unsupported non-Git repositories, duplicate names, and private-network sources. Do not import issues, pull requests, metadata, or LFS objects in MVP.",
     "data_model": "Reads users, organizations, memberships, owner permissions, repository name availability, and repository_imports. Writes repositories, repository_imports, repository_import_credentials secret references, repository_git_refs, commits, git object storage records, repository_activity_events, and notification/email job records.",
-    "dependent_on": ["infra-001", "auth-002", "repo-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -144,7 +180,13 @@
     "ui_details": "Full-width repository workspace under signed-in app shell. Header shows owner/repo breadcrumb, repository name, Public/Private badge, Watch/Fork/Star buttons with counts, and horizontal tabs for Code, Issues, Pull requests, Discussions, Actions, Security, Insights, and permission-gated Settings. Code toolbar has branch selector, branch/tag counts, Go to file combobox, Add file dropdown, and Code clone/download button. File table rows use folder/file icons, name/path, latest commit message with PR links, and relative date. Right sidebar shows About text, website link, topics, resources, stars/watchers/forks, releases, deployments, contributors, and language bar.",
     "behavior": "Loading /{owner}/{repo} resolves default branch and renders root tree. Clicking tabs navigates within repo context. Clicking folder/file opens tree/blob route. Clicking latest commit opens commit detail. History opens commit history for current path. Watch/Fork/Star update counts optimistically then reconcile from API. Empty repositories render quick setup instead of file table.",
     "data_model": "Reads repositories, repository_permissions, repository_git_refs, commits, git_trees, repository_topics, repository_languages, stars, repository_watches, forks, releases, deployments, contributors, and repository_readmes. Writes stars/watches/forks and repository_activity_events.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "nav-001", "repo-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "nav-001",
+      "repo-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -159,7 +201,12 @@
     "ui_details": "Repository tree view uses split-pane layout with optional collapsible left file tree and draggable splitter. Header shows branch button, breadcrumbs, current directory title, Go to file combobox, Add file dropdown, More options, latest commit summary, History link, and table columns Name, Last commit message, Last commit date. Nested directories include a parent directory row and compact breadcrumb path.",
     "behavior": "Branch selector opens searchable branch/tag menu and reloads the same path at the selected ref. Go to file searches repository paths and opens the selected file. Directory rows navigate to tree routes; file rows navigate to blob routes. Invalid refs or missing paths show repository-scoped 404 with a branch/path recovery link. Large directories paginate or virtualize without layout shift.",
     "data_model": "Reads repository_git_refs, git_trees, commits, code_search_index path records, repository_permissions, and users for commit authors. Writes no records except optional recent_visits for opened repositories/paths.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -171,10 +218,15 @@
     "page": "/{owner}/{repo}/blob/{branch}/{path}",
     "priority": "P2",
     "core": true,
-    "ui_details": "Blob view keeps repository split-pane shell. Header shows branch selector, breadcrumbs, file name, Go to file, latest commit actor/message/SHA/time, History link, metadata text like '352 lines (352 loc) · 15.9 KB', Code and Blame toggles, Raw link, copy raw button, download button, symbol pane button, and More file actions. Code viewer uses monospace text, line numbers, syntax highlighting, line-hover anchors, and a read-only hidden textarea for accessibility.",
+    "ui_details": "Blob view keeps repository split-pane shell. Header shows branch selector, breadcrumbs, file name, Go to file, latest commit actor/message/SHA/time, History link, metadata text like '352 lines (352 loc) \u00b7 15.9 KB', Code and Blame toggles, Raw link, copy raw button, download button, symbol pane button, and More file actions. Code viewer uses monospace text, line numbers, syntax highlighting, line-hover anchors, and a read-only hidden textarea for accessibility.",
     "behavior": "Opening a file resolves the selected ref and renders text files with syntax highlighting. Raw streams raw bytes. Copy copies raw content or selected permalink. Download saves the raw file. Blame toggles to line-by-line commit attribution. Large/binary files show a non-renderable state with Raw/Download. Keyboard shortcuts include y for permalink, b for blame, and l for line jump.",
     "data_model": "Reads git_objects, git_trees, commits, repository_git_refs, code_search_index, repository_permissions, users, and optional symbol index records. Writes recent_visits and optional code navigation cache records.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "repo-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "repo-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -189,7 +241,13 @@
     "ui_details": "Code menu popover on repository pages with HTTPS clone URL input, copy button, Download ZIP action, and disabled/hidden SSH tab until SSH keys ship. Empty repositories show Quick setup commands for clone, creating README, and pushing an existing repository. Developer docs show git remote examples using opengithub.namuh.co URLs.",
     "behavior": "Copy clone URL writes HTTPS URL to clipboard. Git clients can clone public repositories anonymously and private repositories with session/token auth. Authorized users can fetch and push over smart HTTP. Download ZIP generates or reuses an archive for the selected ref. Raw/archive endpoints enforce visibility and stream bounded responses.",
     "data_model": "Reads repositories, repository_permissions, repository_git_refs, git_objects, git_trees, commits, personal_access_tokens, and repository_archives. Writes git_objects, git_trees, commits, repository_git_refs, repository_archives, repository_activity_events, and audit log records on push.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "repo-004", "dx-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "repo-004",
+      "dx-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -204,7 +262,11 @@
     "ui_details": "API docs page later shows endpoint cards with method badges, path, request JSON, response JSON, auth requirements, and pagination examples. No standalone SDK package in initial scope.",
     "behavior": "REST routes return opengithub-owned data with consistent JSON envelopes. List endpoints accept page/pageSize and return items/total/page/pageSize. Errors use code/message envelope and correct HTTP status.",
     "data_model": "Reads/writes users, repositories, issues, pull_requests, workflow_runs, packages, code search indexes. Auth middleware reads sessions and future personal access tokens.",
-    "dependent_on": ["infra-001", "auth-002", "repo-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -219,7 +281,11 @@
     "ui_details": "Developer settings page with Personal access tokens card, webhook/API documentation links, and command snippets in monospace blocks. Docs page uses endpoint tables and copy buttons.",
     "behavior": "Users can read clone/push/API examples and later create tokens. Copy buttons copy commands. Token-protected examples use opengithub domain and never GitHub API URLs.",
     "data_model": "Reads users and repositories. Later writes personal_access_tokens with token hash, name, scopes, last_used_at, expires_at.",
-    "dependent_on": ["infra-001", "auth-002", "api-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "api-001"
+    ],
     "needs_structure": false,
     "build_pass": false,
     "qa_pass": false
@@ -234,7 +300,11 @@
     "ui_details": "Compact sticky header with GitHub mark, hamburger/global menu button, search/jump input, Create plus button, Issues/Pull requests/Notifications icon links, and 32px avatar menu. Content area uses centered max-width containers for dashboards and full-width repository workspaces. Mobile collapses nav into the hamburger drawer.",
     "behavior": "GitHub mark navigates to /dashboard. Hamburger opens a drawer with recent repositories, teams, projects, and primary app links. Avatar menu opens profile/settings/sign-out actions. Protected pages redirect unauthenticated users to /login?next=<url>.",
     "data_model": "Reads current user, avatar URL, unread notification count, recent repositories, organization memberships, team memberships, and recent projects. Writes only sign-out/session revocation through auth flow.",
-    "dependent_on": ["infra-001", "auth-001", "auth-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-001",
+      "auth-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -249,7 +319,11 @@
     "ui_details": "Navigation skeleton follows sitemap.md. Repository pages share an owner/repo breadcrumb header, visibility badge, action buttons, and horizontal tabs. Settings pages share a left sidebar with active item highlighting and right-column form/card content.",
     "behavior": "Routes render real pages or explicit not-yet-built empty states, never 404s for known sitemap entries. Repository tab clicks preserve owner/repo context. Settings sidebar links update active section and maintain form state only inside each section.",
     "data_model": "Reads route params owner, repo, branch, issue number, pull number, org, team_slug, search query, and settings section. Reads repository permissions to decide whether Settings appears.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -264,7 +338,12 @@
     "ui_details": "Header search input styled as compact rounded command field. Focus opens a suggestion popover with recently visited repositories, teams, projects, and query suggestions. Results page has search input, type tabs, filter sidebar, result count, highlighted snippets, and pagination.",
     "behavior": "Typing owner/repo suggestions allows direct navigation. Pressing Enter submits to /search?q=<query>&type=repositories by default. Type tabs switch between repositories, code, issues, pull requests, commits, users, and discussions. Empty results show a helpful no-results state with syntax tips.",
     "data_model": "Reads repositories, users, organizations, issues, pull_requests, commits, code_search_index, and recent_visits. Uses Postgres pg_trgm and full-text indexes; code results include repository, path, line, fragment, and matching ranges.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "nav-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "nav-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -279,7 +358,10 @@
     "ui_details": "Public header with GitHub mark, dropdown mega-nav groups, search/jump field, Sign in link, bordered Sign up button, large hero, email/signup CTA, feature sections, customer story cards, and dense multi-column footer. Use Primer-like neutral colors, blue/green accents, dark text, and responsive stacked mobile layout.",
     "behavior": "Dropdown nav opens on click/hover and closes on outside click or Escape. Search field routes to /search. Sign in routes to /login and Sign up routes to /login for opengithub Google-only auth. Footer links route to implemented pages or static placeholders.",
     "data_model": "Reads no private data. Optional static content table for marketing sections, feature cards, customer stories, and footer link groups. Search submit reads query only.",
-    "dependent_on": ["layout-001", "search-001"],
+    "dependent_on": [
+      "layout-001",
+      "search-001"
+    ],
     "needs_structure": false,
     "build_pass": false,
     "qa_pass": false
@@ -294,7 +376,13 @@
     "ui_details": "Repository Issues tab uses the shared repository header/tabs, then a dismissible contributor guidance banner, page heading, Primer-style search builder input, Labels and Milestones links, green New issue button, Open/Closed count tabs, filter toolbar, and dense issue rows. Each row shows open/closed icon, title with inline code formatting support, colored label pills with tooltip descriptions, issue number, repo context, author, relative opened/updated time, linked PR indicator, and comment count.",
     "behavior": "Default query is `is:issue state:open`. Typing or choosing filters updates the query and URL. Open/Closed tabs switch state filters. Row title opens the issue detail. Dismiss hides the contributor banner for that viewer/repository. Empty results show a no-results state with clear-query affordance. Public repositories allow read access; private repositories require permission.",
     "data_model": "Reads repositories, repository_permissions, issues, issue_comments_count/materialized counts, users, labels, milestones, projects, issue_types, pull_requests linked by closing/reference relationships, and repository_issue_preferences. Writes recent_visits and optional dismissed issue-list banner preference.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "nav-001", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "nav-001",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -309,7 +397,12 @@
     "ui_details": "Filter toolbar uses compact dropdown buttons: Author, Labels, Projects, Milestones, Assignees, Types, and Sort by. Label menu is a popover/dialog with a search combobox, multiselect listbox, color swatches, label names, descriptions, and a No labels option. Sort menu is a radio menu grouped into Sort by and Order, with checked state and keyboard shortcuts shown in accessible metadata.",
     "behavior": "Opening a filter menu focuses its combobox. Typing narrows options. Selecting a value appends or replaces the corresponding search qualifier such as `label:Bug`; Alt-click on labels excludes labels. Sort choices update `sort:` in the query and refresh results without losing other filters. Invalid advanced queries show inline warnings and preserve typed text.",
     "data_model": "Reads labels, milestones, users with repository access, project links, issue_types, issue aggregate counts, reactions, and issue search index records. Writes no issue data; only updates URL/query state and optional recent filter telemetry.",
-    "dependent_on": ["infra-001", "auth-002", "issues-001", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-001",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -324,7 +417,12 @@
     "ui_details": "New issue opens a modal/route headed `Create new issue` with template cards when templates exist. Template form uses a required title input, explanatory template body, text inputs, Markdown textarea sections with Write/Preview tabs and formatting toolbar, attachment drop zones, required field markers, Create more checkbox, Cancel button, and green Create button with Command+Enter hint.",
     "behavior": "Selecting a template loads the configured issue form fields. Required title and required template fields block Create until valid. Preview renders Markdown or `Nothing to preview`. Cancel returns to the list without creating. Create persists the issue, applies template-provided labels/type/assignees when authorized, optionally keeps the form open when Create more is checked, and redirects to the new issue detail.",
     "data_model": "Reads repositories, repository_permissions, issue_templates, issue_form_fields, labels, milestones, users, projects, and current user. Writes issues, issue_body_versions, issue_comments initial body, issue_labels, issue_assignees, issue_project_items, issue_timeline_events, attachments metadata, and notifications.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "issues-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "issues-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -339,7 +437,13 @@
     "ui_details": "Issue detail keeps repository tabs and shows title, issue number, status pill, navigation buttons, New issue action, main timeline column, and right metadata sidebar. Timeline cards show avatar, author, role badge, timestamp, action kebab, Markdown body with code blocks/copy buttons, reaction toolbar, label events, comments, linked PR/commit events, and composer. Sidebar sections include Assignees, Labels, Type, Fields, Projects, Milestone, Relationships, Development, Notifications, Participants, and Issue actions.",
     "behavior": "Comment composer supports Write/Preview, Markdown toolbar, attachment drop zone, saved replies shortcut, Comment submit, and Close issue. Preview renders Markdown. Reactions toggle per emoji. Subscribe/Customize changes notification state. Authorized users can close/reopen, edit metadata, assign labels/assignees/milestone/projects, pin/transfer/delete where permission allows. Linked PRs and closing keywords create timeline references.",
     "data_model": "Reads issues, issue_comments, issue_timeline_events, users, labels, milestones, issue_types, issue_fields, projects, issue_relationships, pull_requests, commits, reactions, subscriptions, participants, repository_permissions, and attachments. Writes issue_comments, reactions, subscriptions, issue state changes, timeline events, metadata link tables, notification deliveries, and audit records.",
-    "dependent_on": ["infra-001", "auth-002", "issues-001", "issues-003", "repo-003"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-001",
+      "issues-003",
+      "repo-003"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -354,7 +458,13 @@
     "ui_details": "Repository Pull requests tab uses the shared repository header/tabs, dismissible contributor guidance banner, Primer-style search builder defaulting to `is:pr is:open`, Labels and Milestones links, green New pull request button, Open/Closed count tabs, filter toolbar, and dense rows. Rows show PR state or Draft icon, title, label pills, number, opened time, author, role badge, check-run summary icon, review status pill, linked issue count, task progress, and comments count.",
     "behavior": "Default query lists open PRs. Open/Closed tabs update state filters. Clicking a row opens /pull/{number}. New pull request opens compare/create. Dismiss hides contributor banner for the viewer. Check/review/comment/linked-issue indicators navigate to the relevant PR detail sections. Pagination keeps query and sort state in the URL.",
     "data_model": "Reads repositories, repository_permissions, pull_requests, users, labels, pull_request_reviews, pull_request_checks_summary, pull_request_review_requests, linked issues, task list progress, comments counts, and repository pull-list preferences. Writes recent_visits and optional dismissed PR-list banner preference.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "nav-001", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "nav-001",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -369,7 +479,13 @@
     "ui_details": "Filter toolbar uses compact dropdown buttons: Filters, Author, Label, Projects, Milestones, Reviews, Assignee, and Sort. Reviews menu is a radio popover with No reviews, Review required, Approved review, Changes requested, Reviewed by you, Not reviewed by you, Awaiting review from you, and Awaiting review from you or your team. Sort menu contains Newest, Oldest, Most/Least commented, Recently/Least recently updated, Best match, and emoji reaction sorts.",
     "behavior": "Opening any menu focuses its filter/search field when present. Selecting options mutates the search-builder query and URL without losing other qualifiers. Review filters map to review state qualifiers and review request state. Sort choices refresh the list in place. Invalid advanced queries show inline validation and preserve typed text.",
     "data_model": "Reads pull_requests, users, labels, milestones, project links, review states, review requests, comments counts, reactions, checks summaries, and PR search index records. Writes no PR data; updates URL/query state and optional recent filter telemetry.",
-    "dependent_on": ["infra-001", "auth-002", "prs-001", "issues-002", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "prs-001",
+      "issues-002",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -384,7 +500,13 @@
     "ui_details": "Compare page headed `Comparing changes` with compare-across-forks button, base branch/tag selector, compare branch/tag selector, swap/diff direction affordance, split/unified diff controls, changed-file summary, empty/no-diff callout, sample comparison links, and create form when refs differ. Create form uses title input, Markdown body editor with template content, draft checkbox, reviewers/assignees/labels/milestone selectors, and green Create pull request button.",
     "behavior": "Selecting different refs recomputes commits and files. Same base/head shows `There isn't anything to compare`. Invalid or missing refs show repository-scoped errors. Creating persists the PR, links closing keywords to issues, applies metadata when authorized, optionally marks draft, requests reviews, and redirects to /pull/{number}. Public fork PRs require permission checks and preserve base repository notifications.",
     "data_model": "Reads repository_git_refs, commits, git merge base, pull_request_templates, users, teams, labels, milestones, repository_permissions, forks, and existing open PRs for duplicate detection. Writes pull_requests, pull_request_commits, pull_request_files, pull_request_review_requests, pull_request_timeline_events, linked issue relationships, notifications, and audit records.",
-    "dependent_on": ["infra-001", "auth-002", "repo-004", "prs-001", "issues-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-004",
+      "prs-001",
+      "issues-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -399,7 +521,13 @@
     "ui_details": "PR detail keeps repository tabs and shows title, number, Open/Draft/Merged/Closed state pill, stack navigation when present, author, base/head refs, line-change counts, Preview/View status/Code controls, tabs for Conversation/Commits/Checks/Files changed, main timeline column, merge box, comment composer, and right metadata sidebar. Timeline cards show body/comments, bot comments with collapsible details, label events, force-push/base-change/ready-for-review/review-request/review events, commits, reactions, and review approval/change-request status.",
     "behavior": "Conversation tab loads PR state and timeline. Comment composer supports Write/Preview, Markdown toolbar, attachments, saved replies, and Comment. Subscribe/Customize updates notifications. Authorized users can edit metadata, request reviewers, mark draft/ready, close/reopen, and merge when checks/reviews/rules allow. Merge box blocks draft PRs, conflicts, unmet required checks, missing reviews, branch protection, rulesets, and stacked PR failures with explicit reasons.",
     "data_model": "Reads pull_requests, pull_request_commits, pull_request_reviews, pull_request_review_requests, pull_request_checks_summary, pull_request_timeline_events, issue_comments, users, labels, milestones, projects, branch_protection_rules, rulesets, subscriptions, participants, reactions, repository_permissions, and linked issues. Writes comments, reactions, subscriptions, metadata changes, review requests, state changes, merge records, notifications, and audit records.",
-    "dependent_on": ["infra-001", "auth-002", "prs-001", "prs-003", "issues-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "prs-001",
+      "prs-003",
+      "issues-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -414,7 +542,13 @@
     "ui_details": "Files changed tab has sticky PR toolbar, viewed progress, Submit review button, diff settings, commit selector, file filter input, resizable file tree, per-file header, additions/deletions summary, Viewed toggle, file actions, and diff table. Diff rows include old/new line columns, hunk headers, expand-up/down buttons, syntax-highlighted added/removed/context lines, and inline comment affordances. Submit review dialog has Markdown summary editor, Write/Preview tabs, attachment affordance, radio choices Comment/Approve/Request changes, Cancel, and Submit review with Command+Enter hint.",
     "behavior": "File filter narrows changed files. File tree jumps to a file. Viewed toggles collapse and persists per user/file version, resetting when the file changes. Split/unified and whitespace options rerender the diff. Line comments create pending review comments; pending comments remain private until Submit review. Submit review publishes comments and emits comment/approval/request-changes state. Abandoning/canceling leaves no published comments.",
     "data_model": "Reads pull_request_files, diff hunks from git object storage, pull_request_viewed_files, pull_request_review_comments, pending review drafts, users, repository_permissions, and syntax metadata. Writes pull_request_viewed_files, pending review comments, pull_request_reviews, published review comments, timeline events, notifications, and audit records.",
-    "dependent_on": ["infra-001", "auth-002", "repo-005", "prs-004", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-005",
+      "prs-004",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -429,7 +563,13 @@
     "ui_details": "Merge box displays required review/check/ruleset status, conflicts, branch protection messages, enabled merge method dropdown, commit title/body confirmation fields, and branch delete option when applicable. Developer affordances include `.diff` and `.patch` URL hints plus API docs for list/create/review/merge endpoints.",
     "behavior": "API computes merge base, diff, conflicts, required review state, status-check state, and enabled merge methods. Authorized users can merge with merge commit, squash, or rebase when repository settings permit. Merge writes Git objects/refs atomically, closes linked issues via keywords, updates PR state, optionally deletes the head branch, and returns 409 with structured blockers when merge is not allowed.",
     "data_model": "Reads pull_requests, repository_git_refs, commits, git_objects, pull_request_reviews, workflow_runs/check_runs, branch_protection_rules, rulesets, repository merge settings, issue relationships, and repository_permissions. Writes commits, repository_git_refs, pull_request merge state, issue closures, notifications, repository_activity_events, and audit records.",
-    "dependent_on": ["infra-001", "auth-002", "git-001", "prs-004", "prs-005"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "git-001",
+      "prs-004",
+      "prs-005"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -444,7 +584,13 @@
     "ui_details": "Repository workspace tab content with a left Actions rail and main run list. Left rail heading 'Actions' lists All workflows, pinned workflows with pin icons, additional workflow names/files, Show more workflows button, then Management links for Caches, Deployments, Attestations, Usage metrics, and Performance metrics. Main pane has 'All workflows' heading, filter search input, run count, compact filter buttons for Workflow, Event, Status, Branch, Actor, and dense run rows with status icon, title, workflow, run number, event/commit/PR, actor avatar, branch pill, relative time, duration/live state, and kebab options.",
     "behavior": "Loading /actions fetches workflows and recent runs. Typing in Filter workflow runs updates the list and URL query. Filter buttons open searchable select-panel dialogs; status supports action required, cancelled, completed, failure, in progress, neutral, queued, skipped, stale, success, timed out, waiting. Clicking a workflow scopes the run list. Clicking a run opens /actions/runs/{run_id}. Empty repo with no workflows shows template cards and New workflow CTA.",
     "data_model": "Reads repositories, repository_permissions, actions_workflows, workflow_runs, workflow_jobs summary counts, check_suites/check_runs, users, repository_git_refs. Writes only recent view/filter telemetry in MVP.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "nav-001", "prs-006"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "nav-001",
+      "prs-006"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -459,7 +605,12 @@
     "ui_details": "Same Actions rail with selected workflow highlighted. Main pane heading is workflow name, followed by source workflow file link, workflow options menu, optional Run workflow button, filter search, Event/Status/Branch/Actor filter buttons, and scoped run rows. Run workflow dialog has branch dropdown and dynamically generated inputs using compact label/input/select/checkbox controls.",
     "behavior": "Selecting a workflow scopes run history to that workflow and removes the Workflow filter. The source file link opens the workflow YAML blob. Run workflow appears only when the default-branch workflow defines workflow_dispatch; submitting validates ref and inputs, queues a run, closes the dialog, and inserts the queued run at the top. Invalid YAML shows an invalid workflow callout and disables dispatch.",
     "data_model": "Reads actions_workflows, workflow_dispatch_inputs parsed from YAML, workflow_runs, repository_git_refs, users, repository_permissions. Writes workflow_runs, workflow_run_attempts, workflow_jobs seed records, check_suites/check_runs, queue messages for dispatch runs.",
-    "dependent_on": ["infra-001", "auth-002", "actions-001", "repo-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "actions-001",
+      "repo-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -474,7 +625,12 @@
     "ui_details": "Run detail header shows workflow name breadcrumb, large status icon/conclusion, run title, run number, run attempt selector where applicable, triggering commit/PR/branch metadata, and action menus for rerun/cancel/delete logs. Body is split: scrollable left sidebar with Summary, All jobs, grouped/collapsible job categories, and many job links; main summary cards show annotations, job summaries, artifact table with name/digest/copy/download, and run metadata.",
     "behavior": "Opening a run fetches run, jobs, annotations, artifacts, and attempts. Sidebar job links route/focus to a job log. Rerun all/failed/specific jobs queue new attempts when authorized and under limit. Cancel appears for queued/in-progress runs. Delete logs removes log storage and hides log-download options after confirmation. Artifact download returns short-lived signed URL.",
     "data_model": "Reads workflow_runs, workflow_run_attempts, workflow_jobs, workflow_steps summaries, workflow_annotations, workflow_artifacts, check_suites/check_runs, users, commits, pull_requests, repository_permissions. Writes rerun/cancel/delete-log audit records, new run attempts/jobs, log deletion markers, queue messages.",
-    "dependent_on": ["infra-001", "auth-002", "actions-001", "actions-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "actions-001",
+      "actions-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -489,25 +645,29 @@
     "ui_details": "Job view keeps the run left sidebar. Main panel shows job title/status, duration, annotations toggle, log search input with previous/next result icon buttons, result count, log options dropdown, and a vertical list of collapsible step rows. Step rows have status icons, step names, durations, expand chevrons, monospace log lines with timestamps/line numbers, highlighted search matches, and copy/permalink line actions.",
     "behavior": "Clicking a step expands/collapses its log chunk. Search filters/highlights matching lines and previous/next jumps between matches. Options support show timestamps, show raw logs, copy permalink, and download log archive. Expired/deleted logs show a 410-style unavailable state. Streaming in-progress logs auto-refreshes without losing scroll position.",
     "data_model": "Reads workflow_jobs, workflow_steps, workflow_logs, workflow_annotations, repository_permissions. Writes no run state; may write per-user log display preferences. Downloads read log archives from S3 through signed URLs.",
-    "dependent_on": ["infra-001", "auth-002", "actions-003"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "actions-003"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
   },
   {
     "id": "actions-005",
-    "category": "developer-experience",
-    "description": "Implement Actions execution backend for workflow discovery, event triggers, runners, logs, artifacts, caches, and check-run integration.",
-    "page": "backend Actions worker and API",
-    "priority": "P3",
-    "core": true,
-    "ui_details": "No standalone UI beyond status/check surfaces. Provides API-backed data for Actions tabs, PR checks, repository status badges, artifact downloads, cache management, and future settings pages.",
-    "behavior": "Rust discovers workflow YAML from .github/workflows, validates triggers, queues runs on push/pull_request/issue_comment/workflow_dispatch, creates check suites/runs, starts isolated ECS Fargate runner jobs, streams logs to S3/Postgres index, uploads artifacts/caches to S3, updates statuses in real time, enforces cancel/rerun/retention limits, and returns structured errors for invalid workflows or unauthorized operations.",
-    "data_model": "Reads/writes actions_workflows, workflow_runs, workflow_run_attempts, workflow_jobs, workflow_steps, workflow_logs, workflow_artifacts, workflow_caches, workflow_annotations, workflow_dispatch_inputs, check_suites, check_runs, repository_git_refs, commits, pull_requests, repository_permissions, audit records.",
-    "dependent_on": ["infra-001", "auth-002", "git-001", "prs-006"],
-    "needs_structure": true,
-    "build_pass": false,
-    "qa_pass": false
+    "category": "feature",
+    "description": "Workflow YAML parser and event-trigger dispatcher. Parses .github/workflows/*.yml at HEAD of branch, validates schema, evaluates on: triggers (push, pull_request, schedule, workflow_dispatch), and enqueues runs.",
+    "page": "backend service (no direct UI)",
+    "priority": "P2",
+    "ui_details": "Backend service. Emits actions_runs rows visible in /<owner>/<repo>/actions list (which is a separate UI feature).",
+    "behavior": "Watch internal git push events; load workflow files at head SHA; validate via serde_yaml; expand matrix; insert actions_runs row with status=queued, event payload, workflow_path. Respect paths/branches/tags filters and concurrency groups.",
+    "data_model": "actions_runs(id, repository_id, workflow_id, head_sha, head_branch, event, event_payload jsonb, status, conclusion, created_at, started_at, completed_at)",
+    "dependent_on": [
+      "infra-001",
+      "repocode-002"
+    ],
+    "build_pass": false
   },
   {
     "id": "search-002",
@@ -519,7 +679,13 @@
     "ui_details": "Signed-in header search button displays tokenized query text and opens a Primer-style modal with Search heading, combobox, syntax tips link, feedback button, categorized suggestions, and saved-search management. Suggestions include scoped repository/org/all-GitHub search rows, direct repository/code/symbol jump rows, qualifier autocomplete rows for prefixes like language:, and saved-search rows. Saved-search modal is titled `Create saved search` and contains required Name and Query inputs, documentation link, Cancel, and Create saved search buttons.",
     "behavior": "Clicking the header search or pressing the global search shortcut opens the modal and focuses the combobox. Typing updates suggestions in place; Enter submits to /search, direct jump rows navigate to their target, qualifier rows autocomplete the token, Escape closes the modal, and saved-search creation validates required fields before persisting. Copilot chat suggestions should be omitted in opengithub MVP.",
     "data_model": "Reads repositories, organizations, users, teams, saved_searches, repository_file_index, code_symbol_index, and viewer permissions for suggestions. Writes saved_searches, recent_searches, and optional search telemetry. Never exposes private suggestions unless the viewer has access.",
-    "dependent_on": ["infra-001", "auth-002", "nav-001", "repo-003", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "nav-001",
+      "repo-003",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -534,7 +700,13 @@
     "ui_details": "Two-pane search page with scrollable left filter rail, draggable splitter, and main results pane. Filter rail shows result type counts for Code, Issues, Pull requests, Discussions, Commits, Packages, Wikis; code facets for Languages and Paths; Advanced controls for Owner, Symbol, Exclude archived, and Advanced search. Main header shows file count, query duration, active scope chips, Save button, type menu, column/view option buttons, and feedback. Result cards group matches by file with collapse button, path link, language badge, match count, snippet table with line-number anchors, highlighted terms, and Show N more matches link.",
     "behavior": "Submitting a query fetches permission-filtered code results and facets. Clicking language/path facets adds qualifiers and refreshes URL/results. Backspace/delete on a scope chip removes that qualifier. Collapse hides a file's snippets. Show more expands hidden matches. Line anchors open the blob at that line. Invalid qualifiers, too-large queries, or unsupported regex return inline structured errors without losing typed query.",
     "data_model": "Reads repository_file_index, code_symbol_index, git blob metadata, repositories, repository_permissions, languages, paths, saved_searches, and search query parser output. Writes no code data; may write recent_searches/search telemetry. Search index is built from default branch git trees and must enforce visibility.",
-    "dependent_on": ["infra-001", "auth-002", "repo-005", "git-001", "search-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-005",
+      "git-001",
+      "search-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -549,25 +721,30 @@
     "ui_details": "Same two-pane search shell as code search. Issues/PR rail shows State and Advanced filters: Owner, State, Close reason, Has linked pull request, Author, Assignee, Mentioned user, Mentioned team, Commenter, Involved user, Label, Milestone, Number of comments, Number of interactions, and Advanced search. Main pane shows count, timing, active scope chips, Sort by button, Save button, view options, and dense rows with repository, title, highlighted matches/snippet, label pills, author, opened/updated date, comment count, and issue/PR number.",
     "behavior": "Type menu switches between Code, Issues, Pull requests, Discussions, Commits, Packages, and Wikis while preserving the query. Filters add/remove qualifiers. Sort menu supports Best match, Most/Least commented, Newest, Oldest, Recently/Least recently updated and updates URL/results. Clicking a result opens the issue or PR detail. Pagination preserves query, type, sort, and qualifiers.",
     "data_model": "Reads issue_search_documents, pull_request_search_documents, issues, pull_requests, repositories, labels, users, comments counts, reactions/interactions, linked PR relationships, milestones, assignees, and permissions. Writes no issue/PR data; may write recent_searches and saved_searches through search-002.",
-    "dependent_on": ["infra-001", "auth-002", "issues-001", "prs-001", "search-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-001",
+      "prs-001",
+      "search-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
   },
   {
     "id": "search-005",
-    "category": "search",
-    "description": "Implement permission-aware search backend, indexing, query parser, facets, saved searches, and repository file finder support.",
-    "page": "Rust API /api/search/* and repository Go to file",
+    "category": "feature",
+    "description": "Search REST API endpoints: /search/code, /search/repositories, /search/issues, /search/users, /search/commits. Paginated JSON with items/total_count/incomplete_results, query qualifiers (repo:, path:, user:, language:, state:, is:open).",
+    "page": "REST API (consumed by global search bar, /search results page, file finder)",
     "priority": "P2",
-    "core": true,
-    "ui_details": "No standalone page beyond API-backed search surfaces. Supports global search result pages, header suggestions, saved-search modal, repository Go to file, and future advanced search. Repository file finder UI is compact and focused from Go to file or `t`, listing files/directories with path subtitles.",
-    "behavior": "Rust parses bare terms, quoted strings, boolean AND/OR/NOT, parentheses, bounded regex, and qualifiers such as repo, org, user, language, license, path, symbol, content, is, state, label, author, assignee, milestone, comments, interactions, and sort. Search enforces viewer permissions before returning counts/facets/snippets, indexes default branches first, excludes generated/vendor-like file finder paths unless .gitattributes overrides, and returns structured 422/413 errors for unsupported or oversized queries.",
-    "data_model": "Reads/writes saved_searches, recent_searches, search_queries, repository_file_index, code_symbol_index, repository_search_documents, issue_search_documents, pull_request_search_documents, commit_search_documents, repositories, repository_permissions, users, labels, milestones, and git refs/blobs. Uses Postgres tsvector and pg_trgm indexes for MVP.",
-    "dependent_on": ["infra-001", "auth-002", "repo-004", "repo-005", "git-001"],
-    "needs_structure": true,
-    "build_pass": false,
-    "qa_pass": false
+    "ui_details": "Backend; consumed by the global search bar component and dedicated /search results page.",
+    "behavior": "Tokenize query; split qualifiers from free text; run prepared SQL against tsvector + pg_trgm indexes; rank by relevance and recency; cap at 1000 results per scope; accept q, sort, order, page, per_page.",
+    "data_model": "Reads indexes maintained by search-006; no own tables.",
+    "dependent_on": [
+      "search-006"
+    ],
+    "build_pass": false
   },
   {
     "id": "profiles-001",
@@ -579,7 +756,13 @@
     "ui_details": "Primer-style profile shell with global header, left column avatar/name/username/bio/company/location/follower counts, Follow button, achievements badges, block/report menu, and main column tabs: Overview, Repositories count, Projects, Packages, Stars count, More. Overview shows up to six pinned repository/gist cards in a two-column grid and an accessible contribution heatmap with month labels, intensity legend, annual total, and year selector.",
     "behavior": "Click Follow toggles follow state for signed-in users and updates follower count optimistically with rollback on error. Block/report opens a menu and login-gated modal if signed out. Tabs navigate by URL without losing identity column. Contribution cells expose date/count labels to screen readers and hover tooltips. Private profiles hide achievements, activity overview/feed, contribution graph, follower counts, follow/sponsor buttons, org memberships, and secondary tabs while keeping README, bio, and avatar visible.",
     "data_model": "Reads users, user_profile_readmes, profile_pins, repositories, repository_languages, stars/forks counts, follows, profile_contribution_days, profile_contribution_events, achievements, user_achievements, organization_memberships, and viewer permissions. Writes follows and user_blocks/report records; profile pin writes are owned by profile settings.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "repo-003", "search-005"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "repo-003",
+      "search-005"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -594,7 +777,12 @@
     "ui_details": "Same profile identity shell as profiles-001. Main tab content has a compact filter row with search input, Type menu, Language menu, Sort menu, and dense repository result rows. Repository rows show name, visibility, archive/fork/template badges, fork source where relevant, description, language color/name, star count, fork count, license, and updated date. Stars tab uses the same row component but represents repositories the user starred and offers sort options Recently starred, Recently active, and Most stars.",
     "behavior": "Typing in the search box filters repositories and updates query state. Type menu supports All, Sources, Forks, Archived, Can be sponsored, Mirrors, Templates. Language menu filters by available languages. Sort menu supports Last updated, Name, Stars for repositories and Recently starred, Recently active, Most stars for stars. Clicking a repository opens its Code tab. Empty filters show a no-results state with Clear filters.",
     "data_model": "Reads repositories, repository_permissions, repository_languages, repository_topics, stars, users, forks, licenses, issue/PR counts, and denormalized repository search text. Writes no repository data; may write recent_visits when a row is opened.",
-    "dependent_on": ["profiles-001", "repo-003", "search-005", "layout-001"],
+    "dependent_on": [
+      "profiles-001",
+      "repo-003",
+      "search-005",
+      "layout-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -609,7 +797,13 @@
     "ui_details": "Organization profile header with logo/avatar, display name, description, Verified badge with verified domain tooltip, Sponsor button when enabled, follower count, website/social links, and tab bar: Overview, Repositories count, Projects, Packages, People count, Sponsoring count, More. Overview shows pinned repository grid, repository preview list, people preview, sponsoring preview, top languages, most-used topic pills, and GitHub Sponsor CTA.",
     "behavior": "Verified badge links to verification explanation. Sponsor button is hidden or disabled in opengithub MVP unless sponsorships are implemented. Tabs navigate to org-specific routes. Pinned repository cards and repository preview rows open repositories. Public view shows public repositories and public members only; private/internal details require membership/admin permission.",
     "data_model": "Reads organizations, organization_verified_domains, organization_memberships, profile_pins, repositories, repository_languages, repository_topics, stars/forks/issues/PR counts, packages, projects placeholders, follows, sponsorship placeholders, and viewer permissions. Writes follows if org follow is supported later; no admin writes in overview.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "repo-003", "profiles-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "repo-003",
+      "profiles-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -624,7 +818,13 @@
     "ui_details": "Org repository tab uses org header/tabs plus filter chips for All, Contributed by me, Admin access, Public, Sources, Forks, Archived, Templates; search input; Type/Language/Sort controls; comfortable/compact display-density icon buttons; and rows with repo name, visibility, description, topic pills, language/license, fork/star/issue/PR counts, and updated date. People page uses org tabs, a left Organization permissions side nav, Members subtab, member rows with avatar/name/username, and Previous/Next pagination.",
     "behavior": "Repository filters are URL-backed and combine with search, language, sort, and density state. Clicking density changes row spacing without changing data. People pagination preserves org/member filters. Signed-out users see public members only. Org admins later see private members, pending invitations, outside collaborators, role filters, and management actions in settings/admin pages.",
     "data_model": "Reads organizations, organization_memberships, users, teams, repositories, repository_permissions, repository_languages, repository_topics, stars/forks/issues/PR counts, licenses, and viewer role. Writes no org data in public list views; may write recent_visits when opening a repository or member.",
-    "dependent_on": ["orgs-001", "profiles-001", "repo-003", "search-005", "layout-001"],
+    "dependent_on": [
+      "orgs-001",
+      "profiles-001",
+      "repo-003",
+      "search-005",
+      "layout-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -639,7 +839,12 @@
     "ui_details": "Repository workspace header with active Settings tab, then a two-column settings layout: left sidebar grouped by General, Access, Code and automation, Security, and Danger Zone; right column card sections for repository name, description/social preview, template flag, feature toggles, pull request merge methods, default branch, forking, web commit signoff, and destructive actions. Use compact Primer-style labels, toggles/checkboxes, gray bordered cards, green Save buttons, and red danger buttons with confirm-name dialogs.",
     "behavior": "Only admins can load or mutate settings. Feature toggles update local UI only after Rust confirms. Merge method changes validate that at least one method stays enabled. Destructive actions open typed-confirmation modals and are disabled until backend support exists. Every successful settings write creates an audit event and returns structured errors for forbidden, validation_failed, and conflict states.",
     "data_model": "Reads/writes repositories feature flags, visibility, default_branch, merge method booleans, allow_forking, web_commit_signoff_required, archived state, repository_settings_audit_events, users, organizations, and repository_permissions. Live reference state for namuh-eng/opengithub: public, main default branch, Issues disabled, Projects/Wiki enabled, merge/squash/rebase enabled, auto-merge disabled, forking enabled.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "repo-003"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "repo-003"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -654,7 +859,12 @@
     "ui_details": "Settings shell with Access selected. Main panel has People and Teams tabs or grouped sections, search/filter input, Add people/Add teams buttons, rows with avatar or team icon, login/team name, role pill/dropdown, access source text (direct, team, inherited, owner), and kebab menu for change role/remove. Empty state explains no outside collaborators. Add dialog includes user/team search combobox and role selector for read, triage, write, maintain, admin.",
     "behavior": "Admins can invite a user/team, change direct role, cancel pending invitations, or remove direct access after confirmation. Inherited team rows show disabled controls and a message pointing to the parent team/org base permission. Public viewers cannot see private access. Invitations send email through SES and remain pending until accepted.",
     "data_model": "Reads/writes repository_permissions, repository_invitations, users, teams, organization_memberships, team_memberships, repository_settings_audit_events, and repository role definitions. Live reference state for namuh-eng/opengithub returned two admin collaborators via gh api: ashley-ha and jaeyunha.",
-    "dependent_on": ["infra-001", "auth-002", "settings-001", "orgs-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "settings-001",
+      "orgs-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -669,7 +879,13 @@
     "ui_details": "Settings shell with Branches selected. Default branch card at top, branch protection/ruleset list below, empty state when no rules exist, and New branch protection rule/New ruleset buttons. Rule editor uses pattern input, enforcement status segmented control, bypass actor list, and checkbox groups for required reviews, required status checks, conversation resolution, signed commits, linear history, merge queue, deployment requirements, locked branch, restrict pushes, force pushes, and deletions.",
     "behavior": "Admins create/edit/delete rules. Rule patterns use fnmatch-style matching and show validation for duplicate/conflicting patterns. Rulesets can be active, evaluate, or disabled. Mergeability and Git push endpoints aggregate all applicable rules and choose the most restrictive setting. Non-admin readers may see active rules that explain why a push/merge is blocked, but cannot edit them.",
     "data_model": "Reads/writes branch_protection_rules, repository_rulesets, repository_rule_evaluations, repository_git_refs, check_runs, check_suites, pull_request_reviews, code owners data, repository_permissions, teams, users, and repository_settings_audit_events. Live reference state for namuh-eng/opengithub showed main is unprotected.",
-    "dependent_on": ["infra-001", "auth-002", "settings-001", "prs-006", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "settings-001",
+      "prs-006",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -684,7 +900,12 @@
     "ui_details": "Settings shell with Webhooks selected. Empty state and Add webhook button when none exist. Hook list rows show payload URL, active badge, event summary, latest delivery status icon, updated time, and Edit/Delete/Test controls. Add/Edit form includes Payload URL, Content type radio/select, Secret password field, SSL verification checkbox, event selection radios (Just push, Send me everything, Let me select individual events), event checkbox grid, Active checkbox, and green Add/Update webhook button. Hook detail includes Recent Deliveries tab with GUID rows and request/response panels.",
     "behavior": "Creating a webhook validates HTTPS payload URL, stores secret write-only, sends a ping delivery, and returns to the hook detail. Event checkboxes expand only when individual events are selected. Delivery rows open headers/body/status/duration details. Redeliver creates a new delivery linked to the original. Delete requires confirmation. Workers enforce timeout, retry, payload-size, and retention limits.",
     "data_model": "Reads/writes webhooks, webhook_deliveries, repository_permissions, repository_settings_audit_events, repository_activity_events, and event payload source tables for push, issue, PR, release, workflow, package, and Pages events. Stores large request/response bodies in S3 by storage key. Live reference state for namuh-eng/opengithub returned no hooks.",
-    "dependent_on": ["infra-001", "auth-002", "settings-001", "repo-003"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "settings-001",
+      "repo-003"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -699,7 +920,12 @@
     "ui_details": "Settings shell with Secrets and variables selected. Tabs for Secrets and Variables. Secrets list rows show name and updated time only, with Update/Delete buttons; values are never displayed. New secret form has Name input, Secret textarea/password-style input, Add secret button, and validation helper text. Variables form mirrors secrets but displays variable values when permitted. Include empty state for zero secrets.",
     "behavior": "Admins can create/update/delete repository secrets and variables. Secret names must be unique and identifier-like. Secret values are encrypted client/server side before storage and never returned by API. Organization/environment secrets may appear as inherited metadata if viewer has permission, but never leak values. Workflows receive secrets only according to event/fork/reusable workflow rules.",
     "data_model": "Reads/writes actions_secrets, actions_variables, repository_permissions, repository_settings_audit_events, workflow_runs, workflow_jobs, and optional organization/environment secret scope tables. Secret encrypted_value_ref points to KMS/AWS Secrets Manager or encrypted S3 envelope; API responses return metadata only. Live reference state for namuh-eng/opengithub returned total_count 0 secrets.",
-    "dependent_on": ["infra-001", "auth-002", "settings-001", "actions-005"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "settings-001",
+      "actions-005"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -714,7 +940,13 @@
     "ui_details": "Settings shell with Pages selected. Build and deployment card with Source selector (None, Deploy from a branch, GitHub Actions), branch dropdown, folder dropdown for /(root) or /docs, Save button, workflow template suggestions for Actions source, latest deployment link, and status callout. Custom domain card has domain input, Save/Remove buttons, DNS verification status, HTTPS enforcement toggle, certificate/provisioning state, and warnings for misconfigured DNS.",
     "behavior": "Admins choose branch/folder or Actions source. Save validates that the source branch/folder exists. Branch publishing enqueues a Pages build/deploy job. Actions publishing links deployments to workflow artifacts. Custom domain save creates a verification challenge, checks Cloudflare DNS, waits for certificate readiness, and blocks CloudFront alias activation until verified. Removing Pages unpublishes the CloudFront/S3 site without deleting repository code.",
     "data_model": "Reads/writes pages_sites, pages_deployments, repository_git_refs, git_trees, workflow_runs, workflow_artifacts, repository_permissions, repository_settings_audit_events, and Cloudflare DNS verification records. Stores static site artifacts in S3 and serves via CloudFront. Live reference state for namuh-eng/opengithub returned Pages 404, meaning no Pages site configured.",
-    "dependent_on": ["infra-001", "auth-002", "settings-001", "actions-005", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "settings-001",
+      "actions-005",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -729,7 +961,12 @@
     "ui_details": "Repository workspace shell with Releases/Tags subnav. Release cards show tag/title, publish date, author avatar/name, short commit SHA, Verified badge when present, Latest or Pre-release label, Compare button, rendered Markdown notes with headings and PR links, contributor avatar row, Assets disclosure, source code zip/tar links, reaction bar, and pagination. Detail page uses the same card content focused on one release.",
     "behavior": "Loading the list fetches releases ordered newest first and supports page navigation. Clicking Latest resolves to the latest non-prerelease published release. Assets disclosure expands downloads. Reaction buttons toggle the viewer reaction when authenticated and show sign-in or disabled state otherwise. Compare opens a searchable tag selector and navigates to a compare URL. Public users can read public releases; private repositories require read permission.",
     "data_model": "Reads releases, release_assets, repository_git_refs, commits, users, release_reactions, repository_permissions, repository_archives, and package/release-linked activity events. Writes release_reactions only from this read-focused surface.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -744,7 +981,13 @@
     "ui_details": "Release form in repository shell with tag selector/new tag input, target branch/ref dropdown, previous tag selector for generated notes, title input, Markdown editor with Preview tab, Generate release notes button, drag-and-drop asset upload list with progress rows, prerelease checkbox, latest-release option, Save draft, Publish release, Update release, Delete release danger action, and inline validation callouts.",
     "behavior": "Write users can create a release from an existing or new tag. Generate release notes summarizes commits/merged PRs since the previous tag. Draft releases can be edited freely; publishing emits activity/webhook events. Prerelease marks the release with a warning label. Asset uploads stream to S3 through signed upload URLs and can be removed before publish. Delete requires confirmation and removes release metadata without necessarily deleting the git tag unless explicitly requested.",
     "data_model": "Reads/writes releases, release_assets, repository_git_refs, commits, pull_requests, users, repository_permissions, repository_activity_events, webhooks, webhook_deliveries, and repository_archives. Stores binary assets in S3 by storage_key.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "git-001", "settings-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "git-001",
+      "settings-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -759,7 +1002,12 @@
     "ui_details": "Repository workspace shell with Releases/Tags subnav and Tags selected. Compact rows show tag name link, Verified badge and expandable GPG/signature details when available, tag date, short commit SHA, zip link, tar.gz link, Notes link when a release exists, and Previous/Next pagination.",
     "behavior": "Rows are ordered newest first by tag date or commit date. Clicking zip/tar streams a generated source archive. Clicking Notes opens the matching release detail if present. Verified badge opens signature metadata. Pagination uses cursor or page links and preserves repository context.",
     "data_model": "Reads repository_git_refs, commits, git tag objects/signatures, releases, release_assets, repository_permissions, repository_archives, users, and public signing key metadata. Writes repository_archives cache rows when archive generation is requested.",
-    "dependent_on": ["infra-001", "repo-003", "git-001", "releases-001"],
+    "dependent_on": [
+      "infra-001",
+      "repo-003",
+      "git-001",
+      "releases-001"
+    ],
     "needs_structure": false,
     "build_pass": false,
     "qa_pass": false
@@ -774,7 +1022,12 @@
     "ui_details": "Owner profile shell with Packages tab selected. Main panel has GitHub Packages and Linked artifacts tabs, Type dropdown (All, Container, npm, RubyGems, Maven, NuGet), Visibility dropdown (All, Public, Internal, Private), Sort dropdown (Most downloads, Least downloads), search input with magnifier, Clear filters link, package count heading, and list rows with package-type icon, name, published date, publisher, linked repository, visibility pill when non-public, and download count with download icon.",
     "behavior": "Changing filters updates URL query parameters and reloads results. Search filters by package name. Empty filtered state says no packages matched and links back to all packages. Public viewers see only public packages; authenticated members see internal/private packages according to permission. Linked artifacts can be a placeholder tab until artifact provenance is implemented.",
     "data_model": "Reads packages, package_versions, package_downloads, package_repository_links, users, organizations, repositories, package_permissions, organization_memberships, and repository_permissions. No writes from the list page.",
-    "dependent_on": ["infra-001", "auth-002", "orgs-001", "profiles-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "orgs-001",
+      "profiles-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -789,7 +1042,12 @@
     "ui_details": "Package detail page with owner/repo shell when linked or owner profile shell when owner-scoped. Header shows package name, package icon, current short version/digest, visibility badge, Latest badge, and admin Settings button. Installation card lists OS/Arch variants and copyable install commands such as docker pull ghcr.io/{namespace}/{name}:{tag}@sha256:{digest}. Recent tagged image versions list tag, digest, published time, and downloads. Main content renders linked README/about text.",
     "behavior": "Selecting a version updates install commands and metadata. Copy buttons copy command text and show a temporary success state. Private packages require read permission. Admin settings entry opens package access/visibility/settings. Version rows support digest pulls and link to immutable version details. Missing README shows an empty about state.",
     "data_model": "Reads packages, package_versions, package_blobs, package_downloads, package_repository_links, repositories, repository_readmes, package_permissions, users, organizations, and activity_events. Writes package_downloads when registry downloads occur, not when the page only renders.",
-    "dependent_on": ["infra-001", "auth-002", "packages-001", "repo-003"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "packages-001",
+      "repo-003"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -804,7 +1062,12 @@
     "ui_details": "No primary dashboard UI beyond package pages. Developer-facing docs/snippets show docker login, docker push, docker pull, digest pull, and Actions workflow examples using opengithub package registry host and personal/workflow tokens.",
     "behavior": "Docker/OCI clients authenticate with PAT or workflow token. Push uploads manifests/blobs by digest, creates or updates package versions/tags, links to a repository when OCI source labels or workflow context identify one, and emits package/webhook/activity events. Pull checks visibility and permissions before serving manifest or blob. Delete/restore require package admin permission and preserve audit history.",
     "data_model": "Reads/writes packages, package_versions, package_blobs, package_downloads, package_repository_links, package_permissions, personal_access_tokens, workflow_runs, workflow_jobs, repository_permissions, organization_memberships, webhooks, webhook_deliveries, and activity_events. Stores blobs/layers in S3 by digest-addressed storage_key.",
-    "dependent_on": ["infra-001", "auth-002", "actions-005", "settings-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "actions-005",
+      "settings-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -819,7 +1082,13 @@
     "ui_details": "Signed-in app shell with two-column notifications layout. Left rail has Folders (Inbox, Saved, Done with counts), default Filters (Assigned, Participating, Mentioned, Team mentioned, Review requested), Add new filter trigger, Repositories section with owner/repo names and counts, and Manage notifications menu. Main panel has All/Unread segmented tabs, query-builder search input, Sort by menu, Group by menu, cleanup notice, date/repository group headers, Select all checkboxes, and compact notification rows with repository/name, issue or PR number, title, reason label, relative timestamp, unread indicator, save icon, done icon, subscribe/unsubscribe affordance, and row checkbox.",
     "behavior": "All shows unread and read inbox notifications; Unread applies is:unread. Search accepts supported notification qualifiers and updates the query URL. Sort toggles newest/oldest. Group toggles date/repository. Clicking a notification opens the source issue, PR, release, run, or invitation. Saved and Done folders show is:saved and is:done. Empty states explain no matching notifications and keep filters editable.",
     "data_model": "Reads notifications, notification_threads, repositories, issues, pull_requests, workflow_runs, releases, repository_invitations, users, repository_permissions, notification_custom_filters, and repository_watches. No writes except last-read updates when opening rows.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "issues-004", "prs-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "issues-004",
+      "prs-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -834,7 +1103,11 @@
     "ui_details": "Row hover/actions area with icon buttons for Done, Save/Unsave, Subscribe/Unsubscribe, and More. Bulk toolbar appears after selecting one or more row checkboxes and includes Done, Unsubscribe, Save/Unsave, Mark read/unread, Move to inbox, and a selected count. Group headers include Select all and group-level action affordances.",
     "behavior": "Selecting rows enables bulk actions without navigating. Done removes inbox rows and moves them to Done. Save pins notification retention and shows it in Saved. Unsubscribe removes the row and updates thread subscription until the user participates, is mentioned, is team-mentioned, or is review-requested again. Actions optimistically update counts and rollback with an inline toast on failure.",
     "data_model": "Reads/writes notifications.state, notifications.unread, notifications.saved, notifications.done_at, notification_subscriptions.state, notification_threads, repository_permissions, and activity/audit events for bulk changes.",
-    "dependent_on": ["infra-001", "auth-002", "notifications-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "notifications-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -849,7 +1122,12 @@
     "ui_details": "Details-dialog modal titled Filters with table-like rows. Default filter rows show name and query fields for Assigned, Participating, Mentioned, Team mentioned, and Review requested. Custom row has Name input, Query input, Create button, inline validation text, and disabled create state until both fields are valid. Existing custom filters have edit/delete controls and preserve order.",
     "behavior": "User can create up to 15 custom filters. Query validator accepts repo:, org:, author:, is:, and reason: qualifiers only, rejects NOT/exclusion and full-text searches, and shows specific inline errors. Saving adds the filter to the left rail immediately. Deleting asks for confirmation and removes the rail item. Defaults remain read-only or resettable to target defaults.",
     "data_model": "Reads/writes notification_custom_filters with user_id, name, query_string, position, created_at, updated_at. Reads repository and organization permissions to validate private repo/org qualifiers without leaking inaccessible names.",
-    "dependent_on": ["infra-001", "auth-002", "notifications-001", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "notifications-001",
+      "search-001"
+    ],
     "needs_structure": false,
     "build_pass": false,
     "qa_pass": false
@@ -864,7 +1142,13 @@
     "ui_details": "Repository header Watch button with count and radio menu: Participating and @mentions, All Activity, Ignore, Custom. Each option includes a concise description and keyboard accelerator. Custom state opens event checkboxes for issue, pull request, release, discussion, action/CI, security alert, and repository invitation events. Issue/PR sidebar has Notifications card with Subscribe/Unsubscribe and Customize dialog for merged/closed/reopened updates.",
     "behavior": "Changing repository watch level updates the button label/count and future notification fanout. Ignore shows a warning before saving. Custom saves selected event types in addition to participating and mentions. Thread Subscribe/Unsubscribe changes only the issue/PR thread; Customize stores state-change events and resubscribes when participation or mention rules apply.",
     "data_model": "Reads/writes repository_watches, notification_subscriptions, notifications, notification_threads, repository_permissions, issues, pull_requests, users, teams, and organization_memberships. Notification fanout reads these tables when comments, assignments, mentions, review requests, state changes, Actions runs, releases, and security alerts occur.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "issues-004", "prs-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "issues-004",
+      "prs-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -879,7 +1163,12 @@
     "ui_details": "Signed-in settings shell with left grouped sidebar and right content panel titled Public profile. Form fields: Name input, Public email select, Bio textarea, Pronouns select/custom input, URL input, four Social accounts inputs with provider icons, Company, Location, Display current local time checkbox, Time zone select, Profile picture upload/edit menu, Contributions & activity checkbox group, Profile settings toggles, and compact green/primary save buttons per section.",
     "behavior": "Changing profile text fields enables Update profile. Optional fields can be cleared. Avatar upload validates file type/size, previews cropped square avatar, and supports remove/reset. Privacy toggles update profile visibility and contribution counts without leaving the page. Validation errors appear inline beside the invalid field; success uses a short toast or flash message.",
     "data_model": "Reads/writes users display_name, public_email_id, bio, pronouns, website_url, company, location, display_local_time, time_zone, private_profile, show_private_contribution_count, achievements_enabled, preferred_language; user_email_addresses; user_social_accounts; user_avatars stored in S3; security_audit_events for profile/avatar/privacy changes.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "profiles-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "profiles-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -894,7 +1183,12 @@
     "ui_details": "Settings shell page titled Notifications. Cards include Default notifications email selector, Custom routing link, Subscriptions section for Watching and Participating/@mentions/custom with Notify me buttons, Customize email updates button, Ignored repositories link, System section for Actions, Dependabot/security placeholders, digest toggles, and channel select-panel dialogs with On GitHub, Email, CLI options plus Cancel and Save buttons.",
     "behavior": "Clicking Notify me opens a small modal/select-panel with currently selected channels. Selecting channels updates local checked state; Save persists and closes, Cancel discards. Unsupported categories render disabled placeholders until their product exists. Ignored/watched repository links navigate to filtered subscription lists.",
     "data_model": "Reads/writes notification_delivery_preferences, user_email_addresses, repository_watches, notification_custom_filters, notification_email_deliveries, users, and security_audit_events. Email channel writes require a verified email address and SES-ready sender domain.",
-    "dependent_on": ["infra-001", "auth-002", "notifications-001", "notifications-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "notifications-001",
+      "notifications-004"
+    ],
     "needs_structure": false,
     "build_pass": false,
     "qa_pass": false
@@ -909,7 +1203,13 @@
     "ui_details": "Developer Settings shell with left nav for GitHub Apps, OAuth Apps, Personal access tokens, Fine-grained tokens, and Tokens (classic). Token list rows show name, type/scope badges, resource owner, repository selection, last used, expiration, and Delete dialog. Generate new token menu offers Fine-grained repo-scoped and classic options. New-token form has sudo-mode interstitial, name, description, expiration, resource owner, repository access selector, selected repositories picker, permission matrix, and final one-time token reveal panel with copy button.",
     "behavior": "Token creation requires current session plus sudo grant. Prefilled query parameters populate name/description/permissions after sudo. Generate validates expiration, resource owner, repository access, and permission matrix; the token secret is displayed once and never again. Delete/revoke requires confirmation and immediately invalidates API/Git/package auth. Last-used timestamps update on authenticated use.",
     "data_model": "Reads/writes personal_access_tokens, personal_access_token_repositories, users, organizations, repositories, repository_permissions, organization_memberships, sudo_grants, sessions, package_permissions, and security_audit_events. Stores token_hash and token_prefix only; plaintext token appears only in the creation response.",
-    "dependent_on": ["infra-001", "auth-002", "git-001", "packages-003", "api-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "git-001",
+      "packages-003",
+      "api-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -924,25 +1224,29 @@
     "ui_details": "Settings shell page titled SSH keys with New SSH key button, list of authentication/signing keys showing key type icon, title, SHA256 fingerprint, added date/source, last-used state, read/write access, and Delete button/dialog. Below, GPG keys section has New GPG key button and empty state; Vigilant mode card has checkbox labeled Flag unsigned commits as unverified with explanatory copy.",
     "behavior": "New SSH key form accepts title, key type, and public key, validates format/fingerprint uniqueness, then appends row. Delete opens confirmation and revokes key without deleting audit history. GPG form accepts armored public key and extracts fingerprints/emails. Vigilant mode toggle updates commit signature presentation for commits attributed to the user.",
     "data_model": "Reads/writes ssh_keys, gpg_keys, users.vigilant_mode, commits signature metadata, repository_permissions, sessions, sudo_grants for destructive actions, and security_audit_events. Stores only public keys/fingerprints and last-used timestamps.",
-    "dependent_on": ["infra-001", "auth-002", "repo-005", "credentials-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-005",
+      "credentials-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
   },
   {
     "id": "security-001",
-    "category": "auth",
-    "description": "Render Google-only sign-in method state, sudo-mode confirmation, web sessions, session revocation, and personal security log.",
-    "page": "/settings/security, /settings/sessions, /settings/security-log",
-    "priority": "P2",
-    "core": true,
-    "ui_details": "Settings shell pages. Password/authentication page shows Sign in methods with connected Google account and unsupported password/passkey/Apple/2FA rows hidden or disabled by stack config. Sessions page lists web sessions with browser/device icon, city, IP, active/stale badge, current-session marker, last accessed date, country seen, Details link, and Revoke controls. Security log page has search input, Filters menu, Export JSON/CSV menu, recent event rows with actor avatar, action link, target, app/integration, IP, location, timestamp, and expandable details.",
-    "behavior": "Sensitive actions request sudo-mode reauthentication and grant a short-lived session-bound token. Session revoke invalidates non-current sessions immediately and logs an audit event; current session can only be ended by explicit sign out. Security log search accepts supported action/actor/repo/date qualifiers, filters insert common queries, detail expansion reveals structured metadata, and export downloads the current filtered result set with sensitive values redacted.",
-    "data_model": "Reads/writes auth_accounts, sessions, sudo_grants, users, personal_access_tokens, ssh_keys, gpg_keys, repositories, security_audit_events, and audit export jobs. Google account is the only active auth provider under current ralph-config.json.",
-    "dependent_on": ["infra-001", "auth-001", "auth-002", "credentials-001"],
-    "needs_structure": true,
-    "build_pass": false,
-    "qa_pass": false
+    "category": "feature",
+    "description": "Account security: sign-in methods management (linked Google accounts), sudo-mode confirmation before sensitive changes, last-identity protection.",
+    "page": "/settings/security",
+    "priority": "P1",
+    "ui_details": "Sign-in methods card (linked Google account with avatar+email+Unlink button). Sudo modal prompts re-auth before changing email or unlinking last identity. 2FA card stays present but disabled (P3, out of scope for now).",
+    "behavior": "Linking second Google account requires sudo mode; cannot unlink last sign-in method; sudo confirmation grants 30-min elevated_until flag on session row.",
+    "data_model": "Uses oauth_accounts and sessions from infra-001; sessions.elevated_until timestamp added.",
+    "dependent_on": [
+      "auth-001"
+    ],
+    "build_pass": false
   },
   {
     "id": "org-admin-001",
@@ -954,7 +1258,12 @@
     "ui_details": "Signed-in page with GitHub-style plan picker cards for Free, Team, and Enterprise. MVP highlights Free with direct Create organization CTA and treats paid plans as disabled/info-only. Setup form is centered and compact with title 'Tell us about your organization', organization name input, live URL preview, contact email input, radio buttons for personal account vs business/institution, conditional company name input, terms checkbox, inline validation callouts, and green Next/Create button.",
     "behavior": "Clicking Create a free organization opens the setup form. Typing a name normalizes spaces to hyphens in the preview and validates availability/reserved words without submitting. Submit creates the organization only after required fields and terms are valid, then redirects to /{org} or /organizations/{org}/settings/profile. Reserved names, duplicates, invalid email, and rate limits render inline errors. No billing checkout or paid-plan provisioning in MVP.",
     "data_model": "Reads users and reserved_slugs. Writes organizations (slug, display_name, public/contact email, terms_of_service_type, company_name), organization_memberships with creator as owner, organization_policy_settings defaults, organization_audit_events, and optional organization_social_accounts later.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "orgs-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "orgs-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -969,7 +1278,12 @@
     "ui_details": "Organization settings shell with top organization nav, left grouped settings sidebar, context switcher, and right content cards. General form includes organization display name, public email, description, URL, four social account inputs, searchable location selector, billing/contact email fields, Save buttons per section, rename organization control, archive organization dialog, and delete organization danger dialog requiring typed slug.",
     "behavior": "Owners can update public profile fields independently and see success/error flash messages. Context switcher navigates between personal and organization settings. Rename validates slug availability and requires confirmation. Archive/delete controls open confirm-name dialogs and are disabled when destructive prerequisites are not met. Unsupported billing/payment pages are omitted or disabled because billing is out of scope.",
     "data_model": "Reads/writes organizations, organization_social_accounts, organization_memberships, organization_policy_settings, organization_audit_events, organization_verified_domains, user permissions, and S3 organization avatars when avatar upload is implemented.",
-    "dependent_on": ["infra-001", "auth-002", "org-admin-001", "layout-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "org-admin-001",
+      "layout-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -984,7 +1298,12 @@
     "ui_details": "Organization People page under org nav with tabs for Members, Outside collaborators, Pending collaborators, Invitations, Failed invitations, and Security Managers. Main toolbar has member search, disabled bulk action until rows selected, Export dropdown with JSON/CSV, and green Invite member button. Member rows show checkbox, avatar, display name, username, 2FA badge, public/private membership visibility menu, role label, teams count, roles count, row action menu, and membership source.",
     "behavior": "Search filters members. Invite member opens a dialog with username/email autocomplete, role/team choices, and Send invitation. Invitations send SES email, expire after 7 days, and can be retried/canceled from pending/failed tabs. Visibility menu toggles public/private membership. Role change opens confirmation. Removing or demoting the final owner is blocked with a structured error. Exports download current filtered members as JSON or CSV.",
     "data_model": "Reads/writes organization_memberships, organization_invitations, teams, team_memberships, users, user_email_addresses, organization_audit_events, notification/email delivery records, and permission-derived 2FA/session status flags. Exports read the filtered member query.",
-    "dependent_on": ["infra-001", "auth-002", "org-admin-001", "personal-settings-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "org-admin-001",
+      "personal-settings-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -999,7 +1318,13 @@
     "ui_details": "Teams page uses organization shell. Empty state has three explanatory columns for flexible repository access, request-to-join teams, and team mentions, plus New team and Learn more CTAs. New team form has Team name, Description, Parent team selector or empty 'no teams' text, visibility radio group with Visible recommended and Secret, team notification radio group Enabled/Disabled, and green Create team button.",
     "behavior": "Team list filters teams when present and links to team detail. Creating a team slugifies the name, validates uniqueness, and blocks secret nested teams. Visible teams can be discovered and @mentioned by organization members; secret teams are visible only to members and cannot be nested. Enabled notifications notify members on team mentions. Team permissions cascade from parent to child for repository authorization and review requests.",
     "data_model": "Reads/writes teams, team_memberships, team_repository_permissions, organization_memberships, repositories, repository_permissions, notification_subscriptions, organization_audit_events, and team mention indexes. Parent-child constraints prevent cycles and secret-team nesting.",
-    "dependent_on": ["infra-001", "auth-002", "org-admin-003", "repo-003", "notifications-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "org-admin-003",
+      "repo-003",
+      "notifications-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1014,7 +1339,13 @@
     "ui_details": "Long organization settings page with independent cards/forms. Base permissions card uses action menu options None, Read, Write, Admin plus confirmation. Repository creation card has public/private checkboxes and Save. Additional cards include private repository forking checkbox, repository discussions checkbox, Projects base permission action menu, Pages public/private publishing checkboxes, app access request radio controls, repository visibility/delete/transfer toggles, issue deletion toggle, and team creation toggle. Each card uses compact explanatory copy and per-card Save buttons.",
     "behavior": "Only organization owners can change settings. Base permission changes require confirmation and immediately affect repository authorization for members while preserving explicit higher permissions. Policy-locked controls render disabled with a why link. Repository creation settings constrain /new owner/visibility choices and Rust create endpoints. Forking, discussions, Pages, app access, delete/transfer, issue deletion, and team creation settings are enforced by Rust API paths and logged to org audit events.",
     "data_model": "Reads/writes organization_policy_settings, organizations default permission fields, repository_permissions, organization_memberships, repositories, pages_sites, teams, organization_audit_events, and security_audit_events. Policy writes include actor, old/new JSON values, and optional enforced_by metadata.",
-    "dependent_on": ["infra-001", "auth-002", "org-admin-002", "repo-001", "settings-006"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "org-admin-002",
+      "repo-001",
+      "settings-006"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1029,7 +1360,13 @@
     "ui_details": "Repository shell with Commits heading and compact toolbar: branch selector button, All users author selector, and All time datepicker. Branch selector dialog has searchable Find a branch input, Branches/Tags tabs, selected default badge, branch radio rows, and View all branches link. Commit list groups rows by date; each row has linked subject, linked PR number, optional expand-message button, author avatar/login, relative time, status-check summary button, Verified/Partially verified badge, short SHA button, browse-at-commit icon, and row overflow menu.",
     "behavior": "Loading the page resolves the selected ref and streams commits grouped by commit date. Selecting a branch/tag reloads commit history for that ref. Selecting an author filters to that author and preserves branch/date state. Datepicker selection applies until/before date filtering; Clear returns to all time. Clicking short SHA or subject opens commit detail. Clicking status opens checks summary; clicking browse opens the repository tree at that commit.",
     "data_model": "Reads repositories, repository_permissions, repository_git_refs, commits, commit_signature_verifications, commit_status_summaries, users, pull_requests, check_runs, and branch_activity_snapshots. Writes recent_visits and optional per-user commit-list filter telemetry only.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "repo-004", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "repo-004",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1044,7 +1381,13 @@
     "ui_details": "Repository shell with Commit heading, short SHA, Browse files button, copy/full SHA control, author avatar/login, relative authored time, status-check summary, Verified badge, subject/body, branch link, linked PR link, parent commit link, and diff summary. Diff area has collapsible file tree, draggable pane splitter, Filter files input, Search within code input, file rows with changed-line counts, per-file more menu, Expand all lines buttons, and side-by-side diff grid with old/new line numbers.",
     "behavior": "Opening a commit validates repository visibility and SHA existence. Browse files navigates to the repository tree at that commit. Copy SHA copies the full hash. Parent link opens parent commit. File tree selection scrolls/focuses the matching diff file. Search within code highlights matches inside visible diff content. Expand controls fetch extra context lines. Binary or large diffs show bounded placeholders with Raw/View file actions.",
     "data_model": "Reads repositories, repository_permissions, commits, commit_file_changes, commit_signature_verifications, commit_status_summaries, check_runs, pull_requests, repository_git_refs, git_trees, git_objects, users, and code_search_index path records. Writes recent_visits and optional diff display preferences.",
-    "dependent_on": ["infra-001", "auth-002", "commits-001", "repo-005", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "commits-001",
+      "repo-005",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1059,7 +1402,13 @@
     "ui_details": "Repository shell with Branches heading, tablist for Overview, Active, Stale, and All, plus Search branches input. Overview page separates Default and Active branches in dense tables. Columns are Branch, Updated, Check status, Behind, Ahead, Pull request, and Action menu. Rows include branch link, copy branch-name button, protected shield/link, latest author avatar, updated time, status-check count, ahead/behind numbers, linked draft/open PR number, and kebab menu with Activity and View rules.",
     "behavior": "Tabs change the branch classification list without losing repository context. Search performs case-insensitive substring filtering over branch names. Clicking a branch opens the code tree for that ref. Copy copies branch name. Protected badge opens branch rules/protection. PR number opens linked pull request. Activity opens branch activity, View rules opens applicable rulesets/branch protection. Destructive delete/restore actions stay permission-gated and are hidden or disabled for read-only public inspection.",
     "data_model": "Reads repositories, repository_permissions, repository_git_refs, branch_activity_snapshots, commits, commit_status_summaries, pull_requests, branch_protection_rules, repository_rulesets, users, teams, and check_runs. Writes recent_visits and optional branch search telemetry; branch delete/restore/rename later write refs, audit events, and notifications.",
-    "dependent_on": ["infra-001", "auth-002", "repo-004", "commits-001", "settings-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-004",
+      "commits-001",
+      "settings-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1074,7 +1423,13 @@
     "ui_details": "Repository Insights shell with left sidebar links for Pulse, Contributors, Community standards, Commits, Code frequency, Dependency graph, Network, Forks, Actions usage metrics, and Actions performance metrics. Main Pulse pane shows exact date range, Period button, overview cards for active PRs/issues, linked counts for merged/open PRs and closed/new issues, summary sentence with authors/commits/files/additions/deletions, accessible Top Committers bar chart, avatar links, and compact activity lists for releases and merged pull requests.",
     "behavior": "Opening Pulse computes aggregates for the selected period. Period menu supports 24 hours, 3 days, 1 week, and 1 month, updates URL/query state, and reloads metrics. Metric links navigate to filtered issue or pull request lists. Top Committers chart exposes a data-table fallback. Activity item links open releases, pull requests, users, or commit ranges.",
     "data_model": "Reads repositories, repository_permissions, commits, commit_file_changes, users, pull_requests, issues, releases, repository_activity_events, and repository_insight_snapshots. Writes cached repository_insight_snapshots and optional recent_insight_views; no user content writes.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "prs-001", "issues-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "prs-001",
+      "issues-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1089,7 +1444,13 @@
     "ui_details": "Insights shell with Contributors selected. Header states default branch scope and commit-limit message when line counts are omitted. Controls include Period button, chart action/export buttons, View as data table button, and Highcharts-style accessible region. Main chart is Commits over time with start/end range sliders. Contributor sections show avatar, login, total commits link, chart menu, and individual bar chart.",
     "behavior": "Page loads top contributors for the default branch and excludes merge/empty commits. Period selector and range sliders constrain visible weekly data. Chart data-table button opens tabular values. Contributor login opens profile; commit count opens commit history filtered to that author. Repositories over the commit threshold omit addition/deletion line counts and show explanatory text.",
     "data_model": "Reads repositories, repository_permissions, repository_git_refs, commits, commit_authors, users, repository_contributors_weekly, commit_signature_verifications, and repository_insight_snapshots. Writes cached contributor weekly rollups and chart cache rows.",
-    "dependent_on": ["infra-001", "auth-002", "repo-004", "commits-001", "insights-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-004",
+      "commits-001",
+      "insights-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1104,7 +1465,13 @@
     "ui_details": "Insights shell with Traffic selected. Permissioned content shows two compact line charts for full clones and visitors over the past 14 days, chart hover/tooltips, summary totals/unique counts, referrers table ordered by views/unique visitors, popular content table with path/title links, and a UTC/timezone note. Users without push access see a repository-safe redirect or 403 empty state without leaking traffic counts.",
     "behavior": "Traffic route requires push access. Clones and visitor charts update hourly; referrers and popular content update daily. Hovering or keyboard-focusing a chart point reveals exact date/count/unique values. Referrer links navigate externally with safe rel attributes; content links open repository paths. API returns structured 403 when permission is missing.",
     "data_model": "Reads repositories, repository_permissions, repository_traffic_daily, repository_referrers_daily, repository_popular_content_daily, users, and audit/access logs. Writes daily/hourly traffic rollups from request/git clone events and optional chart cache rows.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "git-001", "insights-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "git-001",
+      "insights-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1119,7 +1486,13 @@
     "ui_details": "Network page shows Insights sidebar, Network graph heading, explanatory copy about recent commits to the repository network, daily update note, and links into fork/tree views. Forks page has Switch to tree view link, Period menu, Repository type menu, Sort menu, Defaults Saved/Save defaults button, and dense fork rows. Rows show fork owner avatar/name, repository name, metric icons for stars/forks/issues/PRs where available, Created relative time, and Updated relative time.",
     "behavior": "Network graph loads the 50 most recently pushed forks and refreshes from daily projections. Fork filters update URL state and list content; defaults can be saved when filter state differs. Period supports multiple windows, repository type filters active/inactive/archived/starred-like classifications, and sort supports Most starred plus recency/order options. Fork rows open owner or fork repository links without mutating upstream data.",
     "data_model": "Reads repositories, forks, repository_network_forks, repository_git_refs, commits, users, stars, issues, pull_requests, repository_permissions, and saved_fork_filter_defaults. Writes network/fork projection cache rows and optional per-user saved_fork_filter_defaults.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "commits-001", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "commits-001",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1134,7 +1507,13 @@
     "ui_details": "Dependency graph page uses Insights shell with Dependencies/Dependents tabs and Export SBOM button. Dependencies tab has Search all dependencies query-builder input, total count, Ecosystem select-panel filter, and dependency rows showing package name/version, Direct/Transitive badge, row options menu, ecosystem, manifest/lockfile path, detected date, and license. Dependents tab has Package filter menu, repository/package count summary, warning disclosure, owner filter menu with username input, and dependent repository rows with owner/name and metrics.",
     "behavior": "Dependency extraction indexes supported manifest/lockfile changes. Search filters dependencies by package text and ecosystem. Row menu opens package details or advisory views when available. Export SBOM starts a server job and downloads a signed artifact. Dependents package filter switches package scope; owner filter narrows dependent repositories. Dependency graph disabled/unavailable states return structured 422 and render a clear empty state.",
     "data_model": "Reads repositories, repository_permissions, dependency_manifests, repository_dependencies, dependency_packages, repository_dependents, dependency_advisories, sbom_exports, users, stars, forks, and packages. Writes dependency extraction results, dependents index rows, SBOM export jobs/artifacts, and audit events for export.",
-    "dependent_on": ["infra-001", "auth-002", "repo-005", "packages-001", "settings-006"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-005",
+      "packages-001",
+      "settings-006"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1149,7 +1528,13 @@
     "ui_details": "Repository workspace with active Security and quality tab and a left sidebar headed Security and quality. Sidebar groups include Overview, Findings, Dependabot, Code scanning, Secret scanning, Reporting, Security policy, and Advisories. Main overview shows rendered SECURITY.md content, recent advisory rows with severity/status pills, and feature cards for Dependabot/code scanning/secret scanning. Policy page renders Markdown with heading anchors, email links, file action menu, and maintainer Start setup/Edit policy CTA.",
     "behavior": "Opening /security shows public policy and published advisories for readers while hiding private alert counts. Security policy setup creates or edits SECURITY.md through the normal repository file editor and commit/propose-change flow. Missing policy shows an empty state with Start setup for maintainers and a read-only missing-policy message for readers. Editing policy updates the real Git tree so Code/blob/raw views reflect the file.",
     "data_model": "Reads repositories, repository_permissions, repository_security_feature_settings, repository_security_policies, git_objects, commits, repository_security_advisories. Writes repository_security_policies, git_objects, commits, repository_git_refs, repository_activity_events, security_audit_events when maintainers create or edit policy files.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "repo-005", "commits-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "repo-005",
+      "commits-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1164,7 +1549,13 @@
     "ui_details": "Security and quality shell with Dependabot selected. Header has Dependabot alerts title, Give feedback link, alert-settings kebab, Open/Closed tabs, search bar, filter dropdowns for package/ecosystem/manifest/scope/severity, sort menu defaulting to Most important, selectable alert rows, and disabled empty state with settings link. Alert rows show package ecosystem icon, package name, advisory title, severity pill, Development/Production label, manifest path, fixed version, state, and checkbox.",
     "behavior": "When disabled, show the observed disabled callout and link to repository vulnerability settings. Enabled lists support search/filter/sort, row selection, bulk dismiss/reopen, and direct links to alert detail pages. Detail pages show vulnerable dependency, advisory, affected/fixed versions, timeline, assignee selector, security update PR CTA when supported, dismiss dropdown with reason/comment, and reopen for dismissed alerts. Dismiss/reopen writes audit events and notification updates.",
     "data_model": "Reads repository_security_feature_settings, dependency_manifests, repository_dependencies, dependency_packages, dependency_advisories, dependabot_alerts, users, teams, pull_requests, repository_permissions. Writes dependabot_alerts state, security_alert_events, pull_requests for generated security updates, notifications, security_audit_events.",
-    "dependent_on": ["infra-001", "auth-002", "insights-005", "prs-003", "notifications-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "insights-005",
+      "prs-003",
+      "notifications-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1179,7 +1570,13 @@
     "ui_details": "Security and quality shell with Code scanning selected. Empty state says Code scanning is not enabled with Enable code scanning link. Enabled state has search box, Filters dropdowns for state/severity/tool/branch/ref/tag/application-code, open/closed counts, alert rows with rule title, severity/security-severity pill, tool name, file path and line, branch/default-branch badge, linked issue chip, and updated time. Detail view shows code snippet, path breadcrumbs, alert message, Show paths disclosure, Show more remediation guidance, assignee selector, dismiss controls, and linked issue actions.",
     "behavior": "SARIF uploads from Actions or REST create code scanning runs and normalize alerts by rule/location/fingerprint. Opening list defaults to open alerts on the default branch. Search supports free text and bounded qualifiers; invalid qualifiers show inline errors. Readers can see PR annotations, but repository write/admin permission is required for the summary list, dismissal, assignment, and link-to-issue actions. Disabled state does not leak historical alert counts.",
     "data_model": "Reads repository_security_feature_settings, code_scanning_runs, code_scanning_alerts, workflow_runs, check_runs, issues, repository_git_refs, commits, users, repository_permissions. Writes code_scanning_runs, code_scanning_alerts, security_alert_events, issue links, notifications, security_audit_events, S3 SARIF upload records.",
-    "dependent_on": ["infra-001", "auth-002", "actions-005", "issues-004", "prs-006"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "actions-005",
+      "issues-004",
+      "prs-006"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1194,7 +1591,13 @@
     "ui_details": "Security and quality shell with Secret scanning selected. Disabled state has Secret scanning alerts heading, explanatory text about accidental sensitive information, and Enable secret scanning link. Enabled list has provider/default and generic results tabs, query input, filters for provider/secret type/validity/resolution/bypassed/state/team/topic/sort, alert rows with redacted secret type, provider badge, path/line, validity pill, assignee, bypassed marker, and created/updated time. Detail page shows redacted evidence, file location, commit, validity, resolution form, assignee selector, and timeline.",
     "behavior": "Secret scanning indexes pushed commits and existing blobs when enabled. Push protection blocks or warns on matching secrets during Rust Git push; bypasses require reason and create alert events. Users can filter alerts, assign owners, resolve as revoked/false positive/used in tests/won't fix, reopen unresolved alerts, and inspect timeline events. Plaintext secrets are never displayed, logged, or stored; only fingerprints and redacted snippets are shown.",
     "data_model": "Reads repository_security_feature_settings, secret_scanning_alerts, secret_scanning_patterns, git_objects, commits, users, teams, repository_permissions. Writes secret_scanning_alerts, security_alert_events, security_audit_events, notifications, push_protection_bypasses, and redacted evidence metadata.",
-    "dependent_on": ["infra-001", "auth-002", "git-001", "notifications-001", "settings-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "git-001",
+      "notifications-001",
+      "settings-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1209,7 +1612,13 @@
     "ui_details": "Security and quality shell with Advisories selected. List rows show status icon, title, GHSA id, draft/published state, relative publish/update date, author avatar/login, severity pill, and pagination. Detail page shows large title, severity badge, author/state, GHSA id, package ecosystem/name, affected versions, patched versions, Markdown description/details, CVSS score button/modal, CVSS base metrics table, CVE id, CWE disclosure, credits, and maintainer edit/publish controls.",
     "behavior": "Readers can view published advisories. Maintainers can create draft advisories with required title plus optional CVE, package ecosystem/name, affected/patched versions, severity/CVSS, CWE, credits, and Markdown details. Drafts stay private to authorized collaborators, can add advisory collaborators/credits, can publish to public list, and can be edited with audit events. Pagination and severity filters keep URL state; invalid CVSS/CWE/package fields show inline validation.",
     "data_model": "Reads repository_security_advisories, repository_security_advisory_credits, users, teams, repositories, packages, security_audit_events, repository_permissions. Writes repository_security_advisories, advisory credits/collaborators, private fork references where implemented, notifications, security_audit_events, and optional dependency advisory feed rows.",
-    "dependent_on": ["infra-001", "auth-002", "code-security-001", "packages-001", "notifications-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "code-security-001",
+      "packages-001",
+      "notifications-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1224,7 +1633,13 @@
     "ui_details": "Repository workspace with active Discussions tab. Main column shows heading, Pinned Discussions cards with author avatars/category chips, query-builder search input defaulting to `is:open`, Sort by details menu, Label select-panel, Filter action menu for Open/Closed/Answered/Unanswered/Locked/Pinned, green New discussion button, and dense discussion rows. Right rail shows category links with emoji/name, Most helpful contributor list for Last 30 days, and community links such as Code of conduct and project website.",
     "behavior": "Typing a query updates URL-backed `discussions_q` state and filters rows. Category links append category qualifiers and change the page title/category header. Sort options reorder rows by latest activity, newest, top, most commented, and similar menu choices. Label/status filters compose into the search query. Upvote buttons increment/decrement the current user's vote, update counts optimistically, and require authentication. Empty categories show a category-specific empty state with New discussion CTA.",
     "data_model": "Reads repositories, repository_permissions, discussions, discussion_categories, discussion_labels, labels, discussion_comments, discussion_votes, users, repository_community_links, and discussion_pins. Writes discussion_votes, saved discussion query state where implemented, and activity events for vote changes.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "issues-002", "notifications-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "issues-002",
+      "notifications-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1239,7 +1654,13 @@
     "ui_details": "Category chooser shows selectable cards for each category with emoji, name, description, Answers enabled badge when applicable, and Get started links. Create form shows selected category summary, Choose a different category link, title input, category-form fields rendered from `.github/DISCUSSION_TEMPLATE/*.yml`, Markdown write/preview tabs with full toolbar, attachment dropzone/file input, required `I have done a search for similar discussions` checkbox, Start discussion button, helpful resources sidebar, and first-time community reminder callout. Poll categories render question/options controls instead of normal answer-enabled form fields.",
     "behavior": "New discussion opens category selection first unless category is preselected. Selecting a category loads the matching YAML discussion form and validates required fields before submit. Preview renders Markdown without creating the discussion. Similar-search link runs a query from the typed title and the checkbox is required on observed forms. Submit creates a discussion, initial body/comment/form answers, optional poll/options, notification subscriptions, and redirects to the detail page. Invalid YAML falls back to a generic title/body composer; polls cannot use category forms.",
     "data_model": "Reads repositories, repository_permissions, discussion_categories, discussion_category_forms from Git files, users, saved_replies, and repository_community_links. Writes discussions, discussion_form_answers, discussion_comments for the body, discussion_polls, discussion_poll_options, subscriptions, notifications, attachments/S3 objects, and repository_activity_events.",
-    "dependent_on": ["infra-001", "auth-002", "repo-005", "discussions-001", "notifications-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-005",
+      "discussions-001",
+      "notifications-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1254,7 +1675,13 @@
     "ui_details": "Detail page shows title, discussion number, Open/Closed/Unanswered or Answered status, answered-by summary and jump-to-answer link when present, category breadcrumb, author avatar/login, collaborator badges, permalink/edit history controls, Markdown-rendered body, upvote button, reaction menu, comments/replies timeline, Oldest/Newest/Top sort links, nested replies, write-a-reply composer, and right sidebar for Category, Labels, Participants, Notifications, and Events. Answered discussions show a highlighted Answered by card and View full answer link.",
     "behavior": "Readers can sort comments, expand replies, copy permalinks, subscribe/unsubscribe, upvote, and react when authenticated. Comment composer supports write/preview, saved replies, attachments, and validation. Users with triage or greater access can mark/unmark a comment as answer in answer-enabled categories, close/reopen with reasons, edit category/labels, and moderate comments. Events timeline records close, reopen, answer-marked, category changes, pins, locks, transfers, and deletions.",
     "data_model": "Reads discussions, discussion_comments, discussion_comment_replies, discussion_categories, labels, discussion_labels, discussion_answers, discussion_votes, reactions, users, subscriptions, notifications, discussion_events, repository_permissions. Writes discussion_comments/replies, discussion_answers, discussion state, discussion_events, subscriptions, notifications, reactions, discussion_votes, and attachments/S3 objects.",
-    "dependent_on": ["infra-001", "auth-002", "discussions-001", "discussions-002", "notifications-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "discussions-001",
+      "discussions-002",
+      "notifications-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1269,7 +1696,13 @@
     "ui_details": "Manage categories page has a list of category rows and section headers, New category and New section buttons, pencil/trash row actions, emoji picker, name input, description textarea, format selector for Announcement/Open-ended/Poll/Question and Answer, optional section assignment, and confirmation dialogs. Discussion category forms are edited through repository file editor with `.github/DISCUSSION_TEMPLATE/FORM-NAME.yml`, syntax-highlighted YAML, previewable form schema, commit/propose-change controls, and validation errors.",
     "behavior": "Write/admin users can create up to 25 categories with unique emoji/name pairs, edit details and format, nest categories in one section, create/edit/delete sections, and delete categories by choosing a destination category for moved discussions. Category format changes affect creation/detail behavior but do not silently corrupt existing discussions. YAML form commits on default branch are parsed into create forms; malformed schemas show maintainer-visible errors and reader-safe fallback forms. Poll categories cannot use discussion category forms.",
     "data_model": "Reads repositories, repository_permissions, discussion_categories, discussion_category_sections, discussions, git_objects, repository_git_refs, commits, users. Writes discussion_categories, discussion_category_sections, discussion category migrations, git_objects/commits for form templates, repository_activity_events, and audit events.",
-    "dependent_on": ["infra-001", "auth-002", "repo-005", "commits-002", "discussions-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-005",
+      "commits-002",
+      "discussions-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1284,7 +1717,13 @@
     "ui_details": "Moderator controls appear in the discussion sidebar and action menus: Pin discussion, Pin to category, Edit pinned discussion, Unpin, Lock conversation with Allow reactions checkbox, Transfer discussion repository picker, Delete discussion confirmation, Category gear menu, Close discussion dropdown with reason, and issue sidebar Convert to discussion dialog. Pinned discussion customization modal supports title/body preview and pin target selection. Destructive dialogs use explicit warnings and disabled/confirm states.",
     "behavior": "Users with triage/write/admin permissions can recategorize non-poll discussions, pin up to four global and four category-specific discussions, lock/unlock with optional reactions, close/reopen resolved/duplicate/outdated discussions, transfer only within same owner constraints, and delete discussions after confirmation. Issue conversion copies issue title/body/comments metadata into a new discussion category and links the source issue event. All moderation actions create audit/events rows, update notifications, and enforce permissions server-side.",
     "data_model": "Reads discussions, discussion_categories, discussion_pins, discussion_locks, discussion_events, issues, issue_comments, repositories, organizations, repository_permissions, users. Writes discussion state/category/pin/lock rows, discussion_events, converted discussion records from issues, issue timeline events, notifications, audit events, and optional deletion tombstones.",
-    "dependent_on": ["infra-001", "auth-002", "issues-004", "discussions-003", "discussions-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-004",
+      "discussions-003",
+      "discussions-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1299,7 +1738,13 @@
     "ui_details": "Polls category page mirrors the Discussions list but title/header show Polls, category qualifier chip, poll emoji on every row, Polls category description, and poll discussion rows with upvote/comment counts. Poll creation form uses poll question, option inputs, add/remove option controls, optional Markdown body, preview tab, attachment controls where supported, and Start discussion button. Poll detail shows poll option rows with radio/check controls, vote button or inline vote action, percentage/count result bars after voting, comments/replies timeline, reactions, and sidebar metadata.",
     "behavior": "Poll category filters list to `category:Polls`. Creating a poll requires at least two non-empty options and prevents discussion category forms. Authenticated users can cast one vote and may change it only if the chosen poll policy allows; anonymous users see results-disabled or sign-in prompt state. Results update after vote, remain permission-aware for private repositories, and preserve comments/reactions like normal discussions. Poll discussions cannot be moved to or from non-poll categories.",
     "data_model": "Reads discussions, discussion_categories, discussion_polls, discussion_poll_options, discussion_poll_votes, discussion_comments, users, repository_permissions, reactions, subscriptions. Writes discussion_polls/options/votes, discussions, discussion_comments, notifications, activity events, reactions, and audit events for moderator poll changes.",
-    "dependent_on": ["infra-001", "auth-002", "discussions-001", "discussions-002", "discussions-003"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "discussions-001",
+      "discussions-002",
+      "discussions-003"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1314,7 +1759,13 @@
     "ui_details": "Organization Projects page uses the org profile shell with active Projects tab and count badge, a dismissible Welcome to Projects banner, Projects/Templates sub-tabs, search input labeled Search all projects with `is:open` query, Open and Closed count tabs, Sort action menu, and dense project rows. Rows show project title, optional description, project number, updated timestamp, optional status pill such as On track, and More project options menu. Copy dialog includes project title prefilled with `[COPY]`, Include draft issues checkbox, Cancel, and Copy project submit button.",
     "behavior": "Typing in search filters by title/description/status and updates query state. Open/Closed tabs switch list scope. Sort supports recent update/name/created-like options and persists in the URL. Clicking a project row opens the project workspace. Copy opens a modal, optionally includes draft issues, creates a new project with copied views/fields/workflows where allowed, and shows permission errors for viewers without write access. Repository Projects tab lists projects linked by default repository or explicit repository link.",
     "data_model": "Reads projects, project_repositories, project_status_updates_latest, project_permissions, organizations, users, repositories, project_templates, project_counts, and viewer roles. Writes copied projects, project_views, project_fields, project_workflows, project_items when copying is authorized, plus audit events and recent_visits.",
-    "dependent_on": ["infra-001", "auth-002", "layout-001", "org-admin-002", "repo-003"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "layout-001",
+      "org-admin-002",
+      "repo-003"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1329,7 +1780,13 @@
     "ui_details": "Project workspace has a compact global header breadcrumb, project title, View/Insights/Settings controls, horizontal saved-view tabs, plus-button for new view, side slice rail, filter query bar with tokenized qualifiers, matching item count, View configuration button, and virtualized high-density table. Table rows show issue/PR/draft icons, repository/name/number, title, labels, status, assignees, iteration/date/single-select/text/number fields, grouped headers with counts, draggable row numbers, field header menus, and bottom omnibar add row.",
     "behavior": "Changing filters, sorting, field order, grouping, slicing, or hidden fields marks the view as unsaved until saved. Clicking a cell opens an inline editor appropriate to the field type. Dragging rows reorders manual order; dragging grouped rows updates their grouped field value where permitted. Bottom add row accepts pasted issue/PR URLs, `#` repository search, bulk add, draft issue creation, and issue creation modal. Field value clicks add filter tokens. Permissioned edits sync back to linked issues/PRs and create timeline events.",
     "data_model": "Reads projects, project_views, project_fields, project_items, project_item_field_values, issues, pull_requests, draft_issues, repositories, labels, milestones, users, project_permissions, and project_saved_sorts. Writes project_items, project_item_field_values, project_view_state, draft_issues, issue/PR metadata when fields map to native metadata, item timeline events, audit events, and notifications.",
-    "dependent_on": ["infra-001", "auth-002", "issues-004", "prs-004", "projects-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-004",
+      "prs-004",
+      "projects-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1344,7 +1801,13 @@
     "ui_details": "View menu shows Layout choices Table, Board, and Roadmap with keyboard hints `t`, `b`, and `r`, plus Fields, Column by, Swimlanes, Sort by, Field sum, and Slice by menu rows. Board layout renders horizontally scrollable columns from a single-select or iteration field, column headers with item counts and optional limits, cards with title/repo/labels/assignees/field chips, Add item affordances, and empty column toggles. Roadmap layout renders grouped rows beside a timeline with start/target/iteration bars, date-field selector, marker selector, Month/Quarter/Year zoom, and draggable horizontal/vertical panes.",
     "behavior": "Switching layout changes the active view layout and saves for authorized users. Dragging a card between board columns updates the column field value. Column limit warnings highlight columns over limit but do not block additions. Board swimlanes group cards horizontally by field. Roadmap uses selected start and target date or iteration fields, supports markers for iterations/milestones/item dates, zoom changes timeline density, and preserves filter/slice/sort state across layout changes.",
     "data_model": "Reads project_views, project_fields, project_items, project_item_field_values, project_board_column_settings, project_roadmap_settings, issues, pull_requests, draft_issues, milestones, iterations, and project_permissions. Writes project_views layout/settings, project_item_field_values from drag/drop, column limits, roadmap date/marker/zoom settings, and audit events.",
-    "dependent_on": ["infra-001", "auth-002", "projects-001", "projects-002", "issues-004"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "projects-001",
+      "projects-002",
+      "issues-004"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1359,7 +1822,13 @@
     "ui_details": "Project settings field page has a left settings sidebar, fields list with built-in and custom fields, New field button, field detail pane, name input, type selector, option rows with color swatches for single-select, date/text/number help text, iteration settings with Starts on date picker, duration stepper and days/weeks selector, Add iteration button, More options for custom iteration dates, Insert break affordance, Save changes, Rename, and Delete confirmation.",
     "behavior": "Users with write/admin project access can create up to the field limit, rename fields, reorder/select options, add/delete single-select values, create iteration fields with three default iterations, add future iterations, edit iteration names/date ranges, insert breaks, and delete fields after confirmation. Deleting a field removes field values from project items but not linked issues/PRs. Iteration filters support `@current`, `@previous`, `@next`, comparison operators, and ranges.",
     "data_model": "Reads projects, project_fields, project_field_options, project_iterations, project_iteration_breaks, project_item_field_values, and project_permissions. Writes project_fields, project_field_options, project_iterations, project_iteration_breaks, field rename/delete audit events, and invalidates project view/filter caches.",
-    "dependent_on": ["infra-001", "auth-002", "projects-001", "projects-002", "org-admin-005"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "projects-001",
+      "projects-002",
+      "org-admin-005"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1374,7 +1843,13 @@
     "ui_details": "Project item side panel opens from a row/card and shows title, item type icon, repository/source link, body/description editor for drafts, assignees, labels, milestone, status/custom field editors, comments/activity area, Convert to issue button for drafts, Archive/Remove actions, and close button. Draft issue rows use a draft icon and project-only metadata. Archive page shows archived item list with filters and restore controls.",
     "behavior": "Add item supports issue/PR URL paste, repository search using `#`, bulk add from repository filters, issue creation modal, and draft issue creation. Draft issues can be edited without notifying mentioned users, assigned within project fields, converted to repository issues by choosing repository/labels/milestone, and then gain a normal issue URL. Archiving removes items from active views while preserving history; restore returns them. Linked issue/PR metadata changes in project sync to the source issue/PR and vice versa.",
     "data_model": "Reads project_items, draft_issues, issues, pull_requests, repositories, project_fields, project_item_field_values, users, labels, milestones, comments, archive state, and project_permissions. Writes project_items, draft_issues, project_item_field_values, converted issues, issue timeline events, project_item_events, archived/restored state, notifications for converted issues, and audit events.",
-    "dependent_on": ["infra-001", "auth-002", "issues-003", "issues-004", "projects-002"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-003",
+      "issues-004",
+      "projects-002"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1389,7 +1864,13 @@
     "ui_details": "Workflows page uses the project settings shell with Default workflows list, workflow cards with enabled/disabled toggles, event description, Edit button, condition/filter builder, target field/value selectors, repository selector for auto-add, archive criteria form, Save and turn on workflow button, and activity/status messages. Disabled workflows show Turn on CTA and explanatory empty state. Automation attribution is displayed as `@github-project-automation` equivalent.",
     "behavior": "Default workflows initialize with closed issue/PR -> Done and merged PR -> Done enabled. Authorized users can enable/disable workflows, edit event conditions, set status values when items are added/closed/merged/reopened, auto-add issues/PRs from selected repositories that match filters, auto-archive matching completed items, and optionally invoke project automation from Actions or GraphQL mutations. Workflow executions update project field values, add timeline events, and never bypass repository/project permissions.",
     "data_model": "Reads project_workflows, project_workflow_rules, project_fields, project_field_options, repositories, issues, pull_requests, project_items, project_permissions, and actions_workflow_runs. Writes project_workflows, project_workflow_rules, project_item_field_values, project_item_events, workflow_execution_logs, audit events, and notifications where linked issue/PR state changes.",
-    "dependent_on": ["infra-001", "auth-002", "actions-001", "projects-002", "projects-005"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "actions-001",
+      "projects-002",
+      "projects-005"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1404,7 +1885,13 @@
     "ui_details": "Settings page has left navigation for General, Access, Fields, Workflows, Templates, and Danger Zone. General form includes project title, short description, README Markdown editor, visibility dropdown, default repository selector, status update panel with state selector On track/At risk/Off track/Complete, start date, target date, Markdown message, and Save buttons. Access page lists collaborators/teams with role dropdowns. Templates page has Set as template toggle and copy-source information. Danger Zone has Close project and Delete project confirmations.",
     "behavior": "Admins can rename projects, change visibility where org policy permits, set default repository so new issues route there and repository Projects tab links back, add/remove repository links, manage user/team access, publish status updates, set project as template, close/reopen, and delete after confirmation. Organization policy can disable projects, restrict visibility changes, and set base project permissions. All access and danger actions require server permission checks and audit events.",
     "data_model": "Reads projects, project_readmes, project_status_updates, project_access_grants, teams, users, project_repositories, organization_policy_settings, project_templates, and project_permissions. Writes project metadata, readme revisions, status updates, visibility/default repository/repository links, access grants, template flags, closed/deleted state, and organization/project audit events.",
-    "dependent_on": ["infra-001", "auth-002", "org-admin-003", "org-admin-005", "projects-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "org-admin-003",
+      "org-admin-005",
+      "projects-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1419,7 +1906,13 @@
     "ui_details": "Insights page switches from project view to an Insights header with Return to project view link, selected Insights nav item, left sidebar sections for Default charts and Custom charts, default Burn up chart link, chart title/description, filter bar, matching item count, range links for 2 weeks/1 month/3 months/Max, Custom range button, chart action buttons, accessible Highcharts-style region, and View as data table button. Custom chart form supports chart title, filters, chart type, X/Y/grouping fields, and visibility to project viewers.",
     "behavior": "Opening Insights preserves project context and renders charts from project items. Filter changes recompute matching item count and chart series. Range controls update burn-up window; custom range opens date selection. View as data table toggles accessible tabular chart data. Authorized users can create/edit/delete custom charts and share them with viewers; readers can view chart data but not mutate charts. Status updates surface in project lists and side panels.",
     "data_model": "Reads projects, project_items, project_item_field_values, project_fields, project_charts, project_chart_series_cache, project_status_updates, issues, pull_requests, draft_issues, and project_permissions. Writes project_charts, chart configuration revisions, chart cache snapshots, status updates, and audit events for chart mutations.",
-    "dependent_on": ["infra-001", "auth-002", "projects-001", "projects-002", "projects-007"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "projects-001",
+      "projects-002",
+      "projects-007"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1434,7 +1927,13 @@
     "ui_details": "Repository workspace shell with Wiki tab selected. Main column shows wiki page title, rendered Markdown body with heading anchors, revision link near the title, and permissioned Edit/New Page buttons when available. Right column shows page list/contents module with chevron expanders for per-page table of contents, Show more pages button, custom sidebar rendered from `_Sidebar.*`, custom footer rendered from `_Footer.*`, and `Clone this wiki locally` input containing `https://host/{owner}/{repo}.wiki.git` plus copy button.",
     "behavior": "Opening `/wiki` redirects to or renders the Home page. Clicking a page link navigates to `/wiki/{slug}` and refreshes title/body/sidebar active state. Expanding a page chevron lazy-loads that page's table of contents. Show more pages expands the truncated page list. Copy clone URL writes the wiki Git remote URL to the clipboard. Missing/disabled/private wikis show an explicit disabled or not-found state based on repository visibility and viewer permission.",
     "data_model": "Reads repositories.has_wiki, repository_permissions, wiki_repositories, wiki_pages, wiki_page_revisions, rendered_markdown_cache, wiki_sidebar_pages, wiki_footer_pages, and users for author metadata. Writes clipboard-only UI state; page rendering writes no database rows except optional rendered Markdown cache refreshes.",
-    "dependent_on": ["infra-001", "auth-002", "repo-003", "repo-005", "search-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "repo-003",
+      "repo-005",
+      "search-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1449,7 +1948,13 @@
     "ui_details": "Pages index has heading `Pages`, optional New Page button for editors, and a bordered list of all wiki pages. Each row uses a document icon, page-title link, and `Last updated` relative timestamp. Create/edit pages use a title input, Edit mode dropdown for Markdown or supported markup extensions, Markdown/code editor with toolbar including image insert, Write/Preview tabs, rendered preview pane, Edit message commit-message field, Save Page button, and validation/error flash area.",
     "behavior": "Pages index lists all pages sorted by title with updated timestamps and links to detail pages. New Page opens an empty editor; Edit opens the selected page content. Save validates page title characters, extension/edit mode, permissions, and non-empty commit message, then commits to the wiki Git repository default branch and redirects to the rendered page. Preview renders Markdown/markup without saving. Image insert prompts for image URL and alt text. Local Git pushes to `{repo}.wiki.git` update live pages only when pushed to the wiki default branch.",
     "data_model": "Reads wiki_pages, wiki_page_revisions, wiki_repositories, repository_permissions, users, supported_markup_formats, and rendered_markdown_cache. Writes wiki_pages, wiki_page_revisions, wiki_git_commits, rendered_markdown_cache, wiki_assets references when images are linked/uploaded, repository_activity_events, and audit events.",
-    "dependent_on": ["infra-001", "auth-002", "wiki-001", "git-001", "repo-005"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "wiki-001",
+      "git-001",
+      "repo-005"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1464,7 +1969,13 @@
     "ui_details": "History page has heading `History`, a bordered revision list, row checkboxes labelled with commit messages, author avatar/name, committed relative time, short SHA link, and pagination controls for Newer/Older. Compare Revisions button appears above the table when two revisions are selected. Revision detail renders the selected page as of that SHA. Compare view shows file/page diff with added/removed lines and a Revert Changes button for users with edit permission.",
     "behavior": "Selecting one revision enables viewing that revision via the SHA link. Selecting two revisions enables Compare Revisions and navigates to a diff page. Revert validates edit permission, creates a new wiki commit that restores older content, records the reverted revision in the commit message, and redirects to the page/history. Pagination preserves page scope and moves through older/newer wiki commits. Users without edit permission can view history and diffs but do not see revert controls.",
     "data_model": "Reads wiki_repositories, wiki_pages, wiki_page_revisions, wiki_git_commits, wiki_diff_cache, repository_permissions, and users. Writes wiki_git_commits, wiki_page_revisions, rendered_markdown_cache, wiki_revert_events, repository_activity_events, notifications where enabled, and audit events for revert operations.",
-    "dependent_on": ["infra-001", "auth-002", "wiki-001", "wiki-002", "git-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "wiki-001",
+      "wiki-002",
+      "git-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1479,7 +1990,13 @@
     "ui_details": "Repository workspace shell with Issues-adjacent Labels page. Header shows `Labels`, search input labelled `Search all labels`, count text such as `86 labels`, Sort button, and permissioned green New label button for write users. Label rows are compact bordered list items with color swatch/pill, label name, description text, open issue/open pull request count links, and permissioned Edit/Delete actions. The sort menu is a radio menu with `Name` and `Total issue count`, plus `Ascending` and `Descending`, with keyboard hints.",
     "behavior": "Typing in Search all labels filters labels by name/description and updates the visible count. Clicking a label navigates to an issue/PR query filtered by that label; clicking count links opens open issues or open pull requests with the label qualifier. Sort choices update row order and preserve search state. Write users can open New label/Edit inline form, enter name/description/color, use a random-color button, save changes, and delete after confirmation; deleting removes the label from issues, pull requests, and discussions without deleting the conversations. Triage users can apply/dismiss labels from issue, pull request, and discussion sidebars.",
     "data_model": "Reads repositories, repository_permissions, labels, issue_labels, pull_request_labels, discussion_labels, issues, pull_requests, discussions, and organization_default_labels. Writes labels, issue_labels/pull_request_labels/discussion_labels when applied from metadata sidebars, label rename/color/description revisions, issue_timeline_events, pull_request_timeline_events, discussion_events, notifications where label changes are subscribed, and audit events for create/edit/delete.",
-    "dependent_on": ["infra-001", "auth-002", "issues-001", "prs-001", "discussions-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-001",
+      "prs-001",
+      "discussions-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
@@ -1494,9 +2011,219 @@
     "ui_details": "Repository workspace shell with Milestones page. List view has Open and Closed tabs with counts, Sort button, permissioned New milestone button, and milestone cards/rows showing title link, due date or No due date, last updated timestamp, horizontal progress bar, percent complete, open issue count link, and closed issue count link. Sort menu options include Recently updated, Furthest due date, Closest due date, Least complete, Most complete, Alphabetical, Reverse alphabetical, Most issues, and Fewest issues. Detail page shows Back to Milestones, title, New issue button, state pill, due date, last updated text, percent complete, Open/Closed tabs, selectable issue rows with labels/comments/linked PRs/assignees, and permissioned Edit/Close/Reopen/Delete controls.",
     "behavior": "Opening /milestones lists open milestones by default; Closed tab shows completed/closed milestones. Sort changes the list order and is shareable in URL state. Opening a milestone shows progress and issue/PR rows scoped to that milestone; New issue preselects the milestone. Selecting rows updates selected count and enables bulk metadata actions where the viewer has permission. Authorized users can create/edit title, due date, and Markdown description; close/reopen changes milestone state; delete removes the milestone but leaves associated issues and pull requests intact with milestone cleared. Issue prioritization by drag/drop is available when a milestone has 500 or fewer open items.",
     "data_model": "Reads repositories, repository_permissions, milestones, issues, pull_requests, labels, assignees, linked pull requests, comments counts, milestone_item_order, and rendered_markdown_cache for descriptions. Writes milestones, issue milestone foreign keys, pull request milestone foreign keys, milestone_item_order, milestone state transitions, issue_timeline_events, pull_request_timeline_events, notifications for metadata changes, rendered Markdown cache, and audit events for create/edit/close/reopen/delete.",
-    "dependent_on": ["infra-001", "auth-002", "issues-001", "prs-001", "labels-001"],
+    "dependent_on": [
+      "infra-001",
+      "auth-002",
+      "issues-001",
+      "prs-001",
+      "labels-001"
+    ],
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
+  },
+  {
+    "id": "actions-006",
+    "category": "feature",
+    "description": "Runner pool and job provisioning. Allocates ephemeral container-based runners, schedules queued jobs onto them by labels, enforces concurrency limits, reports runner health.",
+    "page": "backend service + /<owner>/<repo>/settings/actions/runners (admin UI)",
+    "priority": "P3",
+    "ui_details": "Admin UI lists runners (online/offline/busy), labels, last seen, queue depth, concurrency settings. New self-hosted runner setup flow.",
+    "behavior": "Maintain runner registry via heartbeat; assign jobs whose runs-on labels match; back runner with Docker/Fargate; honor cancel-in-progress; mark run failed on runner heartbeat timeout.",
+    "data_model": "runners(id, name, labels jsonb, status, last_heartbeat, repository_id|null); job_assignments(run_id, job_name, runner_id, started_at, status)",
+    "dependent_on": [
+      "actions-005",
+      "infra-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "actions-007",
+    "category": "feature",
+    "description": "Live job log streaming and persistence. Streams stdout/stderr from runners to the UI in near-real-time via SSE and persists raw logs to S3 for replay and download.",
+    "page": "/<owner>/<repo>/actions/runs/<id>/job/<jobid>",
+    "priority": "P3",
+    "ui_details": "Log panel with line numbers, search box, expand/collapse step groups, anchor links per line, \"Raw\" view, gzip download.",
+    "behavior": "Runner POSTs log chunks via internal API; API appends to S3 multipart stream; SSE endpoint pushes new lines to subscribed browser clients; on completion, finalize multipart upload and mark log finalized_at.",
+    "data_model": "job_logs(run_id, job_name, s3_key, bytes_written, finalized_at). S3 key pattern: actions/{run_id}/{job}/log.txt",
+    "dependent_on": [
+      "actions-006"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "actions-008",
+    "category": "feature",
+    "description": "Workflow artifact upload/download and dependency cache. Implements the artifact API (actions/upload-artifact, actions/download-artifact) and the cache API (actions/cache).",
+    "page": "/<owner>/<repo>/actions/runs/<id> artifacts panel + repo Insights cache table",
+    "priority": "P3",
+    "ui_details": "Artifact list with name/size/expiration, download button, delete button (write access). Cache table with key/version/size/last-used and delete.",
+    "behavior": "Internal REST endpoints under /_apis/pipelines/workflows/{run_id}/artifacts and /_apis/artifactcache/cache; S3-backed; honor retention-days; LRU eviction at 10GB per repository.",
+    "data_model": "artifacts(id, run_id, name, s3_key, size_bytes, expires_at, created_at); caches(id, repository_id, key, version, s3_key, last_used_at, size_bytes)",
+    "dependent_on": [
+      "actions-007"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "actions-009",
+    "category": "feature",
+    "description": "Workflow check-run integration. Each Actions job creates a Check Run on the head SHA, gates merges via branch protection required-checks, exposes per-step annotations.",
+    "page": "PR Checks tab + commit status badge on commit pages",
+    "priority": "P3",
+    "ui_details": "PR Checks list with conclusion icons, \"View details\" link, expandable annotations panel, \"Re-run job\" button, required-check badge.",
+    "behavior": "On job start: create check_runs row with status=in_progress; on completion: set conclusion (success/failure/cancelled/neutral); ingest annotations from ::error::/::warning:: workflow commands; if check is required-for-merge, block PR merge until success.",
+    "data_model": "check_runs(id, head_sha, repository_id, name, status, conclusion, started_at, completed_at, output_title, output_summary, annotations_count); check_annotations(check_run_id, path, start_line, end_line, level, message)",
+    "dependent_on": [
+      "actions-007",
+      "repopulls-002"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "actions-010",
+    "category": "feature",
+    "description": "Workflow permissions and repository/organization secrets. Resolves the permissions: block per job, mints a scoped GITHUB_TOKEN per run, exposes encrypted secrets to runners only when authorized.",
+    "page": "/<owner>/<repo>/settings/secrets/actions + /<owner>/<repo>/settings/actions",
+    "priority": "P3",
+    "ui_details": "Secrets table (name, updated, environment, action menu); New secret modal; per-environment secrets; environment protection rules toggle; Workflow permissions radio (read-only / read+write); \"Allow GitHub Actions to create and approve PRs\" toggle.",
+    "behavior": "Encrypt values with AEAD (libsodium-equivalent) using per-repo data key (KMS-wrapped); inject into runner env as masked vars; redact in logs; permissions narrows GITHUB_TOKEN scopes; environment protection rules require reviewer approval before secrets are released.",
+    "data_model": "action_secrets(id, scope_type, scope_id, name, ciphertext, key_id, updated_at); environments(id, repository_id, name, deployment_branch_policy jsonb, reviewers jsonb)",
+    "dependent_on": [
+      "actions-006",
+      "security-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "search-006",
+    "category": "feature",
+    "description": "Background indexing pipeline. Hooks into git ref updates, issue/PR/comment writes, user/org creation; builds tsvector + pg_trgm indexes for code, issues, PRs, repos, users, commits.",
+    "page": "backend (no direct UI)",
+    "priority": "P2",
+    "ui_details": "Backend pipeline. Status visible only to admins under /admin/search.",
+    "behavior": "Subscribe to internal change events (repo.push, issue.upsert, etc.). For code: walk new tree, extract text from indexable extensions (<=512KB), tokenize, write code_index. For issues/PRs: maintain search columns updated on write. Reindex per-repo on demand.",
+    "data_model": "code_index(repository_id, ref, path, content_tsv tsvector, content text, language, size_bytes, sha); issues_search(issue_id, search_tsv tsvector, search_trgm text); commit_index(repository_id, sha, author, message_tsv tsvector, committed_at)",
+    "dependent_on": [
+      "infra-001",
+      "repocode-002"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "search-007",
+    "category": "feature",
+    "description": "File finder widget \u2014 keyboard-driven `t` shortcut on a repo to fuzzy-find a file by path within the current ref.",
+    "page": "/<owner>/<repo>/find/<ref>",
+    "priority": "P3",
+    "ui_details": "Modal-style page with single text input, instant fuzzy match against full path list, keyboard nav (up/down), Enter to open. Empty input shows full list. Highlight matched chars.",
+    "behavior": "API call GET /repos/:owner/:repo/find?ref=... returns the cached path list; client does sublime-style fuzzy scoring locally for snappy UX; no server-side filtering.",
+    "data_model": "repository_ref_files(repository_id, ref, paths jsonb, updated_at) cache table; client-side scoring only.",
+    "dependent_on": [
+      "repocode-002",
+      "search-005"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "security-002",
+    "category": "feature",
+    "description": "Active web sessions panel \u2014 list devices, locations, signed-in time; revoke individual sessions or sign-out-everywhere.",
+    "page": "/settings/security/sessions",
+    "priority": "P1",
+    "ui_details": "Table: device (parsed UA), browser, IP-derived location, last active, Revoke button per row, Sign-out-everywhere button, \"current\" badge on this session.",
+    "behavior": "Revoke deletes session row; current session marked via cookie session id; sign-out-everywhere deletes all sessions for the user except the current one.",
+    "data_model": "sessions extended with user_agent text, ip_inet inet, last_active_at timestamptz.",
+    "dependent_on": [
+      "security-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "security-003",
+    "category": "feature",
+    "description": "Security log \u2014 append-only audit trail of security-relevant actions (sign-in, sign-out, OAuth link/unlink, email change, sudo confirmations, session revocations) with CSV/JSON export.",
+    "page": "/settings/security-log",
+    "priority": "P2",
+    "ui_details": "Table: timestamp, action, IP, location, user-agent. Filter by action type. Pagination 50/page. Export dropdown -> CSV / JSON downloads filtered view.",
+    "behavior": "Every security event writes one immutable row; viewable only by the account owner; export streams from server with Content-Disposition: attachment.",
+    "data_model": "security_events(id, user_id, action, ip_inet, user_agent, metadata jsonb, created_at)",
+    "dependent_on": [
+      "security-002"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "globalpulls-001",
+    "category": "feature",
+    "description": "Global pull-request dashboard at /pulls \u2014 every PR the signed-in user opened, was assigned, was requested as reviewer, or that mentions them, across all repositories.",
+    "page": "/pulls",
+    "priority": "P2",
+    "ui_details": "Tab bar (Created / Assigned / Mentioned / Review requests). Filter dropdowns (Open/Closed, repo, label, milestone). Sortable list with PR title, repo path, status icon, comment count, last activity, reviewer avatars. Pagination.",
+    "behavior": "Single SQL with EXISTS clauses over pull_requests, pr_reviewers, pr_mentions; respects repo visibility (no PRs from private repos the user lacks access to).",
+    "data_model": "Reads pull_requests, pr_reviewers, pr_mentions from repopulls-*.",
+    "dependent_on": [
+      "repopulls-001",
+      "auth-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "globalissues-001",
+    "category": "feature",
+    "description": "Global issue dashboard at /issues \u2014 every issue the signed-in user opened, was assigned, or was mentioned in.",
+    "page": "/issues",
+    "priority": "P2",
+    "ui_details": "Tab bar (Created / Assigned / Mentioned). Filter dropdowns (Open/Closed, repo, label, milestone, project). Sortable list with title, repo path, status icon, comment count, last activity. Pagination.",
+    "behavior": "Cross-repo SQL respecting visibility; same shape as global pulls.",
+    "data_model": "Reads issues, issue_assignees, issue_mentions.",
+    "dependent_on": [
+      "repoissues-001",
+      "auth-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "theme-001",
+    "category": "feature",
+    "description": "Site-wide theme, accessibility, and responsive layout system. Light/dark/system theme with Primer-style color tokens, WCAG AA contrast, mobile breakpoints down to 360px, reduced-motion respect.",
+    "page": "/settings/appearance + cross-cutting (every page)",
+    "priority": "P2",
+    "ui_details": "/settings/appearance: theme toggle (light / dark / system / dark dimmed / dark high contrast), font size, \"Show preview\" panel. Persists via cookie + user_settings. Respects prefers-color-scheme for unauth visitors.",
+    "behavior": "CSS variables on <html> driven by data-color-mode + data-light-theme/data-dark-theme. Tailwind config maps tokens. All components use tokens (no hardcoded colors). Breakpoint utilities sm/md/lg/xl/2xl.",
+    "data_model": "user_settings.theme, .font_size; cookie color_mode for unauth visitors.",
+    "dependent_on": [
+      "auth-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "api-002",
+    "category": "feature",
+    "description": "Webhooks event catalog with HMAC signing. Repo and org owners register webhook endpoints; opengithub POSTs JSON payloads on events with X-Hub-Signature-256 (HMAC-SHA256 over the raw body).",
+    "page": "/<owner>/<repo>/settings/hooks + /organizations/<org>/settings/hooks",
+    "priority": "P2",
+    "ui_details": "Hooks table (Active toggle, payload URL, content type, last-delivery icon). Add-webhook form (URL, content type, secret, events checklist, \"Just the push event\" / \"Send me everything\" / \"Let me select\"). Recent deliveries panel with redelivery button + payload viewer.",
+    "behavior": "Supported events: push, pull_request, pull_request_review, issues, issue_comment, release, workflow_run, check_run, ping. Outbound POST with X-GitHub-Event, X-GitHub-Delivery (uuid), X-Hub-Signature-256. Background worker, 3 retries with exponential backoff.",
+    "data_model": "webhooks(id, scope_type, scope_id, url, content_type, secret_ciphertext, events jsonb, active, ssl_verify, created_at); webhook_deliveries(id, webhook_id, event, request_headers jsonb, request_body, response_status, response_headers jsonb, response_body, duration_ms, redelivery_of uuid|null, delivered_at)",
+    "dependent_on": [
+      "infra-001"
+    ],
+    "build_pass": false
+  },
+  {
+    "id": "api-003",
+    "category": "feature",
+    "description": "REST API rate limiting and API versioning. Returns X-RateLimit-Limit/Remaining/Reset/Used/Resource on every API response. Honors X-GitHub-Api-Version request header (e.g. 2022-11-28).",
+    "page": "REST API cross-cutting + /rate_limit",
+    "priority": "P2",
+    "ui_details": "Backend; visible in response headers. /rate_limit endpoint exposes current bucket state.",
+    "behavior": "Per-token sliding-window limiter (per-IP for anon). Tiers: 5000/hr authenticated, 60/hr anon, 30/min for search. 403 on overage with body { error: { code: \"rate_limited\", message: ... } }. Versioning: server holds latest version; older clients pin via header.",
+    "data_model": "rate_limit_buckets(token_id|ip, resource, window_start, request_count) \u2014 Redis-equivalent or Postgres unlogged table.",
+    "dependent_on": [
+      "auth-001",
+      "infra-001"
+    ],
+    "build_pass": false
   }
 ]

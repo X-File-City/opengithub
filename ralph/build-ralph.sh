@@ -153,6 +153,12 @@ for ((i=1; i<=$ITERATIONS; i++)); do
   # Check for QA failure context
   QA_CONTEXT=$(get_qa_context)
 
+  # Wrap codex exec so a single bad iteration (content moderation flag, timeout,
+  # transient rate limit) does NOT kill the whole build loop. Mirrors the same
+  # guard used in inspect-ralph.sh; without `set +e` here a non-zero codex
+  # inside `$(...)` aborts build-ralph.sh entirely on bash builds with
+  # inherit_errexit semantics, costing a full watchdog restart.
+  set +e
   if [ -n "$QA_CONTEXT" ]; then
     # REBUILD MODE: Feature failed QA previously — use root-cause analysis prompt
     echo "  → Rebuild mode: QA failures detected, providing root-cause context"
@@ -198,7 +204,7 @@ Follow this process:
 9. Set build_pass: true, commit, push.
 
 Output <promise>NEXT</promise> when done with this feature.
-Output <promise>COMPLETE</promise> only if ALL features pass.")
+Output <promise>COMPLETE</promise> only if ALL features pass." 2>&1)
 
   else
     # FRESH BUILD MODE: No QA failures — standard build prompt
@@ -226,10 +232,25 @@ STACK_CONTEXT:
 
 Build exactly ONE feature (the first build_pass:false entry), then commit, push, and stop.
 Output <promise>NEXT</promise> when done with this feature.
-Output <promise>COMPLETE</promise> only if ALL features pass.")
+Output <promise>COMPLETE</promise> only if ALL features pass." 2>&1)
   fi
+  codex_exit=$?
+  set -e
 
   echo "$result"
+
+  if [[ "$result" == *"This content was flagged"* ]]; then
+    echo "WARNING: Iteration $i flagged by content moderation. Skipping feature and continuing..."
+    echo "  (codex_exit=$codex_exit). Next iteration will pick a different first build_pass:false feature."
+    sleep 30
+    continue
+  fi
+
+  if [ "$codex_exit" -ne 0 ]; then
+    echo "WARNING: codex iteration $i exited $codex_exit (timeout/transient). Sleeping 30s..."
+    sleep 30
+    continue
+  fi
 
   if [[ "$result" == *"<promise>COMPLETE</promise>"* ]]; then
     echo ""
