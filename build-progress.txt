@@ -406,3 +406,13 @@
 - Added `.qrspi/repo-002/structure.md` with four independently verifiable vertical phases: import request/status API contract, worker Git ingestion, import wizard/status UI, and final error/security/notification guardrails.
 - Did not change `prd.json`; `repo-002.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - repo-002 phase 1 import request contract
+
+- Implemented Phase 1 from `.qrspi/repo-002/structure.md`: protected repository import request/status API contract with real repository creation, queued job leases, source URL validation, and credential metadata redaction.
+- Added SQLx migration `202604300014_repository_imports` for `repository_imports` and `repository_import_credentials`, including queued/importing/imported/failed status constraints, job lease linkage, source host/path metadata, and opaque secret references.
+- Added `crates/api/src/domain/repository_imports.rs` and `crates/api/src/routes/repository_imports.rs`; wired `POST /api/repos/imports` and `GET /api/repos/imports/:id` into the Axum app.
+- Added `crates/api/tests/repository_imports.rs` covering source validation, anonymous 401, invalid private-network source 422, forbidden destination owners, duplicate name 409, successful queued import creation, credential redaction, job enqueueing, and status read isolation.
+- Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed.
+- Browser smoke test skipped because this phase is backend API/data contract only; import worker execution and UI are later repo-002 phases.
+- Marked Phase 1 as done in `.qrspi/repo-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.

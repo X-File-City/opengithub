@@ -9,5 +9,6 @@ pub mod onboarding;
 pub mod permissions;
 pub mod pulls;
 pub mod repositories;
+pub mod repository_imports;
 pub mod search;
 pub mod webhooks;

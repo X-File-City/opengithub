@@ -571,5 +571,21 @@
       "Review bootstrap Git object semantics again when smart HTTP clone/fetch/push ships",
       "Test long repository names/descriptions and dense template lists on real mobile devices beyond Playwright viewport smoke"
     ]
+  },
+  {
+    "feature_id": "repo-002",
+    "tests_written": [
+      "Rust integration tests cover import source URL validation for valid GitHub URLs, non-http schemes, localhost, private IPs, and non-repository paths",
+      "Postgres-backed HTTP tests cover anonymous 401, invalid private-network source 422, forbidden destination owners, duplicate destination conflicts, queued import creation, status reads, job enqueueing, and credential redaction",
+      "Credential metadata stores only username plus opaque secret_ref; API responses do not include submitted token/password values",
+      "TEST_DATABASE_URL-backed make check and make test passed against the local Postgres test database"
+    ],
+    "needs_deeper_qa": [
+      "Clone execution is intentionally deferred to repo-002 Phase 2; queued imports will not import files yet",
+      "Browser import wizard/status pages are intentionally deferred to repo-002 Phase 3",
+      "Private-source credential exchange is metadata-only in Phase 1; QA should recheck no plaintext credentials appear in request logs/errors after worker and UI phases",
+      "Private-network source blocking currently covers literal IPs and localhost-style hostnames; DNS rebinding and resolved private addresses need deeper security QA in Phase 4",
+      "Real email/notification side effects are deferred to repo-002 Phase 4"
+    ]
   }
 ]

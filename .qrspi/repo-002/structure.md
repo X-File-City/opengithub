@@ -6,7 +6,7 @@
 
 ## Phase 1: Import Request Contract - create repositories and queued import jobs
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder import route with a protected Rust API contract that validates a public Git remote URL, destination owner/name/visibility, optional source credentials metadata, creates the destination repository, records an import job, and returns a status URL. This phase does not clone remote contents yet; the queued/import status path is real and testable.
 

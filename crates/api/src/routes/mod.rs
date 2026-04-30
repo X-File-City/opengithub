@@ -7,4 +7,5 @@ pub mod markdown;
 pub mod onboarding;
 pub mod pulls;
 pub mod repositories;
+pub mod repository_imports;
 pub mod search;
