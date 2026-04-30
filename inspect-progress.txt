@@ -627,3 +627,42 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Discussions (`/{owner}/{repo}/discussions`, create/detail/category management, answers, polls, pinned/locked states) or Projects v2/Wiki to continue clearing the Required Coverage Backlog.
+
+Iteration 19 completed on 2026-04-30.
+
+Scope inspected: repository Discussions product (`/{owner}/{repo}/discussions`, category pages, category chooser/create form, detail pages, answered state, polls category, and docs-backed moderation/category management).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for Discussions quickstart, category management, discussion management, moderation, category forms, and insights.
+- Ran the required `ever snapshot`; Ever was authenticated and usable.
+- Navigated with Ever to `https://github.com/vercel/next.js/discussions`, `/discussions/new/choose`, the Help create form, an unanswered discussion detail, an answered discussion detail, and the Polls category.
+- Tested non-destructive interactions: opened the new discussion category chooser, selected the Help category, inspected required category-form fields and Markdown preview tab, searched for answered discussions via URL query, and inspected discussion detail subscription/comment/answer/sidebar states without posting or voting.
+- Captured screenshots:
+  - ralph/screenshots/inspect/discussions-list.jpg
+  - ralph/screenshots/inspect/discussions-new-form.jpg
+  - ralph/screenshots/inspect/discussions-create-help-form.jpg
+  - ralph/screenshots/inspect/discussions-create-preview-empty.jpg
+  - ralph/screenshots/inspect/discussions-detail.jpg
+  - ralph/screenshots/inspect/discussions-answered-detail.jpg
+  - ralph/screenshots/inspect/discussions-polls-category.jpg
+- Updated build-spec.md with a Repository Discussions section, data models, API examples, backend/cloud mapping, constraints, build order, and keyboard shortcut notes.
+- Updated sitemap.md to mark Discussions routes completed and list the remaining high-value backlog surfaces.
+- Appended focused PRD entries:
+  - discussions-001 repository discussions list/search/category rail
+  - discussions-002 category chooser, category forms, Markdown create flow, and poll creation
+  - discussions-003 detail timeline/comments/replies/answers/sidebar/subscriptions
+  - discussions-004 category/section management and category form templates
+  - discussions-005 moderation, pin/lock/transfer/delete/convert issue to discussion
+  - discussions-006 polls category/detail/voting/results
+
+Key findings:
+- Discussions use the repository workspace shell with Pinned Discussions, query-builder search defaulting to `is:open`, Sort by, Label, Filter, New discussion, Categories, Most helpful, and Community links.
+- Category pages prefill category qualifiers and show category-specific headers; Polls is a first-class category format.
+- Creating a discussion begins with a category chooser. Category-specific forms render from repository YAML templates under `.github/DISCUSSION_TEMPLATE/`; polls do not support these forms.
+- The Help create form requires title, structured form fields, and a checked similar-search acknowledgement before Start discussion.
+- Detail pages support upvotes, reactions, comments, nested replies, sort order, subscriptions, category/labels/participants/events sidebar, and Markdown comment composition.
+- Answer-enabled categories show Answered state, jump-to-answer, highlighted answer preview, and answer timeline events.
+- Maintainer-only behavior includes category/section CRUD, pinning globally/per-category, locking with optional reactions, transfer/delete, close/reopen, answer marking, and issue-to-discussion conversion.
+
+Next recommended iteration:
+- Inspect Projects v2 (`/{owner}/{repo}/projects`, org/user project table/board/roadmap views, fields, iterations, automation, drafts, settings) or Wiki to continue clearing the Required Coverage Backlog.

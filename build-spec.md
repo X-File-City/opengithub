@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 18 repository Code Security inspection.
+Status: partial, iteration 19 repository Discussions inspection.
 
 ## Product Overview
 
@@ -38,7 +38,7 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, user/organization profiles, repository settings/access/hooks/Pages, repository Insights, and repository code-security surfaces.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, user/organization profiles, repository settings/access/hooks/Pages, repository Insights, repository code-security surfaces, and repository Discussions.
 
 ## Repository Settings, Access, Webhooks, Secrets, And Pages
 
@@ -1034,6 +1034,60 @@ Implementation mapping:
 - Postgres stores normalized alerts/advisories, dismissed/reopened state, filters, advisory metadata, SARIF runs, secret-scanning pattern hits, dependency vulnerability matches, and audit records.
 - S3 stores SARIF uploads, code-scanning analysis artifacts, optional evidence bundles, and exported audit/report files. SES sends alert/advisory notifications after domain verification.
 
+## Repository Discussions
+
+Status: inspected in iteration 19 with live Ever access on `vercel/next.js`, plus docs-backed maintainer/category behavior for permissioned actions.
+
+Screenshots:
+
+- `ralph/screenshots/inspect/discussions-list.jpg`
+- `ralph/screenshots/inspect/discussions-new-form.jpg`
+- `ralph/screenshots/inspect/discussions-create-help-form.jpg`
+- `ralph/screenshots/inspect/discussions-create-preview-empty.jpg`
+- `ralph/screenshots/inspect/discussions-detail.jpg`
+- `ralph/screenshots/inspect/discussions-answered-detail.jpg`
+- `ralph/screenshots/inspect/discussions-polls-category.jpg`
+
+Observed list and category UI:
+
+- `/{owner}/{repo}/discussions` uses the repository workspace shell and active Discussions tab.
+- The main content starts with repository/name + Discussions heading, then a Pinned Discussions block with compact cards showing avatar, title, category chip, and author.
+- The filter row uses a query-builder search input labeled "Search all discussions" with default query `is:open`, Sort by menu, Label select-panel, Filter action menu, and green New discussion button.
+- Category pages such as `/discussions/categories/polls` keep the same list shell but add the category name/emoji/description and prefill the query with `category:Polls`.
+- Right rail contains Categories links, Most helpful contributors for the last 30 days, and Community links such as Code of conduct and project site.
+- Discussion rows show upvote button/count, optional category emoji, title, author/action/time/category, unanswered/answered state, participant avatars, and comment count.
+
+Observed creation UI:
+
+- `/discussions/new/choose` first asks the user to select a category. Cards show emoji, title, description, and "Answers enabled" where relevant.
+- Selecting Help opened a category-specific form with title input, structured fields from the repository discussion form template, Markdown composer with Write/Preview tabs, toolbar, attachment input, saved replies menu, required "I have done a search for similar discussions" checkbox, and Start discussion button.
+- Helpful resources sidebar links to Contributing, Code of conduct, Security policy, and Community Guidelines.
+- First-time contributors see a community reminder callout. Security-sensitive categories point users to the repository security policy.
+- Preview tab renders a panel without submitting. Required title/body/search acknowledgement remain server-validated.
+
+Observed detail and answer UI:
+
+- Discussion detail shows title, number, Open/Closed/Unanswered or Answered status, author/category line, body/comment cards, collaborator badges, edit history/action menus, upvote controls, reaction menus, and permalink anchors.
+- Comment timeline has Replies counts, Oldest/Newest/Top sort links, nested replies, code block copy buttons, comment action menus, and reaction menus.
+- Answer-enabled discussions show "Answered by" in the header, an "Answered: jump to answer" link, a highlighted answer preview/card, "View full answer", and sidebar event rows recording answer marking.
+- Right sidebar includes Category, Labels, Participants, Notifications subscribe button, and Events.
+- Comment composer at the bottom uses the same Markdown toolbar, saved replies, attachments, and hidden anti-spam fields as issue/PR comments.
+
+Docs-backed maintainer behavior:
+
+- Repository admins/write users can enable Discussions, configure a welcome post, and manage categories. Organization discussions use a source repository.
+- Categories have unique emoji/name pairs, description, format, optional section, and a maximum of 25 categories. Supported formats include Announcement, Open-ended, Poll, and Question and Answer.
+- Deleting a category requires choosing another category to move its discussions into. Sections can be created/edited/deleted; deleting a section does not delete categories.
+- Category forms live in `/.github/DISCUSSION_TEMPLATE/*.yml` on the default branch and use GitHub-style form schema. They are not supported for polls.
+- Maintainers can pin up to four discussions globally and up to four per category, customize pinned appearance, unpin, recategorize non-poll discussions, transfer discussions within allowed ownership constraints, delete discussions, close/reopen discussions, and lock/unlock conversations with optional reactions.
+- Triage users can mark comments as answers and convert issues to discussions by choosing a discussion category. Poll discussions cannot be moved to/from non-poll categories.
+
+Implementation mapping:
+
+- Next.js owns Discussions list/category pages, query-builder UI, category chooser, category-form rendering, Markdown write/preview composer, detail timeline, answer card, poll controls, sidebar metadata, and moderator dialogs.
+- Rust API owns discussion query parsing, repository visibility checks, category/form loading from Git, creation/comment/reaction/vote mutations, moderation permissions, answer marking, pin/lock/transfer/delete/convert actions, subscriptions, notifications, and audit events.
+- Postgres stores discussions, categories, sections, pins, comments, replies, votes, reactions, answers, labels, events, polls, poll options, and poll votes. S3 stores discussion/comment attachments. SES sends notification fanout where email notifications are enabled.
+
 ## Repository Creation And Import
 
 Status: inspected in iteration 4. Ever was usable and authenticated for `/new`. Screenshots:
@@ -1337,6 +1391,19 @@ Initial model set inferred from docs/OpenAPI:
 - `code_scanning_alerts`: id, repository_id, run_id, rule_id, tool_name, fingerprint, state, severity, security_severity, path, start_line, end_line, message, details_markdown, remediation_markdown, linked_issue_id, dismissed_reason, dismissed_comment, dismissed_by_id, created_at, updated_at.
 - `secret_scanning_alerts`: id, repository_id, number, state, provider, secret_type, secret_fingerprint, validity, resolution, bypassed, path, start_line, commit_sha, pushed_by_id, assignee_id, resolved_by_id, resolved_at, created_at, updated_at.
 - `security_alert_events`: id, repository_id, alert_type, alert_id, actor_id, event_type, payload_json, created_at.
+- `discussion_category_sections`: id, repository_id, emoji, name, position, created_by_id, created_at, updated_at.
+- `discussion_categories`: id, repository_id, section_id, slug, emoji, name, description, format, answers_enabled, position, created_by_id, created_at, updated_at.
+- `discussion_category_forms`: id, repository_id, category_id, path, commit_sha, schema_json, valid, validation_errors_json, parsed_at.
+- `discussions`: id, repository_id, number, category_id, title, body, rendered_html, state, answer_state, author_id, locked, locked_reason, pinned_global, pinned_category, created_at, updated_at, closed_at.
+- `discussion_comments`: id, discussion_id, parent_comment_id, author_id, body, rendered_html, created_at, updated_at, edited_at, deleted_at.
+- `discussion_answers`: id, discussion_id, comment_id, marked_by_id, marked_at, unmarked_at.
+- `discussion_votes`: id, discussion_id, comment_id, user_id, vote_type, created_at, updated_at.
+- `discussion_labels`: discussion_id, label_id, created_at.
+- `discussion_events`: id, discussion_id, actor_id, event_type, payload_json, created_at.
+- `discussion_pins`: id, discussion_id, pin_scope, category_id, title_override, body_override, position, created_by_id, created_at, updated_at.
+- `discussion_polls`: id, discussion_id, question, allow_vote_change, closes_at, created_at, updated_at.
+- `discussion_poll_options`: id, poll_id, body, position, created_at.
+- `discussion_poll_votes`: id, poll_id, option_id, user_id, created_at, updated_at.
 - `issues`: id, repository_id, number, title, body, state, author_id, assignee_id, milestone_id, closed_at, created_at, updated_at.
 - `issue_comments`: id, issue_id, author_id, body, rendered_html, created_at, updated_at, edited_at, deleted_at.
 - `issue_timeline_events`: id, issue_id, actor_id, event_type, payload_json, created_at.
@@ -2173,12 +2240,55 @@ Response: { "ghsaId": "GHSA-local-0001", "state": "draft", "title": "Package all
 Error: { "error": { "code": "forbidden", "message": "Repository admin access required" }, "status": 403 }
 ```
 
+```http
+GET /api/repos/{owner}/{repo}/discussions?discussions_q=is:open category:Help&sort=latest&page=1&pageSize=25
+Response: {
+  "items": [{
+    "number": 89939,
+    "title": "[SEO] _next Folder Being Crawled by Search Engines",
+    "state": "closed",
+    "answerState": "answered",
+    "category": { "slug": "help", "emoji": "🎓", "name": "Help", "answersEnabled": true },
+    "author": { "username": "abhishekmardiya", "avatarUrl": "https://..." },
+    "upvotes": 1,
+    "comments": 2,
+    "participants": [{ "username": "icyJoseph", "avatarUrl": "https://..." }],
+    "updatedAt": "2026-02-13T00:00:00Z"
+  }],
+  "total": 42,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "discussions_disabled", "message": "Discussions are disabled for this repository" }, "status": 422 }
+
+POST /api/repos/{owner}/{repo}/discussions
+Request: { "categoryId": "uuid", "title": "How should cache invalidation work?", "body": "Markdown body", "formAnswers": [{ "fieldId": "summary", "value": "..." }], "searchedSimilar": true }
+Response: { "number": 101, "url": "/mona/app/discussions/101", "state": "open", "answerState": "unanswered" }
+Error: { "error": { "code": "validation_failed", "message": "Title and required form fields are required" }, "status": 422 }
+
+POST /api/repos/{owner}/{repo}/discussions/{number}/comments
+Request: { "body": "I found a workaround." }
+Response: { "id": "uuid", "body": "I found a workaround.", "renderedHtml": "<p>I found a workaround.</p>", "createdAt": "2026-04-30T00:00:00Z" }
+Error: { "error": { "code": "locked", "message": "This discussion is locked" }, "status": 423 }
+
+PUT /api/repos/{owner}/{repo}/discussions/{number}/answer
+Request: { "commentId": "uuid" }
+Response: { "number": 89939, "answerCommentId": "uuid", "answerState": "answered" }
+Error: { "error": { "code": "forbidden", "message": "Triage access required" }, "status": 403 }
+
+POST /api/repos/{owner}/{repo}/discussions/{number}/poll/votes
+Request: { "optionId": "uuid" }
+Response: { "pollId": "uuid", "selectedOptionId": "uuid", "results": [{ "optionId": "uuid", "votes": 12, "percent": 60.0 }] }
+Error: { "error": { "code": "already_voted", "message": "You have already voted in this poll" }, "status": 409 }
+```
+
 ## Backend Architecture
 
 - Axum routes: auth verification middleware, REST JSON routes, Git smart HTTP endpoints, webhook receivers, SARIF upload ingestion, and security-alert management endpoints.
 - Postgres/RDS: primary relational store, search indexes with `pg_trgm`, security alert/advisory state, dependency projections, and audit logs.
 - S3: repository large files if needed, Actions artifacts/log archives, package blobs, Pages static outputs, SARIF uploads, and generated security exports.
 - SES: transactional email for notifications, organization invites, security alert fanout, and advisory notifications. Password reset is not needed while auth remains Google-only.
+- Discussions: Rust owns query parsing, permission checks, category/form loading from Git, answer/moderation state, poll votes, notification fanout, and audit events; Next.js owns list/detail/create/moderator UI.
 - ECS Fargate: Rust API and background workers.
 - ECR: container images.
 - CloudFront: Next.js/static asset delivery and Pages CDN.
@@ -2269,6 +2379,11 @@ Error: { "error": { "code": "forbidden", "message": "Repository admin access req
 - Secret scanning must store redacted evidence and stable fingerprints, never plaintext secrets. Push protection must run inside Rust Git push handling, not only as a web warning.
 - Security alert list counts, filters, suggestions, and search results must be permission-aware and must not leak private repository package names, file paths, alert titles, or secret types.
 - Repository security advisories can involve embargoed/private content. Draft advisories, private forks, collaborators, credits, and comments require strict repository-admin/collaborator authorization and audit events.
+- Discussions can be disabled per repository; all routes must return explicit disabled states without exposing private discussion counts.
+- Discussion category formats control allowed behavior. Poll discussions cannot use YAML category forms and cannot be moved to or from non-poll categories.
+- Discussion category form YAML is repository content from the default branch. Malformed forms must not break discussion creation; render a maintainer-visible validation error and a generic fallback form.
+- Answer marking, lock/unlock, close/reopen, pin/unpin, transfer, delete, and issue-to-discussion conversion require triage/write/admin permissions and must create timeline/audit events.
+- Poll voting must enforce one vote per authenticated user per poll unless an explicit change-vote policy is implemented; results for private repositories must be permission checked.
 
 ## Build Order
 
@@ -2279,7 +2394,7 @@ Error: { "error": { "code": "forbidden", "message": "Repository admin access req
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, tree/blob/raw/archive file browser.
 7. Issues and pull requests.
-8. Global search/code search, Actions, security alerts/advisories, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
+8. Global search/code search, Actions, Discussions, security alerts/advisories, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
 9. Public marketing/home surfaces only after the core app is usable.
 10. Deployment and production hardening.
 
@@ -2310,6 +2425,7 @@ Partial inventory from GitHub command palette docs:
 | `b` | Blob view | Open Blame for the current file. |
 | `l` | Blob view | Jump to a line number prompt or line focus. |
 | `g` then `i` | Repository | Go to the Issues tab. |
+| `g` then `g` | Repository | Go to the Discussions tab. |
 | `Cmd+/` / `Ctrl+/` | Issues/Pulls list | Focus the issues or pull requests search bar. |
 | `l` | Issues/Pulls list or detail | Filter by/edit labels, or apply a label in issue context. |
 | `m` | Issues/Pulls list or detail | Filter by/edit milestones, or set a milestone in issue context. |

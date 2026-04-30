@@ -75,6 +75,12 @@ Template: `/{owner}/{repo}`.
 - `/{owner}/{repo}/actions` — workflows list and recent runs.
 - `/{owner}/{repo}/actions/workflows/{workflow_file}` — workflow detail and runs list.
 - `/{owner}/{repo}/actions/runs/{run_id}` — workflow run detail, jobs, logs, artifacts, re-run/cancel controls.
+- `/{owner}/{repo}/discussions` — repository discussions list with pinned discussions, query-builder search, filters, categories, most helpful rail, upvotes, and New discussion CTA. Completed in iteration 19.
+- `/{owner}/{repo}/discussions/categories/{slug}` — category-scoped discussion list for formats such as Help, Ideas, Polls, RFC, and Show and tell. Completed in iteration 19.
+- `/{owner}/{repo}/discussions/new/choose` — category chooser for starting a discussion. Completed in iteration 19.
+- `/{owner}/{repo}/discussions/new` — category-specific discussion/poll creation form with Markdown composer and required similar-search acknowledgement. Completed in iteration 19.
+- `/{owner}/{repo}/discussions/{number}` — discussion detail timeline with comments, replies, answer marking, reactions, sidebar metadata, subscription, and events. Completed in iteration 19.
+- `/{owner}/{repo}/discussions/categories/edit` — permissioned category/section management surface. Mapped from docs in iteration 19.
 - `/{owner}/{repo}/projects` — repository projects list; lower priority than issues/PRs.
 - `/{owner}/{repo}/wiki` — repository wiki; lower priority.
 - `/{owner}/{repo}/security` — Security and quality overview. Completed in iteration 18 with live public security overview/policy/advisory inspection.
@@ -155,4 +161,5 @@ Template: `/{owner}/{repo}`.
 14. Branch/commit history details. Completed in iteration 16 with live `vercel/next.js` inspection for commit list filters, commit detail diff, branches overview, and branch row menu.
 15. Insights graphs and dependency/fork analytics. Completed in iteration 17 with live `vercel/next.js` inspection for Pulse, period menu, Contributors, Network, Dependency graph dependencies/dependents, Forks, and docs-backed Traffic permission/retention behavior.
 16. Security overview and code security. Completed in iteration 18 with live inspection for security overview, policy, advisories, Dependabot disabled/settings menu, code scanning disabled, and secret scanning disabled.
-17. Remaining high-value surfaces: wiki/projects/discussions if scope remains.
+17. Discussions. Completed in iteration 19 with live `vercel/next.js` inspection for list/category/create/detail/answered/polls surfaces and docs-backed category/moderation behavior.
+18. Remaining high-value surfaces: wiki/projects if scope remains.
