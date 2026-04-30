@@ -1,8 +1,8 @@
 {
-  "observed_at": "2026-04-30T05:27:06.809Z",
+  "observed_at": "2026-04-30T05:32:00.222Z",
   "provider": "claude-code",
   "event_name": "UserPromptSubmit",
   "session_id": "44435799-4492-4a35-8c03-adcfb80aad1f",
   "turn_id": null,
-  "prompt_summary": "also check the logs too so you can see how codex is doing work"
+  "prompt_summary": "<<autonomous-loop-dynamic>>"
 }
