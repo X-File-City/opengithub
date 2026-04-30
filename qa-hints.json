@@ -887,5 +887,21 @@
       "Storage is local bare repositories under OPENGITHUB_GIT_STORAGE_DIR; production S3/ECS durability and object lifecycle need deeper QA in later phases",
       "Browser smoke reused the freshly generated repository Code menu screenshot at ralph/screenshots/build/git-001-phase1-code-menu.jpg; QA should manually verify clipboard permissions across browsers"
     ]
+  },
+  {
+    "feature_id": "git-001",
+    "tests_written": [
+      "Added personal access token verification for Git transport using stored sha256 token hashes, active prefix lookup, expiry/revocation checks, repo read scopes, and last_used_at updates",
+      "Extended smart HTTP upload-pack authorization so private repositories can be fetched with either a signed Rust session cookie or Basic/Bearer personal access token credentials",
+      "Git 401 responses now include a Basic auth challenge so standard user:token Git clone URLs retry with credentials",
+      "Expanded crates/api/tests/git_transport.rs to cover anonymous private denial, valid token advertisement, valid session-cookie advertisement, real private git clone through an Axum server, last_used_at updates, invalid token denial, expired token denial, unscoped token denial, and no token/hash leakage in error bodies",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test git_transport -- --nocapture, make check, make test with 72 web tests, and make test-e2e with 29 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 remains read-only; git-receive-pack push support is intentionally deferred to Phase 3",
+      "Token creation UI is not part of this phase, so QA should seed PAT rows or use the later settings token UI once dx-001 lands",
+      "Git transport currently accepts repo, repo:read, repo:write, repository:read, and repository:write scopes for read access; final security QA should re-check scope boundaries before token UI ships",
+      "Private clone was verified through local Axum and local bare storage; production HTTPS, proxy headers, and ECS/S3 durability need retesting after deployment hardening"
+    ]
   }
 ]

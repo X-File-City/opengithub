@@ -9,7 +9,9 @@ use sqlx::{PgPool, Row};
 use tokio::{fs, io::AsyncWriteExt, process::Command};
 use uuid::Uuid;
 
-use super::repositories::{get_repository_by_owner_name, Repository, RepositoryVisibility};
+use super::repositories::{
+    can_read_repository, get_repository_by_owner_name, Repository, RepositoryVisibility,
+};
 
 const MAX_UPLOAD_PACK_REQUEST_BYTES: usize = 32 * 1024 * 1024;
 
@@ -27,6 +29,7 @@ pub struct GitServiceRequest {
     pub owner: String,
     pub repo: String,
     pub service: String,
+    pub actor_user_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,7 +93,8 @@ pub async fn advertise_upload_pack(
     request: GitServiceRequest,
 ) -> Result<GitServiceResponse, GitTransportError> {
     ensure_upload_pack(&request.service)?;
-    let repository = public_repository(pool, &request.owner, &request.repo).await?;
+    let repository =
+        readable_repository(pool, &request.owner, &request.repo, request.actor_user_id).await?;
     let store = materialize_bare_repository(pool, &repository).await?;
     let bare_path = PathBuf::from(store.storage_path);
     let advertisement = git_output(
@@ -123,7 +127,8 @@ pub async fn run_upload_pack(
     if body.len() > MAX_UPLOAD_PACK_REQUEST_BYTES {
         return Err(GitTransportError::RequestTooLarge);
     }
-    let repository = public_repository(pool, &request.owner, &request.repo).await?;
+    let repository =
+        readable_repository(pool, &request.owner, &request.repo, request.actor_user_id).await?;
     let store = materialize_bare_repository(pool, &repository).await?;
     let bare_path = PathBuf::from(store.storage_path);
     let result = git_output(
@@ -205,16 +210,27 @@ pub async fn materialize_bare_repository_by_id(
     materialize_bare_repository(pool, &repository).await
 }
 
-async fn public_repository(
+async fn readable_repository(
     pool: &PgPool,
     owner: &str,
     repo: &str,
+    actor_user_id: Option<Uuid>,
 ) -> Result<Repository, GitTransportError> {
     let repository = get_repository_by_owner_name(pool, owner, repo)
         .await
         .map_err(repository_error)?
         .ok_or(GitTransportError::NotFound)?;
     if repository.visibility == RepositoryVisibility::Public {
+        return Ok(repository);
+    }
+
+    let Some(actor_user_id) = actor_user_id else {
+        return Err(GitTransportError::AuthenticationRequired);
+    };
+    if can_read_repository(pool, &repository, actor_user_id)
+        .await
+        .map_err(repository_error)?
+    {
         Ok(repository)
     } else {
         Err(GitTransportError::AuthenticationRequired)

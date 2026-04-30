@@ -634,3 +634,14 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 29 Playwright tests.
 - Browser smoke: E2E opened a real repository Code menu and the saved screenshot is `ralph/screenshots/build/git-001-phase1-code-menu.jpg`.
 - Marked Phase 1 as done in `.qrspi/git-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
+
+2026-04-30 - git-001 phase 2 private fetch auth
+
+- Implemented Phase 2 from `.qrspi/git-001/structure.md`: private repository clone/fetch now works for authorized users through signed Rust session cookies and personal access tokens.
+- Added `crates/api/src/domain/tokens.rs` for PAT verification against stored `sha256:` hashes with prefix lookup, expiry/revocation filtering, repo read scope checks, and `last_used_at` updates.
+- Threaded optional Git actors through `git-upload-pack` smart HTTP discovery and fetch execution; public repositories still clone anonymously, while private repositories require a readable actor.
+- Added Basic/Bearer credential parsing and `WWW-Authenticate: Basic realm="opengithub Git"` challenges so standard `http://user:token@host/{owner}/{repo}.git` clone URLs retry with credentials.
+- Expanded `crates/api/tests/git_transport.rs` to cover session-cookie private advertisement, valid PAT private advertisement, real private `git clone` against an Axum server, token usage timestamp updates, invalid/expired/unscoped token denial, and no token/hash leakage in error bodies.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test git_transport -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 72 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 29 Playwright tests.
+- Browser smoke test skipped for this phase because it is backend Git transport auth only; no new UI was added.
+- Marked Phase 2 as done in `.qrspi/git-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.

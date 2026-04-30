@@ -2,18 +2,23 @@ use std::{path::Path, sync::LazyLock};
 
 use axum::{
     body::{to_bytes, Body},
-    http::{Method, Request, StatusCode},
+    http::{header, HeaderMap, HeaderValue, Method, Request, StatusCode},
 };
+use chrono::{Duration, Utc};
+use opengithub_api::auth::session;
+use opengithub_api::config::{AppConfig, AuthConfig};
 use opengithub_api::domain::{
     identity::{upsert_user_by_email, User},
     repositories::{
         create_repository_with_bootstrap, CreateRepository, RepositoryBootstrapRequest,
         RepositoryOwner, RepositoryVisibility,
     },
+    tokens::hash_personal_access_token,
 };
 use sqlx::PgPool;
 use tokio::{net::TcpListener, process::Command};
 use tower::ServiceExt;
+use url::Url;
 use uuid::Uuid;
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
@@ -53,15 +58,91 @@ async fn create_user(pool: &PgPool, label: &str) -> User {
     user
 }
 
+fn test_config() -> AppConfig {
+    AppConfig {
+        app_url: Url::parse("http://localhost:3015").expect("valid app URL"),
+        api_url: Url::parse("http://localhost:3016").expect("valid API URL"),
+        auth: Some(AuthConfig {
+            google_client_id: "test-google-client".to_owned(),
+            google_client_secret: "test-google-secret".to_owned(),
+            session_secret: "test-session-secret-with-enough-entropy".to_owned(),
+        }),
+        session_cookie_name: "__Host-session".to_owned(),
+        session_cookie_secure: false,
+    }
+}
+
+async fn session_cookie(pool: &PgPool, config: &AppConfig, user: &User) -> String {
+    let session_id = Uuid::new_v4().to_string();
+    let expires_at = Utc::now() + Duration::days(1);
+    opengithub_api::domain::identity::upsert_session(
+        pool,
+        &session_id,
+        Some(user.id),
+        serde_json::json!({ "provider": "google" }),
+        expires_at,
+    )
+    .await
+    .expect("session should persist");
+    let set_cookie =
+        session::set_cookie_header(config, &session_id, expires_at).expect("cookie should sign");
+    let cookie_value =
+        session::cookie_value_from_set_cookie(&set_cookie).expect("cookie value should exist");
+    format!("{}={cookie_value}", config.session_cookie_name)
+}
+
+async fn create_pat(
+    pool: &PgPool,
+    user_id: Uuid,
+    scopes: &[&str],
+    expires_at: Option<chrono::DateTime<Utc>>,
+) -> String {
+    let token = format!("oghp_{}_secret", Uuid::new_v4().simple());
+    let prefix = token
+        .split("_secret")
+        .next()
+        .expect("token prefix marker")
+        .to_owned();
+    sqlx::query(
+        r#"
+        INSERT INTO personal_access_tokens (user_id, name, prefix, token_hash, scopes, expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        "#,
+    )
+    .bind(user_id)
+    .bind("Git transport test token")
+    .bind(prefix)
+    .bind(hash_personal_access_token(&token))
+    .bind(
+        scopes
+            .iter()
+            .map(|scope| scope.to_string())
+            .collect::<Vec<_>>(),
+    )
+    .bind(expires_at)
+    .execute(pool)
+    .await
+    .expect("PAT should insert");
+    token
+}
+
 async fn send_raw(app: axum::Router, uri: &str) -> (StatusCode, Vec<u8>, String) {
+    send_raw_with_headers(app, uri, HeaderMap::new()).await
+}
+
+async fn send_raw_with_headers(
+    app: axum::Router,
+    uri: &str,
+    headers: HeaderMap,
+) -> (StatusCode, Vec<u8>, String) {
+    let mut builder = Request::builder().method(Method::GET).uri(uri);
+    for (name, value) in headers {
+        if let Some(name) = name {
+            builder = builder.header(name, value);
+        }
+    }
     let response = app
-        .oneshot(
-            Request::builder()
-                .method(Method::GET)
-                .uri(uri)
-                .body(Body::empty())
-                .expect("request should build"),
-        )
+        .oneshot(builder.body(Body::empty()).expect("request should build"))
         .await
         .expect("request should run");
     let status = response.status();
@@ -76,6 +157,16 @@ async fn send_raw(app: axum::Router, uri: &str) -> (StatusCode, Vec<u8>, String)
         .expect("body should read")
         .to_vec();
     (status, bytes, content_type)
+}
+
+fn basic_auth_header(token: &str) -> HeaderValue {
+    use base64::Engine as _;
+
+    HeaderValue::from_str(&format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD.encode(format!("x-access-token:{token}"))
+    ))
+    .expect("basic auth header should build")
 }
 
 #[tokio::test]
@@ -118,10 +209,7 @@ async fn public_repository_supports_smart_http_clone() {
     .expect("storage row should exist");
     assert!(Path::new(&storage_path).join("HEAD").exists());
 
-    let app = opengithub_api::build_app_with_config(
-        Some(pool.clone()),
-        opengithub_api::config::AppConfig::local_development(),
-    );
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), test_config());
     let (status, body, content_type) = send_raw(
         app.clone(),
         &format!(
@@ -206,10 +294,7 @@ async fn private_repository_denies_anonymous_upload_pack() {
     .await
     .expect("repository should create");
 
-    let app = opengithub_api::build_app_with_config(
-        Some(pool),
-        opengithub_api::config::AppConfig::local_development(),
-    );
+    let app = opengithub_api::build_app_with_config(Some(pool), test_config());
     let (status, body, _) = send_raw(
         app,
         &format!(
@@ -222,5 +307,177 @@ async fn private_repository_denies_anonymous_upload_pack() {
     let error: serde_json::Value =
         serde_json::from_slice(&body).expect("error body should be json");
     assert_eq!(error["error"]["code"], "authentication_required");
+    let _ = std::fs::remove_dir_all(storage_dir);
+}
+
+#[tokio::test]
+async fn private_repository_supports_token_and_session_upload_pack() {
+    let _env_guard = GIT_STORAGE_ENV_LOCK.lock().await;
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping private git auth scenario; set TEST_DATABASE_URL");
+        return;
+    };
+    let storage_dir =
+        std::env::temp_dir().join(format!("opengithub-git-private-auth-{}", Uuid::new_v4()));
+    std::env::set_var("OPENGITHUB_GIT_STORAGE_DIR", &storage_dir);
+
+    let config = test_config();
+    let owner = create_user(&pool, "git-private-token-owner").await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("private-auth-clone-{}", Uuid::new_v4().simple()),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: Some("main".to_owned()),
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("blank".to_owned()),
+            gitignore_template_slug: None,
+            license_template_slug: None,
+        },
+    )
+    .await
+    .expect("repository should create");
+
+    let token = create_pat(&pool, owner.id, &["repo:read"], None).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config.clone());
+    let mut token_headers = HeaderMap::new();
+    token_headers.insert(header::AUTHORIZATION, basic_auth_header(&token));
+    let (status, body, content_type) = send_raw_with_headers(
+        app.clone(),
+        &format!(
+            "/{}/{}.git/info/refs?service=git-upload-pack",
+            repository.owner_login, repository.name
+        ),
+        token_headers,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type, "application/x-git-upload-pack-advertisement");
+    assert!(String::from_utf8_lossy(&body).contains("refs/heads/main"));
+
+    let cookie = session_cookie(&pool, &config, &owner).await;
+    let mut cookie_headers = HeaderMap::new();
+    cookie_headers.insert(
+        header::COOKIE,
+        HeaderValue::from_str(&cookie).expect("cookie header should build"),
+    );
+    let (status, body, _) = send_raw_with_headers(
+        app.clone(),
+        &format!(
+            "/{}/{}.git/info/refs?service=git-upload-pack",
+            repository.owner_login, repository.name
+        ),
+        cookie_headers,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(String::from_utf8_lossy(&body).contains("refs/heads/main"));
+
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener should bind");
+    let address = listener.local_addr().expect("local addr should read");
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("server should run");
+    });
+    let checkout_dir =
+        std::env::temp_dir().join(format!("opengithub-private-clone-{}", Uuid::new_v4()));
+    let remote = format!(
+        "http://x-access-token:{}@{}/{}/{}.git",
+        token, address, repository.owner_login, repository.name
+    );
+    let output = Command::new("git")
+        .args(["clone", "--depth", "1", "--", &remote])
+        .arg(&checkout_dir)
+        .output()
+        .await
+        .expect("git clone should run");
+    server.abort();
+    assert!(
+        output.status.success(),
+        "private git clone failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let readme =
+        std::fs::read_to_string(checkout_dir.join("README.md")).expect("README should be cloned");
+    assert!(readme.contains(&repository.name));
+
+    let last_used_at: Option<chrono::DateTime<Utc>> =
+        sqlx::query_scalar("SELECT last_used_at FROM personal_access_tokens WHERE token_hash = $1")
+            .bind(hash_personal_access_token(&token))
+            .fetch_one(&pool)
+            .await
+            .expect("last_used_at should read");
+    assert!(last_used_at.is_some(), "PAT use should update last_used_at");
+
+    let _ = std::fs::remove_dir_all(checkout_dir);
+    let _ = std::fs::remove_dir_all(storage_dir);
+}
+
+#[tokio::test]
+async fn private_repository_rejects_invalid_expired_or_unscoped_tokens_without_leaking_secret() {
+    let _env_guard = GIT_STORAGE_ENV_LOCK.lock().await;
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping private git token denial scenario; set TEST_DATABASE_URL");
+        return;
+    };
+    let storage_dir =
+        std::env::temp_dir().join(format!("opengithub-git-token-denial-{}", Uuid::new_v4()));
+    std::env::set_var("OPENGITHUB_GIT_STORAGE_DIR", &storage_dir);
+
+    let owner = create_user(&pool, "git-token-denial-owner").await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("private-token-denial-{}", Uuid::new_v4().simple()),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: Some("main".to_owned()),
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("blank".to_owned()),
+            gitignore_template_slug: None,
+            license_template_slug: None,
+        },
+    )
+    .await
+    .expect("repository should create");
+    let expired_token = create_pat(
+        &pool,
+        owner.id,
+        &["repo:read"],
+        Some(Utc::now() - Duration::minutes(1)),
+    )
+    .await;
+    let unscoped_token = create_pat(&pool, owner.id, &["user:read"], None).await;
+
+    let app = opengithub_api::build_app_with_config(Some(pool), test_config());
+    for token in ["not-a-real-token".to_owned(), expired_token, unscoped_token] {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, basic_auth_header(&token));
+        let (status, body, _) = send_raw_with_headers(
+            app.clone(),
+            &format!(
+                "/{}/{}.git/info/refs?service=git-upload-pack",
+                repository.owner_login, repository.name
+            ),
+            headers,
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        let rendered = String::from_utf8_lossy(&body);
+        assert!(rendered.contains("authentication_required"));
+        assert!(!rendered.contains(&token));
+        assert!(!rendered.contains("sha256:"));
+    }
+
     let _ = std::fs::remove_dir_all(storage_dir);
 }

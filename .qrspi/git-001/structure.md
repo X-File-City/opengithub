@@ -24,7 +24,7 @@
 
 ## Phase 2: Private Fetch Auth - sessions and tokens unlock private clone/fetch
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Extend clone/fetch authorization from public-only to private repositories using the existing Rust session cookie path plus personal access token hashes for Git clients. This phase remains read-only: `git fetch` works, `git push` still returns a clear unsupported/forbidden response until Phase 3.
 
