@@ -96,9 +96,57 @@ Inspect the target product's authentication system — this is P1 priority for t
 - Save to `sitemap.md`
 
 ### Subsequent iterations: Deep dive one page/feature
-- Pick the next uninspected page/feature from `sitemap.md`
+- Pick the next uninspected page/feature from `sitemap.md`, OR pick the next unfinished item from the **Required Coverage Backlog** below.
 - **Take screenshots**: `ever screenshot --output ralph/screenshots/inspect/<page-name>.jpg` for each page
 - Inspect thoroughly: click, type, submit, test every interaction
+
+### REQUIRED COVERAGE BACKLOG (opengithub — must clear before INSPECT_COMPLETE)
+
+A coverage audit found the PRD undersized at 58 entries. A real GitHub clone needs ~140–160 entries. Before declaring `<promise>INSPECT_COMPLETE</promise>`, every item below must be a PRD entry with non-empty `ui_details`, `behavior`, `data_model`, and `dependent_on` — OR explicitly marked out-of-scope in `build-spec.md` with a one-line reason.
+
+**A. Missing surfaces (no PRD entries today — add them)**
+
+1. **Discussions product** (~6 entries): list `/{owner}/{repo}/discussions`, create discussion, discussion detail with answers/marked-answer, categories management, polls, pinned/locked, convert-issue-to-discussion.
+2. **Projects v2 product** (~6 entries): table view, board view, roadmap view, custom fields + iterations, automation/workflows, drafts, project settings, cross-repo project at org level.
+3. **Wiki** (~3 entries): wiki page list, edit/create page, history + sidebar customization.
+4. **Insights tab** (~5 entries): `/pulse`, `/graphs/contributors`, `/graphs/traffic`, `/network`, `/network/dependencies`, `/forks` list.
+5. **Code Security tab** (~5 entries): Dependabot alerts list/detail, secret scanning alerts, code scanning alerts, security advisories, security policy (SECURITY.md authoring).
+6. **Commit history + detail** (~2 entries): `/commits/{branch}` list with author/path/before/after filters; `/commit/{sha}` detail with diff, parent links, status checks, GPG verification badge.
+7. **Branch list** (1 entry): `/{owner}/{repo}/branches` — active/stale/your-branches tabs, default badge, search, delete stale.
+8. **Labels and Milestones management** (~2 entries): `/labels` (CRUD + color picker), `/milestones` (create/edit/close with progress bar).
+9. **Global cross-repo lists** (~2 entries): `/pulls` and `/issues` global views with cross-repo filters.
+10. **Organization admin** (~10 entries): `/organizations/new` create org, `/orgs/{org}/settings/profile`, member management (invite/remove/role), teams CRUD + team-level repo access, audit log, org webhooks, org Actions settings, org-level secrets/variables, member privileges, repository defaults.
+11. **User account settings** (~5 entries): `/settings/account` (username change, account deletion, exports), `/settings/emails` (add/verify/primary), `/settings/appearance` (theme/diff/tab-size), 2FA / passkeys / recovery codes, pinned-items management.
+12. **Repository settings tabs not yet covered** (~5 entries): `/settings/tags` tag protection, `/settings/actions` Actions permissions/runners, `/settings/security_analysis`, deploy keys (`/settings/keys`), environments (create/protection rules/required reviewers/wait timers/branch policies).
+13. **Profile editing** (~3 entries): profile README repo (the special `{user}/{user}` repo), profile status (emoji + text + clear date), pinned repos picker (already partly in personal-settings — split out).
+14. **Git plumbing endpoints** (~2 entries): raw file endpoint `/raw/{branch}/{path}`, blame API, archive tarball (separate from zip).
+15. **API surface gaps** (~3 entries): webhooks event catalog, REST rate-limit headers (`X-RateLimit-*`) + API versioning (`X-GitHub-Api-Version`), GraphQL endpoint and OpenAPI generation strategy.
+16. **Theme/a11y/responsive** (~2 entries): light/dark/system theme toggle + CSS custom-properties strategy; responsive breakpoints + keyboard navigation/ARIA landmark requirements.
+
+**B. Existing entries to SPLIT (each is a monolith)**
+
+- `settings-001` → 4 entries: General form, Merge methods + auto-merge, Default branch management, Danger Zone (archive/transfer/delete/visibility).
+- `security-001` → 3 entries: connected providers + sudo mode, web sessions list/revocation, security log search/export.
+- `actions-005` → 6 entries: workflow parsing/trigger engine, runner provisioning, log streaming, artifact + cache management, check-run integration, Actions permissions/secrets.
+- `credentials-001` → 3 entries: token list page, fine-grained PAT creation, classic PAT creation.
+- `search-005` → 3 entries: query parser + REST API layer, indexing pipeline (pg_trgm + invalidation), file finder widget.
+
+**C. Existing entries to FLESH OUT (currently too thin)**
+
+- `dx-001` — needs a concrete `/docs/api` route, page layout, and what doc content is generated.
+- `personal-settings-002` — split out the email-routing modal + custom-routing sub-pages.
+- `releases-003` — add tag object vs lightweight tag distinction, GPG verification flow, asset upload via S3 multipart.
+
+**D. Out-of-scope creep — REMOVE or MARK explicitly**
+
+- `credentials-001` left-nav must NOT list "GitHub Apps" or "OAuth Apps" — those are out of scope (CLAUDE.md forbids GitHub OAuth provider integration). Either drop the nav items or annotate them as `out_of_scope: true`.
+- `orgs-001` Sponsors button → drop (CLAUDE.md forbids billing/payments).
+- `packages-002`/`packages-003` — clarify scope: OCI/container registry only for MVP. npm/Maven/NuGet wire protocols are NOT in scope unless explicitly added later.
+
+**E. PRD field discipline**
+
+- Every entry MUST have non-empty `ui_details` (≥3 specific UI elements), `behavior` (≥3 user actions / state transitions), `data_model` (tables read + tables written), and `dependent_on` (3–5 entries).
+- No entry may bundle more than 4 distinct features. If you find yourself listing 5+ tabs/forms/modals in one entry, SPLIT IT.
 
 ### Final iteration: Finalize build-spec.md + PRD dependencies
 - Clean up and complete `build-spec.md` with ALL of these sections:
@@ -195,5 +243,6 @@ Inspect the target product's authentication system — this is P1 priority for t
   1. ALL pages are inspected
   2. `build-spec.md` is finalized (including API response examples and a "Known Constraints" section)
   3. **PRD validation passes** — every entry in `prd.json` has non-empty `ui_details`, `behavior`, and `data_model` fields. Entries missing these are INCOMPLETE. Go back and fill them in before marking complete.
-  4. **PRD sizing validated** — no entry has more than 5 sections/features in its description. Split large entries (e.g., monolithic settings pages) into focused sub-entries.
+  4. **PRD sizing validated** — no entry has more than 4 distinct features in its description. Split large entries (e.g., monolithic settings pages) into focused sub-entries.
   5. **Keyboard shortcut inventory** — if the target product is keyboard-first (has Cmd+K or extensive shortcuts), include a shortcut table in `build-spec.md` with navigation shortcuts, action shortcuts, and selection shortcuts.
+  6. **Required Coverage Backlog cleared** — every item in sections A–D of "REQUIRED COVERAGE BACKLOG" above is either represented by a PRD entry with full fields, or annotated as out-of-scope with a reason in `build-spec.md`. The backlog is non-negotiable: a clone with zero Discussions/Projects/Wiki/Insights entries is not "GitHub-fidelity." Total entry count after backlog clearance should be ~140–160.
