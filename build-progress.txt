@@ -233,3 +233,13 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_summary -- --nocapture` passed; `cd web && npx vitest run tests/dashboard-onboarding.test.tsx` passed; `make check` passed; `make test` passed; `make test-e2e` passed.
 - Browser smoke test skipped because this phase is API/data-contract only and changed no visible dashboard interaction.
 - Marked Phase 1 as done in `.qrspi/dashboard-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
+
+2026-04-30 - markdown-001 site-wide markdown rendering pipeline
+
+- Implemented the first unbuilt PRD feature `markdown-001`: Rust server-side markdown rendering with `pulldown-cmark`, sanitized HTML with `ammonia`, heading anchors, code block labels/copy buttons, task-list toggle markup, @mention and #issue links, repository-relative link/image rewriting, and a rendered markdown cache table.
+- Added `POST /api/markdown/render` and `POST /api/markdown/task-toggle`; added migration `202604300008_rendered_markdown_cache` for cache storage keyed by content SHA plus optional repository/ref context.
+- Added frontend `MarkdownBody`, `MarkdownEditor`, `/markdown/preview` proxy route, Primer-style `.markdown-body` CSS, and `/docs/markdown` as the first visible markdown/editor surface.
+- Added Rust tests in `crates/api/tests/markdown_rendering.rs`, Vitest coverage in `web/tests/markdown-rendering.test.tsx`, and Playwright coverage in `web/tests/e2e/markdown.spec.ts`.
+- Verification: `make check` passed; `make test` passed with cargo tests plus 20 frontend tests; `make test-e2e` passed with 12 Playwright tests.
+- Browser smoke: started `make dev` with `.env` loaded, verified `/docs/markdown`, clicked the editor toolbar, switched to Preview, confirmed rendered GFM/table/task/code output, and saved `ralph/screenshots/build/markdown-001-renderer-smoke.jpg`.
+- Set `markdown-001.build_pass` to `true` in `prd.json`; `qa_pass` remains untouched for the QA agent.

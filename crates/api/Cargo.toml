@@ -30,3 +30,6 @@ base64.workspace = true
 hmac.workspace = true
 sha2.workspace = true
 reqwest.workspace = true
+pulldown-cmark.workspace = true
+ammonia.workspace = true
+regex.workspace = true

@@ -2,6 +2,7 @@ pub mod auth;
 pub mod dashboard;
 pub mod health;
 pub mod issues;
+pub mod markdown;
 pub mod onboarding;
 pub mod pulls;
 pub mod repositories;

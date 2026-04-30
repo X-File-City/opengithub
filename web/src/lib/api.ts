@@ -63,6 +63,21 @@ export type DashboardSummary = {
   dismissedHints: DashboardHintDismissal[];
 };
 
+export type RenderMarkdownRequest = {
+  markdown: string;
+  repositoryId?: string | null;
+  owner?: string | null;
+  repo?: string | null;
+  ref?: string | null;
+  enableTaskToggles?: boolean;
+};
+
+export type RenderedMarkdown = {
+  contentSha: string;
+  html: string;
+  cached: boolean;
+};
+
 const DEFAULT_API_URL = "http://localhost:3016";
 
 export function apiBaseUrl(): string {
@@ -172,4 +187,21 @@ export async function logout(cookie: string | null): Promise<string | null> {
   });
 
   return response.headers.get("set-cookie");
+}
+
+export async function renderMarkdown(
+  request: RenderMarkdownRequest,
+): Promise<RenderedMarkdown> {
+  const response = await fetch(`${apiBaseUrl()}/api/markdown/render`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Markdown preview failed");
+  }
+
+  return (await response.json()) as RenderedMarkdown;
 }

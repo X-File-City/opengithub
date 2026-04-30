@@ -321,5 +321,21 @@
       "Repository language metadata is seeded/tested directly in Postgres; real language detection waits for Git ingestion/code browsing features",
       "Recent repository visits are persisted as metadata but no UI action records visits yet; Phase 2 and later repository navigation should validate visit updates once wired"
     ]
+  },
+  {
+    "feature_id": "markdown-001",
+    "tests_written": [
+      "Rust markdown_rendering tests cover GFM task lists, fenced code decoration, heading anchors, XSS script sanitization, @mention links, #issue links, repository-relative link/image rewriting, task toggling, API error envelopes, and optional Postgres cache hits",
+      "Vitest markdown-rendering tests cover MarkdownBody rendering, editor toolbar insertion, live Preview state updates, and the Next.js preview proxy forwarding to /api/markdown/render",
+      "Playwright markdown E2E covers /docs/markdown, the rendered sample table, toolbar insertion, live Preview rendering, and dead-link checks",
+      "make check, make test, and make test-e2e passed",
+      "Ever smoke verified /docs/markdown, toolbar click, Preview tab re-rendering, task checkboxes, code block copy button, and saved ralph/screenshots/build/markdown-001-renderer-smoke.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Mermaid and KaTeX are rendered through the current sanitized markdown path but do not yet have dedicated diagram/math runtime renderers; QA should revisit when those visual engines are introduced",
+      "Task toggling has a real POST endpoint for markdown text, but repository write-permission integration waits for issue/PR/README storage surfaces",
+      "Rendered markdown cache was unit-tested with TEST_DATABASE_URL when available; production TTL cleanup is still a later retention-job concern",
+      "Relative path rewriting is covered for repository context; QA should retest against real README/blob pages after repository file browsing ships"
+    ]
   }
 ]

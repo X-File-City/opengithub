@@ -2,6 +2,7 @@ pub mod actions;
 pub mod dashboard;
 pub mod identity;
 pub mod issues;
+pub mod markdown;
 pub mod notifications;
 pub mod onboarding;
 pub mod permissions;
