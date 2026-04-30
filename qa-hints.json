@@ -853,5 +853,22 @@
       "The symbol panel closes after navigation and updates the hash only; QA should test keyboard focus and screen-reader behavior in the final accessibility/security pass",
       "Binary and large files intentionally have no symbols and keep Raw/Download fallbacks; retest with real Git object storage once byte-perfect blobs land"
     ]
+  },
+  {
+    "feature_id": "repo-005",
+    "tests_written": [
+      "Added crates/api/tests/repository_blob_security.rs covering anonymous auth bypass, private repository denial for JSON/raw/download/blame, sanitized download filenames, traversal-like encoded paths, binary/large response hygiene, and no source/cookie/stack leaks in error envelopes",
+      "Extended dashboard_e2e_seed with optional blob edge fixtures for binary, large, and Markdown symbol files backed by real Postgres repository_files rows",
+      "Expanded Playwright blob E2E to cover final code view, blame mode, symbol panel, binary fallback, large fallback, invalid-path recovery, branch names with slashes, mobile no-overflow layout, raw/download/history/copy actions, and dead-control scanning",
+      "Saved final repo-005 screenshots for code view, blame mode, symbol panel, binary fallback, invalid path, and mobile layout",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test repository_blob_security -- --nocapture, make check, make test with 72 web tests, and make test-e2e with 29 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Blame attribution remains file-level fallback metadata, not true per-line Git history, until real Git object history/diff tracking ships",
+      "Syntax highlighting and symbols are bounded fallback behavior; compare Rust, TypeScript, JSON, Markdown, unsupported extensions, and large files visually across browsers",
+      "Raw/download currently stream Postgres text-backed repository_files content; byte-perfect binary behavior and content-disposition edge cases need retesting once real object storage is wired",
+      "Keyboard shortcuts y, b, and l are covered in Playwright but should receive manual QA for focus conflicts with browser extensions and assistive tech",
+      "Binary detection is heuristic because the current text column cannot store NUL bytes; retest with real Git object storage/S3 blobs"
+    ]
   }
 ]

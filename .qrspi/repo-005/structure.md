@@ -74,7 +74,7 @@
 
 ## Phase 5: Final Blob QA and Regression Guardrails - finish repo-005 for QA handoff
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Lock down the completed blob/file view across API contracts, security, visual regressions, browser flows, and bookkeeping. This phase marks the PRD feature complete only after every repo-005 phase passes with real Postgres-backed data and browser evidence.
 

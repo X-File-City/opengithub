@@ -6,9 +6,10 @@ const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 type SeededSession = {
   cookieName: string;
   cookieValue: string;
+  treeRepositoryHref: string;
 };
 
-function seedSession(): SeededSession {
+function seedSession(extraEnv: Record<string, string> = {}): SeededSession {
   if (!databaseUrl) {
     throw new Error("TEST_DATABASE_URL or DATABASE_URL is required");
   }
@@ -29,6 +30,7 @@ function seedSession(): SeededSession {
         ...process.env,
         DASHBOARD_E2E_EMPTY: "1",
         SESSION_COOKIE_NAME: "og_session",
+        ...extraEnv,
       },
     },
   ).toString();
@@ -115,6 +117,11 @@ test("signed-in blob page exposes file header actions and code line anchors", as
     "href",
     new RegExp(`/${repositoryName}/blob/main/src/main\\.rs\\?view=blame$`),
   );
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-005-final-code-view.jpg",
+  });
+
   await expect(page.getByRole("button", { name: "Symbols" })).toBeVisible();
   await page.getByRole("button", { name: "Symbols" }).click();
   await expect(
@@ -126,7 +133,7 @@ test("signed-in blob page exposes file header actions and code line anchors", as
   await expect(page).toHaveURL(/#L4$/);
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/repo-005-phase4-highlighting-symbols.jpg",
+    path: "../ralph/screenshots/build/repo-005-final-symbol-panel.jpg",
   });
 
   await page.getByRole("button", { name: "Copy raw" }).click();
@@ -150,6 +157,10 @@ test("signed-in blob page exposes file header actions and code line anchors", as
       .getByRole("link", { name: /[a-f0-9]{7} / })
       .first(),
   ).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-005-final-blame-mode.jpg",
+  });
 
   await page.getByRole("button", { name: "Jump to line" }).click();
   await expect(page.getByRole("form", { name: "Jump to line" })).toBeVisible();
@@ -206,4 +217,95 @@ test("signed-in blob page exposes file header actions and code line anchors", as
     fullPage: true,
     path: "../ralph/screenshots/build/repo-005-phase2-blob-view.jpg",
   });
+});
+
+test("blob page handles non-renderable files, invalid paths, branch refs, and mobile layout", async ({
+  page,
+}) => {
+  const seeded = seedSession({
+    DASHBOARD_E2E_TREE_REFS: "1",
+    DASHBOARD_E2E_BLOB_EDGE: "1",
+  });
+  await signIn(page, seeded);
+  expect(seeded.treeRepositoryHref).toMatch(/^\/[^/]+\/[^/]+$/);
+
+  const [owner, repositoryName] = seeded.treeRepositoryHref.slice(1).split("/");
+  await page.goto(`${seeded.treeRepositoryHref}/blob/main/assets/app.bin`);
+  await expect(
+    page.getByRole("heading", { name: "assets/app.bin" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("This binary file cannot be previewed inline."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Raw", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Download", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-005-final-binary-fallback.jpg",
+  });
+
+  await page.goto(`${seeded.treeRepositoryHref}/blob/main/logs/large.txt`);
+  await expect(
+    page.getByRole("heading", { name: "logs/large.txt" }),
+  ).toBeVisible();
+  await expect(page.getByText(/too large to render inline/)).toBeVisible();
+
+  await page.goto(`${seeded.treeRepositoryHref}/blob/main/missing/file.rs`);
+  await expect(
+    page.getByRole("heading", { name: "File unavailable" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Back to repository" }),
+  ).toHaveAttribute("href", seeded.treeRepositoryHref);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-005-final-invalid-path.jpg",
+  });
+
+  await page.goto(
+    `${seeded.treeRepositoryHref}/blob/feature%2Ftree-nav/docs/guide.md`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "docs/guide.md" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "# Feature guide" }),
+  ).toBeVisible();
+
+  await page.goto(
+    `${seeded.treeRepositoryHref}/blob/main/docs/symbols.md?symbols=1`,
+  );
+  await expect(
+    page.getByRole("complementary", { name: "File symbols" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Install/ })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${seeded.treeRepositoryHref}/blob/main/src/main.rs`);
+  await expect(
+    page.getByRole("region", { name: "Repository file viewer" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-005-final-mobile.jpg",
+  });
+
+  const rawResponse = await page.request.get(
+    `http://localhost:3015/${owner}/${repositoryName}/raw/main/src/main.rs`,
+  );
+  expect(rawResponse.status()).toBe(200);
+  await expect(page.getByRole("link", { name: "History" })).toHaveAttribute(
+    "href",
+    new RegExp(`/${repositoryName}/commits/main/src/main\\.rs$`),
+  );
 });

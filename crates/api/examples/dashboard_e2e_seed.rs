@@ -46,6 +46,13 @@ fn seed_tree_repository() -> bool {
     )
 }
 
+fn seed_blob_edge_files() -> bool {
+    matches!(
+        std::env::var("DASHBOARD_E2E_BLOB_EDGE").as_deref(),
+        Ok("1" | "true" | "yes")
+    )
+}
+
 fn app_config() -> AppConfig {
     AppConfig {
         app_url: Url::parse("http://localhost:3015").expect("app URL"),
@@ -140,6 +147,9 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
         seed_tree_refs(&pool, user.id, tree_repository.id).await?;
+        if seed_blob_edge_files() {
+            seed_blob_edge_cases(&pool, tree_repository.id).await?;
+        }
         format!("/{username}/{tree_repository_name}")
     } else {
         String::new()
@@ -431,6 +441,50 @@ async fn seed_tree_refs(pool: &PgPool, user_id: Uuid, repository_id: Uuid) -> an
         Some(default_commit_id),
     )
     .await?;
+    Ok(())
+}
+
+async fn seed_blob_edge_cases(pool: &PgPool, repository_id: Uuid) -> anyhow::Result<()> {
+    let default_commit_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        SELECT target_commit_id
+        FROM repository_git_refs
+        WHERE repository_id = $1 AND name = 'refs/heads/main'
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_one(pool)
+    .await?;
+
+    let files = vec![
+        ("assets/app.bin", "\u{1}\u{2}\u{3}\u{4}".to_owned()),
+        ("logs/large.txt", "large line\n".repeat(60_000)),
+        (
+            "docs/symbols.md",
+            "# Symbols\n\n## Install\n\n## Usage\n".to_owned(),
+        ),
+    ];
+    for (path, content) in files {
+        sqlx::query(
+            r#"
+            INSERT INTO repository_files (repository_id, commit_id, path, content, oid, byte_size)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(repository_id)
+        .bind(default_commit_id)
+        .bind(path)
+        .bind(&content)
+        .bind(format!(
+            "edge-{}-{}",
+            Uuid::new_v4().simple(),
+            path.replace('/', "-")
+        ))
+        .bind(content.len() as i64)
+        .execute(pool)
+        .await?;
+    }
+
     Ok(())
 }
 
