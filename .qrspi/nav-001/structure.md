@@ -6,7 +6,7 @@
 
 ## Phase 1: Route Registry and Protected Placeholder Contract - known sitemap entries never 404
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Create a typed navigation registry for the signed-in sitemap and add the highest-traffic global destinations that still lack route files. This phase should make dashboard, global issues, pulls, notifications, search, repository creation/import, developer docs, and account settings route through one shared contract with protected-session handling and explicit not-yet-built states.
 

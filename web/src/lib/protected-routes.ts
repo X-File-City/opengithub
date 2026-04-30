@@ -6,6 +6,7 @@ export const PROTECTED_PATHS = [
   "/notifications",
   "/search",
   "/explore",
+  "/codespaces",
   "/settings",
 ] as const;
 

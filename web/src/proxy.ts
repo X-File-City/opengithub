@@ -25,6 +25,7 @@ export const config = {
     "/notifications/:path*",
     "/search/:path*",
     "/explore/:path*",
+    "/codespaces/:path*",
     "/settings/:path*",
     "/:owner/:repo/settings/:path*",
   ],

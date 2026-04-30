@@ -259,6 +259,16 @@
 - Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
 - Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
 
+2026-05-01 - nav-001 phase 1 route registry and protected placeholders
+
+- Implemented Phase 1 from `.qrspi/nav-001/structure.md`: added a typed navigation registry for global destinations, create actions, personal settings sections, and repository tabs.
+- Added a shared Editorial `PlaceholderPage` and protected route files for `/codespaces`, `/settings/account`, `/settings/emails`, `/settings/notifications`, `/settings/appearance`, `/settings/security`, `/settings/keys`, and `/settings/sessions`.
+- Updated `AppHeader` to consume the shared registry for desktop menu, create menu, and mobile drawer fallback links; protected `/codespaces` through the Next.js proxy.
+- Added `web/tests/navigation-routes.test.tsx` covering route-file existence, no inert targets, protected-route matching, active settings matching, and owner/repo-preserving repository tab hrefs.
+- Verification: `make check` passed; `make test` passed with 89 frontend tests plus cargo tests; `make test-e2e` passed with 15 Playwright tests.
+- Browser smoke: started `make dev`, verified `/codespaces` and new settings destinations redirect to `/login?next=...` when anonymous, and saved `ralph/screenshots/build/nav-001-phase1-protected-route.jpg`.
+- Marked Phase 1 as done in `.qrspi/nav-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
+
 - Did not change `prd.json`; `dashboard-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
 

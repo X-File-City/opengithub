@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import type { AppShellContext, AuthSession } from "@/lib/api";
+import { CREATE_NAV_ITEMS, GLOBAL_NAV_ITEMS } from "@/lib/navigation";
 
 type AppHeaderProps = {
   session: AuthSession;
@@ -201,11 +202,15 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
           detail: link.kind === "create" ? "Create" : undefined,
         }))
       : [
-          { href: "/dashboard", label: "Dashboard" },
-          { href: "/pulls", label: "Pull requests" },
-          { href: "/issues", label: "Issues" },
-          { href: "/notifications", label: "Notifications" },
-          { href: "/new", label: "New repository", detail: "Create" },
+          ...GLOBAL_NAV_ITEMS.map((item) => ({
+            href: item.href,
+            label: item.label,
+          })),
+          ...CREATE_NAV_ITEMS.map((item) => ({
+            href: item.href,
+            label: item.label,
+            detail: "Create",
+          })),
         ];
   const mobileRepositoryLinks = recentRepositories.slice(0, 6).map((repo) => ({
     href: repo.href,
@@ -291,11 +296,11 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
                       Navigate
                     </p>
                   </div>
-                  <MenuLink href="/dashboard">Dashboard</MenuLink>
-                  <MenuLink href="/issues">Issues</MenuLink>
-                  <MenuLink href="/pulls">Pull requests</MenuLink>
-                  <MenuLink href="/notifications">Notifications</MenuLink>
-                  <MenuLink href="/explore">Explore</MenuLink>
+                  {GLOBAL_NAV_ITEMS.map((item) => (
+                    <MenuLink href={item.href} key={item.href}>
+                      {item.label}
+                    </MenuLink>
+                  ))}
                   <div
                     className="mt-2 border-t px-4 pb-1 pt-3"
                     style={{ borderColor: "var(--line)" }}
@@ -430,24 +435,15 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
               className="hidden items-center gap-1 md:flex"
               aria-label="Global"
             >
-              <Link
-                className="rounded-md px-2.5 py-1.5 t-sm hover:opacity-75"
-                href="/dashboard"
-              >
-                Home
-              </Link>
-              <Link
-                className="rounded-md px-2.5 py-1.5 t-sm hover:opacity-75"
-                href="/pulls"
-              >
-                Pull requests
-              </Link>
-              <Link
-                className="rounded-md px-2.5 py-1.5 t-sm hover:opacity-75"
-                href="/issues"
-              >
-                Issues
-              </Link>
+              {GLOBAL_NAV_ITEMS.slice(0, 3).map((item) => (
+                <Link
+                  className="rounded-md px-2.5 py-1.5 t-sm hover:opacity-75"
+                  href={item.href}
+                  key={item.href}
+                >
+                  {item.href === "/dashboard" ? "Home" : item.label}
+                </Link>
+              ))}
             </nav>
 
             {/* biome-ignore lint/a11y/useSemanticElements: React and jsdom do not recognize the native search element yet. */}
@@ -489,8 +485,11 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
               </button>
               {openMenu === "create" ? (
                 <MenuPanel id={createMenuId} labelledBy={createButtonId}>
-                  <MenuLink href="/new">New repository</MenuLink>
-                  <MenuLink href="/new/import">Import repository</MenuLink>
+                  {CREATE_NAV_ITEMS.map((item) => (
+                    <MenuLink href={item.href} key={item.href}>
+                      {item.label}
+                    </MenuLink>
+                  ))}
                 </MenuPanel>
               ) : null}
             </div>

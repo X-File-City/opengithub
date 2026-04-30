@@ -1128,5 +1128,22 @@
       "Issues, pulls, notifications, and profile pages are concrete shell destinations but remain lightweight placeholders until their feature-specific PRDs land",
       "Keyboard focus enters the drawer and Escape closes it; full focus-trap cycling is a deeper accessibility follow-up if the product wants modal-grade drawer semantics"
     ]
+  },
+  {
+    "feature_id": "nav-001",
+    "tests_written": [
+      "Added a typed navigation registry for global, create, settings, and repository tab destinations",
+      "Added protected placeholder pages for /codespaces and account settings sections including account, emails, notifications, appearance, security, sessions, and keys",
+      "Updated the app header menus and mobile drawer fallback links to consume the shared navigation registry",
+      "Route-registry tests assert all static registry hrefs have real page files, no inert hrefs are present, protected-route matching covers signed-in destinations, and repository tab hrefs preserve owner/repo context",
+      "Browser smoke verified new protected destinations redirect to /login?next=... and saved ralph/screenshots/build/nav-001-phase1-protected-route.jpg",
+      "Verification passed: make check, make test with 89 frontend tests plus cargo tests, and make test-e2e with 15 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 intentionally adds route skeletons only; repository workspace tabs, settings sidebars, profiles, organizations, and search type tabs remain later nav-001 phases",
+      "Authenticated placeholder rendering was covered by route tests and existing E2E auth fixtures, but deeper QA should use a real Google-created session once available",
+      "Settings pages currently have concrete CTAs but not editable forms; QA should not expect persisted settings changes until settings-specific PRDs land",
+      "Codespaces is a protected placeholder and not a working cloud development environment in this phase"
+    ]
   }
 ]
