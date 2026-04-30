@@ -8,7 +8,9 @@ use opengithub_api::{
     config::{AppConfig, AuthConfig},
     domain::{
         identity::{upsert_session, upsert_user_by_email, User},
-        repositories::{create_repository, CreateRepository, RepositoryOwner, RepositoryVisibility},
+        repositories::{
+            create_repository, CreateRepository, RepositoryOwner, RepositoryVisibility,
+        },
     },
 };
 use serde_json::{json, Value};
@@ -149,8 +151,14 @@ async fn collaboration_and_automation_routes_use_session_auth_and_standard_envel
     let app = opengithub_api::build_app_with_config(Some(pool), config);
     let base = format!("/api/repos/{}/{}", owner.email, repo_name);
 
-    let (anonymous_status, anonymous_headers, anonymous_body) =
-        send_json(app.clone(), Method::GET, &format!("{base}/issues"), None, None).await;
+    let (anonymous_status, anonymous_headers, anonymous_body) = send_json(
+        app.clone(),
+        Method::GET,
+        &format!("{base}/issues"),
+        None,
+        None,
+    )
+    .await;
     assert_eq!(anonymous_status, StatusCode::UNAUTHORIZED);
     assert_json(&anonymous_headers);
     assert_eq!(anonymous_body["error"]["code"], "not_authenticated");

@@ -110,15 +110,10 @@ async fn create(
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id = repository_for_actor_by_name(
-        pool,
-        &owner,
-        &repo,
-        actor.0.id,
-        RepositoryRole::Write,
-    )
-    .await
-    .map_err(map_collaboration_error)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_collaboration_error)?;
     if request.title.trim().is_empty()
         || request.head_ref.trim().is_empty()
         || request.base_ref.trim().is_empty()
@@ -173,15 +168,10 @@ async fn update_state(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id = repository_for_actor_by_name(
-        pool,
-        &owner,
-        &repo,
-        actor.0.id,
-        RepositoryRole::Write,
-    )
-    .await
-    .map_err(map_collaboration_error)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_collaboration_error)?;
     let detail = get_pull_request(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
@@ -208,15 +198,10 @@ async fn comment(
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id = repository_for_actor_by_name(
-        pool,
-        &owner,
-        &repo,
-        actor.0.id,
-        RepositoryRole::Write,
-    )
-    .await
-    .map_err(map_collaboration_error)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_collaboration_error)?;
     let detail = get_pull_request(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;

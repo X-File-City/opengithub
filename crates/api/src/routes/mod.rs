@@ -1,5 +1,5 @@
-pub mod auth;
 pub mod actions;
+pub mod auth;
 pub mod dashboard;
 pub mod git;
 pub mod health;

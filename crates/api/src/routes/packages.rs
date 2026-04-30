@@ -77,10 +77,15 @@ async fn list_packages_route(
             .await
             .map_err(map_automation_error)?;
     let pagination = normalize_pagination(query.page, query.page_size);
-    let envelope =
-        list_packages(pool, repository_id, actor.0.id, pagination.page, pagination.page_size)
-            .await
-            .map_err(map_automation_error)?;
+    let envelope = list_packages(
+        pool,
+        repository_id,
+        actor.0.id,
+        pagination.page,
+        pagination.page_size,
+    )
+    .await
+    .map_err(map_automation_error)?;
 
     Ok(Json(json!(envelope)))
 }
