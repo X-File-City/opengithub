@@ -397,7 +397,7 @@ async fn repository_tree_blob_and_history_routes_resolve_nested_paths() {
     )
     .await;
     assert_eq!(missing_status, StatusCode::NOT_FOUND);
-    assert_eq!(missing_body["error"]["code"], "not_found");
+    assert_eq!(missing_body["error"]["code"], "path_not_found");
 }
 
 #[tokio::test]

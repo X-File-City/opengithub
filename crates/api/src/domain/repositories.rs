@@ -875,8 +875,13 @@ pub async fn repository_overview_for_actor(
     repository: Repository,
     actor_user_id: Uuid,
 ) -> Result<RepositoryOverview, RepositoryError> {
-    let resolved_ref = resolve_repository_ref(pool, &repository, None).await?;
-    let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
+    let files = match resolve_repository_ref(pool, &repository, None).await {
+        Ok(resolved_ref) => {
+            list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?
+        }
+        Err(RepositoryError::RefNotFoundWithRecovery { .. }) => Vec::new(),
+        Err(error) => return Err(error),
+    };
     let readme = files
         .iter()
         .find(|file| file.path.eq_ignore_ascii_case("README.md"))

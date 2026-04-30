@@ -486,17 +486,61 @@ describe("RepositoryCodeOverview", () => {
       screen.getByRole("navigation", { name: "Breadcrumb" }),
     ).toBeVisible();
     expect(
+      screen.getByRole("navigation", { name: "Current directory" }),
+    ).toBeVisible();
+    expect(
       screen.getByRole("link", { name: "Parent directory" }),
     ).toHaveAttribute("href", "/mona/octo-app/tree/main");
-    expect(screen.getByRole("link", { name: /index\.ts/ })).toHaveAttribute(
-      "href",
-      "/mona/octo-app/blob/main/src/index.ts",
-    );
+    expect(
+      screen.getAllByRole("link", { name: /index\.ts/ }).at(-1),
+    ).toHaveAttribute("href", "/mona/octo-app/blob/main/src/index.ts");
     expect(screen.getByRole("link", { name: "History" })).toHaveAttribute(
       "href",
       "/mona/octo-app/commits/main/src",
     );
     expect(screen.getByText("# src docs")).toBeVisible();
+  });
+
+  it("renders the split-pane tree browser with collapsible file tree and splitter keyboard resizing", () => {
+    const { container } = render(
+      <RepositoryTreeView overview={pathOverview()} />,
+    );
+
+    expect(
+      screen.getByRole("region", { name: "Repository directory browser" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("navigation", { name: "Repository file tree" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "src" })).toBeVisible();
+    expect(screen.getByText("Last commit message")).toBeVisible();
+    expect(screen.getByText("Last commit date")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Go to file" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/file-finder?ref=main",
+    );
+    expect(
+      screen.getByRole("link", { name: "Create new file" }),
+    ).toHaveAttribute("href", "/mona/octo-app/new/main");
+
+    const splitter = screen.getByRole("separator", {
+      name: "Resize file tree",
+    });
+    const pane = container.querySelector("aside");
+    expect(pane).toHaveStyle({ width: "256px" });
+    fireEvent.keyDown(splitter, { key: "ArrowRight" });
+    expect(pane).toHaveStyle({ width: "280px" });
+    fireEvent.keyDown(splitter, { key: "ArrowLeft" });
+    expect(pane).toHaveStyle({ width: "256px" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse file tree" }));
+    expect(
+      screen.queryByRole("navigation", { name: "Repository file tree" }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Expand file tree" }));
+    expect(
+      screen.getByRole("navigation", { name: "Repository file tree" }),
+    ).toBeVisible();
   });
 
   it("renders blob previews with raw, download, parent, and history actions", () => {

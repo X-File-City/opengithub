@@ -737,5 +737,23 @@
       "Commit-aware file snapshots are metadata-backed and should be retested after real smart HTTP Git push/fetch lands",
       "Large-directory pagination fields are present as stable contract placeholders; actual pagination/virtualization is Phase 4"
     ]
+  },
+  {
+    "feature_id": "repo-004",
+    "tests_written": [
+      "Added RepositoryTreeBrowser split-pane UI with collapsible left file tree, keyboard/pointer splitter resizing, breadcrumb/current-directory title, toolbar actions, parent directory row, and compact tree columns",
+      "Extended RepositoryFileTable so tree pages expose Name, Last commit message, Last commit date, parent navigation, and deterministic row hrefs without dead controls",
+      "Vitest covers breadcrumbs, parent row hrefs, tree pane collapse/expand, splitter keyboard resizing, toolbar destinations, history links, and nested file row destinations",
+      "Playwright E2E creates a real Rust-template repository through /new, opens /tree/main/src, verifies split-pane browsing, resizes/collapses/restores the file tree, opens a file, returns through parent navigation, scans for dead controls, and saves ralph/screenshots/build/repo-004-phase2-tree-browser.jpg",
+      "Regression fix: repository overviews now tolerate empty repositories with no branch ref so Quick setup still renders; TEST_DATABASE_URL-backed repository_code_overview Rust coverage was updated for typed path_not_found envelopes",
+      "Verification passed: make check, make test, and TEST_DATABASE_URL-backed make test-e2e with 25 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "The left file tree currently reflects the loaded directory entries and breadcrumb ancestors, not a fully recursive tree for the whole repository",
+      "Branch/tag search and Go to file combobox behavior on tree pages are still Phase 3; this phase keeps their destinations reachable but simple",
+      "Large-directory pagination or virtualization is still Phase 4; QA should stress folders with hundreds of files after that lands",
+      "Branch names with slashes still need browser-level QA with the current /tree/[ref]/... route shape",
+      "Splitter pointer dragging is covered by implementation and keyboard tests; QA should manually test drag feel across trackpads and narrow viewports"
+    ]
   }
 ]

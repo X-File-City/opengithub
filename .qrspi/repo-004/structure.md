@@ -23,7 +23,7 @@
 
 ## Phase 2: Split-Pane Directory Browser - render GitHub-like tree navigation
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the current simple nested tree page with the repo-004 directory browsing layout: repository header, toolbar, breadcrumb/title, latest commit strip, file table, optional collapsible left tree, and a stable draggable splitter. Directory rows navigate to tree routes and file rows navigate to blob routes with no inert controls.
 

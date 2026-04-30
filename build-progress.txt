@@ -522,3 +522,14 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_tree_navigation -- --nocapture` passed; `make check` passed; `make test` passed with 64 frontend tests plus cargo tests.
 - Browser smoke test skipped because this phase is backend/data-contract only; split-pane tree browser UI is Phase 2.
 - Marked Phase 1 as done in `.qrspi/repo-004/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
+
+2026-04-30 - repo-004 phase 2 split-pane directory browser
+
+- Implemented Phase 2 from `.qrspi/repo-004/structure.md`: tree pages now render a GitHub-like split-pane directory browser with a collapsible left file tree, keyboard/pointer-resizable splitter, breadcrumb/current-directory title, toolbar actions, latest commit strip, compact file table columns, and parent directory row.
+- Added `web/src/components/RepositoryTreeBrowser.tsx`; extended `RepositoryFileTable` for tree-page parent rows and compact column labels; wired `RepositoryTreeView` to the new browser.
+- Fixed a regression from the ref-aware tree contract where empty repositories without branch refs returned unavailable metadata instead of the Quick setup overview; empty overviews now tolerate missing refs while tree/blob invalid-ref behavior stays strict.
+- Updated `crates/api/tests/repository_code_overview.rs` to expect the typed `path_not_found` envelope for missing tree paths.
+- Added/updated Vitest and Playwright coverage for split-pane tree behavior, parent/file navigation, splitter keyboard resizing, collapsible tree state, no dead controls, and the empty-repository regression.
+- Browser smoke: Playwright used a real Rust-signed Postgres session to create a Rust-template repository, open `/tree/main/src`, resize/collapse/restore the file tree, open `src/main.rs`, return through parent navigation, and save `ralph/screenshots/build/repo-004-phase2-tree-browser.jpg`.
+- Verification: `make check` passed; `make test` passed with 65 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_code_overview -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 25 Playwright tests.
+- Marked Phase 2 as done in `.qrspi/repo-004/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.

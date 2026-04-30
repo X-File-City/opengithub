@@ -150,7 +150,12 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
     fullPage: true,
     path: "../ralph/screenshots/build/repo-003-final-nested-tree.jpg",
   });
-  await expect(page.getByRole("link", { name: /main\.rs/ })).toHaveAttribute(
+  await expect(
+    page
+      .locator("main")
+      .getByRole("link", { name: /main\.rs/ })
+      .last(),
+  ).toHaveAttribute(
     "href",
     new RegExp(`/${normalizedName}/blob/main/src/main\\.rs$`),
   );
@@ -166,7 +171,11 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
     path: "../ralph/screenshots/build/repo-003-final-history.jpg",
   });
   await page.goBack();
-  await page.getByRole("link", { name: /main\.rs/ }).click();
+  await page
+    .locator("main")
+    .getByRole("link", { name: /main\.rs/ })
+    .last()
+    .click();
   await expect(page).toHaveURL(
     new RegExp(`/${normalizedName}/blob/main/src/main\\.rs$`),
   );

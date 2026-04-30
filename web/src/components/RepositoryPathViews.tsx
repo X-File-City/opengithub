@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { RepositoryFileTable } from "@/components/RepositoryFileTable";
+import { RepositoryTreeBrowser } from "@/components/RepositoryTreeBrowser";
 import type {
   ListEnvelope,
   RepositoryBlobView,
@@ -83,29 +83,7 @@ export function RepositoryTreeView({
         <Breadcrumbs breadcrumbs={overview.breadcrumbs} />
       </RepositoryPathHeader>
       <main className="mx-auto max-w-7xl space-y-4 px-6 py-6">
-        {overview.parentHref ? (
-          <Link
-            className="text-sm font-semibold text-[#0969da] hover:underline"
-            href={overview.parentHref}
-          >
-            Parent directory
-          </Link>
-        ) : null}
-        <RepositoryFileTable
-          entries={overview.entries}
-          historyHref={overview.historyHref}
-          latestCommit={overview.latestCommit}
-        />
-        {overview.readme ? (
-          <article className="rounded-md border border-[#d0d7de] bg-white">
-            <h2 className="border-b border-[#d0d7de] px-4 py-3 text-sm font-semibold text-[#1f2328]">
-              {overview.readme.path}
-            </h2>
-            <pre className="whitespace-pre-wrap px-4 py-4 text-sm leading-6 text-[#1f2328]">
-              {overview.readme.content}
-            </pre>
-          </article>
-        ) : null}
+        <RepositoryTreeBrowser overview={overview} />
       </main>
     </div>
   );
