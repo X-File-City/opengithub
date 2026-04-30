@@ -5,12 +5,19 @@ import { POST as dismissHintRoute } from "@/app/dashboard/onboarding/hints/[hint
 import { DashboardOnboarding } from "@/components/DashboardOnboarding";
 import type {
   DashboardActivityItem,
+  DashboardFeedEvent,
+  DashboardFeedPreferences,
   DashboardHintDismissal,
   DashboardIssueSummary,
   DashboardReviewRequest,
   DashboardSummary,
   DashboardTopRepository,
   RepositorySummary,
+} from "@/lib/api";
+import {
+  dashboardSummaryPath,
+  resetDashboardFeedPreferences,
+  saveDashboardFeedPreferences,
 } from "@/lib/api";
 
 const user = {
@@ -83,6 +90,25 @@ function activity(
   };
 }
 
+function feedEvent(
+  overrides: Partial<DashboardFeedEvent> = {},
+): DashboardFeedEvent {
+  return {
+    id: "feed-event-1",
+    eventType: "push",
+    title: "Pushed dashboard feed changes",
+    excerpt: "Updated the dashboard feed controls",
+    occurredAt: "2026-04-30T12:30:00Z",
+    actorLogin: "mona",
+    actorAvatarUrl: null,
+    repositoryName: "mona/octo-app",
+    repositoryHref: "/mona/octo-app",
+    targetHref: "/mona/octo-app/commit/abc123",
+    actionSummary: "mona pushed to mona/octo-app",
+    ...overrides,
+  };
+}
+
 function assignedIssue(
   overrides: Partial<DashboardIssueSummary> = {},
 ): DashboardIssueSummary {
@@ -118,6 +144,8 @@ function dashboardSummary({
   assignedIssues = [],
   reviewRequests = [],
   dismissedHints = [],
+  feedEvents = [],
+  feedPreferences = { feedTab: "following", eventTypes: [] },
 }: {
   repositories?: RepositorySummary[];
   topRepositories?: DashboardTopRepository[];
@@ -125,6 +153,8 @@ function dashboardSummary({
   assignedIssues?: DashboardIssueSummary[];
   reviewRequests?: DashboardReviewRequest[];
   dismissedHints?: DashboardHintDismissal[];
+  feedEvents?: DashboardFeedEvent[];
+  feedPreferences?: DashboardFeedPreferences;
 } = {}): DashboardSummary {
   const sidebarRepositories =
     topRepositories ??
@@ -156,6 +186,18 @@ function dashboardSummary({
     },
     hasRepositories: repositories.length > 0,
     recentActivity,
+    feedEvents,
+    feedPreferences,
+    supportedFeedEventTypes: [
+      "star",
+      "follow",
+      "repository_create",
+      "help_wanted_issue",
+      "help_wanted_pull_request",
+      "push",
+      "fork",
+      "release",
+    ],
     assignedIssues,
     reviewRequests,
     dismissedHints,
@@ -181,6 +223,96 @@ describe("dashboard API types", () => {
       lastVisitedAt: "2026-04-30T12:00:00Z",
       href: "/mona/octo-app",
     });
+  });
+
+  it("keeps feed preferences and event contracts camel-cased", () => {
+    const summary = dashboardSummary({
+      feedEvents: [feedEvent({ eventType: "release" })],
+      feedPreferences: { feedTab: "for_you", eventTypes: ["release", "fork"] },
+    });
+
+    expect(summary.feedPreferences).toEqual({
+      feedTab: "for_you",
+      eventTypes: ["release", "fork"],
+    });
+    expect(summary.feedEvents[0]).toMatchObject({
+      eventType: "release",
+      actorLogin: "mona",
+      repositoryHref: "/mona/octo-app",
+      targetHref: "/mona/octo-app/commit/abc123",
+      actionSummary: "mona pushed to mona/octo-app",
+    });
+    expect(summary.supportedFeedEventTypes).toContain("help_wanted_issue");
+  });
+
+  it("builds dashboard summary URLs with shareable feed filters", () => {
+    expect(
+      dashboardSummaryPath({
+        feedTab: "for_you",
+        eventTypes: ["release", "fork"],
+        repositoryFilter: " octo ",
+      }),
+    ).toBe(
+      "/api/dashboard?feedTab=for_you&eventType=release&eventType=fork&repositoryFilter=octo",
+    );
+    expect(dashboardSummaryPath()).toBe("/api/dashboard");
+  });
+
+  it("writes and resets dashboard feed preferences through the Rust API", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ feedTab: "for_you", eventTypes: ["release"] }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            feedPreferences: { feedTab: "following", eventTypes: [] },
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("API_URL", "http://api.local");
+
+    await expect(
+      saveDashboardFeedPreferences("__Host-session=signed", {
+        feedTab: "for_you",
+        eventTypes: ["release"],
+      }),
+    ).resolves.toEqual({ feedTab: "for_you", eventTypes: ["release"] });
+    await expect(
+      resetDashboardFeedPreferences("__Host-session=signed"),
+    ).resolves.toEqual({ feedTab: "following", eventTypes: [] });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://api.local/api/dashboard/feed-preferences",
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          cookie: "__Host-session=signed",
+        },
+        body: JSON.stringify({
+          feedTab: "for_you",
+          eventTypes: ["release"],
+        }),
+        cache: "no-store",
+      },
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://api.local/api/dashboard/feed-preferences",
+      {
+        method: "DELETE",
+        headers: { cookie: "__Host-session=signed" },
+        cache: "no-store",
+      },
+    );
   });
 });
 

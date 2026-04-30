@@ -1,9 +1,10 @@
 use axum::{
     extract::{RawQuery, State},
     http::{HeaderMap, StatusCode},
-    routing::get,
+    routing::{get, put},
     Json, Router,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
@@ -11,7 +12,8 @@ use crate::{
     auth::extractor::AuthenticatedUser,
     domain::{
         dashboard::{
-            dashboard_summary, DashboardError, DashboardFeedEventType, DashboardFeedTab,
+            dashboard_summary, reset_dashboard_feed_preferences, save_dashboard_feed_preferences,
+            DashboardError, DashboardFeedEventType, DashboardFeedPreferences, DashboardFeedTab,
             DashboardSummary,
         },
         onboarding::OnboardingError,
@@ -21,7 +23,10 @@ use crate::{
 };
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/api/dashboard", get(read))
+    Router::new().route("/api/dashboard", get(read)).route(
+        "/api/dashboard/feed-preferences",
+        put(update_feed_preferences).delete(reset_feed_preferences),
+    )
 }
 
 #[derive(Debug, Default)]
@@ -29,8 +34,30 @@ struct DashboardQuery {
     page: Option<i64>,
     page_size: Option<i64>,
     repository_filter: Option<String>,
-    feed_tab: DashboardFeedTab,
-    event_types: Vec<DashboardFeedEventType>,
+    feed_tab: Option<DashboardFeedTab>,
+    event_types: Option<Vec<DashboardFeedEventType>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateFeedPreferencesRequest {
+    feed_tab: DashboardFeedTabInput,
+    #[serde(default)]
+    event_types: Vec<DashboardFeedEventTypeInput>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(transparent)]
+struct DashboardFeedTabInput(String);
+
+#[derive(Debug, Deserialize)]
+#[serde(transparent)]
+struct DashboardFeedEventTypeInput(String);
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResetFeedPreferencesResponse {
+    feed_preferences: DashboardFeedPreferences,
 }
 
 async fn read(
@@ -48,12 +75,43 @@ async fn read(
         query.page_size.unwrap_or(10),
         query.repository_filter.as_deref(),
         query.feed_tab,
-        &query.event_types,
+        query.event_types.as_deref(),
     )
     .await
     .map_err(map_dashboard_error)?;
 
     Ok(Json(summary))
+}
+
+async fn update_feed_preferences(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(request): Json<UpdateFeedPreferencesRequest>,
+) -> Result<Json<DashboardFeedPreferences>, (StatusCode, Json<ErrorEnvelope>)> {
+    let feed_tab =
+        DashboardFeedTab::try_from(request.feed_tab.0.as_str()).map_err(map_dashboard_error)?;
+    let event_types =
+        normalize_event_type_inputs(request.event_types).map_err(map_dashboard_error)?;
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let preferences = save_dashboard_feed_preferences(pool, actor.0.id, feed_tab, &event_types)
+        .await
+        .map_err(map_dashboard_error)?;
+
+    Ok(Json(preferences))
+}
+
+async fn reset_feed_preferences(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<ResetFeedPreferencesResponse>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let feed_preferences = reset_dashboard_feed_preferences(pool, actor.0.id)
+        .await
+        .map_err(map_dashboard_error)?;
+
+    Ok(Json(ResetFeedPreferencesResponse { feed_preferences }))
 }
 
 fn parse_dashboard_query(raw_query: Option<&str>) -> Result<DashboardQuery, DashboardError> {
@@ -97,17 +155,34 @@ fn parse_dashboard_query(raw_query: Option<&str>) -> Result<DashboardQuery, Dash
         .or_else(|| first_values.get("feed_tab"))
         .map(String::as_str)
     {
-        query.feed_tab = DashboardFeedTab::try_from(feed_tab)?;
+        query.feed_tab = Some(DashboardFeedTab::try_from(feed_tab)?);
     }
 
+    let mut parsed_event_types = Vec::new();
     for value in event_type_values {
         let event_type = DashboardFeedEventType::try_from(value.as_str())?;
-        if !query.event_types.contains(&event_type) {
-            query.event_types.push(event_type);
+        if !parsed_event_types.contains(&event_type) {
+            parsed_event_types.push(event_type);
         }
+    }
+    if !parsed_event_types.is_empty() {
+        query.event_types = Some(parsed_event_types);
     }
 
     Ok(query)
+}
+
+fn normalize_event_type_inputs(
+    inputs: Vec<DashboardFeedEventTypeInput>,
+) -> Result<Vec<DashboardFeedEventType>, DashboardError> {
+    let mut event_types = Vec::new();
+    for input in inputs {
+        let event_type = DashboardFeedEventType::try_from(input.0.as_str())?;
+        if !event_types.contains(&event_type) {
+            event_types.push(event_type);
+        }
+    }
+    Ok(event_types)
 }
 
 fn map_dashboard_error(error: DashboardError) -> (StatusCode, Json<ErrorEnvelope>) {
@@ -134,7 +209,8 @@ fn map_dashboard_error(error: DashboardError) -> (StatusCode, Json<ErrorEnvelope
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
         DashboardError::Repositories(RepositoryError::Sqlx(_))
-        | DashboardError::Onboarding(OnboardingError::Sqlx(_)) => error_response(
+        | DashboardError::Onboarding(OnboardingError::Sqlx(_))
+        | DashboardError::Sqlx(_) => error_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "internal_error",
             "dashboard summary operation failed",

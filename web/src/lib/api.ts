@@ -58,9 +58,43 @@ export type DashboardSummary = {
   topRepositories: ListEnvelope<DashboardTopRepository>;
   hasRepositories: boolean;
   recentActivity: DashboardActivityItem[];
+  feedEvents: DashboardFeedEvent[];
+  feedPreferences: DashboardFeedPreferences;
+  supportedFeedEventTypes: DashboardFeedEventType[];
   assignedIssues: DashboardIssueSummary[];
   reviewRequests: DashboardReviewRequest[];
   dismissedHints: DashboardHintDismissal[];
+};
+
+export type DashboardFeedTab = "following" | "for_you";
+
+export type DashboardFeedEventType =
+  | "star"
+  | "follow"
+  | "repository_create"
+  | "help_wanted_issue"
+  | "help_wanted_pull_request"
+  | "push"
+  | "fork"
+  | "release";
+
+export type DashboardFeedEvent = {
+  id: string;
+  eventType: DashboardFeedEventType;
+  title: string;
+  excerpt: string | null;
+  occurredAt: string;
+  actorLogin: string;
+  actorAvatarUrl: string | null;
+  repositoryName: string;
+  repositoryHref: string;
+  targetHref: string;
+  actionSummary: string;
+};
+
+export type DashboardFeedPreferences = {
+  feedTab: DashboardFeedTab;
+  eventTypes: DashboardFeedEventType[];
 };
 
 export type DashboardActivityItem = {
@@ -207,12 +241,37 @@ export async function getSessionFromHeaders(
   return getSessionFromCookie(requestHeaders.get("cookie"));
 }
 
+export type DashboardSummaryQuery = {
+  feedTab?: DashboardFeedTab;
+  eventTypes?: DashboardFeedEventType[];
+  repositoryFilter?: string;
+};
+
+export function dashboardSummaryPath(
+  query: DashboardSummaryQuery = {},
+): string {
+  const params = new URLSearchParams();
+  if (query.feedTab) {
+    params.set("feedTab", query.feedTab);
+  }
+  for (const eventType of query.eventTypes ?? []) {
+    params.append("eventType", eventType);
+  }
+  if (query.repositoryFilter?.trim()) {
+    params.set("repositoryFilter", query.repositoryFilter.trim());
+  }
+
+  const paramString = params.toString();
+  return paramString ? `/api/dashboard?${paramString}` : "/api/dashboard";
+}
+
 export async function getDashboardSummaryFromCookie(
   cookie: string | null | undefined,
+  query: DashboardSummaryQuery = {},
 ): Promise<DashboardSummary | null> {
   let response: Response;
   try {
-    response = await fetch(`${apiBaseUrl()}/api/dashboard`, {
+    response = await fetch(`${apiBaseUrl()}${dashboardSummaryPath(query)}`, {
       headers: cookie ? { cookie } : undefined,
       cache: "no-store",
     });
@@ -225,6 +284,52 @@ export async function getDashboardSummaryFromCookie(
   }
 
   return (await response.json()) as DashboardSummary;
+}
+
+export async function saveDashboardFeedPreferences(
+  cookie: string | null | undefined,
+  preferences: DashboardFeedPreferences,
+): Promise<DashboardFeedPreferences> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/dashboard/feed-preferences`,
+    {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(preferences),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Dashboard feed preferences failed to save");
+  }
+
+  return (await response.json()) as DashboardFeedPreferences;
+}
+
+export async function resetDashboardFeedPreferences(
+  cookie: string | null | undefined,
+): Promise<DashboardFeedPreferences> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/dashboard/feed-preferences`,
+    {
+      method: "DELETE",
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Dashboard feed preferences failed to reset");
+  }
+
+  const body = (await response.json()) as {
+    feedPreferences: DashboardFeedPreferences;
+  };
+  return body.feedPreferences;
 }
 
 export async function getRepositoryFromCookie(

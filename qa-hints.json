@@ -444,5 +444,23 @@
       "Optional star/follow feed actions are not UI-wired until dashboard-003 Phase 3",
       "Filter persistence is intentionally deferred to dashboard-003 Phase 2"
     ]
+  },
+  {
+    "feature_id": "dashboard-003",
+    "tests_written": [
+      "Added dashboard_feed_preferences migration with user-scoped feed tab and normalized event type defaults",
+      "GET /api/dashboard now includes feedPreferences and supportedFeedEventTypes and uses saved defaults when query params are absent",
+      "PUT /api/dashboard/feed-preferences persists tab/event filters and deduplicates repeated event types",
+      "DELETE /api/dashboard/feed-preferences resets the user to Following with no event filters",
+      "Postgres-backed dashboard_feed_preferences tests cover persistence, reset, validation errors, and query parameters overriding saved preferences",
+      "Vitest coverage verifies dashboard feed DTO shapes, summary query URL construction, and preference write/reset request bodies",
+      "make check and make test passed with TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke test skipped because dashboard-003 Phase 2 is API/data-contract only and does not change visible dashboard controls",
+      "Real Google-created signed sessions should retest preference persistence once the Phase 3 UI writes these endpoints",
+      "Query parameters intentionally override saved preferences while feedPreferences still reports the saved defaults; QA should verify the UI communicates selected query state clearly in Phase 3",
+      "Preference event types are stored as a text array with a CHECK constraint; retest migration compatibility against production RDS before deploy"
+    ]
   }
 ]

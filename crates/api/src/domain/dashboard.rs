@@ -20,6 +20,8 @@ pub struct DashboardSummary {
     pub has_repositories: bool,
     pub recent_activity: Vec<DashboardActivityItem>,
     pub feed_events: Vec<DashboardFeedEvent>,
+    pub feed_preferences: DashboardFeedPreferences,
+    pub supported_feed_event_types: Vec<DashboardFeedEventType>,
     pub assigned_issues: Vec<DashboardIssueSummary>,
     pub review_requests: Vec<DashboardReviewRequest>,
     pub dismissed_hints: Vec<DashboardHintDismissal>,
@@ -110,6 +112,19 @@ impl DashboardFeedEventType {
             Self::Release => "release",
         }
     }
+
+    pub fn supported() -> Vec<Self> {
+        vec![
+            Self::Star,
+            Self::Follow,
+            Self::RepositoryCreate,
+            Self::HelpWantedIssue,
+            Self::HelpWantedPullRequest,
+            Self::Push,
+            Self::Fork,
+            Self::Release,
+        ]
+    }
 }
 
 impl TryFrom<&str> for DashboardFeedEventType {
@@ -155,6 +170,13 @@ pub struct DashboardFeedEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct DashboardFeedPreferences {
+    pub feed_tab: DashboardFeedTab,
+    pub event_types: Vec<DashboardFeedEventType>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardIssueSummary {
     pub id: Uuid,
     pub title: String,
@@ -185,6 +207,8 @@ pub enum DashboardError {
     InvalidFeedTab(String),
     #[error("invalid dashboard feed event type `{0}`")]
     InvalidFeedEventType(String),
+    #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
 }
 
 pub async fn dashboard_summary(
@@ -193,17 +217,22 @@ pub async fn dashboard_summary(
     page: i64,
     page_size: i64,
     repository_filter: Option<&str>,
-    feed_tab: DashboardFeedTab,
-    event_types: &[DashboardFeedEventType],
+    feed_tab: Option<DashboardFeedTab>,
+    event_types: Option<&[DashboardFeedEventType]>,
 ) -> Result<DashboardSummary, DashboardError> {
     let page = page.max(1);
     let page_size = page_size.clamp(1, 30);
+    let feed_preferences = get_dashboard_feed_preferences(pool, user.id).await?;
+    let effective_feed_tab = feed_tab.unwrap_or(feed_preferences.feed_tab);
+    let effective_event_types = event_types.unwrap_or(&feed_preferences.event_types);
     let repositories = list_repositories_for_user(pool, user.id, page, page_size).await?;
     let top_repositories =
         list_top_repositories(pool, user.id, page, page_size, repository_filter).await?;
     let has_repositories = repositories.total > 0;
     let recent_activity = list_recent_activity(pool, user.id).await?;
-    let feed_events = list_dashboard_feed_events(pool, user.id, feed_tab, event_types).await?;
+    let feed_events =
+        list_dashboard_feed_events(pool, user.id, effective_feed_tab, effective_event_types)
+            .await?;
     let assigned_issues = list_assigned_issues(pool, user.id).await?;
     let review_requests = list_review_requests(pool, user.id).await?;
     let dismissed_hints = list_dashboard_hint_dismissals(pool, user.id).await?;
@@ -215,9 +244,106 @@ pub async fn dashboard_summary(
         has_repositories,
         recent_activity,
         feed_events,
+        feed_preferences,
+        supported_feed_event_types: DashboardFeedEventType::supported(),
         assigned_issues,
         review_requests,
         dismissed_hints,
+    })
+}
+
+pub async fn get_dashboard_feed_preferences(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<DashboardFeedPreferences, DashboardError> {
+    let row = sqlx::query(
+        r#"
+        SELECT feed_tab, event_types
+        FROM dashboard_feed_preferences
+        WHERE user_id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let Some(row) = row else {
+        return Ok(DashboardFeedPreferences {
+            feed_tab: DashboardFeedTab::Following,
+            event_types: Vec::new(),
+        });
+    };
+
+    dashboard_feed_preferences_from_row(row)
+}
+
+pub async fn save_dashboard_feed_preferences(
+    pool: &PgPool,
+    user_id: Uuid,
+    feed_tab: DashboardFeedTab,
+    event_types: &[DashboardFeedEventType],
+) -> Result<DashboardFeedPreferences, DashboardError> {
+    let event_type_values = event_types
+        .iter()
+        .map(|event_type| event_type.as_str().to_owned())
+        .collect::<Vec<_>>();
+    let row = sqlx::query(
+        r#"
+        INSERT INTO dashboard_feed_preferences (user_id, feed_tab, event_types)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id)
+        DO UPDATE SET
+            feed_tab = EXCLUDED.feed_tab,
+            event_types = EXCLUDED.event_types
+        RETURNING feed_tab, event_types
+        "#,
+    )
+    .bind(user_id)
+    .bind(feed_tab.as_str())
+    .bind(&event_type_values)
+    .fetch_one(pool)
+    .await?;
+
+    dashboard_feed_preferences_from_row(row)
+}
+
+pub async fn reset_dashboard_feed_preferences(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<DashboardFeedPreferences, DashboardError> {
+    sqlx::query(
+        r#"
+        DELETE FROM dashboard_feed_preferences
+        WHERE user_id = $1
+        "#,
+    )
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+
+    Ok(DashboardFeedPreferences {
+        feed_tab: DashboardFeedTab::Following,
+        event_types: Vec::new(),
+    })
+}
+
+fn dashboard_feed_preferences_from_row(
+    row: sqlx::postgres::PgRow,
+) -> Result<DashboardFeedPreferences, DashboardError> {
+    let feed_tab_value = row.get::<String, _>("feed_tab");
+    let feed_tab = DashboardFeedTab::try_from(feed_tab_value.as_str())?;
+    let event_type_values = row.get::<Vec<String>, _>("event_types");
+    let mut event_types = Vec::new();
+    for event_type_value in event_type_values {
+        let event_type = DashboardFeedEventType::try_from(event_type_value.as_str())?;
+        if !event_types.contains(&event_type) {
+            event_types.push(event_type);
+        }
+    }
+
+    Ok(DashboardFeedPreferences {
+        feed_tab,
+        event_types,
     })
 }
 

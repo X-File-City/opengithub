@@ -315,3 +315,15 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_summary -- --nocapture` passed; `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed.
 - Browser smoke test skipped because this phase is backend schema/API contract only.
 - Marked Phase 1 as done in `.qrspi/dashboard-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
+
+2026-04-30 - dashboard-003 phase 2 feed API preferences
+
+- Implemented Phase 2 from `.qrspi/dashboard-003/structure.md`: user-scoped dashboard feed preferences now persist the default feed tab and normalized event-type filters while query parameters remain authoritative for shareable states.
+- Added SQLx migration `202604300011_dashboard_feed_preferences` for `dashboard_feed_preferences` with supported tab/type constraints and updated-at trigger wiring.
+- Extended `GET /api/dashboard` with `feedPreferences` and `supportedFeedEventTypes`; saved preferences are used when `feedTab`/`eventType` query params are absent, and explicit query params override saved defaults without mutating them.
+- Added protected `PUT /api/dashboard/feed-preferences` and `DELETE /api/dashboard/feed-preferences` with validation envelopes for invalid tabs or event types.
+- Added typed frontend feed DTOs, dashboard query URL construction, and preference save/reset helpers in `web/src/lib/api.ts`.
+- Added `crates/api/tests/dashboard_feed_preferences.rs` and extended `web/tests/dashboard-onboarding.test.tsx` for persistence, reset, invalid input errors, query-overrides-preference behavior, DTO casing, and request bodies.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_feed_preferences -- --nocapture` passed; `cd web && npx vitest run tests/dashboard-onboarding.test.tsx` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 31 frontend tests plus cargo tests.
+- Browser smoke and `make test-e2e` skipped because this phase is API/data-contract only and changed no visible dashboard controls.
+- Marked Phase 2 as done in `.qrspi/dashboard-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.

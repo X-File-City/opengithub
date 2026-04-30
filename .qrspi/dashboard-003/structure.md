@@ -23,7 +23,7 @@
 
 ## Phase 2: Feed API Preferences - optional filter persistence and clearable defaults
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Let the dashboard remember a user's preferred feed tab and event filters while keeping query parameters authoritative for shareable/testable states.
 
