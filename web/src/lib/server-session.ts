@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import {
   type DashboardSummaryQuery,
+  getAppShellContextFromCookie,
   getDashboardSummaryFromCookie,
   getRepositoryBlameFromCookie,
   getRepositoryBlobFromCookie,
@@ -16,6 +17,22 @@ import {
 
 export async function getSession() {
   return getSessionFromHeaders(await headers());
+}
+
+export async function getSessionAndShellContext() {
+  const requestHeaders = await headers();
+  const cookie = requestHeaders.get("cookie");
+  const [session, shellContext] = await Promise.all([
+    getSessionFromHeaders(requestHeaders),
+    getAppShellContextFromCookie(cookie),
+  ]);
+
+  return { session, shellContext };
+}
+
+export async function getAppShellContext() {
+  const requestHeaders = await headers();
+  return getAppShellContextFromCookie(requestHeaders.get("cookie"));
 }
 
 export async function getDashboardSummary(query: DashboardSummaryQuery = {}) {

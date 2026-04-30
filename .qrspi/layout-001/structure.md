@@ -6,7 +6,7 @@
 
 ## Phase 1: Shell Context Contract - signed-in pages have one data source for global navigation
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the Rust and Next.js data contract that the app shell needs: current user, unread notification count, recent repositories, organization/team memberships, and quick-link metadata. Keep existing dashboard/repository pages visually unchanged except for consuming the shared shell context.
 

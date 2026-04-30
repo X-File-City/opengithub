@@ -373,6 +373,49 @@ export type DashboardTopRepository = {
   href: string;
 };
 
+export type AppShellRepository = {
+  id: string;
+  ownerLogin: string;
+  name: string;
+  visibility: RepositoryVisibility;
+  href: string;
+  updatedAt: string;
+  lastVisitedAt: string | null;
+};
+
+export type AppShellOrganization = {
+  id: string;
+  slug: string;
+  displayName: string;
+  role: string;
+  href: string;
+};
+
+export type AppShellTeam = {
+  id: string;
+  organizationId: string;
+  organizationSlug: string;
+  slug: string;
+  name: string;
+  role: string;
+  href: string;
+};
+
+export type AppShellQuickLink = {
+  label: string;
+  href: string;
+  kind: string;
+};
+
+export type AppShellContext = {
+  user: AuthUser;
+  unreadNotificationCount: number;
+  recentRepositories: AppShellRepository[];
+  organizations: AppShellOrganization[];
+  teams: AppShellTeam[];
+  quickLinks: AppShellQuickLink[];
+};
+
 export type ListEnvelope<T> = {
   items: T[];
   total: number;
@@ -574,6 +617,26 @@ export async function getSessionFromHeaders(
   requestHeaders: Headers,
 ): Promise<AuthSession> {
   return getSessionFromCookie(requestHeaders.get("cookie"));
+}
+
+export async function getAppShellContextFromCookie(
+  cookie: string | null | undefined,
+): Promise<AppShellContext | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}/api/app-shell`, {
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    });
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as AppShellContext;
 }
 
 export type DashboardSummaryQuery = {

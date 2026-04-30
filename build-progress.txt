@@ -758,3 +758,13 @@
 - Browser smoke/E2E saved `ralph/screenshots/build/dx-001-settings-tokens.jpg` and `ralph/screenshots/build/dx-001-docs-copy.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 79 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 35 Playwright tests.
 - Set `dx-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - layout-001 phase 1 shell context contract
+
+- Implemented Phase 1 from `.qrspi/layout-001/structure.md`: added a protected Rust `GET /api/app-shell` contract for signed-in global navigation context.
+- Added `crates/api/src/domain/app_shell.rs` and `crates/api/src/routes/app_shell.rs`; the context returns current user, unread notification count, permission-visible recent repositories, organization memberships, team memberships, and quick-link metadata.
+- Added typed frontend shell context DTOs and cookie-forwarding helpers in `web/src/lib/api.ts` and `web/src/lib/server-session.ts`; `AppShell` can now consume the shared shell context without per-page duplicate fetch logic.
+- Kept `prd.json` unchanged because layout-001 still has Phases 2-4 remaining; marked only Phase 1 as done in `.qrspi/layout-001/structure.md`.
+- Fixed local Playwright E2E server configuration to set `DB_SSL=false` and run workers serially so the signed-in Postgres-backed E2E suite does not degrade the API DB pool or race shared seeded browser flows.
+- Verification: `make check` passed; `make test` passed with cargo tests and 80 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test app_shell_context -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 35 Playwright tests after serializing workers.
+- Browser smoke screenshot skipped because Phase 1 is a data-contract slice; existing Playwright signed-in shell/dashboard/repository smoke covered the touched shared shell regression surface.

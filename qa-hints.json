@@ -1058,5 +1058,23 @@
       "Clipboard behavior depends on browser clipboard permission; E2E accepts copied or unavailable status but verifies the buttons are wired",
       "Webhook documentation links are represented through /docs/api and Git/docs references; full webhook management docs remain for the webhooks/settings feature"
     ]
+  },
+  {
+    "feature_id": "layout-001",
+    "tests_written": [
+      "GET /api/app-shell rejects anonymous requests with the standard JSON 401 envelope",
+      "GET /api/app-shell returns database_unavailable for a valid cookie when no DB pool is available",
+      "Postgres-backed app shell context returns current user, unread notification count, quick links, empty memberships, and empty recent repositories for a new user",
+      "Postgres-backed app shell context includes only permission-visible recent repositories and scoped organization/team memberships",
+      "Frontend API helpers forward signed cookies to /api/app-shell and AppShell renders unread notification and recent repository counts when context is present",
+      "make check, make test, targeted Postgres app_shell_context test, and serial Postgres-backed make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 is a data contract only; desktop header menus, search/create interactions, avatar menu behavior, and mobile drawer are deferred to later layout-001 phases",
+      "Recent repositories are bounded and sorted by recent visits then updated_at; QA should stress long repository/organization/team names once the drawer renders them",
+      "Unread notification count is a total only; edge cases around very large counts and live notification refresh remain for the interactive header phase",
+      "Playwright now runs serially because current signed-in E2E tests share one local Postgres/API server and seeded browser flows were flaky with parallel workers",
+      "Browser smoke screenshot was skipped for Phase 1 because no final visible header interaction shipped yet; visual QA should focus on Phase 2 and Phase 3 screenshots"
+    ]
   }
 ]

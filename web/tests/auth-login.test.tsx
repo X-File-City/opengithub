@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import LoginPage from "@/app/login/page";
 import { AppShell } from "@/components/AppShell";
 import {
+  getAppShellContextFromCookie,
   getSessionFromCookie,
   googleStartUrl,
   sanitizeNextPath,
@@ -105,6 +106,58 @@ describe("protected app routes", () => {
 
     vi.unstubAllGlobals();
   });
+
+  it("loads the app shell context with forwarded session cookies", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            user: {
+              id: "user-1",
+              email: "mona@example.com",
+              display_name: "Mona Lisa",
+              avatar_url: null,
+            },
+            unreadNotificationCount: 3,
+            recentRepositories: [
+              {
+                id: "repo-1",
+                ownerLogin: "mona",
+                name: "editorial",
+                visibility: "private",
+                href: "/mona/editorial",
+                updatedAt: "2026-05-01T00:00:00Z",
+                lastVisitedAt: null,
+              },
+            ],
+            organizations: [],
+            teams: [],
+            quickLinks: [
+              { label: "Dashboard", href: "/dashboard", kind: "primary" },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await expect(
+      getAppShellContextFromCookie("__Host-session=value"),
+    ).resolves.toMatchObject({
+      unreadNotificationCount: 3,
+      recentRepositories: [{ href: "/mona/editorial" }],
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:3016/api/app-shell",
+      expect.objectContaining({
+        headers: { cookie: "__Host-session=value" },
+        cache: "no-store",
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("app shell", () => {
@@ -120,6 +173,29 @@ describe("app shell", () => {
             avatar_url: null,
           },
         }}
+        shellContext={{
+          user: {
+            id: "user-1",
+            email: "mona@example.com",
+            display_name: "Mona Lisa",
+            avatar_url: null,
+          },
+          unreadNotificationCount: 2,
+          recentRepositories: [
+            {
+              id: "repo-1",
+              ownerLogin: "mona",
+              name: "editorial",
+              visibility: "private",
+              href: "/mona/editorial",
+              updatedAt: "2026-05-01T00:00:00Z",
+              lastVisitedAt: null,
+            },
+          ],
+          organizations: [],
+          teams: [],
+          quickLinks: [],
+        }}
       >
         <p>Dashboard content</p>
       </AppShell>,
@@ -131,6 +207,10 @@ describe("app shell", () => {
       "href",
       "/logout",
     );
+    expect(
+      screen.getByRole("link", { name: "2 unread notifications" }),
+    ).toHaveAttribute("href", "/notifications");
+    expect(screen.getByText("1 recent repositories")).toBeInTheDocument();
   });
 
   it("renders a sign-in CTA for anonymous public shells", () => {

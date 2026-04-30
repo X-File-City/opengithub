@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod app_shell;
 pub mod auth;
 pub mod dashboard;
 pub mod git;

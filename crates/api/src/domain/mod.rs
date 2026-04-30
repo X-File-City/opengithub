@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod app_shell;
 pub mod dashboard;
 pub mod git_archives;
 pub mod git_transport;
