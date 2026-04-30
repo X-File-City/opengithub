@@ -5,7 +5,10 @@ import type {
   DashboardFeedTab,
   DashboardSummaryQuery,
 } from "@/lib/api";
-import { getDashboardSummary, getSession } from "@/lib/server-session";
+import {
+  getDashboardSummary,
+  getSessionAndShellContext,
+} from "@/lib/server-session";
 
 const FEED_TABS = new Set<DashboardFeedTab>(["following", "for_you"]);
 const FEED_EVENT_TYPES = new Set<DashboardFeedEventType>([
@@ -66,7 +69,7 @@ async function dashboardQueryFromSearchParams(
 export default async function DashboardPage({
   searchParams,
 }: DashboardPageProps) {
-  const session = await getSession();
+  const { session, shellContext } = await getSessionAndShellContext();
   const dashboardQuery = await dashboardQueryFromSearchParams(searchParams);
   const summary =
     session.authenticated && session.user
@@ -75,11 +78,21 @@ export default async function DashboardPage({
 
   if (!session.authenticated || !session.user) {
     return (
-      <AppShell session={session}>
-        <section className="mx-auto max-w-6xl px-6 py-8">
+      <AppShell session={session} shellContext={shellContext}>
+        <section
+          className="mx-auto max-w-6xl px-6 py-8"
+          style={{ maxWidth: 1240 }}
+        >
           <div
-            className="rounded-md border border-[#f1aeb5] bg-[#fff1f3] px-4 py-3 text-sm text-[#82071e]"
+            className="card"
             role="alert"
+            style={{
+              padding: "12px 14px",
+              fontSize: 13,
+              background: "var(--err-soft)",
+              borderColor: "transparent",
+              color: "var(--err)",
+            }}
           >
             Your session could not be verified. Sign in again to continue.
           </div>
@@ -90,11 +103,21 @@ export default async function DashboardPage({
 
   if (!summary) {
     return (
-      <AppShell session={session}>
-        <section className="mx-auto max-w-6xl px-6 py-8">
+      <AppShell session={session} shellContext={shellContext}>
+        <section
+          className="mx-auto max-w-6xl px-6 py-8"
+          style={{ maxWidth: 1240 }}
+        >
           <div
-            className="rounded-md border border-[#f1aeb5] bg-[#fff1f3] px-4 py-3 text-sm text-[#82071e]"
+            className="card"
             role="alert"
+            style={{
+              padding: "12px 14px",
+              fontSize: 13,
+              background: "var(--err-soft)",
+              borderColor: "transparent",
+              color: "var(--err)",
+            }}
           >
             Dashboard data could not be loaded. Refresh or sign in again to
             continue.
@@ -105,7 +128,7 @@ export default async function DashboardPage({
   }
 
   return (
-    <AppShell session={session}>
+    <AppShell session={session} shellContext={shellContext}>
       <DashboardOnboarding
         activeEventTypes={
           dashboardQuery.eventTypes ?? summary.feedPreferences.eventTypes

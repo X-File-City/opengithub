@@ -1076,5 +1076,23 @@
       "Playwright now runs serially because current signed-in E2E tests share one local Postgres/API server and seeded browser flows were flaky with parallel workers",
       "Browser smoke screenshot was skipped for Phase 1 because no final visible header interaction shipped yet; visual QA should focus on Phase 2 and Phase 3 screenshots"
     ]
+  },
+  {
+    "feature_id": "layout-001",
+    "tests_written": [
+      "Implemented Phase 2 desktop app shell header with a client-side global menu, search form, create menu, notification link, and avatar menu",
+      "Added signed-in destinations for /issues, /pulls, /notifications, /search, and /settings/profile so desktop header links do not route to missing pages",
+      "Updated protected-route matching for /issues, /pulls, and /search",
+      "Added Vitest coverage for header link targets, menu actions, search form wiring, notification badge rendering, avatar actions, and no inert links",
+      "Added Playwright coverage for a real Postgres-backed signed-in session opening menus, using search, checking create/profile/settings links, signing out, and saving ralph/screenshots/build/layout-001-phase2-desktop-header.jpg",
+      "Verification passed: make check, make test with 84 frontend tests plus cargo tests, and TEST_DATABASE_URL-backed make test-e2e with 36 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 intentionally focuses on desktop; full mobile drawer behavior and focus trapping remain Phase 3",
+      "Notification badge currently uses the shell context count at page load; live refresh/polling is not implemented in this phase",
+      "Search header submits to the lightweight /search destination; full indexed result rendering remains a later search feature",
+      "Issues, pulls, notifications, and profile settings pages are lightweight destinations to avoid dead routes; full list/detail behavior remains later PRD work",
+      "QA should stress very long user, repository, organization, and team names in the global and avatar menus"
+    ]
   }
 ]

@@ -7,7 +7,7 @@ test("anonymous dashboard requests redirect to the login card", async ({
 
   await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
   await expect(
-    page.getByRole("heading", { name: "Sign in to opengithub" }),
+    page.getByRole("heading", { name: "Welcome back." }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Continue with Google" }),
@@ -34,13 +34,13 @@ test("public sign-in CTA opens the shared Google-only login page", async ({
 }) => {
   await page.goto("/");
 
-  const signIn = page.getByRole("link", { name: "Sign in" });
+  const signIn = page.getByRole("link", { exact: true, name: "Sign in" });
   await expect(signIn).toHaveAttribute("href", "/login");
   await signIn.click();
 
   await expect(page).toHaveURL("http://localhost:3015/login");
   await expect(
-    page.getByRole("heading", { name: "Sign in to opengithub" }),
+    page.getByRole("heading", { name: "Welcome back." }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Continue with Google" }),
@@ -106,7 +106,9 @@ test("callback and logout failures return users to safe pages", async ({
 
   await page.goto("/logout");
   await expect(page).toHaveURL("http://localhost:3015/");
-  await expect(page.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { exact: true, name: "Sign in" }),
+  ).toBeVisible();
 
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);

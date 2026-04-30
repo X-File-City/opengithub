@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import LoginPage from "@/app/login/page";
 import { AppShell } from "@/components/AppShell";
@@ -202,15 +202,19 @@ describe("app shell", () => {
     );
 
     expect(screen.getByText("Dashboard content")).toBeInTheDocument();
-    expect(screen.getAllByText("Mona Lisa")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "Sign out" })).toHaveAttribute(
+    fireEvent.click(screen.getByRole("button", { name: "Open user menu" }));
+    expect(screen.getAllByText("Mona Lisa")).toHaveLength(1);
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).toHaveAttribute(
       "href",
       "/logout",
     );
     expect(
       screen.getByRole("link", { name: "2 unread notifications" }),
     ).toHaveAttribute("href", "/notifications");
-    expect(screen.getByText("1 recent repositories")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Global menu" }));
+    expect(
+      screen.getByRole("menuitem", { name: "mona/editorial" }),
+    ).toHaveAttribute("href", "/mona/editorial");
   });
 
   it("renders a sign-in CTA for anonymous public shells", () => {

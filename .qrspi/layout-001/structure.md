@@ -24,7 +24,7 @@
 
 ## Phase 2: Desktop Header Interactions - global navigation, search entry, create menu, notifications, and avatar menu work
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the minimal `AppShell` header with a GitHub-style sticky desktop header for signed-in pages. Every visible control must have a real target or stateful menu: GitHub mark to `/dashboard`, hamburger/global menu trigger, search/jump input to search, create plus menu, Issues/Pull requests quick links, notifications link with unread badge, and avatar menu with profile/settings/sign-out.
 

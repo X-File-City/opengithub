@@ -20,7 +20,10 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/new/:path*",
+    "/issues/:path*",
+    "/pulls/:path*",
     "/notifications/:path*",
+    "/search/:path*",
     "/settings/:path*",
     "/:owner/:repo/settings/:path*",
   ],

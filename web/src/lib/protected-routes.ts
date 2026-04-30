@@ -1,7 +1,10 @@
 export const PROTECTED_PATHS = [
   "/dashboard",
   "/new",
+  "/issues",
+  "/pulls",
   "/notifications",
+  "/search",
   "/settings",
 ] as const;
 

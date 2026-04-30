@@ -1,12 +1,12 @@
 import { ApiDocsPage } from "@/components/ApiDocsPage";
 import { AppShell } from "@/components/AppShell";
-import { getSession } from "@/lib/server-session";
+import { getSessionAndShellContext } from "@/lib/server-session";
 
 export default async function RestApiDocsPage() {
-  const session = await getSession();
+  const { session, shellContext } = await getSessionAndShellContext();
 
   return (
-    <AppShell session={session}>
+    <AppShell session={session} shellContext={shellContext}>
       <ApiDocsPage />
     </AppShell>
   );

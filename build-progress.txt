@@ -258,6 +258,7 @@
 
 - Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
 - Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
+
 - Did not change `prd.json`; `dashboard-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
 
@@ -768,3 +769,13 @@
 - Fixed local Playwright E2E server configuration to set `DB_SSL=false` and run workers serially so the signed-in Postgres-backed E2E suite does not degrade the API DB pool or race shared seeded browser flows.
 - Verification: `make check` passed; `make test` passed with cargo tests and 80 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test app_shell_context -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 35 Playwright tests after serializing workers.
 - Browser smoke screenshot skipped because Phase 1 is a data-contract slice; existing Playwright signed-in shell/dashboard/repository smoke covered the touched shared shell regression surface.
+
+2026-05-01 - layout-001 phase 2 desktop header interactions
+
+- Implemented Phase 2 from `.qrspi/layout-001/structure.md`: replaced the minimal signed-in shell header with an Editorial desktop app header backed by `AppHeader`.
+- Added working global navigation, search form, create menu, notifications link, avatar menu, outside-click/Escape close behavior, and real destinations for `/issues`, `/pulls`, `/notifications`, `/search`, and `/settings/profile`.
+- Updated protected-route handling for `/issues`, `/pulls`, and `/search`; dashboard, repository overview, new repository, import, docs API, and developer settings pages now pass shared shell context where needed.
+- Added `web/tests/app-shell.test.tsx` and `web/tests/e2e/app-shell.spec.ts`; updated stale auth E2E selectors to match the current Editorial login copy.
+- Browser smoke: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` exercised a real signed Rust session, opened every desktop header menu/control, submitted search, signed out, and saved `ralph/screenshots/build/layout-001-phase2-desktop-header.jpg`.
+- Verification: `make check` passed; `make test` passed with 84 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 36 Playwright tests.
+- Marked Phase 2 as done in `.qrspi/layout-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.

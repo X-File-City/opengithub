@@ -1,12 +1,12 @@
 import { AppShell } from "@/components/AppShell";
 import { DeveloperTokensPage } from "@/components/DeveloperTokensPage";
-import { getSession } from "@/lib/server-session";
+import { getSessionAndShellContext } from "@/lib/server-session";
 
 export default async function SettingsTokensRoute() {
-  const session = await getSession();
+  const { session, shellContext } = await getSessionAndShellContext();
 
   return (
-    <AppShell session={session}>
+    <AppShell session={session} shellContext={shellContext}>
       <DeveloperTokensPage />
     </AppShell>
   );

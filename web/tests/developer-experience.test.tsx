@@ -61,8 +61,9 @@ describe("DeveloperTokensPage", () => {
       </AppShell>,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Open user menu" }));
     expect(
-      screen.getByRole("link", { name: "Developer settings" }),
+      screen.getByRole("menuitem", { name: "Developer settings" }),
     ).toHaveAttribute("href", "/settings/tokens");
   });
 });
