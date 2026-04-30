@@ -6,7 +6,7 @@
 
 ## Phase 1: Top Repository Contract - dashboard API returns ranked sidebar-ready repository rows
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Extend the protected dashboard summary from generic repository records to the exact top-repository sidebar contract the UI needs, while preserving the existing onboarding empty state.
 

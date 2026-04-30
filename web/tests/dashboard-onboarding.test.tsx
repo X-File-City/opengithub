@@ -6,6 +6,7 @@ import { DashboardOnboarding } from "@/components/DashboardOnboarding";
 import type {
   DashboardHintDismissal,
   DashboardSummary,
+  DashboardTopRepository,
   RepositorySummary,
 } from "@/lib/api";
 
@@ -34,6 +35,22 @@ function repository(overrides: Partial<RepositorySummary> = {}) {
   } satisfies RepositorySummary;
 }
 
+function topRepository(
+  overrides: Partial<DashboardTopRepository> = {},
+): DashboardTopRepository {
+  return {
+    ownerLogin: "mona",
+    name: "octo-app",
+    visibility: "public",
+    primaryLanguage: "TypeScript",
+    primaryLanguageColor: "#3178c6",
+    updatedAt: "2026-04-30T00:00:00Z",
+    lastVisitedAt: null,
+    href: "/mona/octo-app",
+    ...overrides,
+  };
+}
+
 function dismissedHint(hintKey: string): DashboardHintDismissal {
   return {
     id: `dismissal-${hintKey}`,
@@ -45,16 +62,38 @@ function dismissedHint(hintKey: string): DashboardHintDismissal {
 
 function dashboardSummary({
   repositories = [],
+  topRepositories,
   dismissedHints = [],
 }: {
   repositories?: RepositorySummary[];
+  topRepositories?: DashboardTopRepository[];
   dismissedHints?: DashboardHintDismissal[];
 } = {}): DashboardSummary {
+  const sidebarRepositories =
+    topRepositories ??
+    repositories.map((item) =>
+      topRepository({
+        ownerLogin: item.owner_login,
+        name: item.name,
+        visibility: item.visibility,
+        primaryLanguage: null,
+        primaryLanguageColor: null,
+        updatedAt: item.updated_at,
+        href: `/${item.owner_login}/${item.name}`,
+      }),
+    );
+
   return {
     user,
     repositories: {
       items: repositories,
       total: repositories.length,
+      page: 1,
+      pageSize: 30,
+    },
+    topRepositories: {
+      items: sidebarRepositories,
+      total: sidebarRepositories.length,
       page: 1,
       pageSize: 30,
     },
@@ -65,6 +104,28 @@ function dashboardSummary({
     dismissedHints,
   };
 }
+
+describe("dashboard API types", () => {
+  it("keeps the sidebar top repository contract camel-cased", () => {
+    const summary = dashboardSummary({
+      repositories: [repository()],
+      topRepositories: [
+        topRepository({ lastVisitedAt: "2026-04-30T12:00:00Z" }),
+      ],
+    });
+
+    expect(summary.topRepositories.items[0]).toEqual({
+      ownerLogin: "mona",
+      name: "octo-app",
+      visibility: "public",
+      primaryLanguage: "TypeScript",
+      primaryLanguageColor: "#3178c6",
+      updatedAt: "2026-04-30T00:00:00Z",
+      lastVisitedAt: "2026-04-30T12:00:00Z",
+      href: "/mona/octo-app",
+    });
+  });
+});
 
 describe("dashboard onboarding", () => {
   afterEach(() => {

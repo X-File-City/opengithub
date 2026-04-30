@@ -304,5 +304,22 @@
       "Compare final dashboard spacing and typography against live GitHub dashboard references; current inspect assets include auth/dashboard redirect but not the signed-in empty dashboard",
       "Repository creation still uses a direct API call in smoke because the full /new form is a later feature; QA should retest onboarding after repo-001 ships"
     ]
+  },
+  {
+    "feature_id": "dashboard-001",
+    "tests_written": [
+      "GET /api/dashboard still returns the existing onboarding repository envelope for zero-repository users",
+      "GET /api/dashboard now returns a camelCase topRepositories envelope with ownerLogin, visibility, primaryLanguage, primaryLanguageColor, updatedAt, lastVisitedAt, and href",
+      "Postgres-backed dashboard tests cover recent-visit-first ranking, repository updated-at fallback ordering, primary language by byte count, pagination, and repositoryFilter matching",
+      "Postgres-backed dashboard tests cover private repository isolation so another user's private matching repository is not leaked",
+      "Frontend unit tests cover the new typed topRepositories DTO shape while preserving existing onboarding component behavior",
+      "make check, make test, and make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke was skipped because dashboard-001 Phase 1 is API/data-contract only and does not change visible dashboard interactions",
+      "The current dashboard sidebar still renders from the older repositories envelope until Phase 2 swaps it to topRepositories",
+      "Repository language metadata is seeded/tested directly in Postgres; real language detection waits for Git ingestion/code browsing features",
+      "Recent repository visits are persisted as metadata but no UI action records visits yet; Phase 2 and later repository navigation should validate visit updates once wired"
+    ]
   }
 ]

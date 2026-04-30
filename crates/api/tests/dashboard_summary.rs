@@ -155,6 +155,13 @@ async fn dashboard_summary_returns_empty_state_contract_for_new_user() {
     assert_eq!(body["repositories"]["total"], 0);
     assert_eq!(body["repositories"]["page"], 1);
     assert_eq!(body["repositories"]["pageSize"], 10);
+    assert_eq!(body["topRepositories"]["total"], 0);
+    assert_eq!(body["topRepositories"]["page"], 1);
+    assert_eq!(body["topRepositories"]["pageSize"], 10);
+    assert!(body["topRepositories"]["items"]
+        .as_array()
+        .unwrap()
+        .is_empty());
     assert_eq!(body["hasRepositories"], false);
     assert_eq!(body["recentActivity"].as_array().unwrap().len(), 0);
     assert_eq!(body["assignedIssues"].as_array().unwrap().len(), 0);
@@ -225,4 +232,201 @@ async fn dashboard_summary_includes_repositories_and_dismissed_hints() {
         .expect("repository name should be a string");
     assert!(repo_name == first_repo_name || repo_name == second_repo_name);
     assert_eq!(body["dismissedHints"][0]["hintKey"], "create-repository");
+}
+
+#[tokio::test]
+async fn dashboard_summary_returns_ranked_sidebar_repository_contract() {
+    let Some(pool) = database_pool().await else {
+        eprintln!(
+            "skipping Postgres dashboard summary scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
+        return;
+    };
+
+    let config = app_config();
+    let user = create_user(&pool, "dashboard-top-repos").await;
+    let other_user = create_user(&pool, "dashboard-other").await;
+    let cookie = cookie_header(&pool, &config, &user).await;
+    let alpha_name = format!("alpha-{}", Uuid::new_v4().simple());
+    let beta_name = format!("beta-{}", Uuid::new_v4().simple());
+    let private_name = format!("private-{}", Uuid::new_v4().simple());
+    let inaccessible_name = format!("hidden-{}", Uuid::new_v4().simple());
+
+    let alpha = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: user.id },
+            name: alpha_name.clone(),
+            description: Some("Rust service".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: user.id,
+        },
+    )
+    .await
+    .expect("alpha repository should create");
+    let beta = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: user.id },
+            name: beta_name.clone(),
+            description: Some("TypeScript app".to_owned()),
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: user.id,
+        },
+    )
+    .await
+    .expect("beta repository should create");
+    create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: user.id },
+            name: private_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: user.id,
+        },
+    )
+    .await
+    .expect("private repository should create");
+    create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: other_user.id },
+            name: inaccessible_name,
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: other_user.id,
+        },
+    )
+    .await
+    .expect("inaccessible repository should create");
+
+    sqlx::query(
+        r#"
+        UPDATE repositories
+        SET updated_at = CASE id
+            WHEN $1 THEN '2026-04-30T11:00:00Z'::timestamptz
+            WHEN $2 THEN '2026-04-30T09:00:00Z'::timestamptz
+            ELSE '2026-04-30T08:00:00Z'::timestamptz
+        END
+        WHERE id IN ($1, $2)
+           OR owner_user_id = $3
+        "#,
+    )
+    .bind(alpha.id)
+    .bind(beta.id)
+    .bind(user.id)
+    .execute(&pool)
+    .await
+    .expect("repository timestamps should update");
+
+    sqlx::query(
+        r#"
+        INSERT INTO repository_languages (repository_id, language, color, byte_count)
+        VALUES
+            ($1, 'Rust', '#dea584', 800),
+            ($1, 'Shell', '#89e051', 100),
+            ($2, 'JavaScript', '#f1e05a', 100),
+            ($2, 'TypeScript', '#3178c6', 900)
+        "#,
+    )
+    .bind(alpha.id)
+    .bind(beta.id)
+    .execute(&pool)
+    .await
+    .expect("repository languages should insert");
+
+    sqlx::query(
+        r#"
+        INSERT INTO recent_repository_visits (user_id, repository_id, visited_at)
+        VALUES ($1, $2, '2026-04-30T12:00:00Z'::timestamptz)
+        "#,
+    )
+    .bind(user.id)
+    .bind(beta.id)
+    .execute(&pool)
+    .await
+    .expect("recent visit should insert");
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let (status, body) = send_json(app, "/api/dashboard?pageSize=2", Some(&cookie)).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["topRepositories"]["total"], 3);
+    assert_eq!(body["topRepositories"]["page"], 1);
+    assert_eq!(body["topRepositories"]["pageSize"], 2);
+    let items = body["topRepositories"]["items"]
+        .as_array()
+        .expect("top repositories should be an array");
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["ownerLogin"], user.email);
+    assert_eq!(items[0]["name"], beta_name);
+    assert_eq!(items[0]["visibility"], "private");
+    assert_eq!(items[0]["primaryLanguage"], "TypeScript");
+    assert_eq!(items[0]["primaryLanguageColor"], "#3178c6");
+    assert_eq!(items[0]["lastVisitedAt"], "2026-04-30T12:00:00Z");
+    assert_eq!(items[0]["href"], format!("/{}/{}", user.email, beta_name));
+    assert_eq!(items[1]["name"], alpha_name);
+    assert_eq!(items[1]["primaryLanguage"], "Rust");
+    assert_eq!(body["topRepositories"]["total"], 3);
+}
+
+#[tokio::test]
+async fn dashboard_summary_filters_top_repositories_without_leaking_private_repos() {
+    let Some(pool) = database_pool().await else {
+        eprintln!(
+            "skipping Postgres dashboard summary scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
+        return;
+    };
+
+    let config = app_config();
+    let user = create_user(&pool, "dashboard-filter").await;
+    let other_user = create_user(&pool, "dashboard-filter-other").await;
+    let cookie = cookie_header(&pool, &config, &user).await;
+    let visible_name = format!("visible-match-{}", Uuid::new_v4().simple());
+    let hidden_name = format!("hidden-match-{}", Uuid::new_v4().simple());
+    create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: user.id },
+            name: visible_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: user.id,
+        },
+    )
+    .await
+    .expect("visible repository should create");
+    create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: other_user.id },
+            name: hidden_name,
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: other_user.id,
+        },
+    )
+    .await
+    .expect("hidden repository should create");
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let (status, body) = send_json(
+        app,
+        "/api/dashboard?pageSize=30&repositoryFilter=match",
+        Some(&cookie),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["topRepositories"]["total"], 1);
+    assert_eq!(body["topRepositories"]["items"][0]["name"], visible_name);
+    assert!(!body.to_string().contains("hidden-match"));
 }

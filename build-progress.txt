@@ -222,3 +222,14 @@
 - Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
 - Did not change `prd.json`; `dashboard-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - dashboard-001 phase 1 top repository contract
+
+- Implemented Phase 1 from `.qrspi/dashboard-001/structure.md`: dashboard repository metadata tables and a sidebar-ready top repository API contract on `GET /api/dashboard`.
+- Added SQLx migration `202604300007_dashboard_repository_metadata` for `repository_languages` and `recent_repository_visits` with uniqueness, lookup indexes, and updated-at triggers.
+- Added `DashboardTopRepository` and `topRepositories` to the dashboard summary response with `ownerLogin`, `name`, `visibility`, `primaryLanguage`, `primaryLanguageColor`, `updatedAt`, `lastVisitedAt`, and `href`; kept the existing `repositories` envelope for onboarding compatibility.
+- Added ranking/filtering behavior for top repositories: recent visit first, then repository updated time, with server-side page/pageSize clamping and `repositoryFilter` matching owner or repository name.
+- Added Postgres-backed dashboard summary tests for empty-state compatibility, ranking, language selection by byte count, JSON casing, pagination, repository filtering, and private repository isolation; updated frontend DTO/unit coverage.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test dashboard_summary -- --nocapture` passed; `cd web && npx vitest run tests/dashboard-onboarding.test.tsx` passed; `make check` passed; `make test` passed; `make test-e2e` passed.
+- Browser smoke test skipped because this phase is API/data-contract only and changed no visible dashboard interaction.
+- Marked Phase 1 as done in `.qrspi/dashboard-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.

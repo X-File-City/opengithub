@@ -26,6 +26,7 @@ pub fn router() -> Router<AppState> {
 struct DashboardQuery {
     page: Option<i64>,
     page_size: Option<i64>,
+    repository_filter: Option<String>,
 }
 
 async fn read(
@@ -40,6 +41,7 @@ async fn read(
         actor.into_auth_user(),
         query.page.unwrap_or(1),
         query.page_size.unwrap_or(10),
+        query.repository_filter.as_deref(),
     )
     .await
     .map_err(map_dashboard_error)?;

@@ -27,6 +27,17 @@ export type RepositorySummary = {
   updated_at: string;
 };
 
+export type DashboardTopRepository = {
+  ownerLogin: string;
+  name: string;
+  visibility: RepositoryVisibility;
+  primaryLanguage: string | null;
+  primaryLanguageColor: string | null;
+  updatedAt: string;
+  lastVisitedAt: string | null;
+  href: string;
+};
+
 export type ListEnvelope<T> = {
   items: T[];
   total: number;
@@ -44,6 +55,7 @@ export type DashboardHintDismissal = {
 export type DashboardSummary = {
   user: AuthUser;
   repositories: ListEnvelope<RepositorySummary>;
+  topRepositories: ListEnvelope<DashboardTopRepository>;
   hasRepositories: boolean;
   recentActivity: [];
   assignedIssues: [];
