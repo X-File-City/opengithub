@@ -66,10 +66,23 @@ Test the feature thoroughly:
    - Compare against `ralph/screenshots/inspect/` and `behavior` field for **information architecture and interactions** (NOT visual design)
    - Test edge cases: empty inputs, rapid clicks, unexpected data
 
-### Step A3b: Visual Design Fidelity (Editorial design system, NOT GitHub)
-**Critical**: this product clones GitHub's *capabilities* but uses the **Editorial** design system. The reference for visual design is `design/project/Prototype.html` and the `og-screens-*.jsx` files — NOT the original GitHub screenshots.
+### Step A3b: Visual Design Fidelity (Editorial design system, NOT GitHub) — HARD GATE
+**Critical**: this product clones GitHub's *capabilities* but uses the **Editorial** design system. The reference for visual design is `design/project/Prototype.html` and the `og-screens-*.jsx` files — NOT the original GitHub screenshots in `ralph/screenshots/inspect/`. Inspect screenshots show information architecture only.
 
-Verify on every UI page touched by this feature:
+The Editorial theme is **locked**. If a build agent re-introduced GitHub colors, that is a critical visual regression and a `qa_pass: false`. Do not let it ship.
+
+#### Required automated check (run before recording qa-report)
+
+```bash
+# Banned: any GitHub-style hex or Primer/Octicon import in web/ source.
+rg -nE '#(0969da|1f883d|1a7f37|cf222e|82071e|f6f8fa|1f2328|d0d7de|59636e|f1aeb5|fff1f3)\b|@primer/|Octicon' web/src/ --glob '!**/og*.css' && \
+  echo "FAIL: visual regression — file as critical bug, fix before qa_pass"
+```
+
+Any hit on this grep is an automatic **critical bug** in the `bugs_found` array of `qa-report.json`. Fix by swapping to Editorial tokens (`var(--bg)`, `var(--ink-1)`, `var(--accent)`, `var(--line)`, `var(--ok)`, `var(--err)`, `var(--err-soft)`, etc.) or design-system primitives (`.btn`, `.chip.err`, `.card`).
+
+#### Manual visual verification (every UI page touched)
+
 - Background is warm cream `var(--bg)` (`#faf7f2`), not white. Text is ink black `var(--ink-1)` (`#14120e`), not GitHub gray.
 - Primary type is **Fraunces** (display) + **Inter Tight** (body) + **JetBrains Mono** (code/IDs/kbd). System sans-serif (Arial, Helvetica) is a bug.
 - Accent color is deep rust `var(--accent)` (`oklch(0.56 0.16 32)`). Any GitHub blue (`#0969da`), GitHub green (`#1f883d`), or GitHub red (`#cf222e`) is a bug — file as critical visual regression.
@@ -79,6 +92,8 @@ Verify on every UI page touched by this feature:
 - No Octicons or Primer imports.
 
 If the page does NOT look Editorial — file the visual fidelity bugs and fix them before marking `qa_pass: true`. Take a screenshot for `ralph/screenshots/qa/` and compare side-by-side with the closest screen in `design/project/og-screens-*.jsx`.
+
+**Do not regress in the fix.** When fixing, replace banned values with Editorial tokens — never just delete the offending UI or weaken the test.
 
 <important if="category is auth">
 ### Auth Feature Verification

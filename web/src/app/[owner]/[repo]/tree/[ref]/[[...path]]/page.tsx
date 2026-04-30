@@ -99,22 +99,25 @@ export default async function RepositoryTreePage({
         )
       ) : (
         <section className="mx-auto max-w-6xl px-6 py-8">
-          <div className="rounded-md border border-[#d0d7de] bg-white p-5">
-            <h1 className="text-2xl font-semibold tracking-normal text-[#1f2328]">
+          <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-5">
+            <h1 className="text-2xl font-semibold tracking-normal text-[var(--ink-1)]">
               Path unavailable
             </h1>
-            <p className="mt-2 text-sm leading-6 text-[#59636e]" role="status">
+            <p
+              className="mt-2 t-sm leading-6 text-[var(--ink-3)]"
+              role="status"
+            >
               The requested folder could not be loaded for this session.
             </p>
             <Link
-              className="mt-4 inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+              className="btn mt-4 inline-flex h-9 items-center px-4 text-[var(--accent)] hover:bg-[var(--surface-2)]"
               href={`/${ownerLogin}/${repositoryName}`}
             >
               Back to repository
             </Link>
             {recoveryRepository ? (
               <Link
-                className="ml-2 mt-4 inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-[#0969da] px-4 text-sm font-semibold text-white hover:bg-[#0757b8]"
+                className="btn accent ml-2 mt-4 inline-flex h-9 items-center px-4 text-[var(--accent-ink)] hover:bg-[var(--accent-hover)]"
                 href={`/${ownerLogin}/${repositoryName}/tree/${recoveryRepository.default_branch}`}
               >
                 Open default branch

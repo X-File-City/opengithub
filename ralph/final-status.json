@@ -1,0 +1,12 @@
+{
+  "status": "BUILD_INCOMPLETE",
+  "reason": "Build loop ended without all features passing",
+  "counts": {
+    "total": 119,
+    "build_passed": 17,
+    "qa_passed": 0,
+    "exhausted": 0,
+    "blocked": 119
+  },
+  "logFile": "ralph-watchdog-20260430-084127.log"
+}

@@ -74,9 +74,10 @@ function LineNumber({ line }: { line: number }) {
   return (
     <a
       aria-label={`Line ${line}`}
-      className="block select-none px-3 text-right text-[#59636e] hover:text-[#0969da]"
+      className="block select-none px-3 text-right hover:underline"
       href={`#L${line}`}
       id={`L${line}`}
+      style={{ color: "var(--ink-3)" }}
     >
       {line}
     </a>
@@ -139,88 +140,90 @@ function BlobToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <fieldset className="inline-flex overflow-hidden rounded-md border border-[#d0d7de] bg-white text-sm font-semibold">
+      <fieldset
+        className="inline-flex overflow-hidden rounded-md t-sm font-semibold"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+        }}
+      >
         <legend className="sr-only">Blob view mode</legend>
         <Link
           aria-current={mode === "code" ? "page" : undefined}
-          className={`px-3 py-1.5 text-[#1f2328] ${
-            mode === "code" ? "bg-[#f6f8fa]" : "hover:bg-[#f6f8fa]"
-          }`}
+          className="px-3 py-1.5"
           href={current}
+          style={{
+            color: "var(--ink-1)",
+            background: mode === "code" ? "var(--surface-2)" : undefined,
+          }}
         >
           Code
         </Link>
         <Link
           aria-current={mode === "blame" ? "page" : undefined}
-          className={`border-l border-[#d0d7de] px-3 py-1.5 text-[#1f2328] ${
-            mode === "blame" ? "bg-[#f6f8fa]" : "hover:bg-[#f6f8fa]"
-          }`}
+          className="border-l px-3 py-1.5"
           href={`${current}?view=blame`}
+          style={{
+            borderColor: "var(--line)",
+            color: "var(--ink-1)",
+            background: mode === "blame" ? "var(--surface-2)" : undefined,
+          }}
         >
           Blame
         </Link>
       </fieldset>
-      <span className="text-sm text-[#59636e]">
+      <span className="t-sm" style={{ color: "var(--ink-3)" }}>
         {blob.lineCount} lines ({blob.locCount} loc) · {blob.sizeLabel}
         {blob.language ? ` · ${blob.language}` : ""}
       </span>
       <div className="ml-auto flex flex-wrap items-center gap-2 max-md:ml-0">
-        <button
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
-          onClick={onSymbolsOpen}
-          type="button"
-        >
+        <button className="btn sm" onClick={onSymbolsOpen} type="button">
           Symbols
         </button>
         {!blob.isBinary && !blob.isLarge ? (
-          <button
-            className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
-            onClick={onLineJump}
-            type="button"
-          >
+          <button className="btn sm" onClick={onLineJump} type="button">
             Jump to line
           </button>
         ) : null}
-        <Link
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
-          href={raw}
-        >
+        <Link className="btn sm" href={raw}>
           Raw
         </Link>
-        <button
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
-          onClick={copyRaw}
-          type="button"
-        >
+        <button className="btn sm" onClick={copyRaw} type="button">
           Copy raw
         </button>
-        <Link
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
-          download={blob.pathName}
-          href={download}
-        >
+        <Link className="btn sm" download={blob.pathName} href={download}>
           Download
         </Link>
         <details className="relative">
-          <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]">
+          <summary className="btn sm inline-flex cursor-pointer list-none items-center">
             More
           </summary>
-          <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md border border-[#d0d7de] bg-white py-1 text-sm shadow-lg">
+          <div
+            className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md py-1 t-sm"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+              boxShadow: "var(--shadow-md)",
+            }}
+          >
             <Link
-              className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="block px-3 py-2 hover:bg-[var(--surface-2)]"
               href={blob.permalinkHref}
+              style={{ color: "var(--ink-1)" }}
             >
               Copy permalink target
             </Link>
             <Link
-              className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="block px-3 py-2 hover:bg-[var(--surface-2)]"
               href={blob.defaultBranchHref}
+              style={{ color: "var(--ink-1)" }}
             >
               Open default branch
             </Link>
             <Link
-              className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="block px-3 py-2 hover:bg-[var(--surface-2)]"
               href={`${base}/commits/${refSegment(blob)}`}
+              style={{ color: "var(--ink-1)" }}
             >
               Repository commits
             </Link>
@@ -228,7 +231,11 @@ function BlobToolbar({
         </details>
       </div>
       {copyStatus ? (
-        <p className="basis-full text-xs text-[#1a7f37]" role="status">
+        <p
+          className="basis-full t-xs"
+          role="status"
+          style={{ color: "var(--ok)" }}
+        >
           {copyStatus}
         </p>
       ) : null}
@@ -240,33 +247,48 @@ function LatestCommitStrip({ blob }: RepositoryBlobViewerProps) {
   const commit = blob.latestPathCommit ?? blob.latestCommit;
   if (!commit) {
     return (
-      <div className="rounded-md border border-[#d0d7de] bg-white px-4 py-3 text-sm text-[#59636e]">
+      <div
+        className="rounded-md px-4 py-3 t-sm"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+          color: "var(--ink-3)",
+        }}
+      >
         No commit metadata is available for this file yet.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border border-[#d0d7de] bg-white px-4 py-3 text-sm">
-      <span className="font-semibold text-[#1f2328]">{blob.owner_login}</span>
+    <div
+      className="flex flex-wrap items-center gap-3 rounded-md px-4 py-3 t-sm"
+      style={{ border: "1px solid var(--line)", background: "var(--surface)" }}
+    >
+      <span className="font-semibold" style={{ color: "var(--ink-1)" }}>
+        {blob.owner_login}
+      </span>
       <Link
-        className="min-w-0 flex-1 truncate text-[#0969da] hover:underline"
+        className="min-w-0 flex-1 truncate hover:underline"
         href={commit.href}
+        style={{ color: "var(--accent)" }}
       >
         {commit.message}
       </Link>
       <Link
-        className="font-mono text-xs text-[#59636e] hover:text-[#0969da]"
+        className="t-mono-sm hover:underline"
         href={commit.href}
+        style={{ color: "var(--ink-3)" }}
       >
         {commit.shortOid}
       </Link>
-      <span className="text-xs text-[#59636e]">
+      <span className="t-xs" style={{ color: "var(--ink-3)" }}>
         {formatCommitTime(commit.committedAt)}
       </span>
       <Link
-        className="text-sm font-semibold text-[#0969da] hover:underline"
+        className="t-sm font-semibold hover:underline"
         href={blob.historyHref}
+        style={{ color: "var(--accent)" }}
       >
         History
       </Link>
@@ -281,20 +303,19 @@ function BinaryFallback({ blob }: RepositoryBlobViewerProps) {
 
   return (
     <div className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="text-base font-semibold text-[#1f2328]">{message}</p>
-      <p className="max-w-xl text-sm text-[#59636e]">
+      <p className="t-body font-semibold" style={{ color: "var(--ink-1)" }}>
+        {message}
+      </p>
+      <p className="max-w-xl t-sm" style={{ color: "var(--ink-3)" }}>
         Use Raw or Download to inspect the stored blob without rendering it in
         the code viewer.
       </p>
       <div className="flex flex-wrap justify-center gap-2">
-        <Link
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-          href={rawHref(blob)}
-        >
+        <Link className="btn sm" href={rawHref(blob)}>
           Open raw file
         </Link>
         <Link
-          className="inline-flex h-8 items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37]"
+          className="btn primary sm"
           download={blob.pathName}
           href={downloadHref(blob)}
         >
@@ -325,19 +346,31 @@ function CodeTable({ blob }: RepositoryBlobViewerProps) {
         readOnly
         value={content}
       />
-      <table className="w-full table-fixed border-collapse font-mono text-xs leading-5">
+      <table
+        className="w-full table-fixed border-collapse t-mono-sm leading-5"
+        style={{ fontFamily: "var(--mono)" }}
+      >
         <tbody>
           {highlightedRows.map(({ line, nodes }, index) => {
             const lineNumber = index + 1;
             return (
               <tr
-                className="group align-top hover:bg-[#fff8c5]"
+                className="group align-top hover:bg-[var(--surface-2)]"
                 key={`${lineNumber}-${line}`}
               >
-                <td className="w-16 border-r border-[#d0d7de] bg-[#f6f8fa]">
+                <td
+                  className="w-16 border-r"
+                  style={{
+                    borderColor: "var(--line-soft)",
+                    background: "var(--surface-2)",
+                  }}
+                >
                   <LineNumber line={lineNumber} />
                 </td>
-                <td className="whitespace-pre-wrap break-words px-4 text-[#1f2328] [&_.hljs-attr]:text-[#0550ae] [&_.hljs-built_in]:text-[#8250df] [&_.hljs-comment]:text-[#6e7781] [&_.hljs-keyword]:font-semibold [&_.hljs-keyword]:text-[#cf222e] [&_.hljs-literal]:text-[#0550ae] [&_.hljs-number]:text-[#0550ae] [&_.hljs-string]:text-[#0a3069] [&_.hljs-title]:text-[#6639ba] [&_.hljs-type]:text-[#953800]">
+                <td
+                  className="whitespace-pre-wrap break-words px-4"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   {line ? (
                     <span>
                       <HighlightedCode nodes={nodes} />
@@ -386,22 +419,28 @@ function SymbolPanel({
   return (
     <aside
       aria-label="File symbols"
-      className="rounded-md border border-[#d0d7de] bg-white p-3"
+      className="rounded-md p-3"
+      style={{ border: "1px solid var(--line)", background: "var(--surface)" }}
     >
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-[#1f2328]">Symbols</h2>
+        <h2 className="t-sm font-semibold" style={{ color: "var(--ink-1)" }}>
+          Symbols
+        </h2>
         <button
-          className="ml-auto inline-flex h-7 items-center rounded-md border border-[#d0d7de] bg-white px-2 text-xs font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
+          className="btn sm ml-auto inline-flex h-7 items-center px-2"
           onClick={onClose}
           type="button"
         >
           Close
         </button>
       </div>
-      <label className="mt-3 block text-xs font-semibold text-[#59636e]">
+      <label
+        className="mt-3 block t-xs font-semibold"
+        style={{ color: "var(--ink-3)" }}
+      >
         Filter symbols
         <input
-          className="mt-1 h-8 w-full rounded-md border border-[#d0d7de] px-2 text-sm font-normal text-[#1f2328]"
+          className="input mt-1 h-8 w-full px-2 t-sm font-normal"
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search file symbols"
           type="search"
@@ -414,19 +453,25 @@ function SymbolPanel({
             {symbols.map((symbol) => (
               <li key={`${symbol.lineNumber}-${symbol.name}`}>
                 <button
-                  className="grid w-full grid-cols-[1fr_auto] gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[#f6f8fa]"
+                  className="grid w-full grid-cols-[1fr_auto] gap-2 rounded-md px-2 py-1.5 text-left hover:bg-[var(--surface-2)]"
                   onClick={() => jumpToLine(symbol.lineNumber)}
                   type="button"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-[#0969da]">
+                    <span
+                      className="block truncate t-sm font-semibold"
+                      style={{ color: "var(--accent)" }}
+                    >
                       {symbol.name}
                     </span>
-                    <span className="block truncate font-mono text-xs text-[#59636e]">
+                    <span
+                      className="block truncate t-mono-sm"
+                      style={{ color: "var(--ink-3)" }}
+                    >
                       {symbol.preview}
                     </span>
                   </span>
-                  <span className="text-xs text-[#59636e]">
+                  <span className="t-xs" style={{ color: "var(--ink-3)" }}>
                     L{symbol.lineNumber}
                   </span>
                 </button>
@@ -434,7 +479,10 @@ function SymbolPanel({
             ))}
           </ul>
         ) : (
-          <p className="rounded-md bg-[#f6f8fa] p-3 text-sm text-[#59636e]">
+          <p
+            className="rounded-md p-3 t-sm"
+            style={{ background: "var(--surface-2)", color: "var(--ink-3)" }}
+          >
             No symbols found for this file.
           </p>
         )}
@@ -450,25 +498,36 @@ function BlameTable({
 }) {
   if (!blame) {
     return (
-      <div className="p-6 text-sm text-[#59636e]" role="status">
+      <div className="p-6 t-sm" role="status" style={{ color: "var(--ink-3)" }}>
         Blame attribution is unavailable for this file.
       </div>
     );
   }
 
   return (
-    <table className="w-full table-fixed border-collapse font-mono text-xs leading-5">
+    <table
+      className="w-full table-fixed border-collapse t-mono-sm leading-5"
+      style={{ fontFamily: "var(--mono)" }}
+    >
       <tbody>
         {blame.lines.map((line) => (
           <tr
-            className="group align-top hover:bg-[#fff8c5]"
+            className="group align-top hover:bg-[var(--surface-2)]"
             key={`${line.lineNumber}-${line.commit.oid}`}
           >
-            <td className="w-52 border-r border-[#d0d7de] bg-[#f6f8fa] px-3 py-0.5 text-[#59636e]">
+            <td
+              className="w-52 border-r px-3 py-0.5"
+              style={{
+                borderColor: "var(--line-soft)",
+                background: "var(--surface-2)",
+                color: "var(--ink-3)",
+              }}
+            >
               <Link
-                className="block truncate font-sans text-xs font-semibold text-[#0969da] hover:underline"
+                className="block truncate font-sans t-xs font-semibold hover:underline"
                 href={line.commit.href}
                 title={line.commit.message}
+                style={{ color: "var(--accent)" }}
               >
                 {line.commit.shortOid} {line.commit.authorLogin ?? "Unknown"}
               </Link>
@@ -479,10 +538,19 @@ function BlameTable({
                 {line.commit.message}
               </span>
             </td>
-            <td className="w-16 border-r border-[#d0d7de] bg-[#f6f8fa]">
+            <td
+              className="w-16 border-r"
+              style={{
+                borderColor: "var(--line-soft)",
+                background: "var(--surface-2)",
+              }}
+            >
               <LineNumber line={line.lineNumber} />
             </td>
-            <td className="whitespace-pre-wrap break-words px-4 text-[#1f2328]">
+            <td
+              className="whitespace-pre-wrap break-words px-4"
+              style={{ color: "var(--ink-1)" }}
+            >
               {line.content || " "}
             </td>
           </tr>
@@ -522,17 +590,23 @@ function LineJumpDialog({
     >
       <form
         aria-label="Jump to line"
-        className="w-full max-w-sm rounded-md border border-[#d0d7de] bg-white p-4 shadow-xl"
+        className="w-full max-w-sm rounded-md p-4"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+          boxShadow: "var(--shadow-lg)",
+        }}
         onSubmit={submit}
       >
         <label
-          className="block text-sm font-semibold text-[#1f2328]"
+          className="block t-sm font-semibold"
           htmlFor="blob-line-jump"
+          style={{ color: "var(--ink-1)" }}
         >
           Jump to line
         </label>
         <input
-          className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
+          className="input mt-2 h-9 w-full px-3 t-sm"
           id="blob-line-jump"
           max={clampedMax}
           min={1}
@@ -541,17 +615,10 @@ function LineJumpDialog({
           value={line}
         />
         <div className="mt-3 flex justify-end gap-2">
-          <button
-            className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
-            onClick={onClose}
-            type="button"
-          >
+          <button className="btn sm" onClick={onClose} type="button">
             Cancel
           </button>
-          <button
-            className="inline-flex h-8 items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37]"
-            type="submit"
-          >
+          <button className="btn primary sm" type="submit">
             Jump
           </button>
         </div>
@@ -627,26 +694,37 @@ export function RepositoryBlobViewer({
       aria-label="Repository file viewer"
       className="grid grid-cols-[minmax(0,16rem)_minmax(0,1fr)] gap-4 max-lg:grid-cols-1"
     >
-      <aside className="rounded-md border border-[#d0d7de] bg-white p-3">
-        <nav aria-label="Current file tree" className="text-sm">
+      <aside
+        className="rounded-md p-3"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+        }}
+      >
+        <nav aria-label="Current file tree" className="t-sm">
           <Link
-            className="block truncate rounded-md px-2 py-1.5 font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+            className="block truncate rounded-md px-2 py-1.5 font-semibold hover:bg-[var(--surface-2)]"
             href={`${repositoryBase(blob)}/tree/${refSegment(blob)}`}
+            style={{ color: "var(--accent)" }}
           >
             {blob.name}
           </Link>
-          <div className="mt-2 border-l border-[#d0d7de] pl-3">
+          <div
+            className="mt-2 border-l pl-3"
+            style={{ borderColor: "var(--line)" }}
+          >
             {splitPath(blob.path).map((segment, index, parts) => {
               const path = parts.slice(0, index + 1).join("/");
               const isFile = index === parts.length - 1;
               return (
                 <Link
                   aria-current={isFile ? "page" : undefined}
-                  className={`block truncate rounded-md px-2 py-1.5 ${
-                    isFile
-                      ? "bg-[#ddf4ff] font-semibold text-[#0969da]"
-                      : "text-[#1f2328] hover:bg-[#f6f8fa]"
-                  }`}
+                  className="block truncate rounded-md px-2 py-1.5"
+                  style={{
+                    color: isFile ? "var(--accent)" : "var(--ink-1)",
+                    background: isFile ? "var(--accent-soft)" : undefined,
+                    fontWeight: isFile ? 600 : undefined,
+                  }}
                   href={
                     isFile
                       ? currentBlobHref(blob)
@@ -677,8 +755,9 @@ export function RepositoryBlobViewer({
           />
           {blob.parentHref ? (
             <Link
-              className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+              className="btn sm"
               href={blob.parentHref}
+              style={{ color: "var(--accent)" }}
             >
               Parent
             </Link>
@@ -687,30 +766,48 @@ export function RepositoryBlobViewer({
         <div className="space-y-1">
           <nav
             aria-label="Current file"
-            className="flex flex-wrap items-center gap-1 text-sm"
+            className="flex flex-wrap items-center gap-1 t-sm"
           >
             {blob.breadcrumbs.map((breadcrumb, index) => (
               <span
                 className="flex min-w-0 items-center gap-1"
                 key={breadcrumb.href}
               >
-                {index > 0 ? <span className="text-[#59636e]">/</span> : null}
+                {index > 0 ? (
+                  <span style={{ color: "var(--ink-3)" }}>/</span>
+                ) : null}
                 <Link
-                  className="max-w-48 truncate font-semibold text-[#0969da] hover:underline"
+                  className="max-w-48 truncate font-semibold hover:underline"
                   href={breadcrumb.href}
+                  style={{ color: "var(--accent)" }}
                 >
                   {breadcrumb.name}
                 </Link>
               </span>
             ))}
           </nav>
-          <h1 className="text-xl font-semibold tracking-normal text-[#1f2328]">
+          <h1
+            className="text-xl font-semibold tracking-normal"
+            style={{ color: "var(--ink-1)" }}
+          >
             {blob.path}
           </h1>
         </div>
         <LatestCommitStrip blob={blob} />
-        <section className="overflow-hidden rounded-md border border-[#d0d7de] bg-white">
-          <div className="border-b border-[#d0d7de] bg-[#f6f8fa] px-3 py-2">
+        <section
+          className="overflow-hidden rounded-md"
+          style={{
+            border: "1px solid var(--line)",
+            background: "var(--surface)",
+          }}
+        >
+          <div
+            className="border-b px-3 py-2"
+            style={{
+              borderColor: "var(--line)",
+              background: "var(--surface-2)",
+            }}
+          >
             <BlobToolbar
               blob={blob}
               mode={mode}
@@ -721,7 +818,10 @@ export function RepositoryBlobViewer({
           {blob.isBinary || blob.isLarge ? (
             <BinaryFallback blob={blob} />
           ) : (
-            <div className="max-h-[760px] overflow-auto bg-white">
+            <div
+              className="max-h-[760px] overflow-auto"
+              style={{ background: "var(--surface)" }}
+            >
               {mode === "blame" ? (
                 <BlameTable blame={initialBlame} />
               ) : (

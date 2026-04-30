@@ -165,11 +165,14 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
       className="mx-auto max-w-[820px] px-4 py-7 sm:px-6"
       onSubmit={(event) => void submitImport(event)}
     >
-      <header className="border-b border-[#d0d7de] pb-5">
-        <h1 className="text-2xl font-semibold tracking-normal text-[#1f2328]">
+      <header className="border-b pb-5" style={{ borderColor: "var(--line)" }}>
+        <h1 className="t-h2" style={{ color: "var(--ink-1)" }}>
           Import your project to opengithub
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-5 text-[#59636e]">
+        <p
+          className="mt-2 max-w-2xl t-sm leading-5"
+          style={{ color: "var(--ink-3)" }}
+        >
           Bring source history from an existing Git remote into a new opengithub
           repository.
         </p>
@@ -177,23 +180,32 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
 
       <section className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 pt-6 sm:grid-cols-[36px_minmax(0,1fr)] sm:gap-x-4">
         <div className="flex flex-col items-center">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#afb8c1] text-sm font-semibold text-white">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full t-sm font-semibold"
+            style={{ background: "var(--ink-4)", color: "var(--bg)" }}
+          >
             1
           </span>
-          <span className="mt-2 flex-1 border-l border-[#d0d7de]" />
+          <span
+            className="mt-2 flex-1 border-l"
+            style={{ borderColor: "var(--line)" }}
+          />
         </div>
         <div className="pb-7">
-          <h2 className="text-base font-semibold text-[#1f2328]">
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
             Source repository
           </h2>
           <label className="mt-4 block">
-            <span className="text-sm font-semibold text-[#1f2328]">
+            <span
+              className="t-sm font-semibold"
+              style={{ color: "var(--ink-1)" }}
+            >
               Source repository URL *
             </span>
             <input
               aria-describedby="source-url-help source-url-error"
               aria-invalid={sourceError ? "true" : "false"}
-              className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
+              className="input mt-2 h-9 w-full px-3 t-sm"
               placeholder="https://github.com/octocat/Hello-World.git"
               ref={sourceInputRef}
               value={sourceUrl}
@@ -210,49 +222,75 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
               type="url"
             />
           </label>
-          <p className="mt-2 text-sm text-[#59636e]" id="source-url-help">
+          <p
+            className="mt-2 t-sm"
+            id="source-url-help"
+            style={{ color: "var(--ink-3)" }}
+          >
             Public HTTPS Git remotes are supported in this build slice.
           </p>
           {sourceError ? (
-            <p className="mt-2 text-sm text-[#cf222e]" id="source-url-error">
+            <p
+              className="mt-2 t-sm"
+              id="source-url-error"
+              style={{ color: "var(--err)" }}
+            >
               {sourceError}
             </p>
           ) : null}
 
-          <details className="mt-4 rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-[#1f2328]">
+          <details
+            className="mt-4 rounded-md p-4"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface-2)",
+            }}
+          >
+            <summary
+              className="cursor-pointer t-sm font-semibold"
+              style={{ color: "var(--ink-1)" }}
+            >
               Optional credentials for private sources
             </summary>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="text-sm font-semibold text-[#1f2328]">
+                <span
+                  className="t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Username
                 </span>
                 <input
-                  className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] bg-white px-3 text-sm"
+                  className="input mt-2 h-9 w-full px-3 t-sm"
                   value={sourceUsername}
                   onChange={(event) => setSourceUsername(event.target.value)}
                 />
               </label>
               <label className="block">
-                <span className="text-sm font-semibold text-[#1f2328]">
+                <span
+                  className="t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Access token
                 </span>
                 <input
                   autoComplete="off"
-                  className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] bg-white px-3 text-sm"
+                  className="input mt-2 h-9 w-full px-3 t-sm"
                   value={sourceToken}
                   onChange={(event) => setSourceToken(event.target.value)}
                   type="password"
                 />
               </label>
               <label className="block sm:col-span-2">
-                <span className="text-sm font-semibold text-[#1f2328]">
+                <span
+                  className="t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Password
                 </span>
                 <input
                   autoComplete="off"
-                  className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] bg-white px-3 text-sm"
+                  className="input mt-2 h-9 w-full px-3 t-sm"
                   value={sourcePassword}
                   onChange={(event) => setSourcePassword(event.target.value)}
                   type="password"
@@ -265,21 +303,27 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
 
       <section className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 sm:grid-cols-[36px_minmax(0,1fr)] sm:gap-x-4">
         <div className="flex flex-col items-center">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#afb8c1] text-sm font-semibold text-white">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full t-sm font-semibold"
+            style={{ background: "var(--ink-4)", color: "var(--bg)" }}
+          >
             2
           </span>
         </div>
         <div>
-          <h2 className="text-base font-semibold text-[#1f2328]">
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
             Destination
           </h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
             <label className="block">
-              <span className="text-sm font-semibold text-[#1f2328]">
+              <span
+                className="t-sm font-semibold"
+                style={{ color: "var(--ink-1)" }}
+              >
                 Owner *
               </span>
               <select
-                className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] bg-white px-3 text-sm"
+                className="input mt-2 h-9 w-full px-3 t-sm"
                 value={selectedOwnerKey}
                 onChange={(event) => setSelectedOwnerKey(event.target.value)}
               >
@@ -294,13 +338,16 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-semibold text-[#1f2328]">
+              <span
+                className="t-sm font-semibold"
+                style={{ color: "var(--ink-1)" }}
+              >
                 Repository name *
               </span>
               <input
                 aria-describedby="destination-name-help destination-name-error"
                 aria-invalid={nameError ? "true" : "false"}
-                className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
+                className="input mt-2 h-9 w-full px-3 t-sm"
                 ref={nameInputRef}
                 value={name}
                 onChange={(event) => {
@@ -311,29 +358,41 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
               />
             </label>
           </div>
-          <p className="mt-2 text-sm text-[#59636e]" id="destination-name-help">
+          <p
+            className="mt-2 t-sm"
+            id="destination-name-help"
+            style={{ color: "var(--ink-3)" }}
+          >
             {normalizedName
               ? `This will create ${selectedOwner?.login ?? "owner"}/${normalizedName}.`
               : "Choose where opengithub should create the imported repository."}
           </p>
           {nameError ? (
             <p
-              className="mt-2 text-sm text-[#cf222e]"
+              className="mt-2 t-sm"
               id="destination-name-error"
+              style={{ color: "var(--err)" }}
             >
               {nameError}
             </p>
           ) : null}
 
           <fieldset className="mt-5">
-            <legend className="text-sm font-semibold text-[#1f2328]">
+            <legend
+              className="t-sm font-semibold"
+              style={{ color: "var(--ink-1)" }}
+            >
               Visibility
             </legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {(["public", "private"] as const).map((option) => (
                 <label
-                  className="flex cursor-pointer gap-3 rounded-md border border-[#d0d7de] bg-white p-3 text-sm"
+                  className="flex cursor-pointer gap-3 rounded-md p-3 t-sm"
                   key={option}
+                  style={{
+                    border: "1px solid var(--line)",
+                    background: "var(--surface)",
+                  }}
                 >
                   <input
                     aria-label={option === "public" ? "Public" : "Private"}
@@ -345,10 +404,13 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
                     value={option}
                   />
                   <span>
-                    <span className="block font-semibold capitalize text-[#1f2328]">
+                    <span
+                      className="block font-semibold capitalize"
+                      style={{ color: "var(--ink-1)" }}
+                    >
                       {option}
                     </span>
-                    <span className="block text-[#59636e]">
+                    <span className="block" style={{ color: "var(--ink-3)" }}>
                       {VISIBILITY_COPY[option]}
                     </span>
                   </span>
@@ -359,18 +421,22 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
 
           {formError ? (
             <p
-              className="mt-4 text-sm text-[#cf222e]"
+              className="mt-4 t-sm"
               ref={formErrorRef}
               role="alert"
               tabIndex={-1}
+              style={{ color: "var(--err)" }}
             >
               {formError}
             </p>
           ) : null}
 
-          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-[#d0d7de] pt-5">
+          <div
+            className="mt-6 flex flex-wrap items-center gap-3 border-t pt-5"
+            style={{ borderColor: "var(--line)" }}
+          >
             <button
-              className="inline-flex h-9 items-center rounded-md bg-[#1f883d] px-4 text-sm font-semibold text-white hover:bg-[#1a7f37] disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn primary disabled:cursor-not-allowed disabled:opacity-60"
               disabled={
                 submitting || !selectedOwner || !sourceUrl || !normalizedName
               }
@@ -378,7 +444,7 @@ export function RepositoryImportForm({ options }: RepositoryImportFormProps) {
             >
               {submitting ? "Starting import..." : "Begin import"}
             </button>
-            <p className="text-sm text-[#59636e]" role="status">
+            <p className="t-sm" role="status" style={{ color: "var(--ink-3)" }}>
               Credentials are stored as redacted secret references by the Rust
               API.
             </p>

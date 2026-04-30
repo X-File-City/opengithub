@@ -94,13 +94,23 @@ export function RepositoryBranchSelector({
     >
       <summary
         aria-label={`Switch branches or tags. Current ref ${currentRef}`}
-        className="inline-flex h-8 cursor-pointer list-none items-center gap-2 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]"
+        className="btn sm inline-flex cursor-pointer list-none items-center gap-2"
       >
         <span aria-hidden="true">⑂</span>
         {currentRef}
       </summary>
-      <div className="absolute left-0 z-20 mt-2 w-80 overflow-hidden rounded-md border border-[#d0d7de] bg-white text-sm shadow-lg max-sm:w-[calc(100vw-3rem)]">
-        <div className="border-b border-[#d0d7de] px-3 py-2 font-semibold text-[#1f2328]">
+      <div
+        className="absolute left-0 z-20 mt-2 w-80 overflow-hidden rounded-md text-sm max-sm:w-[calc(100vw-3rem)]"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+          boxShadow: "var(--shadow-md)",
+        }}
+      >
+        <div
+          className="border-b px-3 py-2 font-semibold"
+          style={{ borderColor: "var(--line)", color: "var(--ink-1)" }}
+        >
           Switch branches/tags
         </div>
         <label className="sr-only" htmlFor="repository-ref-search">
@@ -108,20 +118,28 @@ export function RepositoryBranchSelector({
         </label>
         <input
           aria-label="Search branches and tags"
-          className="h-10 w-full border-b border-[#d0d7de] px-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0969da]"
+          className="input h-10 w-full border-b px-3 outline-none"
+          style={{ borderColor: "var(--line)" }}
           id="repository-ref-search"
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Find a branch or tag"
           value={query}
         />
-        <div className="grid grid-cols-2 border-b border-[#d0d7de] text-sm font-semibold">
+        <div
+          className="grid grid-cols-2 border-b text-sm font-semibold"
+          style={{ borderColor: "var(--line)" }}
+        >
           <button
             aria-pressed={selectedKind === "branch"}
             className={`px-3 py-2 ${
               selectedKind === "branch"
-                ? "border-b-2 border-[#fd8c73] text-[#1f2328]"
-                : "text-[#59636e] hover:bg-[#f6f8fa]"
+                ? "border-b-2 border-[var(--accent)]"
+                : "hover:bg-[var(--surface-2)]"
             }`}
+            style={{
+              color:
+                selectedKind === "branch" ? "var(--ink-1)" : "var(--ink-3)",
+            }}
             onClick={() => setSelectedKind("branch")}
             type="button"
           >
@@ -131,9 +149,12 @@ export function RepositoryBranchSelector({
             aria-pressed={selectedKind === "tag"}
             className={`px-3 py-2 ${
               selectedKind === "tag"
-                ? "border-b-2 border-[#fd8c73] text-[#1f2328]"
-                : "text-[#59636e] hover:bg-[#f6f8fa]"
+                ? "border-b-2 border-[var(--accent)]"
+                : "hover:bg-[var(--surface-2)]"
             }`}
+            style={{
+              color: selectedKind === "tag" ? "var(--ink-1)" : "var(--ink-3)",
+            }}
             onClick={() => setSelectedKind("tag")}
             type="button"
           >
@@ -141,33 +162,39 @@ export function RepositoryBranchSelector({
           </button>
         </div>
         <div className="max-h-80 overflow-y-auto">
-          <div className="px-3 py-2 text-xs font-semibold uppercase text-[#59636e]">
+          <div className="px-3 py-2 t-label" style={{ color: "var(--ink-3)" }}>
             {selectedKind === "branch" ? "Branches" : "Tags"}
           </div>
           {visibleRefs.map((ref) => (
             <Link
-              className="flex items-center justify-between gap-3 px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-[var(--surface-2)]"
               href={ref.samePathHref ?? ref.href}
               key={ref.name}
+              style={{ color: "var(--ink-1)" }}
             >
               <span className="truncate">{ref.shortName}</span>
               {ref.active ? (
-                <span className="text-xs text-[#1a7f37]">Current</span>
+                <span className="t-xs" style={{ color: "var(--ok)" }}>
+                  Current
+                </span>
               ) : ref.targetShortOid ? (
-                <span className="font-mono text-xs text-[#59636e]">
+                <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
                   {ref.targetShortOid}
                 </span>
               ) : null}
             </Link>
           ))}
           {visibleRefs.length === 0 ? (
-            <p className="px-3 py-3 text-[#59636e]">
+            <p className="px-3 py-3" style={{ color: "var(--ink-3)" }}>
               {isPending ? "Loading refs..." : "No matching refs"}
             </p>
           ) : null}
         </div>
         {isPending && open ? (
-          <p className="border-t border-[#d0d7de] px-3 py-2 text-xs text-[#59636e]">
+          <p
+            className="border-t px-3 py-2 t-xs"
+            style={{ borderColor: "var(--line)", color: "var(--ink-3)" }}
+          >
             Loading refs...
           </p>
         ) : null}
@@ -261,20 +288,28 @@ export function RepositoryFileFinder({
   return (
     <div className="relative">
       <button
-        className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm text-[#59636e] hover:bg-[#f6f8fa]"
+        className="btn sm"
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
         Go to file
       </button>
       {open ? (
-        <div className="absolute right-0 z-20 mt-2 w-96 overflow-hidden rounded-md border border-[#d0d7de] bg-white text-sm shadow-lg max-sm:right-auto max-sm:left-0 max-sm:w-[calc(100vw-3rem)]">
+        <div
+          className="absolute right-0 z-20 mt-2 w-96 overflow-hidden rounded-md text-sm max-sm:right-auto max-sm:left-0 max-sm:w-[calc(100vw-3rem)]"
+          style={{
+            border: "1px solid var(--line)",
+            background: "var(--surface)",
+            boxShadow: "var(--shadow-md)",
+          }}
+        >
           <label className="sr-only" htmlFor="repository-file-finder">
             Find a file
           </label>
           <input
             aria-label="Find a file"
-            className="h-10 w-full border-b border-[#d0d7de] px-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0969da]"
+            className="input h-10 w-full border-b px-3 outline-none"
+            style={{ borderColor: "var(--line)" }}
             id="repository-file-finder"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -307,15 +342,18 @@ export function RepositoryFileFinder({
               <li id={`file-finder-${index}`} key={item.path}>
                 <Link
                   aria-current={index === activeIndex ? "true" : undefined}
-                  className={`block px-3 py-2 hover:bg-[#f6f8fa] ${
-                    index === activeIndex ? "bg-[#f6f8fa]" : ""
+                  className={`block px-3 py-2 hover:bg-[var(--surface-2)] ${
+                    index === activeIndex ? "bg-[var(--surface-2)]" : ""
                   }`}
                   href={item.href}
                 >
-                  <span className="block truncate font-semibold text-[#0969da]">
+                  <span
+                    className="block truncate font-semibold"
+                    style={{ color: "var(--accent)" }}
+                  >
                     {item.path}
                   </span>
-                  <span className="text-xs text-[#59636e]">
+                  <span className="t-xs" style={{ color: "var(--ink-3)" }}>
                     {item.language ?? "File"} · {item.byteSize} bytes
                   </span>
                 </Link>
@@ -323,7 +361,7 @@ export function RepositoryFileFinder({
             ))}
           </ul>
           {items.length === 0 ? (
-            <p className="px-3 py-3 text-[#59636e]">
+            <p className="px-3 py-3" style={{ color: "var(--ink-3)" }}>
               {isPending ? "Searching files..." : "No matching files"}
             </p>
           ) : null}
@@ -337,19 +375,28 @@ function AddFileMenu({ repository }: RepositoryCodeToolbarProps) {
   const base = basePath(repository);
   return (
     <details className="relative">
-      <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]">
+      <summary className="btn sm inline-flex cursor-pointer list-none items-center">
         Add file
       </summary>
-      <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md border border-[#d0d7de] bg-white py-1 text-sm shadow-lg">
+      <div
+        className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md py-1 text-sm"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+          boxShadow: "var(--shadow-md)",
+        }}
+      >
         <Link
-          className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+          className="block px-3 py-2 hover:bg-[var(--surface-2)]"
           href={`${base}/new/${repository.default_branch}`}
+          style={{ color: "var(--ink-1)" }}
         >
           Create new file
         </Link>
         <Link
-          className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+          className="block px-3 py-2 hover:bg-[var(--surface-2)]"
           href={`${base}/upload/${repository.default_branch}`}
+          style={{ color: "var(--ink-1)" }}
         >
           Upload files
         </Link>
@@ -372,27 +419,36 @@ function CloneMenu({ repository }: RepositoryCodeToolbarProps) {
 
   return (
     <details className="relative">
-      <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37]">
+      <summary className="btn primary inline-flex cursor-pointer list-none items-center">
         Code
       </summary>
-      <div className="absolute right-0 z-20 mt-2 w-80 rounded-md border border-[#d0d7de] bg-white p-3 text-sm text-[#1f2328] shadow-lg max-sm:w-[calc(100vw-3rem)]">
+      <div
+        className="absolute right-0 z-20 mt-2 w-80 rounded-md p-3 text-sm max-sm:w-[calc(100vw-3rem)]"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+          color: "var(--ink-1)",
+          boxShadow: "var(--shadow-md)",
+        }}
+      >
         <p className="font-semibold">Clone</p>
         <div className="mt-3">
           <label
-            className="block text-xs font-semibold uppercase text-[#59636e]"
+            className="block t-label"
             htmlFor="clone-https"
+            style={{ color: "var(--ink-3)" }}
           >
             HTTPS
           </label>
           <div className="mt-1 flex">
             <input
-              className="min-w-0 flex-1 rounded-l-md border border-[#d0d7de] px-2 font-mono text-xs"
+              className="input min-w-0 flex-1 rounded-r-none border-r-0 px-2 t-mono-sm"
               id="clone-https"
               readOnly
               value={repository.cloneUrls.https}
             />
             <button
-              className="h-8 rounded-r-md border border-l-0 border-[#d0d7de] bg-[#f6f8fa] px-3 text-xs font-semibold hover:bg-[#eef1f4]"
+              className="btn sm rounded-l-none"
               onClick={() => copy(repository.cloneUrls.https, "HTTPS")}
               type="button"
             >
@@ -401,13 +457,14 @@ function CloneMenu({ repository }: RepositoryCodeToolbarProps) {
           </div>
         </div>
         {copied ? (
-          <p className="mt-2 text-xs text-[#1a7f37]" role="status">
+          <p className="mt-2 t-xs" role="status" style={{ color: "var(--ok)" }}>
             {copied}
           </p>
         ) : null}
         <Link
-          className="mt-3 block text-[#0969da] hover:underline"
+          className="mt-3 block hover:underline"
           href={repository.cloneUrls.zip}
+          style={{ color: "var(--accent)" }}
         >
           Download ZIP
         </Link>
@@ -423,23 +480,28 @@ export function RepositoryCodeToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm text-[#59636e]">Default branch</span>
+      <span className="t-sm" style={{ color: "var(--ink-3)" }}>
+        Default branch
+      </span>
       <Link
-        className="text-sm font-semibold text-[#0969da] hover:underline"
+        className="t-sm font-semibold hover:underline"
         href={`${base}/tree/${repository.default_branch}`}
+        style={{ color: "var(--accent)" }}
       >
         {repository.default_branch}
       </Link>
       <RepositoryBranchSelector repository={repository} />
       <Link
-        className="text-sm text-[#59636e] hover:text-[#0969da]"
+        className="t-sm hover:underline"
         href={`${base}/branches`}
+        style={{ color: "var(--ink-3)" }}
       >
         {formatCount(repository.branchCount, "Branches")}
       </Link>
       <Link
-        className="text-sm text-[#59636e] hover:text-[#0969da]"
+        className="t-sm hover:underline"
         href={`${base}/tags`}
+        style={{ color: "var(--ink-3)" }}
       >
         {formatCount(repository.tagCount, "Tags")}
       </Link>

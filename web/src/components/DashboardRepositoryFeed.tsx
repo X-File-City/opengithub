@@ -84,7 +84,12 @@ function FeedIcon({ eventType }: { eventType: DashboardFeedEventType }) {
   return (
     <span
       aria-hidden="true"
-      className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#d0d7de] bg-[#f6f8fa] text-[11px] font-semibold text-[#59636e]"
+      className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full t-xs font-semibold"
+      style={{
+        border: "1px solid var(--line)",
+        background: "var(--surface-2)",
+        color: "var(--ink-3)",
+      }}
     >
       {feedIconLabel(eventType)}
     </span>
@@ -98,7 +103,7 @@ function ActorAvatar({ event }: { event: DashboardFeedEvent }) {
     return (
       <span
         aria-hidden="true"
-        className="h-5 w-5 rounded-full bg-[#f6f8fa] bg-cover bg-center"
+        className="av sm bg-cover bg-center"
         style={{ backgroundImage: `url(${event.actorAvatarUrl})` }}
       />
     );
@@ -107,7 +112,11 @@ function ActorAvatar({ event }: { event: DashboardFeedEvent }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#d8dee4] text-[10px] font-semibold text-[#59636e]"
+      className="av sm inline-flex items-center justify-center t-xs font-semibold"
+      style={{
+        background: "var(--surface-3)",
+        color: "var(--ink-3)",
+      }}
     >
       {initial}
     </span>
@@ -129,34 +138,48 @@ function feedUrl(
 function FeedCard({ event }: { event: DashboardFeedEvent }) {
   return (
     <li>
-      <article className="flex gap-3 rounded-md border border-[#d0d7de] bg-white p-4">
+      <article className="card flex gap-3 p-4">
         <FeedIcon eventType={event.eventType} />
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#59636e]">
+          <div
+            className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 t-xs"
+            style={{ color: "var(--ink-3)" }}
+          >
             <span className="font-medium">
               {FEED_EVENT_LABELS[event.eventType]}
             </span>
             <Link
-              className="font-medium text-[#0969da] hover:underline"
+              className="font-medium hover:underline"
+              style={{ color: "var(--accent)" }}
               href={event.repositoryHref}
             >
               {event.repositoryName}
             </Link>
           </div>
-          <h2 className="mt-1 truncate text-sm font-semibold leading-5 text-[#1f2328]">
+          <h2
+            className="mt-1 truncate t-sm font-semibold leading-5"
+            style={{ color: "var(--ink-1)" }}
+          >
             <Link
-              className="hover:text-[#0969da] hover:underline"
+              className="hover:underline"
+              style={{ color: "inherit" }}
               href={event.targetHref}
             >
               {event.title}
             </Link>
           </h2>
           {event.excerpt ? (
-            <p className="mt-1 line-clamp-2 text-sm leading-5 text-[#59636e]">
+            <p
+              className="mt-1 line-clamp-2 t-sm leading-5"
+              style={{ color: "var(--ink-3)" }}
+            >
               {event.excerpt}
             </p>
           ) : null}
-          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-xs text-[#59636e]">
+          <div
+            className="mt-2 flex min-w-0 flex-wrap items-center gap-2 t-xs"
+            style={{ color: "var(--ink-3)" }}
+          >
             <ActorAvatar event={event} />
             <span className="truncate">{event.actionSummary}</span>
             <time
@@ -186,7 +209,7 @@ function DashboardFeedControls({
     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div
         aria-label="Dashboard feed"
-        className="inline-flex w-fit rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-0.5"
+        className="tabs inline-flex w-fit"
         role="tablist"
       >
         {[
@@ -197,11 +220,7 @@ function DashboardFeedControls({
           return (
             <Link
               aria-selected={selected}
-              className={`inline-flex h-8 items-center rounded-[6px] px-3 text-sm font-semibold ${
-                selected
-                  ? "bg-white text-[#1f2328] shadow-sm"
-                  : "text-[#59636e] hover:text-[#1f2328]"
-              }`}
+              className={`tab${selected ? " active" : ""}`}
               href={feedUrl(feedTab as DashboardFeedTab, activeEventTypes)}
               key={feedTab}
               role="tab"
@@ -213,28 +232,28 @@ function DashboardFeedControls({
       </div>
 
       <details className="relative">
-        <summary className="inline-flex h-8 cursor-pointer list-none items-center justify-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]">
+        <summary className="btn ghost sm inline-flex cursor-pointer list-none items-center justify-center">
           Filter
           {activeEventTypes.length > 0 ? (
-            <span className="ml-2 rounded-full bg-[#0969da] px-1.5 text-xs text-white">
-              {activeEventTypes.length}
-            </span>
+            <span className="chip accent ml-2">{activeEventTypes.length}</span>
           ) : null}
         </summary>
         <form
           action="/dashboard"
-          className="absolute right-0 z-10 mt-2 w-72 rounded-md border border-[#d0d7de] bg-white p-3 shadow-lg"
+          className="card absolute right-0 z-10 mt-2 w-72 p-3"
+          style={{ boxShadow: "var(--shadow-md)" }}
           method="get"
         >
           <input name="feedTab" type="hidden" value={activeFeedTab} />
           <fieldset>
-            <legend className="px-1 text-xs font-semibold uppercase text-[#59636e]">
+            <legend className="t-label" style={{ color: "var(--ink-3)" }}>
               Event types
             </legend>
             <div className="mt-2 grid gap-1">
               {supportedEventTypes.map((eventType) => (
                 <label
-                  className="flex min-h-8 items-center gap-2 rounded-md px-2 text-sm text-[#1f2328] hover:bg-[#f6f8fa]"
+                  className="flex min-h-8 items-center gap-2 rounded-md px-2 t-sm hover:bg-[var(--hover)]"
+                  style={{ color: "var(--ink-1)" }}
                   key={eventType}
                 >
                   <input
@@ -249,17 +268,18 @@ function DashboardFeedControls({
               ))}
             </div>
           </fieldset>
-          <div className="mt-3 flex items-center justify-between border-t border-[#d0d7de] pt-3">
+          <div
+            className="mt-3 flex items-center justify-between pt-3"
+            style={{ borderTop: "1px solid var(--line)" }}
+          >
             <Link
-              className="text-sm font-semibold text-[#0969da] hover:underline"
+              className="t-sm font-semibold hover:underline"
+              style={{ color: "var(--accent)" }}
               href={feedUrl(activeFeedTab)}
             >
               Clear filters
             </Link>
-            <button
-              className="inline-flex h-8 items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37]"
-              type="submit"
-            >
+            <button className="btn primary sm" type="submit">
               Apply
             </button>
           </div>
@@ -277,14 +297,15 @@ function CompactWorkItem({
   type: "issue" | "review";
 }) {
   return (
-    <li className="py-3">
+    <li className="list-row py-3">
       <Link
-        className="text-sm font-semibold leading-5 text-[#0969da] hover:underline"
+        className="t-sm font-semibold leading-5 hover:underline"
+        style={{ color: "var(--accent)" }}
         href={item.href}
       >
         {item.title}
       </Link>
-      <p className="mt-1 text-xs text-[#59636e]">
+      <p className="mt-1 t-xs" style={{ color: "var(--ink-3)" }}>
         {item.repositoryName} #{item.number} ·{" "}
         {type === "issue" ? "Assigned" : "Review requested"}{" "}
         {formatActivityDate(item.updatedAt)}
@@ -304,10 +325,7 @@ export function DashboardRepositoryFeed({
     <div className="grid gap-6 xl:grid-cols-[minmax(0,720px)_minmax(240px,1fr)]">
       <main className="min-w-0 max-w-[720px] space-y-5">
         <section aria-labelledby="dashboard-feed-heading">
-          <h1
-            className="mb-3 text-base font-semibold text-[#1f2328]"
-            id="dashboard-feed-heading"
-          >
+          <h1 className="mb-3 t-h3" id="dashboard-feed-heading">
             Dashboard feed
           </h1>
           <DashboardFeedControls
@@ -322,25 +340,28 @@ export function DashboardRepositoryFeed({
               ))}
             </ul>
           ) : (
-            <div className="rounded-md border border-[#d0d7de] bg-white p-5">
-              <p className="text-sm leading-6 text-[#59636e]">
+            <div className="card p-5">
+              <p className="t-sm leading-6" style={{ color: "var(--ink-3)" }}>
                 No dashboard feed events match the current filters.
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <Link
-                  className="text-sm font-semibold text-[#0969da] hover:underline"
+                  className="t-sm font-semibold hover:underline"
+                  style={{ color: "var(--accent)" }}
                   href={feedUrl(activeFeedTab)}
                 >
                   Clear filters
                 </Link>
                 <Link
-                  className="text-sm font-semibold text-[#0969da] hover:underline"
+                  className="t-sm font-semibold hover:underline"
+                  style={{ color: "var(--accent)" }}
                   href="/new"
                 >
                   Create repository
                 </Link>
                 <Link
-                  className="text-sm font-semibold text-[#0969da] hover:underline"
+                  className="t-sm font-semibold hover:underline"
+                  style={{ color: "var(--accent)" }}
                   href="/explore"
                 >
                   Explore repositories
@@ -350,21 +371,21 @@ export function DashboardRepositoryFeed({
           )}
         </section>
 
-        <section
-          aria-labelledby="assigned-issues-heading"
-          className="rounded-md border border-[#d0d7de] bg-white p-5"
-        >
-          <h2 className="text-sm font-semibold text-[#1f2328]">
+        <section aria-labelledby="assigned-issues-heading" className="card p-5">
+          <h2 className="t-h3">
             <span id="assigned-issues-heading">Assigned issues</span>
           </h2>
           {summary.assignedIssues.length > 0 ? (
-            <ul className="mt-1 divide-y divide-[#d0d7de]">
+            <ul className="mt-1">
               {summary.assignedIssues.map((item) => (
                 <CompactWorkItem item={item} key={item.id} type="issue" />
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sm leading-6 text-[#59636e]">
+            <p
+              className="mt-2 t-sm leading-6"
+              style={{ color: "var(--ink-3)" }}
+            >
               Issues assigned to you will appear here when issue tracking ships.
             </p>
           )}
@@ -372,33 +393,28 @@ export function DashboardRepositoryFeed({
       </main>
 
       <aside className="space-y-5">
-        <section
-          aria-labelledby="review-requests-heading"
-          className="rounded-md border border-[#d0d7de] bg-white p-5"
-        >
-          <h2
-            className="text-sm font-semibold text-[#1f2328]"
-            id="review-requests-heading"
-          >
+        <section aria-labelledby="review-requests-heading" className="card p-5">
+          <h2 className="t-h3" id="review-requests-heading">
             Review requests
           </h2>
           {summary.reviewRequests.length > 0 ? (
-            <ul className="mt-1 divide-y divide-[#d0d7de]">
+            <ul className="mt-1">
               {summary.reviewRequests.map((item) => (
                 <CompactWorkItem item={item} key={item.id} type="review" />
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sm leading-6 text-[#59636e]">
+            <p
+              className="mt-2 t-sm leading-6"
+              style={{ color: "var(--ink-3)" }}
+            >
               Pull requests waiting for your review will appear here.
             </p>
           )}
         </section>
-        <section className="rounded-md border border-[#d0d7de] bg-white p-5">
-          <h2 className="text-sm font-semibold text-[#1f2328]">
-            Explore repositories
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-[#59636e]">
+        <section className="card p-5">
+          <h2 className="t-h3">Explore repositories</h2>
+          <p className="mt-2 t-sm leading-6" style={{ color: "var(--ink-3)" }}>
             Use the repository list to jump back into active projects and open
             the latest code, issues, and pull requests.
           </p>

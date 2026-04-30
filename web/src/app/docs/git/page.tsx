@@ -22,11 +22,13 @@ export default async function GitDocsPage() {
   return (
     <AppShell session={session}>
       <article className="mx-auto max-w-4xl px-6 py-8">
-        <p className="text-sm font-semibold text-[#59636e]">opengithub Git</p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-normal text-[#1f2328]">
+        <p className="t-label" style={{ color: "var(--ink-3)" }}>
+          opengithub Git
+        </p>
+        <h1 className="t-h1 mt-2" style={{ color: "var(--ink-1)" }}>
           Work with repositories over HTTPS
         </h1>
-        <p className="mt-4 max-w-3xl text-sm leading-6 text-[#59636e]">
+        <p className="t-body mt-4 max-w-3xl" style={{ color: "var(--ink-3)" }}>
           opengithub serves smart HTTP Git endpoints from its own Rust API.
           Public repositories can be cloned anonymously. Private repositories
           require a signed browser session or a personal access token with
@@ -34,7 +36,7 @@ export default async function GitDocsPage() {
         </p>
 
         <section className="mt-8 space-y-3">
-          <h2 className="text-base font-semibold text-[#1f2328]">
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
             Clone and fetch
           </h2>
           <DeveloperCommandBlock
@@ -45,7 +47,7 @@ export default async function GitDocsPage() {
         </section>
 
         <section className="mt-8 space-y-3">
-          <h2 className="text-base font-semibold text-[#1f2328]">
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
             Push changes
           </h2>
           <DeveloperCommandBlock
@@ -53,7 +55,7 @@ export default async function GitDocsPage() {
             label="Push commands"
             value={pushCommands}
           />
-          <p className="text-sm leading-6 text-[#59636e]">
+          <p className="t-body" style={{ color: "var(--ink-3)" }}>
             For private repositories or command-line pushes, use a personal
             access token as the HTTPS password. Tokens are stored hashed by the
             API and are never returned after creation.
@@ -61,7 +63,7 @@ export default async function GitDocsPage() {
         </section>
 
         <section className="mt-8 space-y-3">
-          <h2 className="text-base font-semibold text-[#1f2328]">
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
             Raw files and archives
           </h2>
           <DeveloperCommandBlock
@@ -72,28 +74,16 @@ export default async function GitDocsPage() {
         </section>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            className="inline-flex h-9 items-center rounded-md bg-[#1f883d] px-4 text-sm font-semibold text-white hover:bg-[#1a7f37]"
-            href="/new"
-          >
+          <Link className="btn primary" href="/new">
             Create repository
           </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-            href="/settings/tokens"
-          >
+          <Link className="btn ghost" href="/settings/tokens">
             Token settings
           </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-            href="/docs/get-started"
-          >
+          <Link className="btn ghost" href="/docs/get-started">
             Setup guide
           </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-            href="/docs/api"
-          >
+          <Link className="btn ghost" href="/docs/api">
             API docs
           </Link>
         </div>

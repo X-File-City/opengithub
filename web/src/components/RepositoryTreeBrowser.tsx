@@ -58,13 +58,17 @@ function TreePane({
   return (
     <nav aria-label="Repository file tree" className="text-sm">
       <Link
-        className="block truncate rounded-md px-2 py-1.5 font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+        className="block truncate rounded-md px-2 py-1.5 font-semibold hover:bg-[var(--surface-2)]"
         href={directoryHref(overview, "")}
+        style={{ color: "var(--accent)" }}
       >
         {overview.name}
       </Link>
       {overview.path ? (
-        <div className="mt-1 border-l border-[#d0d7de] pl-3">
+        <div
+          className="mt-1 border-l pl-3"
+          style={{ borderColor: "var(--line)" }}
+        >
           {splitPath(overview.path).map((segment, index, parts) => {
             const currentPath = parts.slice(0, index + 1).join("/");
             const active = currentPath === overview.path;
@@ -72,10 +76,12 @@ function TreePane({
               <Link
                 aria-current={active ? "page" : undefined}
                 className={`block truncate rounded-md px-2 py-1.5 ${
-                  active
-                    ? "bg-[#ddf4ff] font-semibold text-[#0969da]"
-                    : "text-[#1f2328] hover:bg-[#f6f8fa]"
+                  active ? "font-semibold" : "hover:bg-[var(--surface-2)]"
                 }`}
+                style={{
+                  color: active ? "var(--accent)" : "var(--ink-1)",
+                  background: active ? "var(--accent-soft)" : undefined,
+                }}
                 href={directoryHref(overview, currentPath)}
                 key={currentPath}
               >
@@ -85,14 +91,22 @@ function TreePane({
           })}
         </div>
       ) : null}
-      <div className="mt-3 border-t border-[#d0d7de] pt-3">
+      <div
+        className="mt-3 border-t pt-3"
+        style={{ borderColor: "var(--line)" }}
+      >
         {[...directories, ...files].slice(0, 30).map((entry) => (
           <Link
-            className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-[#1f2328] hover:bg-[#f6f8fa]"
+            className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--surface-2)]"
             href={entry.href}
             key={entry.path}
+            style={{ color: "var(--ink-1)" }}
           >
-            <span aria-hidden="true" className="w-4 text-center text-[#59636e]">
+            <span
+              aria-hidden="true"
+              className="w-4 text-center"
+              style={{ color: "var(--ink-3)" }}
+            >
               {entry.kind === "folder" ? "▸" : "□"}
             </span>
             <span className="truncate">{entry.name}</span>
@@ -100,8 +114,9 @@ function TreePane({
         ))}
         {overview.hasMore ? (
           <Link
-            className="mt-2 block rounded-md px-2 py-1.5 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+            className="mt-2 block rounded-md px-2 py-1.5 text-sm font-semibold hover:bg-[var(--surface-2)]"
             href={pagedDirectoryHref(overview, overview.page + 1)}
+            style={{ color: "var(--accent)" }}
           >
             Load more entries
           </Link>
@@ -128,42 +143,60 @@ function TreeToolbar({ overview }: RepositoryTreeBrowserProps) {
       />
       <div className="ml-auto flex flex-wrap items-center gap-2 max-md:ml-0">
         <details className="relative">
-          <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]">
+          <summary className="btn sm inline-flex cursor-pointer list-none items-center">
             Add file
           </summary>
-          <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md border border-[#d0d7de] bg-white py-1 text-sm shadow-lg">
+          <div
+            className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md py-1 text-sm"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+              boxShadow: "var(--shadow-md)",
+            }}
+          >
             <Link
-              className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="block px-3 py-2 hover:bg-[var(--surface-2)]"
               href={`${base}/new/${encodeURIComponent(
                 overview.resolvedRef.shortName,
               )}`}
+              style={{ color: "var(--ink-1)" }}
             >
               Create new file
             </Link>
             <Link
-              className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="block px-3 py-2 hover:bg-[var(--surface-2)]"
               href={`${base}/upload/${encodeURIComponent(
                 overview.resolvedRef.shortName,
               )}`}
+              style={{ color: "var(--ink-1)" }}
             >
               Upload files
             </Link>
           </div>
         </details>
         <details className="relative">
-          <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]">
+          <summary className="btn inline-flex cursor-pointer list-none items-center">
             More
           </summary>
-          <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md border border-[#d0d7de] bg-white py-1 text-sm shadow-lg">
+          <div
+            className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-md py-1 text-sm"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+              boxShadow: "var(--shadow-md)",
+            }}
+          >
             <Link
-              className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="block px-3 py-2 hover:bg-[var(--surface-2)]"
               href={overview.historyHref}
+              style={{ color: "var(--ink-1)" }}
             >
               View directory history
             </Link>
             <Link
-              className="block px-3 py-2 text-[#1f2328] hover:bg-[#f6f8fa]"
+              className="block px-3 py-2 hover:bg-[var(--surface-2)]"
               href={overview.defaultBranchHref}
+              style={{ color: "var(--ink-1)" }}
             >
               Open default branch
             </Link>
@@ -186,17 +219,20 @@ function BreadcrumbTitle({ overview }: RepositoryTreeBrowserProps) {
             className="flex min-w-0 items-center gap-1"
             key={breadcrumb.href}
           >
-            {index > 0 ? <span className="text-[#59636e]">/</span> : null}
+            {index > 0 ? (
+              <span style={{ color: "var(--ink-3)" }}>/</span>
+            ) : null}
             <Link
-              className="max-w-48 truncate font-semibold text-[#0969da] hover:underline"
+              className="max-w-48 truncate font-semibold hover:underline"
               href={breadcrumb.href}
+              style={{ color: "var(--accent)" }}
             >
               {breadcrumb.name}
             </Link>
           </span>
         ))}
       </nav>
-      <h1 className="text-xl font-semibold tracking-normal text-[#1f2328]">
+      <h1 className="t-h3" style={{ color: "var(--ink-1)" }}>
         {overview.pathName || overview.name}
       </h1>
     </div>
@@ -229,16 +265,23 @@ export function RepositoryTreeBrowser({
       <div className="flex items-start gap-4 max-lg:block">
         {treeOpen ? (
           <aside
-            className="shrink-0 rounded-md border border-[#d0d7de] bg-white p-3 max-lg:mb-4 max-lg:w-full"
-            style={{ width: paneWidth }}
+            className="shrink-0 rounded-md p-3 max-lg:mb-4 max-lg:w-full"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+              width: paneWidth,
+            }}
           >
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-[#1f2328]">Files</h2>
+              <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
+                Files
+              </h2>
               <button
                 aria-label="Collapse file tree"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[#d0d7de] text-sm text-[#59636e] hover:bg-[#f6f8fa]"
+                className="btn sm inline-flex h-7 w-7 items-center justify-center"
                 onClick={() => setTreeOpen(false)}
                 type="button"
+                style={{ color: "var(--ink-3)" }}
               >
                 ‹
               </button>
@@ -248,9 +291,10 @@ export function RepositoryTreeBrowser({
         ) : (
           <button
             aria-label="Expand file tree"
-            className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa] max-lg:mb-4"
+            className="btn sm max-lg:mb-4"
             onClick={() => setTreeOpen(true)}
             type="button"
+            style={{ color: "var(--accent)" }}
           >
             Files
           </button>
@@ -262,7 +306,8 @@ export function RepositoryTreeBrowser({
             aria-valuemax={360}
             aria-valuemin={192}
             aria-valuenow={paneWidth}
-            className="h-[520px] w-2 cursor-col-resize rounded-full bg-[#d0d7de] hover:bg-[#0969da] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0969da] max-lg:hidden"
+            className="h-[520px] w-2 cursor-col-resize rounded-full hover:bg-[var(--accent)] focus-visible:outline focus-visible:outline-2 max-lg:hidden"
+            style={{ background: "var(--line)" }}
             onKeyDown={(event) => {
               if (event.key === "ArrowLeft") {
                 event.preventDefault();
@@ -298,22 +343,36 @@ export function RepositoryTreeBrowser({
         ) : null}
         <div className="min-w-0 flex-1 space-y-4">
           <BreadcrumbTitle overview={overview} />
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-4 py-2 text-sm text-[#59636e]">
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 rounded-md px-4 py-2 text-sm"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface-2)",
+              color: "var(--ink-3)",
+            }}
+          >
             <span>
               Showing{" "}
-              <strong className="font-semibold text-[#1f2328]">
+              <strong
+                className="font-semibold"
+                style={{ color: "var(--ink-1)" }}
+              >
                 {overview.entries.length}
               </strong>{" "}
               of{" "}
-              <strong className="font-semibold text-[#1f2328]">
+              <strong
+                className="font-semibold"
+                style={{ color: "var(--ink-1)" }}
+              >
                 {overview.total}
               </strong>{" "}
               entries
             </span>
             {overview.hasMore ? (
               <Link
-                className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+                className="btn sm"
                 href={pagedDirectoryHref(overview, overview.page + 1)}
+                style={{ color: "var(--accent)" }}
               >
                 Load more directory entries
               </Link>
@@ -327,11 +386,23 @@ export function RepositoryTreeBrowser({
             parentHref={overview.parentHref}
           />
           {overview.readme ? (
-            <article className="rounded-md border border-[#d0d7de] bg-white">
-              <h2 className="border-b border-[#d0d7de] px-4 py-3 text-sm font-semibold text-[#1f2328]">
+            <article
+              className="rounded-md"
+              style={{
+                border: "1px solid var(--line)",
+                background: "var(--surface)",
+              }}
+            >
+              <h2
+                className="border-b px-4 py-3 t-h3"
+                style={{ borderColor: "var(--line)", color: "var(--ink-1)" }}
+              >
                 {overview.readme.path}
               </h2>
-              <pre className="whitespace-pre-wrap px-4 py-4 text-sm leading-6 text-[#1f2328]">
+              <pre
+                className="whitespace-pre-wrap px-4 py-4 t-sm leading-6"
+                style={{ color: "var(--ink-1)" }}
+              >
                 {overview.readme.content}
               </pre>
             </article>

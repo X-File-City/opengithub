@@ -37,11 +37,7 @@ function VisibilityBadge({
 }: {
   visibility: DashboardTopRepository["visibility"];
 }) {
-  return (
-    <span className="rounded-full border border-[#d0d7de] px-2 py-0.5 text-xs font-medium capitalize text-[#59636e]">
-      {visibility}
-    </span>
-  );
+  return <span className="chip soft t-xs capitalize">{visibility}</span>;
 }
 
 function LanguageLabel({ repository }: { repository: DashboardTopRepository }) {
@@ -55,7 +51,7 @@ function LanguageLabel({ repository }: { repository: DashboardTopRepository }) {
         aria-hidden="true"
         className="h-3 w-3 rounded-full border border-black/10"
         style={{
-          backgroundColor: repository.primaryLanguageColor ?? "#59636e",
+          backgroundColor: repository.primaryLanguageColor ?? "var(--ink-3)",
         }}
       />
       <span className="truncate">{repository.primaryLanguage}</span>
@@ -67,16 +63,22 @@ function RepositoryRow({ repository }: { repository: DashboardTopRepository }) {
   return (
     <li>
       <Link
-        className="block rounded-md px-2 py-2 hover:bg-[#f6f8fa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0969da]"
+        className="list-row block rounded-md px-2 py-2"
         href={repository.href}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#0969da]">
+          <span
+            className="min-w-0 flex-1 truncate t-sm font-semibold"
+            style={{ color: "var(--accent)" }}
+          >
             {repository.ownerLogin}/{repository.name}
           </span>
           <VisibilityBadge visibility={repository.visibility} />
         </div>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#59636e]">
+        <div
+          className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 t-xs"
+          style={{ color: "var(--ink-3)" }}
+        >
           <LanguageLabel repository={repository} />
           <span>{formatUpdatedAt(repository.updatedAt)}</span>
         </div>
@@ -102,16 +104,10 @@ export function DashboardTopRepositories({
       className="w-full space-y-4 lg:w-[296px]"
     >
       <div className="flex items-center justify-between gap-3">
-        <h2
-          className="text-sm font-semibold text-[#1f2328]"
-          id="top-repositories-heading"
-        >
+        <h2 className="t-h3" id="top-repositories-heading">
           Top repositories
         </h2>
-        <Link
-          className="inline-flex h-8 shrink-0 items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0969da]"
-          href="/new"
-        >
+        <Link className="btn primary sm" href="/new">
           New
         </Link>
       </div>
@@ -119,7 +115,7 @@ export function DashboardTopRepositories({
         Find a repository
       </label>
       <input
-        className="h-8 w-full rounded-md border border-[#d0d7de] px-3 text-sm text-[#1f2328] placeholder:text-[#59636e]"
+        className="input w-full"
         id="repository-filter"
         name="repository-filter"
         onChange={(event) => setQuery(event.target.value)}
@@ -138,16 +134,19 @@ export function DashboardTopRepositories({
             ))}
           </ul>
         ) : hasRepositories ? (
-          <p className="rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 py-4 text-sm leading-6 text-[#59636e]">
+          <p
+            className="card px-3 py-4 t-sm leading-6"
+            style={{ color: "var(--ink-3)" }}
+          >
             No repositories match your filter.
           </p>
         ) : (
-          <div className="rounded-md border border-[#d0d7de] bg-white px-4 py-5 text-sm leading-6 text-[#59636e]">
+          <div
+            className="card px-4 py-5 t-sm leading-6"
+            style={{ color: "var(--ink-3)" }}
+          >
             <p>You do not have any repositories yet.</p>
-            <Link
-              className="mt-3 inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#0969da] hover:bg-[#eef1f4]"
-              href="/new"
-            >
+            <Link className="btn ghost sm mt-3" href="/new">
               Create repository
             </Link>
           </div>

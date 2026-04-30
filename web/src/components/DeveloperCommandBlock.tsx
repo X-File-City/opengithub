@@ -14,12 +14,19 @@ export function DeveloperCommandBlock({
   return (
     <div className="min-w-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase text-[#59636e]">
+        <p className="t-label" style={{ color: "var(--ink-3)" }}>
           {label}
         </p>
         <CopyButton label={copyLabel} value={value} />
       </div>
-      <pre className="max-w-full overflow-x-auto rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-3 font-mono text-xs leading-5 text-[#1f2328]">
+      <pre
+        className="t-mono-sm max-w-full overflow-x-auto rounded-md p-3 leading-5"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface-2)",
+          color: "var(--ink-1)",
+        }}
+      >
         {value}
       </pre>
     </div>

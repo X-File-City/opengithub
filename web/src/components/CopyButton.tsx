@@ -29,17 +29,18 @@ export function CopyButton({
   return (
     <div className="flex items-center gap-2">
       <button
-        className={
-          className ??
-          "inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-xs font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-        }
+        className={className ?? "btn ghost sm"}
         onClick={copy}
         type="button"
       >
         {label}
       </button>
       {status ? (
-        <span className="text-xs font-medium text-[#1a7f37]" role="status">
+        <span
+          className="t-xs font-medium"
+          style={{ color: "var(--ok)" }}
+          role="status"
+        >
           {status}
         </span>
       ) : null}

@@ -69,65 +69,53 @@ function WelcomePanel({
   );
 
   return (
-    <section className="rounded-md border border-[#d0d7de] bg-white">
+    <section className="card">
       <div className="p-6">
-        <p className="text-sm font-semibold text-[#59636e]">
+        <p className="t-label" style={{ color: "var(--ink-3)" }}>
           Welcome, {userName}
         </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-normal text-[#1f2328]">
-          Start building on opengithub
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[#59636e]">
+        <h1 className="mt-2 t-h2">Start building on opengithub</h1>
+        <p className="mt-3 max-w-2xl t-body" style={{ color: "var(--ink-3)" }}>
           Create your first repository, import an existing project, or read the
           setup guide to connect Git and collaboration workflows.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            className="inline-flex h-9 items-center rounded-md bg-[#1f883d] px-4 text-sm font-semibold text-white hover:bg-[#1a7f37]"
-            href="/new"
-          >
+          <Link className="btn primary" href="/new">
             Create repository
           </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-4 text-sm font-semibold text-[#0969da] hover:bg-[#eef1f4]"
-            href="/new/import"
-          >
+          <Link className="btn ghost" href="/new/import">
             Import repository
           </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-            href="/docs/get-started"
-          >
+          <Link className="btn ghost" href="/docs/get-started">
             Read setup guide
           </Link>
         </div>
       </div>
       {visibleHints.length > 0 ? (
-        <div className="border-t border-[#d0d7de]">
+        <div style={{ borderTop: "1px solid var(--line)" }}>
           <h2 className="sr-only">Getting started tasks</h2>
-          <ul className="divide-y divide-[#d0d7de]">
+          <ul
+            style={{ borderTop: "1px solid var(--line)" }}
+            className="divide-y"
+          >
             {visibleHints.map((hint) => (
               <li
                 className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
                 key={hint.key}
+                style={{ borderBottom: "1px solid var(--line)" }}
               >
                 <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-[#1f2328]">
-                    {hint.title}
-                  </h3>
-                  <p className="mt-1 text-sm leading-6 text-[#59636e]">
+                  <h3 className="t-h3">{hint.title}</h3>
+                  <p className="mt-1 t-body" style={{ color: "var(--ink-3)" }}>
                     {hint.description}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Link
-                    className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-                    href={hint.href}
-                  >
+                  <Link className="btn ghost sm" href={hint.href}>
                     {hint.action}
                   </Link>
                   <button
-                    className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#59636e] hover:bg-[#eef1f4] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="btn ghost sm disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={dismissingHint === hint.key}
                     onClick={() => onDismiss(hint.key)}
                     type="button"
@@ -142,7 +130,8 @@ function WelcomePanel({
       ) : null}
       {feedback ? (
         <p
-          className="border-t border-[#d0d7de] px-6 py-3 text-sm text-[#59636e]"
+          className="px-6 py-3 t-sm"
+          style={{ borderTop: "1px solid var(--line)", color: "var(--ink-3)" }}
           role="status"
         >
           {feedback}

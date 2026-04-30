@@ -98,15 +98,15 @@ export function MarkdownEditor({
   }
 
   return (
-    <section
-      aria-labelledby="markdown-editor-title"
-      className="rounded-md border border-[#d0d7de] bg-white"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d0d7de] bg-[#f6f8fa] px-4 py-2">
-        <h2
-          className="text-sm font-semibold text-[#1f2328]"
-          id="markdown-editor-title"
-        >
+    <section aria-labelledby="markdown-editor-title" className="card">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 px-4 py-2"
+        style={{
+          borderBottom: "1px solid var(--line)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <h2 className="t-h3" id="markdown-editor-title">
           Markdown editor
         </h2>
         <div
@@ -116,7 +116,7 @@ export function MarkdownEditor({
         >
           {TOOLBAR_ACTIONS.map((action) => (
             <button
-              className="h-8 rounded-md border border-transparent px-2 text-sm font-semibold text-[#1f2328] hover:border-[#d0d7de] hover:bg-white"
+              className="btn ghost sm"
               key={action.label}
               onClick={() => applyToolbarAction(action)}
               type="button"
@@ -128,12 +128,12 @@ export function MarkdownEditor({
       </div>
       <div
         aria-label="Markdown editor tabs"
-        className="flex border-b border-[#d0d7de] px-4 pt-3"
+        className="tabs flex px-4 pt-3"
         role="tablist"
       >
         <button
           aria-selected={tab === "write"}
-          className="border-b-2 px-3 py-2 text-sm font-semibold aria-selected:border-[#fd8c73] aria-selected:text-[#1f2328]"
+          className={`tab${tab === "write" ? " active" : ""}`}
           onClick={() => setTab("write")}
           role="tab"
           type="button"
@@ -142,7 +142,7 @@ export function MarkdownEditor({
         </button>
         <button
           aria-selected={tab === "preview"}
-          className="border-b-2 px-3 py-2 text-sm font-semibold aria-selected:border-[#fd8c73] aria-selected:text-[#1f2328]"
+          className={`tab${tab === "preview" ? " active" : ""}`}
           onClick={showPreview}
           role="tab"
           type="button"
@@ -157,23 +157,34 @@ export function MarkdownEditor({
               Markdown source
             </label>
             <textarea
-              className="min-h-72 w-full resize-y rounded-md border border-[#d0d7de] p-3 font-mono text-sm leading-6 text-[#1f2328]"
+              className="input min-h-72 w-full resize-y p-3 t-mono leading-6"
+              style={{ color: "var(--ink-1)" }}
               id="markdown-source"
               onChange={(event) => setMarkdown(event.target.value)}
               value={markdown}
             />
-            <p className="mt-2 text-xs text-[#59636e]">{lineCount} lines</p>
+            <p className="mt-2 t-xs" style={{ color: "var(--ink-3)" }}>
+              {lineCount} lines
+            </p>
           </div>
         ) : (
           <div>
             <MarkdownBody html={rendered.html} />
             {isPending ? (
-              <p className="mt-3 text-sm text-[#59636e]" role="status">
+              <p
+                className="mt-3 t-sm"
+                style={{ color: "var(--ink-3)" }}
+                role="status"
+              >
                 Rendering preview...
               </p>
             ) : null}
             {error ? (
-              <p className="mt-3 text-sm text-[#cf222e]" role="alert">
+              <p
+                className="mt-3 t-sm"
+                style={{ color: "var(--err)" }}
+                role="alert"
+              >
                 {error}
               </p>
             ) : null}

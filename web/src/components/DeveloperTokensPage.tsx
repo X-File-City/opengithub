@@ -23,17 +23,26 @@ const scopes = [
 export function DeveloperTokensPage() {
   return (
     <article className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[240px_1fr]">
-      <aside className="lg:border-r lg:border-[#d0d7de] lg:pr-6">
-        <nav aria-label="Settings navigation" className="space-y-1 text-sm">
+      <aside
+        className="lg:pr-6"
+        style={{ borderRight: "1px solid var(--line)" }}
+      >
+        <nav aria-label="Settings navigation" className="space-y-1 t-sm">
           <Link
-            className="block rounded-md px-3 py-2 font-medium text-[#59636e] hover:bg-[#f6f8fa]"
+            className="block rounded-md px-3 py-2 font-medium hover:bg-[var(--hover)]"
+            style={{ color: "var(--ink-3)" }}
             href="/settings/profile"
           >
             Profile
           </Link>
           <Link
             aria-current="page"
-            className="block rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 py-2 font-semibold text-[#1f2328]"
+            className="block rounded-md px-3 py-2 font-semibold"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface-2)",
+              color: "var(--ink-1)",
+            }}
             href="/settings/tokens"
           >
             Personal access tokens
@@ -42,14 +51,15 @@ export function DeveloperTokensPage() {
       </aside>
 
       <div className="min-w-0">
-        <div className="border-b border-[#d0d7de] pb-5">
-          <p className="text-sm font-semibold text-[#59636e]">
+        <div className="pb-5" style={{ borderBottom: "1px solid var(--line)" }}>
+          <p className="t-label" style={{ color: "var(--ink-3)" }}>
             Developer settings
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal text-[#1f2328]">
-            Personal access tokens
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-[#59636e]">
+          <h1 className="mt-2 t-h2">Personal access tokens</h1>
+          <p
+            className="mt-3 max-w-3xl t-body"
+            style={{ color: "var(--ink-3)" }}
+          >
             Use opengithub personal access tokens as command-line credentials
             for Git over HTTPS, REST API calls, and automation. Tokens are
             stored hashed by the Rust API and are shown only once when the token
@@ -57,12 +67,13 @@ export function DeveloperTokensPage() {
           </p>
         </div>
 
-        <section className="mt-6 rounded-md border border-[#d0d7de] bg-white">
-          <div className="border-b border-[#d0d7de] p-4">
-            <h2 className="text-base font-semibold text-[#1f2328]">
-              Token quickstart
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#59636e]">
+        <section className="mt-6 card">
+          <div
+            className="p-4"
+            style={{ borderBottom: "1px solid var(--line)" }}
+          >
+            <h2 className="t-h3">Token quickstart</h2>
+            <p className="mt-2 t-body" style={{ color: "var(--ink-3)" }}>
               The examples below use opengithub-owned endpoints and the same
               token contract used by Git transport and REST automation.
             </p>
@@ -92,48 +103,65 @@ export function DeveloperTokensPage() {
         </section>
 
         <section className="mt-6 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-md border border-[#d0d7de] bg-white p-4">
-            <h2 className="text-base font-semibold text-[#1f2328]">
-              Recommended scopes
-            </h2>
-            <dl className="mt-3 space-y-3 text-sm">
+          <div className="card p-4">
+            <h2 className="t-h3">Recommended scopes</h2>
+            <dl className="mt-3 space-y-3 t-sm">
               {scopes.map(([scope, description]) => (
                 <div key={scope}>
-                  <dt className="font-mono text-xs font-semibold text-[#1f2328]">
+                  <dt
+                    className="t-mono-sm font-semibold"
+                    style={{ color: "var(--ink-1)" }}
+                  >
                     {scope}
                   </dt>
-                  <dd className="mt-1 leading-6 text-[#59636e]">
+                  <dd
+                    className="mt-1 leading-6"
+                    style={{ color: "var(--ink-3)" }}
+                  >
                     {description}
                   </dd>
                 </div>
               ))}
             </dl>
           </div>
-          <div className="rounded-md border border-[#d0d7de] bg-white p-4">
-            <h2 className="text-base font-semibold text-[#1f2328]">
-              Developer references
-            </h2>
-            <div className="mt-3 grid gap-2 text-sm">
+          <div className="card p-4">
+            <h2 className="t-h3">Developer references</h2>
+            <div className="mt-3 grid gap-2 t-sm">
               <Link
-                className="rounded-md border border-[#d0d7de] px-3 py-2 font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+                className="rounded-md px-3 py-2 font-semibold hover:bg-[var(--hover)]"
+                style={{
+                  border: "1px solid var(--line)",
+                  color: "var(--accent)",
+                }}
                 href="/docs/git"
               >
                 Git over HTTPS guide
               </Link>
               <Link
-                className="rounded-md border border-[#d0d7de] px-3 py-2 font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+                className="rounded-md px-3 py-2 font-semibold hover:bg-[var(--hover)]"
+                style={{
+                  border: "1px solid var(--line)",
+                  color: "var(--accent)",
+                }}
                 href="/docs/api"
               >
                 REST API endpoint catalog
               </Link>
               <Link
-                className="rounded-md border border-[#d0d7de] px-3 py-2 font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
+                className="rounded-md px-3 py-2 font-semibold hover:bg-[var(--hover)]"
+                style={{
+                  border: "1px solid var(--line)",
+                  color: "var(--accent)",
+                }}
                 href="/docs/get-started"
               >
                 Setup guide
               </Link>
             </div>
-            <p className="mt-4 text-sm leading-6 text-[#59636e]">
+            <p
+              className="mt-4 t-sm leading-6"
+              style={{ color: "var(--ink-3)" }}
+            >
               Token creation and revocation are intentionally kept out of this
               read-only workflow page until the security settings feature owns
               the write API and audit events.

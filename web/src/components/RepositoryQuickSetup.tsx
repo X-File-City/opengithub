@@ -37,31 +37,40 @@ export function RepositoryQuickSetup({
   }
 
   return (
-    <div className="rounded-md border border-[#d0d7de] bg-white p-6">
+    <div className="card p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-[#1f2328]">
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
             Quick setup
           </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#59636e]">
+          <p
+            className="t-sm mt-2 max-w-2xl leading-6"
+            style={{ color: "var(--ink-3)" }}
+          >
             Clone this empty repository, create a README, and push the first
             commit to the default branch.
           </p>
         </div>
-        <Link
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#0969da] hover:bg-[#eef1f4]"
-          href="/docs/git"
-        >
+        <Link className="btn sm" href="/docs/git">
           Git docs
         </Link>
       </div>
-      <div className="mt-4 rounded-md border border-[#d0d7de] bg-[#f6f8fa]">
-        <div className="flex items-center justify-between gap-3 border-b border-[#d0d7de] px-3 py-2">
-          <p className="text-xs font-semibold uppercase text-[#59636e]">
+      <div
+        className="mt-4 rounded-md"
+        style={{
+          border: "1px solid var(--line)",
+          background: "var(--surface-2)",
+        }}
+      >
+        <div
+          className="flex items-center justify-between gap-3 border-b px-3 py-2"
+          style={{ borderColor: "var(--line)" }}
+        >
+          <p className="t-label" style={{ color: "var(--ink-3)" }}>
             HTTPS remote
           </p>
           <button
-            className="h-7 rounded-md border border-[#d0d7de] bg-white px-2 text-xs font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
+            className="btn sm"
             onClick={() => copy(repository.cloneUrls.https, "Clone URL")}
             type="button"
           >
@@ -70,34 +79,51 @@ export function RepositoryQuickSetup({
         </div>
         <input
           aria-label="HTTPS clone URL"
-          className="w-full border-0 bg-white px-3 py-2 font-mono text-xs text-[#1f2328] outline-none"
+          className="w-full border-0 px-3 py-2 t-mono-sm outline-none"
+          style={{ background: "var(--surface)" }}
           readOnly
           value={repository.cloneUrls.https}
         />
       </div>
-      <div className="mt-3 rounded-md border border-[#d0d7de] bg-[#0d1117]">
-        <div className="flex items-center justify-between gap-3 border-b border-[#30363d] px-3 py-2">
-          <p className="text-xs font-semibold uppercase text-[#8b949e]">
+      <div
+        className="mt-3 rounded-md"
+        style={{
+          background: "var(--surface-3)",
+          border: "1px solid var(--line)",
+        }}
+      >
+        <div
+          className="flex items-center justify-between gap-3 border-b px-3 py-2"
+          style={{ borderColor: "var(--line)" }}
+        >
+          <p className="t-label" style={{ color: "var(--ink-3)" }}>
             Create README and push
           </p>
           <button
-            className="h-7 rounded-md border border-[#30363d] bg-[#21262d] px-2 text-xs font-semibold text-[#f0f6fc] hover:bg-[#30363d]"
+            className="btn sm"
             onClick={() => copy(script, "Quick setup commands")}
             type="button"
           >
             Copy commands
           </button>
         </div>
-        <pre className="overflow-x-auto whitespace-pre px-3 py-3 font-mono text-xs leading-5 text-[#f0f6fc]">
+        <pre
+          className="overflow-x-auto whitespace-pre px-3 py-3 t-mono-sm leading-5"
+          style={{ color: "var(--ink-1)" }}
+        >
           {commands.map((line) => `$ ${line}`).join("\n")}
         </pre>
       </div>
-      <p className="mt-3 text-xs leading-5 text-[#59636e]">
+      <p className="mt-3 t-xs leading-5" style={{ color: "var(--ink-3)" }}>
         Private repositories require a personal access token with repository
         read/write scope when using Git over HTTPS.
       </p>
       {copied ? (
-        <p className="mt-2 text-xs font-medium text-[#1a7f37]" role="status">
+        <p
+          className="mt-2 t-xs font-medium"
+          role="status"
+          style={{ color: "var(--ok)" }}
+        >
           {copied}
         </p>
       ) : null}

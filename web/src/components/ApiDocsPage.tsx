@@ -7,25 +7,31 @@ import {
   paginationExample,
 } from "@/lib/api-docs";
 
-const methodClassName: Record<ApiDocMethod, string> = {
-  GET: "border-[#54aeff] bg-[#ddf4ff] text-[#0969da]",
-  POST: "border-[#4ac26b] bg-[#dafbe1] text-[#1a7f37]",
-  PATCH: "border-[#d4a72c] bg-[#fff8c5] text-[#7d4e00]",
-  DELETE: "border-[#ff8182] bg-[#ffebe9] text-[#cf222e]",
+const methodChipClass: Record<ApiDocMethod, string> = {
+  GET: "chip info",
+  POST: "chip ok",
+  PATCH: "chip warn",
+  DELETE: "chip err",
 };
 
 export function ApiDocsPage() {
   return (
     <article className="mx-auto max-w-6xl overflow-x-hidden px-4 py-8 sm:px-6">
-      <div className="flex flex-col gap-6 border-b border-[#d0d7de] pb-8 lg:flex-row lg:items-end lg:justify-between">
+      <div
+        className="flex flex-col gap-6 pb-8 lg:flex-row lg:items-end lg:justify-between"
+        style={{ borderBottom: "1px solid var(--line)" }}
+      >
         <div>
-          <p className="text-sm font-semibold text-[#59636e]">
+          <p className="t-label" style={{ color: "var(--ink-3)" }}>
             opengithub REST API
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-normal text-[#1f2328]">
+          <h1 className="mt-2 t-h2">
             Build against implemented opengithub APIs
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-[#59636e]">
+          <p
+            className="mt-4 max-w-3xl t-body"
+            style={{ color: "var(--ink-3)" }}
+          >
             These endpoints are served by the Rust API and backed by
             opengithub-owned Postgres data. The catalog only lists APIs that are
             implemented in this build, with the same pagination and error
@@ -33,43 +39,30 @@ export function ApiDocsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link
-            className="inline-flex h-9 items-center rounded-md bg-[#1f883d] px-4 text-sm font-semibold text-white hover:bg-[#1a7f37]"
-            href="/docs/git"
-          >
+          <Link className="btn primary" href="/docs/git">
             Git docs
           </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-            href="/settings/tokens"
-          >
+          <Link className="btn ghost" href="/settings/tokens">
             Tokens
           </Link>
-          <Link
-            className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-white px-4 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]"
-            href="/docs/get-started"
-          >
+          <Link className="btn ghost" href="/docs/get-started">
             Setup guide
           </Link>
         </div>
       </div>
 
       <section className="mt-8 grid gap-4 md:grid-cols-2">
-        <div className="rounded-md border border-[#d0d7de] bg-white p-4">
-          <h2 className="text-base font-semibold text-[#1f2328]">
-            Authentication
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-[#59636e]">
+        <div className="card p-4">
+          <h2 className="t-h3">Authentication</h2>
+          <p className="mt-2 t-body" style={{ color: "var(--ink-3)" }}>
             Browser clients use the signed opengithub session cookie created by
             Google OAuth. Personal access tokens are stored hashed and are
             reserved for Git, automation, and later token-management surfaces.
           </p>
         </div>
-        <div className="rounded-md border border-[#d0d7de] bg-white p-4">
-          <h2 className="text-base font-semibold text-[#1f2328]">
-            Pagination and errors
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-[#59636e]">
+        <div className="card p-4">
+          <h2 className="t-h3">Pagination and errors</h2>
+          <p className="mt-2 t-body" style={{ color: "var(--ink-3)" }}>
             List endpoints accept page and pageSize and return
             items/total/page/pageSize. Failures use code/message envelopes with
             the matching HTTP status.
@@ -78,51 +71,62 @@ export function ApiDocsPage() {
       </section>
 
       <section className="mt-8" aria-labelledby="endpoint-catalog-heading">
-        <h2
-          id="endpoint-catalog-heading"
-          className="text-lg font-semibold text-[#1f2328]"
-        >
+        <h2 id="endpoint-catalog-heading" className="t-h2">
           Endpoint catalog
         </h2>
         <div className="mt-4 space-y-4">
           {apiEndpointDocs.map((endpoint) => (
             <section
               key={endpoint.id}
-              className="rounded-md border border-[#d0d7de] bg-white p-4"
+              className="card p-4"
               aria-labelledby={`${endpoint.id}-heading`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex rounded-md border px-2 py-1 font-mono text-xs font-semibold ${methodClassName[endpoint.method]}`}
-                    >
+                    <span className={methodChipClass[endpoint.method]}>
                       {endpoint.method}
                     </span>
-                    <code className="break-all font-mono text-sm text-[#1f2328]">
+                    <code
+                      className="t-mono break-all"
+                      style={{ color: "var(--ink-1)" }}
+                    >
                       {endpoint.path}
                     </code>
                   </div>
-                  <h3
-                    id={`${endpoint.id}-heading`}
-                    className="mt-3 text-base font-semibold text-[#1f2328]"
-                  >
+                  <h3 id={`${endpoint.id}-heading`} className="mt-3 t-h3">
                     {endpoint.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-[#59636e]">
+                  <p className="mt-2 t-body" style={{ color: "var(--ink-3)" }}>
                     {endpoint.description}
                   </p>
                 </div>
-                <p className="min-w-0 break-words rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 py-2 text-xs font-semibold text-[#59636e]">
+                <p
+                  className="t-xs min-w-0 break-words rounded-md px-3 py-2 font-semibold"
+                  style={{
+                    border: "1px solid var(--line)",
+                    background: "var(--surface-2)",
+                    color: "var(--ink-3)",
+                  }}
+                >
                   {endpoint.auth}
                 </p>
               </div>
 
-              <details className="mt-4 rounded-md border border-[#d0d7de]">
-                <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-[#0969da] hover:bg-[#f6f8fa]">
+              <details
+                className="mt-4 rounded-md"
+                style={{ border: "1px solid var(--line)" }}
+              >
+                <summary
+                  className="cursor-pointer px-3 py-2 t-sm font-semibold hover:bg-[var(--hover)]"
+                  style={{ color: "var(--accent)" }}
+                >
                   Request and response examples
                 </summary>
-                <div className="grid gap-4 border-t border-[#d0d7de] p-3 lg:grid-cols-2">
+                <div
+                  className="grid gap-4 p-3 lg:grid-cols-2"
+                  style={{ borderTop: "1px solid var(--line)" }}
+                >
                   {endpoint.request ? (
                     <DeveloperCommandBlock
                       copyLabel="Copy request"
@@ -144,7 +148,10 @@ export function ApiDocsPage() {
                 </div>
               </details>
 
-              <ul className="mt-3 list-inside list-disc space-y-1 text-sm leading-6 text-[#59636e]">
+              <ul
+                className="mt-3 list-inside list-disc space-y-1 t-sm leading-6"
+                style={{ color: "var(--ink-3)" }}
+              >
                 {endpoint.notes.map((note) => (
                   <li key={note}>{note}</li>
                 ))}
@@ -155,10 +162,8 @@ export function ApiDocsPage() {
       </section>
 
       <section className="mt-8 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-md border border-[#d0d7de] bg-white p-4">
-          <h2 className="text-base font-semibold text-[#1f2328]">
-            Pagination example
-          </h2>
+        <div className="card p-4">
+          <h2 className="t-h3">Pagination example</h2>
           <div className="mt-3">
             <DeveloperCommandBlock
               copyLabel="Copy pagination"
@@ -167,10 +172,8 @@ export function ApiDocsPage() {
             />
           </div>
         </div>
-        <div className="rounded-md border border-[#d0d7de] bg-white p-4">
-          <h2 className="text-base font-semibold text-[#1f2328]">
-            Error example
-          </h2>
+        <div className="card p-4">
+          <h2 className="t-h3">Error example</h2>
           <div className="mt-3">
             <DeveloperCommandBlock
               copyLabel="Copy error"

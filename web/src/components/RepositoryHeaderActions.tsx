@@ -117,55 +117,53 @@ export function RepositoryHeaderActions({
     <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
       <button
         aria-pressed={social.watching}
-        className="inline-flex h-8 items-center gap-2 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 font-semibold text-[#1f2328] hover:bg-[#eef1f4] disabled:opacity-60"
+        className="btn sm disabled:opacity-60"
         disabled={isPending}
         onClick={toggleWatch}
         type="button"
       >
         {social.watching ? "Unwatch" : "Watch"}
-        <span className="rounded-full bg-[#eaeef2] px-1.5 py-0.5 text-xs">
+        <span className="chip soft ml-1" style={{ marginLeft: "0.25rem" }}>
           {formatCompactCount(social.watchersCount)}
         </span>
       </button>
       {social.forkedRepositoryHref ? (
-        <a
-          className="inline-flex h-8 items-center gap-2 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 font-semibold text-[#1f2328] hover:bg-[#eef1f4]"
-          href={social.forkedRepositoryHref}
-        >
+        <a className="btn sm" href={social.forkedRepositoryHref}>
           Forked
-          <span className="rounded-full bg-[#eaeef2] px-1.5 py-0.5 text-xs">
+          <span className="chip soft" style={{ marginLeft: "0.25rem" }}>
             {formatCompactCount(social.forksCount)}
           </span>
         </a>
       ) : (
         <button
-          className="inline-flex h-8 items-center gap-2 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 font-semibold text-[#1f2328] hover:bg-[#eef1f4] disabled:opacity-60"
+          className="btn sm disabled:opacity-60"
           disabled={isPending}
           onClick={forkRepository}
           type="button"
         >
           Fork
-          <span className="rounded-full bg-[#eaeef2] px-1.5 py-0.5 text-xs">
+          <span className="chip soft" style={{ marginLeft: "0.25rem" }}>
             {formatCompactCount(social.forksCount)}
           </span>
         </button>
       )}
       <button
         aria-pressed={social.starred}
-        className="inline-flex h-8 items-center gap-2 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 font-semibold text-[#1f2328] hover:bg-[#eef1f4] disabled:opacity-60"
+        className="btn sm disabled:opacity-60"
         disabled={isPending}
         onClick={toggleStar}
         type="button"
       >
         {social.starred ? "Unstar" : "Star"}
-        <span className="rounded-full bg-[#eaeef2] px-1.5 py-0.5 text-xs">
+        <span className="chip soft" style={{ marginLeft: "0.25rem" }}>
           {formatCompactCount(social.starsCount)}
         </span>
       </button>
       {feedback ? (
         <p
-          className="basis-full text-right text-xs text-[#cf222e]"
+          className="basis-full text-right text-xs"
           role="alert"
+          style={{ color: "var(--err)" }}
         >
           {feedback}
         </p>

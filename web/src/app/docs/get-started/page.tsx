@@ -8,13 +8,16 @@ export default async function GetStartedPage() {
   return (
     <AppShell session={session}>
       <article className="mx-auto max-w-3xl px-6 py-8">
-        <p className="text-sm font-semibold text-[#59636e]">
+        <p className="t-label" style={{ color: "var(--ink-3)" }}>
           opengithub setup guide
         </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-normal text-[#1f2328]">
+        <h1 className="t-h1 mt-2" style={{ color: "var(--ink-1)" }}>
           Get started with your first repository
         </h1>
-        <div className="mt-5 space-y-4 text-sm leading-6 text-[#59636e]">
+        <div
+          className="mt-5 space-y-4 t-body"
+          style={{ color: "var(--ink-3)" }}
+        >
           <p>
             Create a repository, add collaborators, and use pull requests and
             issues to organize work. The local product API owns repository data,
@@ -32,10 +35,7 @@ export default async function GetStartedPage() {
             </li>
           </ol>
         </div>
-        <Link
-          className="mt-6 inline-flex h-9 items-center rounded-md bg-[#1f883d] px-4 text-sm font-semibold text-white hover:bg-[#1a7f37]"
-          href="/new"
-        >
+        <Link className="btn primary mt-6" href="/new">
           Create repository
         </Link>
       </article>

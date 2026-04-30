@@ -184,38 +184,53 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
       className="mx-auto max-w-[760px] px-4 py-7 sm:px-6"
       onSubmit={(event) => void submitRepository(event)}
     >
-      <header className="border-b border-[#d0d7de] pb-5">
-        <h1 className="text-2xl font-semibold tracking-normal text-[#1f2328]">
+      <header className="border-b pb-5" style={{ borderColor: "var(--line)" }}>
+        <h1 className="t-h2" style={{ color: "var(--ink-1)" }}>
           Create a new repository
         </h1>
-        <p className="mt-2 text-sm leading-5 text-[#59636e]">
+        <p className="mt-2 t-sm leading-5" style={{ color: "var(--ink-3)" }}>
           Repositories contain a project's files and version history. Have a
           project elsewhere?{" "}
-          <Link className="text-[#0969da] hover:underline" href="/new/import">
+          <Link
+            className="hover:underline"
+            href="/new/import"
+            style={{ color: "var(--accent)" }}
+          >
             Import a repository.
           </Link>
         </p>
-        <p className="mt-1 text-sm italic text-[#59636e]">
+        <p className="mt-1 t-sm italic" style={{ color: "var(--ink-3)" }}>
           Required fields are marked with an asterisk (*).
         </p>
       </header>
 
       <section className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 pt-6 sm:grid-cols-[36px_minmax(0,1fr)] sm:gap-x-4">
         <div className="flex flex-col items-center">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#afb8c1] text-sm font-semibold text-white">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full t-sm font-semibold"
+            style={{ background: "var(--ink-4)", color: "var(--bg)" }}
+          >
             1
           </span>
-          <span className="mt-2 flex-1 border-l border-[#d0d7de]" />
+          <span
+            className="mt-2 flex-1 border-l"
+            style={{ borderColor: "var(--line)" }}
+          />
         </div>
         <div className="pb-7">
-          <h2 className="text-base font-semibold text-[#1f2328]">General</h2>
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
+            General
+          </h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-[140px_1fr]">
             <label className="block">
-              <span className="text-sm font-semibold text-[#1f2328]">
+              <span
+                className="t-sm font-semibold"
+                style={{ color: "var(--ink-1)" }}
+              >
                 Owner *
               </span>
               <select
-                className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] bg-white px-3 text-sm"
+                className="input mt-2 h-9 w-full px-3 t-sm"
                 value={selectedOwnerKey}
                 onChange={(event) => {
                   setSelectedOwnerKey(event.target.value);
@@ -234,13 +249,16 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-semibold text-[#1f2328]">
+              <span
+                className="t-sm font-semibold"
+                style={{ color: "var(--ink-1)" }}
+              >
                 Repository name *
               </span>
               <input
                 aria-describedby="repository-name-help repository-name-feedback"
                 aria-invalid={nameError ? "true" : "false"}
-                className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
+                className="input mt-2 h-9 w-full px-3 t-sm"
                 value={name}
                 onBlur={() => void checkAvailability()}
                 onChange={(event) => {
@@ -252,13 +270,14 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
               />
             </label>
           </div>
-          <p className="mt-3 text-sm text-[#59636e]">
+          <p className="mt-3 t-sm" style={{ color: "var(--ink-3)" }}>
             <span id="repository-name-help">
               Great repository names are short and memorable. How about{" "}
             </span>
             <button
-              className="font-medium text-[#1a7f37] hover:underline"
+              className="font-medium hover:underline"
               type="button"
+              style={{ color: "var(--ok)" }}
               onClick={() => {
                 setName(options.suggestedName);
                 void checkAvailability(options.suggestedName);
@@ -270,30 +289,43 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
           </p>
           <div id="repository-name-feedback">
             {normalizedNameChanged ? (
-              <p className="mt-2 text-sm text-[#1a7f37]" role="status">
+              <p
+                className="mt-2 t-sm"
+                role="status"
+                style={{ color: "var(--ok)" }}
+              >
                 This will be normalized to{" "}
-                <span className="font-mono text-[#1f2328]">
+                <span className="t-mono" style={{ color: "var(--ink-1)" }}>
                   {normalizedName}
                 </span>
                 .
               </p>
             ) : null}
             {availabilityStatus === "checking" ? (
-              <p className="mt-2 text-sm text-[#59636e]" role="status">
+              <p
+                className="mt-2 t-sm"
+                role="status"
+                style={{ color: "var(--ink-3)" }}
+              >
                 Checking repository name...
               </p>
             ) : null}
             {availabilityStatus === "error" ? (
-              <p className="mt-2 text-sm text-[#cf222e]" role="alert">
+              <p
+                className="mt-2 t-sm"
+                role="alert"
+                style={{ color: "var(--err)" }}
+              >
                 Name availability could not be checked.
               </p>
             ) : null}
             {availability ? (
               <p
-                className={`mt-2 text-sm ${
-                  availability.available ? "text-[#1a7f37]" : "text-[#cf222e]"
-                }`}
+                className="mt-2 t-sm"
                 role={availability.available ? "status" : "alert"}
+                style={{
+                  color: availability.available ? "var(--ok)" : "var(--err)",
+                }}
               >
                 {availability.available
                   ? `${availability.normalizedName} is available.`
@@ -301,25 +333,33 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
               </p>
             ) : null}
             {nameError ? (
-              <p className="mt-2 text-sm text-[#cf222e]" role="alert">
+              <p
+                className="mt-2 t-sm"
+                role="alert"
+                style={{ color: "var(--err)" }}
+              >
                 {nameError}
               </p>
             ) : null}
           </div>
           <label className="mt-4 block">
-            <span className="text-sm font-semibold text-[#1f2328]">
+            <span
+              className="t-sm font-semibold"
+              style={{ color: "var(--ink-1)" }}
+            >
               Description
             </span>
             <input
-              className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
+              className="input mt-2 h-9 w-full px-3 t-sm"
               maxLength={350}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
-            <span className="mt-2 block text-xs text-[#59636e]">
+            <span className="mt-2 block t-xs" style={{ color: "var(--ink-3)" }}>
               <span
-                className={
-                  descriptionAtLimit ? "font-semibold text-[#9a6700]" : ""
+                className={descriptionAtLimit ? "font-semibold" : ""}
+                style={
+                  descriptionAtLimit ? { color: "var(--warn)" } : undefined
                 }
               >
                 {description.length}
@@ -332,27 +372,46 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
 
       <section className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 sm:grid-cols-[36px_minmax(0,1fr)] sm:gap-x-4">
         <div className="flex flex-col items-center">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#afb8c1] text-sm font-semibold text-white">
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full t-sm font-semibold"
+            style={{ background: "var(--ink-4)", color: "var(--bg)" }}
+          >
             2
           </span>
-          <span className="mt-2 flex-1 border-l border-[#d0d7de]" />
+          <span
+            className="mt-2 flex-1 border-l"
+            style={{ borderColor: "var(--line)" }}
+          />
         </div>
         <div className="pb-6">
-          <h2 className="text-base font-semibold text-[#1f2328]">
+          <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
             Configuration
           </h2>
-          <div className="mt-4 divide-y divide-[#d0d7de] rounded-md border border-[#d0d7de] bg-white">
+          <div
+            className="mt-4 divide-y rounded-md"
+            style={{
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+              borderColor: "var(--line)",
+            }}
+          >
             <label className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                <span className="block text-sm font-semibold text-[#1f2328]">
+                <span
+                  className="block t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Choose visibility *
                 </span>
-                <span className="mt-1 block text-sm text-[#59636e]">
+                <span
+                  className="mt-1 block t-sm"
+                  style={{ color: "var(--ink-3)" }}
+                >
                   {VISIBILITY_COPY[visibility]}
                 </span>
               </span>
               <select
-                className="h-9 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold"
+                className="input h-9 px-3 t-sm font-semibold"
                 value={visibility}
                 onChange={(event) =>
                   setVisibility(event.target.value as RepositoryVisibility)
@@ -365,16 +424,22 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
 
             <label className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                <span className="block text-sm font-semibold text-[#1f2328]">
+                <span
+                  className="block t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Start with a template
                 </span>
-                <span className="mt-1 block text-sm text-[#59636e]">
+                <span
+                  className="mt-1 block t-sm"
+                  style={{ color: "var(--ink-3)" }}
+                >
                   {selectedTemplate?.description ??
                     "Templates pre-configure your repository with files."}
                 </span>
               </span>
               <select
-                className="h-9 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold"
+                className="input h-9 px-3 t-sm font-semibold"
                 value={templateSlug}
                 onChange={(event) => setTemplateSlug(event.target.value)}
               >
@@ -388,19 +453,23 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
 
             <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                <span className="block text-sm font-semibold text-[#1f2328]">
+                <span
+                  className="block t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Add README
                 </span>
-                <span className="mt-1 block text-sm text-[#59636e]">
+                <span
+                  className="mt-1 block t-sm"
+                  style={{ color: "var(--ink-3)" }}
+                >
                   READMEs can be used as longer descriptions.
                 </span>
               </span>
               <button
                 aria-pressed={initializeReadme}
-                className={`h-8 min-w-16 rounded-md border px-3 text-sm font-semibold ${
-                  initializeReadme
-                    ? "border-[#1f883d] bg-[#dafbe1] text-[#116329]"
-                    : "border-[#d0d7de] bg-[#f6f8fa] text-[#1f2328]"
+                className={`h-8 min-w-16 rounded-md border px-3 t-sm font-semibold ${
+                  initializeReadme ? "chip ok" : "btn"
                 }`}
                 type="button"
                 onClick={() => setInitializeReadme((value) => !value)}
@@ -416,24 +485,39 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
             >
               <summary className="flex cursor-pointer list-none flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span>
-                  <span className="block text-sm font-semibold text-[#1f2328]">
+                  <span
+                    className="block t-sm font-semibold"
+                    style={{ color: "var(--ink-1)" }}
+                  >
                     Add .gitignore
                   </span>
-                  <span className="mt-1 block text-sm text-[#59636e]">
+                  <span
+                    className="mt-1 block t-sm"
+                    style={{ color: "var(--ink-3)" }}
+                  >
                     {selectedGitignore?.description ??
                       ".gitignore tells git which files not to track."}
                   </span>
                 </span>
-                <span className="inline-flex h-9 items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold">
+                <span className="btn inline-flex h-9 items-center px-3 t-sm font-semibold">
                   {selectedGitignore?.displayName ?? "No .gitignore"}
                 </span>
               </summary>
-              <div className="mt-4 rounded-md border border-[#d0d7de] bg-[#f6f8fa] p-3">
-                <label className="block text-sm font-semibold text-[#1f2328]">
+              <div
+                className="mt-4 rounded-md p-3"
+                style={{
+                  border: "1px solid var(--line)",
+                  background: "var(--surface-2)",
+                }}
+              >
+                <label
+                  className="block t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Search gitignore templates
                   <input
                     ref={gitignoreSearchRef}
-                    className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] bg-white px-3 text-sm"
+                    className="input mt-2 h-9 w-full px-3 t-sm"
                     value={gitignoreSearch}
                     onChange={(event) => setGitignoreSearch(event.target.value)}
                   />
@@ -444,7 +528,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                   role="listbox"
                 >
                   <button
-                    className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-white"
+                    className="block w-full rounded-md px-3 py-2 text-left t-sm hover:bg-[var(--surface)]"
                     role="option"
                     type="button"
                     aria-selected={gitignoreSlug === ""}
@@ -454,7 +538,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                   </button>
                   {filteredGitignoreTemplates.map((template) => (
                     <button
-                      className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-white"
+                      className="block w-full rounded-md px-3 py-2 text-left t-sm hover:bg-[var(--surface)]"
                       key={template.slug}
                       role="option"
                       type="button"
@@ -464,13 +548,19 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                       <span className="font-semibold">
                         {template.displayName}
                       </span>
-                      <span className="block text-xs text-[#59636e]">
+                      <span
+                        className="block t-xs"
+                        style={{ color: "var(--ink-3)" }}
+                      >
                         {template.description}
                       </span>
                     </button>
                   ))}
                   {filteredGitignoreTemplates.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-[#59636e]">
+                    <p
+                      className="px-3 py-2 t-sm"
+                      style={{ color: "var(--ink-3)" }}
+                    >
                       No templates match this search.
                     </p>
                   ) : null}
@@ -480,16 +570,22 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
 
             <label className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <span>
-                <span className="block text-sm font-semibold text-[#1f2328]">
+                <span
+                  className="block t-sm font-semibold"
+                  style={{ color: "var(--ink-1)" }}
+                >
                   Add license
                 </span>
-                <span className="mt-1 block text-sm text-[#59636e]">
+                <span
+                  className="mt-1 block t-sm"
+                  style={{ color: "var(--ink-3)" }}
+                >
                   {selectedLicense?.description ??
                     "Licenses explain how others can use your code."}
                 </span>
               </span>
               <select
-                className="h-9 rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold"
+                className="input h-9 px-3 t-sm font-semibold"
                 value={licenseSlug}
                 onChange={(event) => setLicenseSlug(event.target.value)}
               >
@@ -505,17 +601,21 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
         </div>
       </section>
 
-      <div className="flex flex-col gap-3 border-t border-[#d0d7de] pt-5 sm:ml-[52px] sm:flex-row sm:justify-end">
+      <div
+        className="flex flex-col gap-3 border-t pt-5 sm:ml-[52px] sm:flex-row sm:justify-end"
+        style={{ borderColor: "var(--line)" }}
+      >
         {formError ? (
           <p
-            className="self-center text-sm text-[#cf222e] sm:mr-4"
+            className="self-center t-sm sm:mr-4"
             role="alert"
+            style={{ color: "var(--err)" }}
           >
             {formError}
           </p>
         ) : null}
         <button
-          className="h-9 rounded-md bg-[#1f883d] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn primary h-9 px-4 t-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           disabled={createDisabled}
           type="submit"
         >

@@ -51,40 +51,50 @@ export function CodeViewer({ initialFile, source }: CodeViewerProps) {
   return (
     <section
       aria-labelledby="code-viewer-title"
-      className="overflow-hidden rounded-md border border-[#d0d7de] bg-white"
+      className="overflow-hidden rounded-md"
+      style={{ border: "1px solid var(--line)", background: "var(--surface)" }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-[#d0d7de] border-b bg-[#f6f8fa] px-4 py-3">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"
+        style={{ borderColor: "var(--line)", background: "var(--surface-2)" }}
+      >
         <div>
           <h2
-            className="text-sm font-semibold text-[#1f2328]"
+            className="t-sm font-semibold"
             id="code-viewer-title"
+            style={{ color: "var(--ink-1)" }}
           >
             {file.path}
           </h2>
-          <p className="mt-1 text-xs text-[#59636e]">
+          <p className="mt-1 t-xs" style={{ color: "var(--ink-3)" }}>
             {file.lines.length} lines · {file.language} ·{" "}
             {file.cached ? "cached tokens" : "fresh tokens"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs font-medium text-[#59636e]" htmlFor="find">
+          <label
+            className="t-xs font-medium"
+            htmlFor="find"
+            style={{ color: "var(--ink-3)" }}
+          >
             Find
           </label>
           <input
-            className="h-8 w-44 rounded-md border border-[#d0d7de] bg-white px-2 text-sm text-[#1f2328]"
+            className="input h-8 w-44 px-2 t-sm"
             id="find"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search file"
             value={query}
           />
           <label
-            className="text-xs font-medium text-[#59636e]"
+            className="t-xs font-medium"
             htmlFor="language"
+            style={{ color: "var(--ink-3)" }}
           >
             Language
           </label>
           <select
-            className="h-8 rounded-md border border-[#d0d7de] bg-white px-2 text-sm text-[#1f2328]"
+            className="input h-8 px-2 t-sm"
             disabled={isPending}
             id="language"
             onChange={(event) => changeLanguage(event.target.value)}
@@ -98,7 +108,7 @@ export function CodeViewer({ initialFile, source }: CodeViewerProps) {
           </select>
           <button
             aria-pressed={wrap}
-            className="h-8 rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f3f4f6]"
+            className="btn h-8 px-3 t-sm font-semibold"
             onClick={() => setWrap((current) => !current)}
             type="button"
           >
@@ -107,13 +117,22 @@ export function CodeViewer({ initialFile, source }: CodeViewerProps) {
         </div>
       </div>
       {error ? (
-        <div className="border-[#d0d7de] border-b bg-[#fff8c5] px-4 py-2 text-sm text-[#7d4e00]">
+        <div
+          className="border-b px-4 py-2 t-sm"
+          style={{
+            borderColor: "var(--line)",
+            background:
+              "var(--warn-soft, color-mix(in oklch, var(--warn) 12%, var(--surface)))",
+            color: "var(--warn)",
+          }}
+        >
           {error}
         </div>
       ) : null}
       <div className="grid lg:grid-cols-[minmax(0,1fr)_240px]">
         <pre
-          className={`code-viewer min-h-[420px] overflow-auto bg-[#ffffff] text-[12px] leading-5 ${wrap ? "code-viewer-wrap" : ""}`}
+          className={`code-viewer min-h-[420px] overflow-auto text-[12px] leading-5 ${wrap ? "code-viewer-wrap" : ""}`}
+          style={{ background: "var(--surface)", fontFamily: "var(--mono)" }}
         >
           {file.lines.map((line) => (
             <div
@@ -140,24 +159,35 @@ export function CodeViewer({ initialFile, source }: CodeViewerProps) {
             </div>
           ))}
         </pre>
-        <aside className="border-[#d0d7de] border-t bg-[#f6f8fa] p-4 lg:border-t-0 lg:border-l">
-          <h3 className="text-sm font-semibold text-[#1f2328]">Symbols</h3>
+        <aside
+          className="border-t p-4 lg:border-t-0 lg:border-l"
+          style={{ borderColor: "var(--line)", background: "var(--surface-2)" }}
+        >
+          <h3 className="t-sm font-semibold" style={{ color: "var(--ink-1)" }}>
+            Symbols
+          </h3>
           <div className="mt-3 space-y-1">
             {file.symbols.length > 0 ? (
               file.symbols.map((symbol) => (
                 <a
-                  className="flex items-center justify-between rounded-md px-2 py-1 text-sm text-[#0969da] hover:bg-white"
+                  className="flex items-center justify-between rounded-md px-2 py-1 t-sm hover:bg-[var(--surface)]"
                   href={`#L${symbol.line}`}
                   key={`${symbol.kind}-${symbol.name}-${symbol.line}`}
+                  style={{ color: "var(--accent)" }}
                 >
                   <span className="truncate">{symbol.name}</span>
-                  <span className="ml-2 shrink-0 text-xs text-[#59636e]">
+                  <span
+                    className="ml-2 shrink-0 t-xs"
+                    style={{ color: "var(--ink-3)" }}
+                  >
                     {symbol.kind}
                   </span>
                 </a>
               ))
             ) : (
-              <p className="text-sm text-[#59636e]">No symbols detected.</p>
+              <p className="t-sm" style={{ color: "var(--ink-3)" }}>
+                No symbols detected.
+              </p>
             )}
           </div>
         </aside>
