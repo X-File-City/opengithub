@@ -238,6 +238,14 @@
 - Browser smoke and `make test-e2e` skipped because this phase is backend worker ingestion only; the visible import wizard/status UI is Phase 3.
 - Marked Phase 2 as done in `.qrspi/repo-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
 
+2026-05-01 - layout-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, current app shell/dashboard/repository code, and inspect screenshot inventory.
+- Determined `layout-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/layout-001/structure.md` did not exist.
+- Added `.qrspi/layout-001/structure.md` with four independently verifiable vertical phases: shell context data contract, desktop header interactions, mobile drawer/responsive frame, and cross-page polish/QA handoff.
+- Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
+
 2026-04-30 - repo-002 phase 3 import wizard and status page
 
 - Implemented Phase 3 from `.qrspi/repo-002/structure.md`: `/new/import` now renders a signed-in GitHub-style repository import wizard with source URL, optional credentials, owner/name, visibility, and a real `Begin import` submission.
