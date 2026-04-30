@@ -100,3 +100,12 @@
 - Verification: `make check` passed; `make test` passed with 4 frontend tests plus cargo tests.
 - Browser smoke: started `make dev` with `.env` loaded, verified `/login`, clicked `Continue with Google` through `/api/auth/google/start` to Google OAuth, verified `/dashboard` redirects to `/login?next=/dashboard`, and saved `ralph/screenshots/build/auth-001-phase3-login.jpg`.
 - Marked Phase 3 as done in `.qrspi/auth-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
+
+2026-04-30 - auth-001 phase 4 E2E auth foundation and hardening
+
+- Implemented Phase 4 from `.qrspi/auth-001/structure.md`: added Playwright config with a setup project, deterministic anonymous auth state storage, and auth E2E coverage for redirects, login errors, OAuth start, callback errors, and logout.
+- Added Rust auth security coverage in `crates/api/tests/auth_security.rs` for unsafe `next` rejection, expired/tampered OAuth state rejection, cookie attributes, malformed-cookie error hygiene, and idempotent logout without a cookie.
+- Tightened frontend `sanitizeNextPath` to reject backslashes and CR/LF control characters, matching the Rust open-redirect guard; updated Vitest coverage and excluded Playwright-generated state/results from Biome.
+- Browser smoke: started `make dev`, verified `/login?error=oauth_failed` with Ever, clicked `Continue with Google` and confirmed navigation reached Google OAuth, and saved `ralph/screenshots/build/auth-001-phase4-e2e-smoke.jpg`.
+- Verification: `make check` passed; `make test` passed; `make test-e2e` passed with 5 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/auth-001/structure.md` and set `auth-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

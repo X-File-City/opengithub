@@ -61,7 +61,7 @@
 
 ## Phase 4: E2E Auth Foundation and Hardening — future auth-walled tests have a reliable base
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the Playwright/Ever-compatible auth testing foundation, cookie/security hardening, and user-facing failure states needed before other protected features rely on auth.
 

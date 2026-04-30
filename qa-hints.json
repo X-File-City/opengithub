@@ -128,5 +128,23 @@
       "Playwright auth setup and stored auth state are intentionally deferred to auth-001 Phase 4",
       "npm install reported transitive dependency audit findings from scaffold/test tooling; no production dependency audit remediation was done in this phase"
     ]
+  },
+  {
+    "feature_id": "auth-001",
+    "tests_written": [
+      "Playwright setup project writes an ignored anonymous auth state for future auth-walled suites",
+      "E2E covers anonymous /dashboard redirect to /login?next=/dashboard",
+      "E2E covers login card rendering, inline oauth_failed messaging, no email/password fields, and Google OAuth start href",
+      "E2E covers Rust /api/auth/google/start 302 to Google with unsafe external next URL sanitized",
+      "E2E covers provider callback errors returning to /login?error=oauth_failed and logout redirecting home",
+      "Rust security tests cover unsafe next-path rejection, expired/tampered OAuth state rejection, cookie attributes, generic malformed-cookie errors, and idempotent logout",
+      "Ever browser smoke verified the login error card and Google button navigation to Google OAuth; screenshot saved to ralph/screenshots/build/auth-001-phase4-e2e-smoke.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Real Google account selection and callback with TEST_ACCOUNT_EMAIL still needs QA using actual OAuth credentials instead of deterministic dummy client IDs",
+      "Authenticated dashboard rendering after a browser-created Google session should be verified once Google consent/test-user configuration is confirmed",
+      "Local __Host-session plus insecure localhost behavior should be checked in the target browsers used by QA; current local config follows BUILD_GUIDE by not setting Secure on localhost",
+      "Playwright auth setup currently stores anonymous state only; upgrade it to a real authenticated state after the real Google callback path is stable"
+    ]
   }
 ]

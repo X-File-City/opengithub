@@ -19,6 +19,10 @@ describe("login page", () => {
       "/dashboard",
     );
     expect(sanitizeNextPath("//evil.example/dashboard")).toBe("/dashboard");
+    expect(sanitizeNextPath("/\\evil")).toBe("/dashboard");
+    expect(
+      sanitizeNextPath("/dashboard\r\nLocation: https://evil.example"),
+    ).toBe("/dashboard");
     expect(sanitizeNextPath("/repos/acme/widget")).toBe("/repos/acme/widget");
   });
 

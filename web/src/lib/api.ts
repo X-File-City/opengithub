@@ -24,7 +24,13 @@ export function apiBaseUrl(): string {
 
 export function sanitizeNextPath(value: string | string[] | undefined): string {
   const candidate = Array.isArray(value) ? value[0] : value;
-  if (!candidate?.startsWith("/") || candidate.startsWith("//")) {
+  if (
+    !candidate?.startsWith("/") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    candidate.includes("\n") ||
+    candidate.includes("\r")
+  ) {
     return "/dashboard";
   }
   return candidate;
