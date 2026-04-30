@@ -1,6 +1,6 @@
 # opengithub
 
-Autonomous GitHub clone — Rust API + Next.js frontend, built end-to-end by [Ralph-to-Ralph](https://github.com/namuh-eng/ralph-to-ralph).
+GitHub clone — Rust API + Next.js frontend, built end-to-end by [Ralph-to-Ralph](https://github.com/namuh-eng/ralph-to-ralph).
 
 Target: `https://github.com/` (repos, PRs, issues, Actions, Pages, Packages, code search, orgs, profiles).
 Production hostname: `opengithub.namuh.co`.
@@ -126,4 +126,11 @@ GitHub OAuth is deliberately dropped — even though we're cloning GitHub, openg
 
 ## License
 
-Apache 2.0 — same as upstream Ralph-to-Ralph.
+[Elastic License 2.0](./LICENSE) — free to use, modify, and self-host. The only restriction: you cannot offer Opensend as a hosted email service to third parties.
+
+---
+
+<p align="center">
+  Built by <a href="https://github.com/jaeyunha">Jaeyun Ha</a> and <a href="https://github.com/ashley-ha">Ashley Ha</a>
+</p>
+
