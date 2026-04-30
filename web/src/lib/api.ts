@@ -508,6 +508,93 @@ export type DashboardReviewRequest = {
   updatedAt: string;
 };
 
+export type IssueState = "open" | "closed";
+
+export type IssueListLabel = {
+  id: string;
+  name: string;
+  color: string;
+  description: string | null;
+};
+
+export type IssueListUser = {
+  id: string;
+  login: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+};
+
+export type IssueListMilestone = {
+  id: string;
+  title: string;
+  state: IssueState;
+};
+
+export type LinkedPullRequestHint = {
+  number: number;
+  state: string;
+  href: string;
+};
+
+export type IssueListItem = {
+  id: string;
+  repositoryId: string;
+  repositoryOwner: string;
+  repositoryName: string;
+  number: number;
+  title: string;
+  body: string | null;
+  state: IssueState;
+  author: IssueListUser;
+  labels: IssueListLabel[];
+  milestone: IssueListMilestone | null;
+  assignees: IssueListUser[];
+  commentCount: number;
+  linkedPullRequest: LinkedPullRequestHint | null;
+  href: string;
+  locked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+};
+
+export type IssueListFilters = {
+  query: string;
+  state: IssueState;
+  labels: string[];
+  milestone: string | null;
+  assignee: string | null;
+  sort: string;
+};
+
+export type IssueListView = ListEnvelope<IssueListItem> & {
+  openCount: number;
+  closedCount: number;
+  counts: {
+    open: number;
+    closed: number;
+  };
+  filters: IssueListFilters;
+  viewerPermission: string | null;
+  repository: {
+    id: string;
+    ownerLogin: string;
+    name: string;
+    visibility: RepositoryVisibility;
+  };
+};
+
+export type RepositoryIssueListQuery = {
+  q?: string;
+  state?: IssueState;
+  labels?: string[];
+  milestone?: string;
+  assignee?: string;
+  sort?: string;
+  page?: number;
+  pageSize?: number;
+};
+
 export type RenderMarkdownRequest = {
   markdown: string;
   repositoryId?: string | null;
@@ -854,6 +941,81 @@ export async function resetDashboardFeedPreferences(
     feedPreferences: DashboardFeedPreferences;
   };
   return body.feedPreferences;
+}
+
+export function repositoryIssuesPath(
+  owner: string,
+  repo: string,
+  query: RepositoryIssueListQuery = {},
+): string {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) {
+    params.set("q", query.q.trim());
+  }
+  if (query.state) {
+    params.set("state", query.state);
+  }
+  if (query.labels?.length) {
+    params.set("labels", query.labels.join(","));
+  }
+  if (query.milestone?.trim()) {
+    params.set("milestone", query.milestone.trim());
+  }
+  if (query.assignee?.trim()) {
+    params.set("assignee", query.assignee.trim());
+  }
+  if (query.sort?.trim()) {
+    params.set("sort", query.sort.trim());
+  }
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+  if (query.pageSize) {
+    params.set("pageSize", String(query.pageSize));
+  }
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues${suffix}`;
+}
+
+export async function getRepositoryIssuesFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  query: RepositoryIssueListQuery = {},
+): Promise<IssueListView | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryIssuesPath(owner, repo, query)}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Issues are temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "issues_failed",
+          message: "Issues could not be loaded.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as IssueListView;
 }
 
 export async function getRepositoryFromCookie(

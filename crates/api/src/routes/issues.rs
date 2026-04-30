@@ -16,8 +16,8 @@ use crate::{
     domain::{
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
-            list_issues, update_issue_state, CollaborationError, CreateComment, CreateIssue,
-            IssueState, ReactionContent, UpdateIssueState,
+            repository_issue_list_view, update_issue_state, CollaborationError, CreateComment,
+            CreateIssue, IssueListQuery, IssueState, ReactionContent, UpdateIssueState,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
@@ -54,6 +54,11 @@ fn post_reaction_route() -> axum::routing::MethodRouter<AppState> {
 #[serde(rename_all = "camelCase")]
 struct ListQuery {
     state: Option<IssueState>,
+    q: Option<String>,
+    labels: Option<String>,
+    milestone: Option<String>,
+    assignee: Option<String>,
+    sort: Option<String>,
     page: Option<i64>,
     #[serde(alias = "page_size")]
     page_size: Option<i64>,
@@ -100,11 +105,11 @@ async fn list(
             .await
             .map_err(map_collaboration_error)?;
     let pagination = normalize_pagination(query.page, query.page_size);
-    let envelope = list_issues(
+    let envelope = repository_issue_list_view(
         pool,
         repository_id,
         actor.0.id,
-        query.state,
+        issue_list_query(&query),
         pagination.page,
         pagination.page_size,
     )
@@ -112,6 +117,92 @@ async fn list(
     .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(envelope)))
+}
+
+fn issue_list_query(query: &ListQuery) -> IssueListQuery {
+    let mut filters = IssueListQuery::default();
+    let q = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("is:issue state:open");
+
+    filters.query = Some(q.to_owned());
+    filters.state = query.state.clone().unwrap_or_else(|| state_from_query(q));
+    filters.labels = labels_from_query(q, query.labels.as_deref());
+    filters.milestone = query
+        .milestone
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| qualifier_from_query(q, "milestone:"));
+    filters.assignee = query
+        .assignee
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(normalize_assignee_filter)
+        .or_else(|| {
+            qualifier_from_query(q, "assignee:")
+                .as_deref()
+                .map(normalize_assignee_filter)
+        });
+    filters.sort = query
+        .sort
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| qualifier_from_query(q, "sort:"))
+        .unwrap_or_else(|| "updated-desc".to_owned());
+    filters
+}
+
+fn state_from_query(query: &str) -> IssueState {
+    if query
+        .split_whitespace()
+        .any(|term| matches!(term, "state:closed" | "is:closed"))
+    {
+        IssueState::Closed
+    } else {
+        IssueState::Open
+    }
+}
+
+fn labels_from_query(query: &str, explicit_labels: Option<&str>) -> Vec<String> {
+    let mut labels = explicit_labels
+        .into_iter()
+        .flat_map(|value| value.split(','))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    labels.extend(
+        query
+            .split_whitespace()
+            .filter_map(|term| term.strip_prefix("label:"))
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| value.trim_matches('"').to_owned()),
+    );
+    labels.sort_by_key(|value| value.to_lowercase());
+    labels.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    labels
+}
+
+fn qualifier_from_query(query: &str, prefix: &str) -> Option<String> {
+    query
+        .split_whitespace()
+        .find_map(|term| term.strip_prefix(prefix))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.trim_matches('"').to_owned())
+}
+
+fn normalize_assignee_filter(value: &str) -> String {
+    value.trim().trim_start_matches('@').to_owned()
 }
 
 async fn create(

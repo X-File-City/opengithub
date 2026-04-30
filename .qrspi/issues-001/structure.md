@@ -6,7 +6,7 @@
 
 ## Phase 1: Issue List Contract - API returns the screen-ready issue row model
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Extend the existing session-authenticated issue list from a raw `Issue` envelope into a repository issue list contract that includes the data the UI needs: open/closed counts, author, labels, milestone, assignees, comment count, linked pull request hint, repository context, permissions, and URL-backed query metadata. Public repositories remain readable; private repositories require permission.
 

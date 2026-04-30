@@ -932,3 +932,13 @@
 - Added `.qrspi/issues-001/structure.md` with five independently verifiable vertical phases: issue-list API contract, default repository issue list UI, URL filters/empty states, persisted contributor-banner preferences, and final guardrails/QA handoff.
 - Did not change `prd.json`; `issues-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-05-01 - issues-001 phase 1 issue list API contract
+
+- Implemented Phase 1 from `.qrspi/issues-001/structure.md`: `/api/repos/{owner}/{repo}/issues` now returns a screen-ready issue list view with rows, open/closed counts, active filters, viewer permission, and repository context instead of the raw issue envelope.
+- Added `IssueListItem`, label/user/milestone/linked-PR DTOs, `IssueListView`, bounded query/filter normalization, comment counts, assignees, milestone, labels, linked pull request hints, and public-repository read support for authenticated non-members.
+- Added typed Next.js issue-list DTOs plus `repositoryIssuesPath` and `getRepositoryIssuesFromCookie` in `web/src/lib/api.ts` for the upcoming issues page UI phase.
+- Added `crates/api/tests/api_repository_issues_list_contract.rs` covering real Postgres row shaping, labels, milestone, assignee, comments, linked PR hint, open/closed counts, filter metadata, pagination clamps, public read access, private denial, and error redaction.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test api_repository_issues_list_contract -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 113 frontend tests; mandatory Editorial banned-value scan passed.
+- Browser smoke and `make test-e2e` were skipped because this phase is API/view-model only and does not change rendered UI.
+- Marked Phase 1 as done in `.qrspi/issues-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

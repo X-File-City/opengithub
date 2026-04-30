@@ -1312,5 +1312,21 @@
       "Dropdown hover/click behavior is covered in Chromium, but QA should spot-check touch devices and screen-reader announcement quality.",
       "Footer links intentionally route to existing implemented or skeleton pages; QA should verify future marketing-specific destinations if they are added."
     ]
+  },
+  {
+    "feature_id": "issues-001",
+    "tests_written": [
+      "Implemented Phase 1 issue-list API contract returning screen-ready rows with author, labels, milestone, assignees, comment counts, linked pull request hints, repository context, counts, active filters, pagination, and viewer permission.",
+      "Added Rust integration coverage that seeds a real Postgres repository with labels, a milestone, comments, an assignee, an open issue, a closed issue, and a linked pull request reference, then verifies filtered list response shape and pagination clamps.",
+      "Added Rust integration coverage for private repository denial redaction so issue titles, session cookie names, and DATABASE_URL do not leak in forbidden envelopes.",
+      "Added typed Next.js API DTOs and server fetch helper for repository issue lists.",
+      "Verification passed: focused api_repository_issues_list_contract test, TEST_DATABASE_URL-backed make check, TEST_DATABASE_URL-backed make test, and mandatory Editorial banned-value scan."
+    ],
+    "needs_deeper_qa": [
+      "This phase intentionally changes only the API/view-model contract; the repository issues UI is still the existing placeholder until Phase 2.",
+      "Issue query parsing is intentionally bounded to state, label, milestone, assignee, sort, and plain text; advanced GitHub-style query syntax remains for later issues-001 phases.",
+      "Public issue list access is verified for authenticated non-members, matching the current repository API contract; fully anonymous public repository browsing remains a later hardening target.",
+      "Linked pull request hints are derived from issue_cross_references where a pull request backing issue references the listed issue; richer closing/reference semantics should be stress-tested when issue detail and PR detail ship."
+    ]
   }
 ]
