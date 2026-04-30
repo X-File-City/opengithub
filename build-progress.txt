@@ -218,6 +218,7 @@
 2026-04-30 - onboarding-001 phase 5 QA handoff and visual polish
 
 - Implemented Phase 5 from `.qrspi/onboarding-001/structure.md`: added final Playwright dashboard onboarding guardrails for protected CTA redirects, setup guide navigation, repository overview fallback navigation, and dead-link/button checks on onboarding-adjacent pages.
+
 - Added `web/tests/e2e/dashboard-onboarding.spec.ts`; final E2E suite now includes 11 passing Playwright tests.
 - Verification: `make check` passed; `make test` passed with 16 frontend tests plus cargo tests; `make test-e2e` passed; `bash .scratch/dashboard-onboarding-scenario.sh` passed against real local Postgres.
 - Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session, verified anonymous redirect, empty dashboard, Create/Import/Read guide CTAs, dismiss success, repository creation through `POST /api/repos`, non-empty dashboard, and repository-row navigation.
@@ -836,3 +837,13 @@
 - Browser smoke/E2E clicked every repository tab in a real signed-session seeded repository, verified no 404 text/dead controls, returned to Code each time, and saved `ralph/screenshots/build/nav-001-phase2-repository-tabs.jpg`.
 - Verification: supported Editorial banned-value scan passed with zero matches; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 91 frontend tests; targeted repository Playwright passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 38 Playwright tests.
 - Marked Phase 2 as done in `.qrspi/nav-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-05-01 - nav-001 phase 4 profiles, organizations, teams, and search routes
+
+- Implemented Phase 4 from `.qrspi/nav-001/structure.md`: added concrete skeleton routes for `/{owner}`, `/orgs/{org}`, `/orgs/{org}/projects`, `/orgs/{org}/settings`, `/orgs/{org}/teams/{teamSlug}`, and `/organizations/new`.
+- Added shared query-tab navigation and profile/org/search helpers in `web/src/lib/navigation.ts`; `/search` now preserves `q` while switching result types across repositories, code, issues, pull requests, commits, users, and organizations.
+- Updated protected-route and proxy coverage for organization creation and organization settings while keeping public profile/org/team routes concrete.
+- Added Vitest coverage for profile/org/search helper active states, encoded hrefs, concrete route files, protected matching, and avoiding a duplicate `/{org}/{team_slug}` route collision with repositories.
+- Added Playwright smoke coverage for signed-in profile tabs, organization tabs, team pages, search type tabs, and organization creation; saved `ralph/screenshots/build/nav-001-phase4-profile-org-search.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 98 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 41 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/nav-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.

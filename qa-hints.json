@@ -1181,5 +1181,23 @@
       "Mobile sidebar usability is covered by responsive Playwright screenshots, but deeper screen-reader and keyboard roving/focus-order QA should happen with the final navigation sweep",
       "Webhook, Pages, Secrets, Branch protection, and Security analysis pages intentionally do not expose write controls yet"
     ]
+  },
+  {
+    "feature_id": "nav-001",
+    "tests_written": [
+      "Implemented Phase 4 profile, organization, organization projects/settings, team, and organization creation skeleton routes",
+      "Added shared query-tab navigation for profile, organization, and search result type tabs with URL query preservation",
+      "Extended protected-route matching and Next.js proxy coverage for /organizations/new and /orgs/{org}/settings",
+      "Extended Vitest route-registry coverage for profile/org/search helper active states, concrete route files, team URL encoding, and no collision with /{owner}/{repo}",
+      "Added Playwright coverage for signed-in profile tabs, organization tabs, team route, search type tabs, organization creation, no dead controls, and screenshot ralph/screenshots/build/nav-001-phase4-profile-org-search.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 98 frontend tests plus cargo tests, and make test-e2e with 41 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Profile and organization pages are skeleton routes only; they do not yet load real repositories, members, packages, stars, or activity data",
+      "Organization settings is auth-walled but still a placeholder; deeper permission checks and write controls belong to later organization/settings PRDs",
+      "Team routes intentionally live under /orgs/{org}/teams/{teamSlug} to avoid colliding with repository /{owner}/{repo} routes; QA should verify app-shell team links use that shape",
+      "Search type tabs preserve q/type but do not yet render real result lists or filter sidebars",
+      "Very long user, organization, and team slugs should be stress-tested on narrow mobile screens during the final navigation sweep"
+    ]
   }
 ]

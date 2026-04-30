@@ -27,6 +27,8 @@ export const config = {
     "/explore/:path*",
     "/codespaces/:path*",
     "/settings/:path*",
+    "/organizations/new",
+    "/orgs/:org/settings/:path*",
     "/:owner/:repo/settings/:path*",
   ],
 };

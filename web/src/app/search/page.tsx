@@ -1,4 +1,10 @@
 import { AppShell } from "@/components/AppShell";
+import { QueryTabNavigation } from "@/components/QueryTabNavigation";
+import {
+  activeSearchType,
+  SEARCH_TABS,
+  searchTypeHref,
+} from "@/lib/navigation";
 import { getSessionAndShellContext } from "@/lib/server-session";
 
 type SearchPageProps = {
@@ -15,6 +21,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     searchParams,
   ]);
   const query = firstParam(params?.q)?.trim() ?? "";
+  const activeType = activeSearchType(firstParam(params?.type));
+  const activeTypeLabel =
+    SEARCH_TABS.find((tab) => tab.value === activeType)?.label ??
+    "Repositories";
 
   return (
     <AppShell session={session} shellContext={shellContext}>
@@ -34,14 +44,24 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             placeholder="Search repositories, issues, pull requests..."
             type="search"
           />
+          <input name="type" type="hidden" value={activeType} />
           <button className="btn primary" type="submit">
             Search
           </button>
         </form>
+        <QueryTabNavigation
+          activeValue={activeType}
+          ariaLabel="Search result types"
+          hrefForTab={(value) => searchTypeHref(value, query)}
+          tabs={SEARCH_TABS}
+        />
         <div className="card p-6">
+          <p className="t-label" style={{ color: "var(--ink-3)" }}>
+            {activeTypeLabel}
+          </p>
           <p className="t-body" style={{ color: "var(--ink-2)" }}>
             {query
-              ? `Search results for "${query}" will appear here when the search UI phases connect the indexed API.`
+              ? `${activeTypeLabel} results for "${query}" will appear here when the search UI phases connect the indexed API.`
               : "Use the global jump input to start a search."}
           </p>
         </div>

@@ -57,7 +57,7 @@
 
 ## Phase 4: Profiles, Organizations, and Search Entry Routes - people/org destinations resolve cleanly
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add skeletons for user profiles, organization profiles, organization creation, teams, and search type routes so global navigation, repository owner links, and app shell links land on concrete pages. This phase should read route params (`owner`, `org`, `team_slug`, `q`, `type`) and render permission-aware empty states where deeper feature data is not implemented yet.
 

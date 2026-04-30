@@ -8,6 +8,7 @@ export const PROTECTED_PATHS = [
   "/explore",
   "/codespaces",
   "/settings",
+  "/organizations/new",
 ] as const;
 
 type RequestUrlParts = {
@@ -27,7 +28,10 @@ export function isProtectedPath(pathname: string): boolean {
     return true;
   }
 
-  return /^\/[^/]+\/[^/]+\/settings(?:\/|$)/.test(pathname);
+  return (
+    /^\/[^/]+\/[^/]+\/settings(?:\/|$)/.test(pathname) ||
+    /^\/orgs\/[^/]+\/settings(?:\/|$)/.test(pathname)
+  );
 }
 
 export function preservedNextPath(request: Pick<RequestUrlParts, "nextUrl">) {

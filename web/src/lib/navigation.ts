@@ -4,6 +4,7 @@ export type NavigationKind =
   | "settings"
   | "repository"
   | "profile"
+  | "organization"
   | "search";
 
 export type NavigationItem = {
@@ -25,6 +26,12 @@ export type RepositoryTab = NavigationItem & {
 export type RepositorySettingsSection = NavigationItem & {
   section: string;
   hrefSuffix: string;
+};
+
+export type QueryTab = {
+  label: string;
+  value: string;
+  description: string;
 };
 
 export const GLOBAL_NAV_ITEMS = [
@@ -92,6 +99,13 @@ export const CREATE_NAV_ITEMS = [
     label: "Import repository",
     kind: "create",
     description: "Import an existing Git repository",
+    protected: true,
+  },
+  {
+    href: "/organizations/new",
+    label: "New organization",
+    kind: "create",
+    description: "Create a shared organization workspace",
     protected: true,
   },
 ] as const satisfies readonly NavigationItem[];
@@ -321,12 +335,178 @@ export const REPOSITORY_SETTINGS_NAV_ITEMS = [
   },
 ] as const satisfies readonly RepositorySettingsSection[];
 
+export const PROFILE_TABS = [
+  {
+    label: "Overview",
+    value: "overview",
+    description: "Profile summary and contribution highlights",
+  },
+  {
+    label: "Repositories",
+    value: "repositories",
+    description: "Public and visible repositories owned by this account",
+  },
+  {
+    label: "Projects",
+    value: "projects",
+    description: "Project boards connected to this account",
+  },
+  {
+    label: "Packages",
+    value: "packages",
+    description: "Published packages",
+  },
+  {
+    label: "Stars",
+    value: "stars",
+    description: "Starred repositories",
+  },
+] as const satisfies readonly QueryTab[];
+
+export const ORGANIZATION_TABS = [
+  {
+    label: "Overview",
+    value: "overview",
+    description: "Organization summary and pinned repositories",
+  },
+  {
+    label: "Repositories",
+    value: "repositories",
+    description: "Repositories owned by this organization",
+  },
+  {
+    label: "Projects",
+    value: "projects",
+    description: "Organization planning surfaces",
+  },
+  {
+    label: "Packages",
+    value: "packages",
+    description: "Packages published by this organization",
+  },
+  {
+    label: "People",
+    value: "people",
+    description: "Organization members and owners",
+  },
+  {
+    label: "Teams",
+    value: "teams",
+    description: "Team directories and access groups",
+  },
+] as const satisfies readonly QueryTab[];
+
+export const SEARCH_TABS = [
+  {
+    label: "Repositories",
+    value: "repositories",
+    description: "Repository name, description, and topic matches",
+  },
+  {
+    label: "Code",
+    value: "code",
+    description: "Indexed file content and symbols",
+  },
+  {
+    label: "Issues",
+    value: "issues",
+    description: "Issue titles, bodies, labels, and comments",
+  },
+  {
+    label: "Pull requests",
+    value: "pull_requests",
+    description: "Pull request titles, branches, and review text",
+  },
+  {
+    label: "Commits",
+    value: "commits",
+    description: "Commit messages and authors",
+  },
+  {
+    label: "Users",
+    value: "users",
+    description: "People using opengithub",
+  },
+  {
+    label: "Organizations",
+    value: "organizations",
+    description: "Organization profiles and teams",
+  },
+] as const satisfies readonly QueryTab[];
+
 export function navigationHrefs() {
   return [
     ...GLOBAL_NAV_ITEMS.map((item) => item.href),
     ...CREATE_NAV_ITEMS.map((item) => item.href),
     ...SETTINGS_NAV_ITEMS.map((item) => item.href),
   ];
+}
+
+function tabValue<T extends QueryTab>(
+  tabs: readonly T[],
+  value: string | null,
+): string {
+  if (value && tabs.some((tab) => tab.value === value)) {
+    return value;
+  }
+
+  return tabs[0].value;
+}
+
+function queryTabHref(
+  basePath: string,
+  paramName: string,
+  value: string,
+  preservedParams: Record<string, string | null | undefined> = {},
+) {
+  const params = new URLSearchParams();
+  for (const [key, paramValue] of Object.entries(preservedParams)) {
+    if (paramValue?.trim()) {
+      params.set(key, paramValue.trim());
+    }
+  }
+  params.set(paramName, value);
+  return `${basePath}?${params.toString()}`;
+}
+
+export function activeProfileTab(value: string | null | undefined) {
+  return tabValue(PROFILE_TABS, value ?? null);
+}
+
+export function profileTabHref(owner: string, tabValueName: string) {
+  return queryTabHref(`/${encodeURIComponent(owner)}`, "tab", tabValueName);
+}
+
+export function activeOrganizationTab(value: string | null | undefined) {
+  return tabValue(ORGANIZATION_TABS, value ?? null);
+}
+
+export function organizationHref(org: string) {
+  return `/orgs/${encodeURIComponent(org)}`;
+}
+
+export function organizationTabHref(org: string, tabValueName: string) {
+  return queryTabHref(organizationHref(org), "tab", tabValueName);
+}
+
+export function organizationProjectHref(org: string) {
+  return `${organizationHref(org)}/projects`;
+}
+
+export function organizationSettingsHref(org: string) {
+  return `${organizationHref(org)}/settings`;
+}
+
+export function organizationTeamHref(org: string, teamSlug: string) {
+  return `${organizationHref(org)}/teams/${encodeURIComponent(teamSlug)}`;
+}
+
+export function activeSearchType(value: string | null | undefined) {
+  return tabValue(SEARCH_TABS, value ?? null);
+}
+
+export function searchTypeHref(type: string, query: string | null | undefined) {
+  return queryTabHref("/search", "type", type, { q: query });
 }
 
 export function isActivePath(pathname: string, href: string): boolean {

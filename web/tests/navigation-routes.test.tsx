@@ -2,15 +2,28 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  activeOrganizationTab,
+  activeProfileTab,
   activeRepositoryTab,
+  activeSearchType,
   activeSettingsSection,
   CREATE_NAV_ITEMS,
   GLOBAL_NAV_ITEMS,
   isActivePath,
   navigationHrefs,
+  ORGANIZATION_TABS,
+  organizationHref,
+  organizationProjectHref,
+  organizationSettingsHref,
+  organizationTabHref,
+  organizationTeamHref,
+  PROFILE_TABS,
+  profileTabHref,
   REPOSITORY_TABS,
   repositoryTabHref,
+  SEARCH_TABS,
   SETTINGS_NAV_ITEMS,
+  searchTypeHref,
 } from "@/lib/navigation";
 import { isProtectedPath } from "@/lib/protected-routes";
 
@@ -30,6 +43,10 @@ function repositoryRouteFileForHref(href: string) {
     ...segments,
     "page.tsx",
   );
+}
+
+function hasRouteFile(pathSegments: string[]) {
+  return existsSync(join(process.cwd(), "src", "app", ...pathSegments));
 }
 
 describe("navigation route registry", () => {
@@ -108,5 +125,64 @@ describe("navigation route registry", () => {
     );
 
     expect(missingRoutes.map((tab) => tab.label)).toEqual([]);
+  });
+
+  it("builds profile, organization, team, and search tabs with preserved context", () => {
+    expect(activeProfileTab(undefined)).toBe("overview");
+    expect(activeProfileTab("stars")).toBe("stars");
+    expect(activeProfileTab("unknown")).toBe("overview");
+    expect(profileTabHref("mona lisa", "repositories")).toBe(
+      "/mona%20lisa?tab=repositories",
+    );
+
+    expect(activeOrganizationTab("people")).toBe("people");
+    expect(organizationHref("namuh labs")).toBe("/orgs/namuh%20labs");
+    expect(organizationTabHref("namuh", "teams")).toBe("/orgs/namuh?tab=teams");
+    expect(organizationProjectHref("namuh")).toBe("/orgs/namuh/projects");
+    expect(organizationSettingsHref("namuh")).toBe("/orgs/namuh/settings");
+    expect(organizationTeamHref("namuh", "platform team")).toBe(
+      "/orgs/namuh/teams/platform%20team",
+    );
+
+    expect(activeSearchType(undefined)).toBe("repositories");
+    expect(activeSearchType("pull_requests")).toBe("pull_requests");
+    expect(searchTypeHref("code", "router guards")).toBe(
+      "/search?q=router+guards&type=code",
+    );
+  });
+
+  it("keeps phase 4 skeleton routes concrete without colliding with repository pages", () => {
+    expect(hasRouteFile(["[owner]", "page.tsx"])).toBe(true);
+    expect(hasRouteFile(["[owner]", "[repo]", "page.tsx"])).toBe(true);
+    expect(hasRouteFile(["orgs", "[org]", "page.tsx"])).toBe(true);
+    expect(hasRouteFile(["orgs", "[org]", "projects", "page.tsx"])).toBe(true);
+    expect(hasRouteFile(["orgs", "[org]", "settings", "page.tsx"])).toBe(true);
+    expect(
+      hasRouteFile(["orgs", "[org]", "teams", "[teamSlug]", "page.tsx"]),
+    ).toBe(true);
+    expect(hasRouteFile(["organizations", "new", "page.tsx"])).toBe(true);
+    expect(hasRouteFile(["[org]", "[teamSlug]", "page.tsx"])).toBe(false);
+
+    expect(isProtectedPath("/organizations/new")).toBe(true);
+    expect(isProtectedPath("/orgs/namuh/settings")).toBe(true);
+    expect(isProtectedPath("/orgs/namuh/teams/platform")).toBe(false);
+  });
+
+  it("does not define inert profile, organization, or search tab targets", () => {
+    const hrefs = [
+      ...PROFILE_TABS.map((tab) => profileTabHref("mona", tab.value)),
+      ...ORGANIZATION_TABS.map((tab) =>
+        organizationTabHref("namuh", tab.value),
+      ),
+      ...SEARCH_TABS.map((tab) => searchTypeHref(tab.value, "query")),
+      organizationProjectHref("namuh"),
+      organizationSettingsHref("namuh"),
+      organizationTeamHref("namuh", "platform"),
+    ];
+
+    expect(hrefs).not.toContain("#");
+    for (const href of hrefs) {
+      expect(href).toMatch(/^\//);
+    }
   });
 });
