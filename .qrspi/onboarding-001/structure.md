@@ -40,7 +40,7 @@
 
 ## Phase 3: First-Run Dashboard UI - signed-in zero-repository users see the GitHub-style onboarding empty state
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder `/dashboard` content with the PRD empty state inside the existing `AppShell`, plus local docs/import placeholder routes required by the CTAs.
 

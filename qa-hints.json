@@ -254,5 +254,21 @@
       "Dashboard UI consumption and CTA navigation are deferred to onboarding-001 Phase 3",
       "Real Google-created browser sessions should verify the summary endpoint once the dashboard UI consumes it"
     ]
+  },
+  {
+    "feature_id": "onboarding-001",
+    "tests_written": [
+      "dashboard empty-state component renders the Top repositories panel, search input, green New CTA, and welcome panel for zero-repository users",
+      "dashboard CTAs point to /new, /new/import, and /docs/get-started without href=\"#\" or inert buttons",
+      "non-empty repository summaries render clickable repository rows and suppress the first-run welcome copy",
+      "make check, make test, and make test-e2e passed",
+      "Ever browser smoke used a real Rust-signed Postgres session cookie, verified /dashboard empty state, clicked all three CTA destinations, and saved ralph/screenshots/build/onboarding-001-phase3-dashboard.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Real Google-created browser sessions should repeat the signed-in dashboard smoke once Google consent/test-user configuration is confirmed",
+      "The /new page is a reachable placeholder for this onboarding slice; repository creation form behavior belongs to the repository creation feature",
+      "Dismiss buttons and persistence are intentionally deferred to onboarding-001 Phase 4",
+      "Check visual spacing against GitHub dashboard references after Phase 4 adds dismissible/non-empty dashboard behavior"
+    ]
   }
 ]
