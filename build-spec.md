@@ -1145,6 +1145,109 @@ Implementation mapping:
 - Rust API owns project authorization, query parsing, view state persistence, item sync with issues/PRs, draft issue conversion, custom field mutation, workflow execution, repository linking, template copy, chart aggregation, status updates, and audit events.
 - Postgres stores projects, views, fields/options/iterations, items, item field values, draft issues, workflows, repositories links, access grants, charts, status updates, templates, events, and chart caches. SQS-style background jobs can process auto-add/archive workflows and chart cache refreshes. SES sends notification fanout only after draft issues become real issues or linked issue/PR changes require notifications.
 
+## Repository Wiki
+
+Status: inspected in iteration 21. Ever was attempted first but the active session failed with the existing `chrome-extension://` context error. Live visual evidence came from headless Chrome on the public `microsoft/TypeScript` wiki, plus scraped GitHub wiki docs for permissioned create/edit/sidebar/footer/history behavior.
+
+Screenshots:
+
+- `ralph/screenshots/inspect/wiki-typescript-home.png`
+- `ralph/screenshots/inspect/wiki-typescript-pages.png`
+- `ralph/screenshots/inspect/wiki-typescript-history.png`
+
+Observed wiki reader UI:
+
+- Wiki pages sit inside the standard repository workspace with the Wiki tab selected. Public readers who are signed out see the logged-out global header, repository breadcrumb, repository action buttons, and the repo tab bar.
+- `/microsoft/TypeScript/wiki` renders `Home · microsoft/TypeScript Wiki`; GitHub also exposes the canonical page URL as `/wiki/Home`.
+- The main page body renders Markdown through the same GitHub-flavored Markdown presentation as repository files, including heading anchor links and normal internal/external links.
+- The right column contains an auto-generated wiki page navigation list. Rows include a page-title link, optional chevron button for lazy-loaded table of contents, and a `Show 63 more pages...` expansion control on large wikis.
+- Custom sidebar content is rendered from `_Sidebar.*`; the inspected wiki shows grouped link sections such as User documentation, Debugging TypeScript, Contributing to TypeScript, Building Tools for TypeScript, FAQs, and The Main Repo.
+- The page includes a `Clone this wiki locally` section with a read-only monospace input for `https://github.com/microsoft/TypeScript.wiki.git` and a copy-to-clipboard button.
+
+Observed pages index:
+
+- `/wiki/_pages` renders a `Pages · microsoft/TypeScript Wiki` route with a bordered list of wiki pages.
+- Each row has a document icon, page-title link, and `Last updated` relative timestamp. The page list includes all wiki pages, not just the truncated sidebar subset.
+- Signed-out/non-editor views do not show create/edit controls; docs confirm editors see a New Page control and Edit controls on page detail.
+
+Observed history:
+
+- `/wiki/_history` renders `History · TypeScript Wiki`.
+- History rows use checkboxes labelled with commit-message text, commit message/title, author link/avatar, committed relative time, and revision identity.
+- The page has Newer/Older pagination. Docs confirm selecting two revisions enables Compare Revisions, SHA links open a previous revision, and users with edit permission can revert changes from the compare view.
+
+Docs-backed create/edit/sidebar/footer behavior:
+
+- New Page opens a page editor. Users may choose an Edit mode/format other than Markdown; filenames determine page title and extension determines renderer.
+- Save requires page content plus an Edit message commit message, then commits to the wiki Git repository. Invalid title characters are `\ / : * ? " < > |`.
+- Edit uses the same editor and Save Page flow. The toolbar supports image insertion with URL and alt text. Wiki Markdown supports diagrams/math where GitHub Markdown supports them; footnotes and some MediaWiki constructs remain unsupported.
+- Custom footer and sidebar are created by saving `_Footer.<extension>` or `_Sidebar.<extension>` through the same editor or by pushing those files to the wiki Git repository.
+- Wiki access defaults to repository collaborators/editors. Repository settings can allow any signed-in user to edit a public repository wiki by disabling `Restrict editing to collaborators only`.
+
+API examples:
+
+```http
+GET /api/repos/{owner}/{repo}/wiki/pages?per_page=50&page=1
+Response: {
+  "items": [
+    { "slug": "Home", "title": "Home", "path": "Home.md", "lastUpdatedAt": "2026-04-08T17:36:23Z", "lastCommitSha": "abc1234" }
+  ],
+  "total": 84,
+  "page": 1,
+  "pageSize": 50
+}
+Error: { "error": { "code": "wiki_disabled", "message": "Wiki is disabled for this repository" } }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/wiki/pages/{slug}
+Response: {
+  "slug": "Home",
+  "title": "Home",
+  "path": "Home.md",
+  "format": "markdown",
+  "body": "# Home\n...",
+  "renderedHtml": "<h1 id=\"home\">Home</h1>",
+  "revision": { "sha": "abc1234", "message": "Updated Home", "author": { "username": "mona" }, "committedAt": "2026-04-08T17:36:23Z" },
+  "sidebarHtml": "<h2>User documentation</h2>",
+  "footerHtml": null
+}
+Error: { "error": { "code": "not_found", "message": "Wiki page not found" } }
+```
+
+```http
+PUT /api/repos/{owner}/{repo}/wiki/pages/{slug}
+Request: { "title": "Install Guide", "body": "# Install", "format": "markdown", "message": "Add install guide" }
+Response: { "slug": "Install-Guide", "path": "Install-Guide.md", "commitSha": "def5678", "htmlUrl": "/acme/widgets/wiki/Install-Guide" }
+Error: { "error": { "code": "invalid_title", "message": "Wiki page titles cannot contain \\\\, /, :, *, ?, quote, <, >, or |" } }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/wiki/history?page=1&pageSize=30
+Response: {
+  "items": [
+    { "sha": "abc1234", "message": "Updated FAQ", "author": { "username": "mona" }, "committedAt": "2026-04-08T17:36:23Z", "changedPages": ["FAQ.md"] }
+  ],
+  "total": 340,
+  "page": 1,
+  "pageSize": 30
+}
+Error: { "error": { "code": "forbidden", "message": "You do not have access to this wiki" } }
+```
+
+```http
+POST /api/repos/{owner}/{repo}/wiki/compare
+Request: { "baseSha": "abc1234", "headSha": "def5678" }
+Response: { "baseSha": "abc1234", "headSha": "def5678", "files": [{ "path": "Home.md", "status": "modified", "patch": "@@ -1 +1 @@" }] }
+Error: { "error": { "code": "invalid_revision", "message": "Revision not found" } }
+```
+
+Implementation mapping:
+
+- Next.js owns wiki route rendering, page/sidebar/footer Markdown display, page index, editor/preview UI, image insert dialog, history table, compare view, revert confirmation, clone URL copy, and disabled/permission states.
+- Rust API owns wiki feature flag checks, repository permission checks, wiki Git repository creation, read/write through Git objects, Markdown rendering/cache invalidation, title/filename validation, history/diff/revert endpoints, search indexing, and audit/activity events.
+- Store wiki content as a Git repository namespace/object store tied to the main repository, with Postgres metadata/cache rows for page lookup, rendered HTML, revisions, and search. S3 is only needed for attached/uploaded assets; normal wiki content remains Git-backed.
+
 ## Repository Creation And Import
 
 Status: inspected in iteration 4. Ever was usable and authenticated for `/new`. Screenshots:
@@ -1473,6 +1576,12 @@ Initial model set inferred from docs/OpenAPI:
 - `project_item_field_values`: id, project_item_id, field_id, text_value, number_value, date_value, option_id, iteration_id, user_id, label_id, milestone_id, repository_id, updated_by_id, updated_at.
 - `project_workflows`: id, project_id, name, trigger_type, enabled, conditions_json, actions_json, created_by_id, updated_at.
 - `project_workflow_execution_logs`: id, workflow_id, project_item_id, source_event_type, status, error_message, executed_at.
+- `wiki_repositories`: id, repository_id, git_namespace, default_branch, public_editing_enabled, file_count, created_at, updated_at.
+- `wiki_pages`: id, repository_id, slug, title, path, format, latest_commit_sha, latest_author_id, last_updated_at, deleted_at.
+- `wiki_page_revisions`: id, repository_id, page_id, commit_sha, path, title, format, body_hash, rendered_html_hash, author_id, message, committed_at.
+- `wiki_git_commits`: id, repository_id, sha, parent_shas, author_name, author_email, committer_name, committer_email, message, committed_at.
+- `wiki_diff_cache`: id, repository_id, base_sha, head_sha, diff_json, created_at, expires_at.
+- `wiki_revert_events`: id, repository_id, actor_id, base_sha, head_sha, revert_commit_sha, created_at.
 - `project_access_grants`: id, project_id, principal_type, principal_id, role, granted_by_id, created_at, updated_at.
 - `project_status_updates`: id, project_id, status, starts_on, target_on, body_markdown, author_id, created_at, updated_at.
 - `project_charts`: id, project_id, name, chart_type, filter_query, x_field_id, y_field_id, group_by_field_id, range_json, position, created_by_id, created_at, updated_at.
@@ -2516,6 +2625,11 @@ Error: { "error": { "code": "not_found", "message": "Chart not found" }, "status
 - Draft issues are project-only and should not send mention/assignee notifications until converted to real repository issues.
 - Built-in project workflows must be idempotent and attributed to an automation actor; they must never bypass repository visibility, organization policy, or branch/security rules.
 - Project views can be large and highly virtualized. API pagination, grouping, and chart aggregation must be server-backed rather than loading every item into Next.js.
+- Wikis are separate Git repositories named like `{owner}/{repo}.wiki.git`; do not store editable wiki content only in SQL because clone/push/history/diff behavior must remain Git-compatible.
+- Wiki page titles must reject characters that cannot be safely represented as cross-platform filenames: `\ / : * ? " < > |`.
+- Only commits pushed to the wiki default branch should become live. Branches may exist in local wiki clones but should not publish reader-visible pages until merged/pushed to default.
+- Wiki read/write routes must enforce repository visibility, `has_wiki`, collaborator permissions, and optional public-editing settings. Private wiki page titles, counts, clone URLs, and history must not leak.
+- Wiki rendering should bound file count, file size, markup conversion time, and rendered HTML size; GitHub documents a soft limit of 5,000 total wiki files.
 
 ## Build Order
 
@@ -2526,7 +2640,7 @@ Error: { "error": { "code": "not_found", "message": "Chart not found" }, "status
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, tree/blob/raw/archive file browser.
 7. Issues and pull requests.
-8. Global search/code search, Actions, Discussions, Projects, security alerts/advisories, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
+8. Global search/code search, Actions, Discussions, Projects, Wiki, security alerts/advisories, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
 9. Public marketing/home surfaces only after the core app is usable.
 10. Deployment and production hardening.
 

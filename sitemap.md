@@ -82,7 +82,11 @@ Template: `/{owner}/{repo}`.
 - `/{owner}/{repo}/discussions/{number}` — discussion detail timeline with comments, replies, answer marking, reactions, sidebar metadata, subscription, and events. Completed in iteration 19.
 - `/{owner}/{repo}/discussions/categories/edit` — permissioned category/section management surface. Mapped from docs in iteration 19.
 - `/{owner}/{repo}/projects` — repository projects list linked by default repository or explicit project/repository association. Completed in iteration 20 from live org Projects plus docs-backed repository linking behavior.
-- `/{owner}/{repo}/wiki` — repository wiki; lower priority.
+- `/{owner}/{repo}/wiki` — repository wiki Home page with rendered Markdown, page/sidebar navigation, custom sidebar/footer, and clone URL. Completed in iteration 21.
+- `/{owner}/{repo}/wiki/_pages` — wiki page index with page-title links and last-updated timestamps. Completed in iteration 21.
+- `/{owner}/{repo}/wiki/_new` — permissioned wiki page creation editor with edit mode dropdown, Markdown/markup editor, preview, edit-message field, and Save Page. Mapped from docs in iteration 21.
+- `/{owner}/{repo}/wiki/{page}/_edit` — permissioned wiki page editing editor. Mapped from docs in iteration 21.
+- `/{owner}/{repo}/wiki/_history` and `/{owner}/{repo}/wiki/{page}/_history` — wiki revision history, compare revisions, revision view, and revert flow. Completed in iteration 21.
 - `/{owner}/{repo}/security` — Security and quality overview. Completed in iteration 18 with live public security overview/policy/advisory inspection.
 - `/{owner}/{repo}/security/policy` — rendered SECURITY.md policy and maintainer setup/edit entry point. Completed in iteration 18.
 - `/{owner}/{repo}/security/advisories` — repository security advisory list and pagination. Completed in iteration 18.
@@ -167,4 +171,4 @@ Template: `/{owner}/{repo}`.
 16. Security overview and code security. Completed in iteration 18 with live inspection for security overview, policy, advisories, Dependabot disabled/settings menu, code scanning disabled, and secret scanning disabled.
 17. Discussions. Completed in iteration 19 with live `vercel/next.js` inspection for list/category/create/detail/answered/polls surfaces and docs-backed category/moderation behavior.
 18. Projects v2. Completed in iteration 20 with live `github` organization project list, GitHub Public Roadmap workspace, View menu, and Insights inspection; docs-backed settings, fields, workflows, draft issues, and repository linking behavior.
-19. Remaining high-value surface: wiki if scope remains.
+19. Wiki. Completed in iteration 21 with live public TypeScript wiki screenshots for Home, Pages, and History plus docs-backed create/edit/sidebar/footer/access behavior.

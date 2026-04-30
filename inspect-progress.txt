@@ -667,6 +667,37 @@ Key findings:
 Next recommended iteration:
 - Inspect Projects v2 (`/{owner}/{repo}/projects`, org/user project table/board/roadmap views, fields, iterations, automation, drafts, settings) or Wiki to continue clearing the Required Coverage Backlog.
 
+Iteration 21 completed on 2026-04-30.
+
+Scope inspected: repository Wiki product (`/{owner}/{repo}/wiki`, `_pages`, `_history`, and docs-backed create/edit/sidebar/footer/access flows).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for wikis, adding/editing pages, custom sidebar/footer, history, access permissions, and wiki search.
+- Ran the required `ever snapshot`; it failed with the existing `Cannot access a chrome-extension:// URL of different extension` error. `ever sessions` showed only about:blank sessions, so the prompt rule against `ever start` prevented a fresh Ever session.
+- Used the established Chrome fallback to inspect the public `microsoft/TypeScript` wiki because it has an active public wiki.
+- Captured screenshots:
+  - ralph/screenshots/inspect/wiki-typescript-home.png
+  - ralph/screenshots/inspect/wiki-typescript-pages.png
+  - ralph/screenshots/inspect/wiki-typescript-history.png
+- Inspected live DOM for wiki Home, Pages, and History routes, including page/sidebar links, custom sidebar, clone URL input, page index rows, history checkboxes, commit messages, authors, relative times, and pagination.
+- Updated build-spec.md with a Repository Wiki section, API examples, data models, backend/cloud mapping, known constraints, and build order reference.
+- Updated sitemap.md to mark Wiki routes completed.
+- Appended focused PRD entries:
+  - wiki-001 repository wiki reader/home/sidebar/footer/clone URL
+  - wiki-002 wiki page list/create/edit/preview/save/local Git publishing
+  - wiki-003 wiki history/revision/compare/revert
+
+Key findings:
+- GitHub wikis are separate Git repositories exposed as `{owner}/{repo}.wiki.git`, while the web UI renders them inside the normal repository workspace with the Wiki tab active.
+- Wiki Home redirects to or canonically renders `/wiki/Home`; page titles are filename-derived and file extensions choose the markup renderer.
+- Reader pages combine a rendered Markdown body, revision link, right-side page navigation, optional lazy table-of-contents expansion, custom `_Sidebar.*`, custom `_Footer.*`, and a read-only clone URL field with copy button.
+- The page index lists all wiki pages with document icons and last-updated timestamps, separate from the truncated sidebar list.
+- History rows include selectable revisions, commit messages, author metadata, committed timestamps, SHA/revision links, newer/older pagination, two-revision compare, and permissioned revert.
+- Create/edit requires editor permission, validates filename-forbidden characters, requires an edit-message commit message, and writes to the wiki Git repository default branch.
+
+Next recommended iteration:
+- Continue clearing remaining backlog gaps by inspecting Labels/Milestones management or global cross-repo Issues/Pulls if not already covered in a later unrecorded iteration.
+
 Iteration 20 completed on 2026-04-30.
 
 Scope inspected: Projects v2 product (`/orgs/{org}/projects`, `/orgs/{org}/projects/{number}`, project View menu, Insights, and docs-backed settings/workflows/fields/items behavior).

@@ -1423,5 +1423,50 @@
     "needs_structure": true,
     "build_pass": false,
     "qa_pass": false
+  },
+  {
+    "id": "wiki-001",
+    "category": "crud",
+    "description": "Render repository wiki home and page-reading experience with Markdown content, page sidebar, custom sidebar/footer, and clone URL.",
+    "page": "/{owner}/{repo}/wiki",
+    "priority": "P7",
+    "core": false,
+    "ui_details": "Repository workspace shell with Wiki tab selected. Main column shows wiki page title, rendered Markdown body with heading anchors, revision link near the title, and permissioned Edit/New Page buttons when available. Right column shows page list/contents module with chevron expanders for per-page table of contents, Show more pages button, custom sidebar rendered from `_Sidebar.*`, custom footer rendered from `_Footer.*`, and `Clone this wiki locally` input containing `https://host/{owner}/{repo}.wiki.git` plus copy button.",
+    "behavior": "Opening `/wiki` redirects to or renders the Home page. Clicking a page link navigates to `/wiki/{slug}` and refreshes title/body/sidebar active state. Expanding a page chevron lazy-loads that page's table of contents. Show more pages expands the truncated page list. Copy clone URL writes the wiki Git remote URL to the clipboard. Missing/disabled/private wikis show an explicit disabled or not-found state based on repository visibility and viewer permission.",
+    "data_model": "Reads repositories.has_wiki, repository_permissions, wiki_repositories, wiki_pages, wiki_page_revisions, rendered_markdown_cache, wiki_sidebar_pages, wiki_footer_pages, and users for author metadata. Writes clipboard-only UI state; page rendering writes no database rows except optional rendered Markdown cache refreshes.",
+    "dependent_on": ["infra-001", "auth-002", "repo-003", "repo-005", "search-001"],
+    "needs_structure": true,
+    "build_pass": false,
+    "qa_pass": false
+  },
+  {
+    "id": "wiki-002",
+    "category": "crud",
+    "description": "Implement wiki page list, create, edit, preview, save, and local Git-backed publishing workflow.",
+    "page": "/{owner}/{repo}/wiki/_pages",
+    "priority": "P7",
+    "core": false,
+    "ui_details": "Pages index has heading `Pages`, optional New Page button for editors, and a bordered list of all wiki pages. Each row uses a document icon, page-title link, and `Last updated` relative timestamp. Create/edit pages use a title input, Edit mode dropdown for Markdown or supported markup extensions, Markdown/code editor with toolbar including image insert, Write/Preview tabs, rendered preview pane, Edit message commit-message field, Save Page button, and validation/error flash area.",
+    "behavior": "Pages index lists all pages sorted by title with updated timestamps and links to detail pages. New Page opens an empty editor; Edit opens the selected page content. Save validates page title characters, extension/edit mode, permissions, and non-empty commit message, then commits to the wiki Git repository default branch and redirects to the rendered page. Preview renders Markdown/markup without saving. Image insert prompts for image URL and alt text. Local Git pushes to `{repo}.wiki.git` update live pages only when pushed to the wiki default branch.",
+    "data_model": "Reads wiki_pages, wiki_page_revisions, wiki_repositories, repository_permissions, users, supported_markup_formats, and rendered_markdown_cache. Writes wiki_pages, wiki_page_revisions, wiki_git_commits, rendered_markdown_cache, wiki_assets references when images are linked/uploaded, repository_activity_events, and audit events.",
+    "dependent_on": ["infra-001", "auth-002", "wiki-001", "git-001", "repo-005"],
+    "needs_structure": true,
+    "build_pass": false,
+    "qa_pass": false
+  },
+  {
+    "id": "wiki-003",
+    "category": "crud",
+    "description": "Implement wiki history, revision viewing, two-revision compare, and revert controls.",
+    "page": "/{owner}/{repo}/wiki/_history",
+    "priority": "P8",
+    "core": false,
+    "ui_details": "History page has heading `History`, a bordered revision list, row checkboxes labelled with commit messages, author avatar/name, committed relative time, short SHA link, and pagination controls for Newer/Older. Compare Revisions button appears above the table when two revisions are selected. Revision detail renders the selected page as of that SHA. Compare view shows file/page diff with added/removed lines and a Revert Changes button for users with edit permission.",
+    "behavior": "Selecting one revision enables viewing that revision via the SHA link. Selecting two revisions enables Compare Revisions and navigates to a diff page. Revert validates edit permission, creates a new wiki commit that restores older content, records the reverted revision in the commit message, and redirects to the page/history. Pagination preserves page scope and moves through older/newer wiki commits. Users without edit permission can view history and diffs but do not see revert controls.",
+    "data_model": "Reads wiki_repositories, wiki_pages, wiki_page_revisions, wiki_git_commits, wiki_diff_cache, repository_permissions, and users. Writes wiki_git_commits, wiki_page_revisions, rendered_markdown_cache, wiki_revert_events, repository_activity_events, notifications where enabled, and audit events for revert operations.",
+    "dependent_on": ["infra-001", "auth-002", "wiki-001", "wiki-002", "git-001"],
+    "needs_structure": true,
+    "build_pass": false,
+    "qa_pass": false
   }
 ]
