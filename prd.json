@@ -118,7 +118,7 @@
       "nav-001"
     ],
     "needs_structure": true,
-    "build_pass": false,
+    "build_pass": true,
     "qa_pass": false
   },
   {

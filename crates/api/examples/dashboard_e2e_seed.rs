@@ -28,6 +28,13 @@ struct SeedOutput {
     second_repository_href: String,
 }
 
+fn seed_empty_dashboard() -> bool {
+    matches!(
+        std::env::var("DASHBOARD_E2E_EMPTY").as_deref(),
+        Ok("1" | "true" | "yes")
+    )
+}
+
 fn app_config() -> AppConfig {
     AppConfig {
         app_url: Url::parse("http://localhost:3015").expect("app URL"),
@@ -69,106 +76,115 @@ async fn main() -> anyhow::Result<()> {
         .bind(user.id)
         .execute(&pool)
         .await?;
-    let reviewer = upsert_user_by_email(
-        &pool,
-        &format!("reviewer-{suffix}@opengithub.local"),
-        Some("Review Author"),
-        None,
-    )
-    .await?;
+    let (first_repository_href, second_repository_href) = if seed_empty_dashboard() {
+        (String::new(), String::new())
+    } else {
+        let reviewer = upsert_user_by_email(
+            &pool,
+            &format!("reviewer-{suffix}@opengithub.local"),
+            Some("Review Author"),
+            None,
+        )
+        .await?;
 
-    let first_repository_name = format!("alpha-{}", &suffix[..12]);
-    let second_repository_name = format!("infra-{}", &suffix[..12]);
-    let first_repository = create_repository(
-        &pool,
-        CreateRepository {
-            owner: RepositoryOwner::User { id: user.id },
-            name: first_repository_name.clone(),
-            description: Some("Repository collaboration workspace".to_owned()),
-            visibility: RepositoryVisibility::Public,
-            default_branch: None,
-            created_by_user_id: user.id,
-        },
-    )
-    .await?;
-    let second_repository = create_repository(
-        &pool,
-        CreateRepository {
-            owner: RepositoryOwner::User { id: user.id },
-            name: second_repository_name.clone(),
-            description: Some("Infrastructure automation".to_owned()),
-            visibility: RepositoryVisibility::Private,
-            default_branch: None,
-            created_by_user_id: user.id,
-        },
-    )
-    .await?;
+        let first_repository_name = format!("alpha-{}", &suffix[..12]);
+        let second_repository_name = format!("infra-{}", &suffix[..12]);
+        let first_repository = create_repository(
+            &pool,
+            CreateRepository {
+                owner: RepositoryOwner::User { id: user.id },
+                name: first_repository_name.clone(),
+                description: Some("Repository collaboration workspace".to_owned()),
+                visibility: RepositoryVisibility::Public,
+                default_branch: None,
+                created_by_user_id: user.id,
+            },
+        )
+        .await?;
+        let second_repository = create_repository(
+            &pool,
+            CreateRepository {
+                owner: RepositoryOwner::User { id: user.id },
+                name: second_repository_name.clone(),
+                description: Some("Infrastructure automation".to_owned()),
+                visibility: RepositoryVisibility::Private,
+                default_branch: None,
+                created_by_user_id: user.id,
+            },
+        )
+        .await?;
 
-    upsert_language(&pool, first_repository.id, "TypeScript", "#3178c6", 1200).await?;
-    upsert_language(&pool, second_repository.id, "Rust", "#dea584", 900).await?;
-    sqlx::query(
-        r#"
-        INSERT INTO recent_repository_visits (user_id, repository_id, visited_at)
-        VALUES ($1, $2, now())
-        ON CONFLICT (user_id, repository_id)
-        DO UPDATE SET visited_at = EXCLUDED.visited_at
-        "#,
-    )
-    .bind(user.id)
-    .bind(second_repository.id)
-    .execute(&pool)
-    .await?;
-    sqlx::query(
-        r#"
-        INSERT INTO repository_permissions (repository_id, user_id, role, source)
-        VALUES ($1, $2, $3, 'direct')
-        ON CONFLICT (repository_id, user_id)
-        DO UPDATE SET role = EXCLUDED.role
-        "#,
-    )
-    .bind(first_repository.id)
-    .bind(reviewer.id)
-    .bind(RepositoryRole::Write.as_str())
-    .execute(&pool)
-    .await?;
-    sqlx::query(
-        r#"
-        INSERT INTO commits (repository_id, oid, author_user_id, committer_user_id, message, committed_at)
-        VALUES ($1, $2, $3, $3, 'Wire dashboard activity feed', now())
-        ON CONFLICT (repository_id, oid) DO NOTHING
-        "#,
-    )
-    .bind(first_repository.id)
-    .bind(format!("{}abcdef", &suffix[..16]))
-    .bind(user.id)
-    .execute(&pool)
-    .await?;
-    create_issue(
-        &pool,
-        CreateIssue {
-            repository_id: first_repository.id,
-            actor_user_id: user.id,
-            title: "Fix dashboard setup workflow".to_owned(),
-            body: None,
-            milestone_id: None,
-            label_ids: vec![],
-            assignee_user_ids: vec![user.id],
-        },
-    )
-    .await?;
-    create_pull_request(
-        &pool,
-        CreatePullRequest {
-            repository_id: first_repository.id,
-            actor_user_id: reviewer.id,
-            title: "Add signed-in dashboard feed".to_owned(),
-            body: None,
-            head_ref: "dashboard-feed".to_owned(),
-            base_ref: "main".to_owned(),
-            head_repository_id: None,
-        },
-    )
-    .await?;
+        upsert_language(&pool, first_repository.id, "TypeScript", "#3178c6", 1200).await?;
+        upsert_language(&pool, second_repository.id, "Rust", "#dea584", 900).await?;
+        sqlx::query(
+            r#"
+            INSERT INTO recent_repository_visits (user_id, repository_id, visited_at)
+            VALUES ($1, $2, now())
+            ON CONFLICT (user_id, repository_id)
+            DO UPDATE SET visited_at = EXCLUDED.visited_at
+            "#,
+        )
+        .bind(user.id)
+        .bind(second_repository.id)
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            r#"
+            INSERT INTO repository_permissions (repository_id, user_id, role, source)
+            VALUES ($1, $2, $3, 'direct')
+            ON CONFLICT (repository_id, user_id)
+            DO UPDATE SET role = EXCLUDED.role
+            "#,
+        )
+        .bind(first_repository.id)
+        .bind(reviewer.id)
+        .bind(RepositoryRole::Write.as_str())
+        .execute(&pool)
+        .await?;
+        sqlx::query(
+            r#"
+            INSERT INTO commits (repository_id, oid, author_user_id, committer_user_id, message, committed_at)
+            VALUES ($1, $2, $3, $3, 'Wire dashboard activity feed', now())
+            ON CONFLICT (repository_id, oid) DO NOTHING
+            "#,
+        )
+        .bind(first_repository.id)
+        .bind(format!("{}abcdef", &suffix[..16]))
+        .bind(user.id)
+        .execute(&pool)
+        .await?;
+        create_issue(
+            &pool,
+            CreateIssue {
+                repository_id: first_repository.id,
+                actor_user_id: user.id,
+                title: "Fix dashboard setup workflow".to_owned(),
+                body: None,
+                milestone_id: None,
+                label_ids: vec![],
+                assignee_user_ids: vec![user.id],
+            },
+        )
+        .await?;
+        create_pull_request(
+            &pool,
+            CreatePullRequest {
+                repository_id: first_repository.id,
+                actor_user_id: reviewer.id,
+                title: "Add signed-in dashboard feed".to_owned(),
+                body: None,
+                head_ref: "dashboard-feed".to_owned(),
+                base_ref: "main".to_owned(),
+                head_repository_id: None,
+            },
+        )
+        .await?;
+
+        (
+            format!("/{username}/{first_repository_name}"),
+            format!("/{username}/{second_repository_name}"),
+        )
+    };
 
     let session_id = Uuid::new_v4().to_string();
     let expires_at = Utc::now() + Duration::hours(1);
@@ -187,8 +203,8 @@ async fn main() -> anyhow::Result<()> {
     let output = SeedOutput {
         cookie_name: config.session_cookie_name,
         cookie_value: cookie_value.to_owned(),
-        first_repository_href: format!("/{username}/{first_repository_name}"),
-        second_repository_href: format!("/{username}/{second_repository_name}"),
+        first_repository_href,
+        second_repository_href,
     };
     println!("{}", serde_json::to_string(&output)?);
     Ok(())

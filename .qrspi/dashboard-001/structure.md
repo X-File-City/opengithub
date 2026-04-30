@@ -57,7 +57,7 @@
 
 ## Phase 4: Responsive Polish and Regression Guardrails - lock dashboard interactions before PRD completion
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Finish dashboard-001 by tightening visual parity, accessibility, dead-action checks, QA handoff notes, and PRD/build bookkeeping.
 

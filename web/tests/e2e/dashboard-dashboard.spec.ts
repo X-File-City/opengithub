@@ -10,7 +10,11 @@ type SeededDashboard = {
   secondRepositoryHref: string;
 };
 
-function seedDashboard(): SeededDashboard {
+function seedDashboard({
+  empty = false,
+}: {
+  empty?: boolean;
+} = {}): SeededDashboard {
   if (!databaseUrl) {
     throw new Error("TEST_DATABASE_URL or DATABASE_URL is required");
   }
@@ -27,7 +31,11 @@ function seedDashboard(): SeededDashboard {
     ],
     {
       cwd: "..",
-      env: { ...process.env, SESSION_COOKIE_NAME: "og_session" },
+      env: {
+        ...process.env,
+        DASHBOARD_E2E_EMPTY: empty ? "1" : "0",
+        SESSION_COOKIE_NAME: "og_session",
+      },
     },
   ).toString();
   return JSON.parse(output) as SeededDashboard;
@@ -45,6 +53,35 @@ async function signIn(page: Page, seeded: SeededDashboard) {
       secure: false,
     },
   ]);
+}
+
+async function expectNoDeadDashboardControls(page: Page) {
+  await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
+
+  for (const button of await page.locator("button").all()) {
+    await expect(button).toHaveAccessibleName(/.+/);
+    await expect(button).not.toBeDisabled();
+  }
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const metrics = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+}
+
+async function boundingBoxFor(locator: ReturnType<Page["locator"]>) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+
+  if (!box) {
+    throw new Error("expected element to have a bounding box");
+  }
+
+  return box;
 }
 
 test.skip(
@@ -104,4 +141,92 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
   await page.goto("/dashboard");
   await newRepositoryLink.click();
   await expect(page).toHaveURL(/\/new$/);
+});
+
+test("signed-in dashboard has no dead controls on empty and non-empty states", async ({
+  page,
+}) => {
+  const emptySeed = seedDashboard({ empty: true });
+  await signIn(page, emptySeed);
+  await page.goto("/dashboard");
+
+  await expect(
+    page.getByText("You do not have any repositories yet."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Create repository" }).first(),
+  ).toHaveAttribute("href", "/new");
+  await expect(
+    page.getByRole("link", { name: "Import repository" }).first(),
+  ).toHaveAttribute("href", "/new/import");
+  await expect(
+    page.getByRole("link", { name: "Read setup guide" }).first(),
+  ).toHaveAttribute("href", "/docs/get-started");
+  await expectNoDeadDashboardControls(page);
+
+  const seeded = seedDashboard();
+  await page.context().clearCookies();
+  await signIn(page, seeded);
+  await page.goto("/dashboard");
+
+  await expect(
+    page.getByRole("heading", { name: "Recent activity" }),
+  ).toBeVisible();
+  await expectNoDeadDashboardControls(page);
+});
+
+test("signed-in dashboard stacks without horizontal scroll on mobile", async ({
+  page,
+}) => {
+  const seeded = seedDashboard();
+  await signIn(page, seeded);
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto("/dashboard");
+
+  await expect(
+    page.getByRole("heading", { name: "Top repositories" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Recent activity" }),
+  ).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  const sidebar = await boundingBoxFor(
+    page.getByRole("complementary", { name: "Top repositories" }),
+  );
+  const feed = await boundingBoxFor(
+    page.locator('section[aria-labelledby="recent-activity-heading"]'),
+  );
+  expect(feed.y).toBeGreaterThan(sidebar.y + sidebar.height - 1);
+
+  await page.getByLabel("Find a repository").fill("infra");
+  await expect(
+    page
+      .getByRole("complementary", { name: "Top repositories" })
+      .getByRole("link", { name: /infra-/ }),
+  ).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test("signed-in dashboard keeps the sidebar and feed aligned on desktop", async ({
+  page,
+}) => {
+  const seeded = seedDashboard();
+  await signIn(page, seeded);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dashboard");
+
+  await expectNoHorizontalOverflow(page);
+  const sidebar = await boundingBoxFor(
+    page.getByRole("complementary", { name: "Top repositories" }),
+  );
+  const feed = await boundingBoxFor(
+    page.locator('section[aria-labelledby="recent-activity-heading"]'),
+  );
+  expect(sidebar.width).toBeGreaterThanOrEqual(290);
+  expect(sidebar.width).toBeLessThanOrEqual(306);
+  expect(feed.x).toBeGreaterThan(sidebar.x + sidebar.width);
+  expect(feed.width).toBeLessThanOrEqual(720);
 });

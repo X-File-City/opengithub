@@ -388,5 +388,23 @@
       "Recent activity currently derives from repository metadata, commits, issues, and PRs; comments/reactions/timeline-specific activity should be retested when those feeds become visible",
       "Mobile viewport screenshots and dead-action checks are intentionally left for dashboard-001 Phase 4"
     ]
+  },
+  {
+    "feature_id": "dashboard-001",
+    "tests_written": [
+      "Playwright dashboard E2E now covers empty and non-empty signed-in dashboard states for dead hrefs, accessible enabled buttons, desktop sidebar width, mobile stacking, and no horizontal overflow",
+      "The dashboard E2E seed helper can create either a zero-repository signed session or a populated signed session against real Postgres",
+      "make check passed with cargo check, tsc, clippy, and Biome",
+      "make test passed with cargo tests and 27 Vitest tests",
+      "make test-e2e passed with 17 Playwright tests",
+      "Ever smoke verified signed-in empty dashboard, filtered top repositories, repository row navigation, /new navigation, no desktop horizontal overflow, and no dead links",
+      "Saved screenshots: dashboard-001-phase4-empty-sidebar.jpg, dashboard-001-phase4-filtered-sidebar.jpg, dashboard-001-phase4-non-empty-feed.jpg, and dashboard-001-phase4-mobile-dashboard.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Repeat the full signed-in dashboard flow through real Google OAuth with TEST_ACCOUNT_EMAIL after Google consent/test-user configuration is confirmed",
+      "Top repository ranking should be retested with production-like recent visit data and language metadata once real repository visit tracking and language detection are wired",
+      "The current review request rail derives from open PRs by another author in accessible repositories; requested-reviewer-specific behavior should be retested when reviewer tables ship",
+      "Mobile coverage verifies no horizontal overflow at 390px; QA should also inspect smaller devices and browser zoom levels manually"
+    ]
   }
 ]
