@@ -67,7 +67,28 @@ function repositoryOverview(
         updatedAt: "2026-04-30T00:00:00Z",
       },
     ],
-    files: [],
+    files: [
+      {
+        id: "file-1",
+        repositoryId: "repo-1",
+        commitId: "commit-1",
+        path: "README.md",
+        content: "# octo-app\n\nHello from the README.",
+        oid: "readme-oid",
+        byteSize: 42,
+        createdAt: "2026-04-30T00:00:00Z",
+      },
+      {
+        id: "file-2",
+        repositoryId: "repo-1",
+        commitId: "commit-1",
+        path: "src/index.ts",
+        content: "export const answer = 42;\n",
+        oid: "index-oid",
+        byteSize: 26,
+        createdAt: "2026-04-30T00:00:00Z",
+      },
+    ],
     readme: {
       id: "file-1",
       repositoryId: "repo-1",
@@ -228,17 +249,14 @@ describe("RepositoryCodeOverview", () => {
       "href",
       "/mona/octo-app/settings",
     );
-    expect(screen.getByRole("link", { name: "main" })).toHaveAttribute(
+    expect(screen.getByLabelText(/Current branch main/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Go to file" })).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Create new file" }),
+    ).toHaveAttribute("href", "/mona/octo-app/new/main");
+    expect(screen.getByRole("link", { name: "Upload files" })).toHaveAttribute(
       "href",
-      "/mona/octo-app/tree/main",
-    );
-    expect(screen.getByRole("link", { name: "Go to file" })).toHaveAttribute(
-      "href",
-      "/mona/octo-app/find/main",
-    );
-    expect(screen.getByRole("link", { name: "Add file" })).toHaveAttribute(
-      "href",
-      "/mona/octo-app/new/main",
+      "/mona/octo-app/upload/main",
     );
     expect(screen.getByRole("button", { name: /Watch/ })).toBeVisible();
     expect(screen.getByRole("button", { name: /Fork/ })).toBeVisible();
@@ -271,6 +289,7 @@ describe("RepositoryCodeOverview", () => {
     expect(screen.getByText("1 forks")).toBeVisible();
     expect(screen.getByText("TypeScript")).toBeVisible();
     expect(screen.getAllByDisplayValue(/octo-app\.git$/)).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Copy" })).toHaveLength(2);
     expect(screen.getByRole("link", { name: "Download ZIP" })).toHaveAttribute(
       "href",
       "/mona/octo-app/archive/refs/heads/main.zip",
@@ -281,6 +300,42 @@ describe("RepositoryCodeOverview", () => {
     for (const button of container.querySelectorAll("button")) {
       expect(button).toHaveAccessibleName();
     }
+  });
+
+  it("searches files from the Go to file combobox and opens the selected result", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              path: "src/index.ts",
+              name: "index.ts",
+              kind: "file",
+              href: "/mona/octo-app/blob/main/src/index.ts",
+              byteSize: 26,
+              language: "TypeScript",
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    render(<RepositoryCodeOverview repository={repositoryOverview()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Go to file" }));
+    fireEvent.change(screen.getByLabelText("Find a file"), {
+      target: { value: "index" },
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("link", { name: /src\/index\.ts/ }),
+      ).toHaveAttribute("href", "/mona/octo-app/blob/main/src/index.ts");
+    });
   });
 
   it("renders quick setup for empty repositories", () => {

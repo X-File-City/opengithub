@@ -15,11 +15,12 @@ use crate::{
         create_repository_with_bootstrap, fork_repository_by_owner_name,
         insert_repository_create_feed_event, list_repositories_for_user,
         repository_blob_for_actor_by_owner_name, repository_commit_history_for_actor_by_owner_name,
-        repository_creation_options, repository_name_availability,
-        repository_overview_for_actor_by_owner_name,
-        repository_path_overview_for_actor_by_owner_name, set_repository_star_by_owner_name,
-        set_repository_watch_by_owner_name, CreateRepository, RepositoryBootstrapRequest,
-        RepositoryCommitHistoryQuery, RepositoryError, RepositoryOwner, RepositoryVisibility,
+        repository_creation_options, repository_file_finder_for_actor_by_owner_name,
+        repository_name_availability, repository_overview_for_actor_by_owner_name,
+        repository_path_overview_for_actor_by_owner_name, repository_refs_for_actor_by_owner_name,
+        set_repository_star_by_owner_name, set_repository_watch_by_owner_name, CreateRepository,
+        RepositoryBootstrapRequest, RepositoryCommitHistoryQuery, RepositoryError, RepositoryOwner,
+        RepositoryVisibility,
     },
     AppState,
 };
@@ -32,6 +33,8 @@ pub fn router() -> Router<AppState> {
         .route("/:owner/:repo/contents/*path", get(contents))
         .route("/:owner/:repo/blobs/*path", get(blob))
         .route("/:owner/:repo/commits", get(commits))
+        .route("/:owner/:repo/refs", get(refs))
+        .route("/:owner/:repo/file-finder", get(file_finder))
         .route("/:owner/:repo/star", put(star).delete(unstar))
         .route("/:owner/:repo/watch", put(watch).delete(unwatch))
         .route("/:owner/:repo/forks", post(fork))
@@ -83,6 +86,14 @@ struct CommitsQuery {
     path: Option<String>,
     page: Option<i64>,
     page_size: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileFinderQuery {
+    #[serde(rename = "ref")]
+    ref_name: Option<String>,
+    q: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -283,6 +294,56 @@ async fn commits(
             page: query.page.unwrap_or(1),
             page_size: query.page_size.unwrap_or(30),
         },
+    )
+    .await
+    .map_err(map_repository_error)?
+    .ok_or_else(|| {
+        error_response(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "repository was not found".to_owned(),
+        )
+    })?;
+
+    Ok(Json(json!(envelope)))
+}
+
+async fn refs(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let envelope = repository_refs_for_actor_by_owner_name(pool, actor.0.id, &owner, &repo)
+        .await
+        .map_err(map_repository_error)?
+        .ok_or_else(|| {
+            error_response(
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "repository was not found".to_owned(),
+            )
+        })?;
+
+    Ok(Json(json!(envelope)))
+}
+
+async fn file_finder(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+    Query(query): Query<FileFinderQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let envelope = repository_file_finder_for_actor_by_owner_name(
+        pool,
+        actor.0.id,
+        &owner,
+        &repo,
+        query.ref_name.as_deref(),
+        query.q.as_deref(),
     )
     .await
     .map_err(map_repository_error)?

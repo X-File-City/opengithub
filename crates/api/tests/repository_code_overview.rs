@@ -162,10 +162,29 @@ async fn repository_code_overview_returns_root_workspace_contract() {
         .execute(&pool)
         .await
         .expect("star should insert");
+    let commit_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM commits WHERE repository_id = $1 ORDER BY committed_at DESC LIMIT 1",
+    )
+    .bind(repository.id)
+    .fetch_one(&pool)
+    .await
+    .expect("commit id should exist");
+    sqlx::query(
+        r#"
+        INSERT INTO repository_git_refs (repository_id, name, kind, target_commit_id)
+        VALUES ($1, 'refs/heads/feature-sidebar', 'branch', $2),
+               ($1, 'refs/tags/v1.0.0', 'tag', $2)
+        "#,
+    )
+    .bind(repository.id)
+    .bind(commit_id)
+    .execute(&pool)
+    .await
+    .expect("extra refs should insert");
 
     let app = opengithub_api::build_app_with_config(Some(pool), config);
     let (status, body) = send_json(
-        app,
+        app.clone(),
         &format!("/api/repos/{}/{}", repository.owner_login, repository.name),
         Some(&cookie),
     )
@@ -174,8 +193,8 @@ async fn repository_code_overview_returns_root_workspace_contract() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["name"], repository.name);
     assert_eq!(body["viewerPermission"], "owner");
-    assert_eq!(body["branchCount"], 1);
-    assert_eq!(body["tagCount"], 0);
+    assert_eq!(body["branchCount"], 2);
+    assert_eq!(body["tagCount"], 1);
     assert_eq!(body["latestCommit"]["message"], "Initial commit");
     assert_eq!(body["readme"]["path"], "README.md");
     assert!(body["rootEntries"]
@@ -194,6 +213,48 @@ async fn repository_code_overview_returns_root_workspace_contract() {
         .as_str()
         .expect("clone url should exist")
         .ends_with(".git"));
+
+    let (refs_status, refs_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{}/{}/refs",
+            repository.owner_login, repository.name
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(refs_status, StatusCode::OK);
+    assert_eq!(refs_body["total"], 3);
+    assert!(refs_body["items"]
+        .as_array()
+        .expect("refs should be an array")
+        .iter()
+        .any(|entry| entry["shortName"] == "feature-sidebar" && entry["kind"] == "branch"));
+    assert!(refs_body["items"]
+        .as_array()
+        .expect("refs should be an array")
+        .iter()
+        .any(|entry| entry["shortName"] == "v1.0.0" && entry["kind"] == "tag"));
+
+    let (finder_status, finder_body) = send_json(
+        app,
+        &format!(
+            "/api/repos/{}/{}/file-finder?ref=main&q=main",
+            repository.owner_login, repository.name
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(finder_status, StatusCode::OK);
+    assert!(finder_body["items"]
+        .as_array()
+        .expect("finder items should be an array")
+        .iter()
+        .any(|entry| entry["path"] == "src/main.rs"
+            && entry["href"]
+                .as_str()
+                .expect("finder href")
+                .ends_with("/blob/main/src/main.rs")));
 }
 
 #[tokio::test]

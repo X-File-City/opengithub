@@ -149,6 +149,24 @@ export type RepositoryCloneUrls = {
   zip: string;
 };
 
+export type RepositoryRefSummary = {
+  name: string;
+  shortName: string;
+  kind: "branch" | "tag" | string;
+  href: string;
+  targetShortOid: string | null;
+  updatedAt: string;
+};
+
+export type RepositoryFileFinderItem = {
+  path: string;
+  name: string;
+  kind: "file" | string;
+  href: string;
+  byteSize: number;
+  language: string | null;
+};
+
 export type RepositoryOverview = RepositorySummary & {
   viewerPermission: string | null;
   branchCount: number;
@@ -708,6 +726,62 @@ export async function getRepositoryCommitHistoryFromCookie(
   }
 
   return (await response.json()) as ListEnvelope<RepositoryCommitHistoryItem>;
+}
+
+export async function getRepositoryRefsFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+): Promise<ListEnvelope<RepositoryRefSummary> | null> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/refs`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as ListEnvelope<RepositoryRefSummary>;
+}
+
+export async function getRepositoryFileFinderFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  refName: string,
+  query: string,
+): Promise<ListEnvelope<RepositoryFileFinderItem> | null> {
+  const params = new URLSearchParams({ ref: refName });
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/file-finder?${params.toString()}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as ListEnvelope<RepositoryFileFinderItem>;
 }
 
 export async function setRepositoryStarFromCookie(

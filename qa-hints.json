@@ -688,5 +688,21 @@
       "Private repository fork denial is permission-backed but should be rechecked through browser flows once org/private sharing UI ships",
       "Branch selector, file finder, Add file menu polish, and sidebar topics/resources remain deferred to repo-003 Phase 4"
     ]
+  },
+  {
+    "feature_id": "repo-003",
+    "tests_written": [
+      "Rust API tests now cover GET /api/repos/:owner/:repo/refs and GET /api/repos/:owner/:repo/file-finder with branch/tag summaries and file result hrefs",
+      "Vitest covers the Phase 4 Code tab toolbar, Add file dropdown destinations, clone copy buttons, sidebar resource links, local/remote file-finder results, and empty repository quick setup commands",
+      "Playwright E2E passed with 23 tests after preserving the existing default branch and repository creation contracts",
+      "Browser smoke used a real Rust-signed Postgres session to create a bootstrapped repository, open the branch selector, search src/main.rs through Go to file, follow Create new file, open the clone menu, and save desktop/mobile screenshots"
+    ],
+    "needs_deeper_qa": [
+      "File creation and upload routes are intentionally reachable placeholders until the repository file editor feature ships",
+      "Branch names with slashes still need deeper QA with the current Next.js /tree/[ref]/... route shape",
+      "Copy-to-clipboard feedback depends on browser clipboard permissions; QA should verify denied-permission behavior in real browsers",
+      "Topics remain rendered from the overview contract when present, but topic CRUD/population is not yet implemented",
+      "Language/release/deployment/contributor sidebar freshness should be retested after importer, Git push, Actions, and releases features mature"
+    ]
   }
 ]

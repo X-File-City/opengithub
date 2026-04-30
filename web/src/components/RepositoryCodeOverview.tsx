@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RepositoryCodeToolbar } from "@/components/RepositoryCodeToolbar";
 import { RepositoryFileTable } from "@/components/RepositoryFileTable";
 import { RepositoryHeaderActions } from "@/components/RepositoryHeaderActions";
 import type { RepositoryOverview } from "@/lib/api";
@@ -51,87 +52,9 @@ function RepositoryTabs({ repository }: RepositoryCodeOverviewProps) {
   );
 }
 
-function RepositoryToolbar({ repository }: RepositoryCodeOverviewProps) {
+function RepositorySidebar({ repository }: RepositoryCodeOverviewProps) {
   const base = `/${repository.owner_login}/${repository.name}`;
 
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm text-[#59636e]">Default branch</span>
-      <Link
-        className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]"
-        href={`${base}/tree/${repository.default_branch}`}
-      >
-        {repository.default_branch}
-      </Link>
-      <Link
-        className="text-sm text-[#59636e] hover:text-[#0969da]"
-        href={`${base}/branches`}
-      >
-        {formatCount(repository.branchCount, "Branches")}
-      </Link>
-      <Link
-        className="text-sm text-[#59636e] hover:text-[#0969da]"
-        href={`${base}/tags`}
-      >
-        {formatCount(repository.tagCount, "Tags")}
-      </Link>
-      <div className="ml-auto flex flex-wrap items-center gap-2 max-md:ml-0">
-        <Link
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm text-[#59636e] hover:bg-[#f6f8fa]"
-          href={`${base}/find/${repository.default_branch}`}
-        >
-          Go to file
-        </Link>
-        <Link
-          className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-[#f6f8fa] px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#eef1f4]"
-          href={`${base}/new/${repository.default_branch}`}
-        >
-          Add file
-        </Link>
-        <details className="relative">
-          <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37]">
-            Code
-          </summary>
-          <div className="absolute right-0 z-10 mt-2 w-80 rounded-md border border-[#d0d7de] bg-white p-3 text-sm text-[#1f2328] shadow-lg">
-            <p className="font-semibold">Clone</p>
-            <label
-              className="mt-3 block text-xs font-semibold text-[#59636e]"
-              htmlFor="clone-https"
-            >
-              HTTPS
-            </label>
-            <input
-              className="mt-1 h-8 w-full rounded-md border border-[#d0d7de] px-2 font-mono text-xs"
-              id="clone-https"
-              readOnly
-              value={repository.cloneUrls.https}
-            />
-            <label
-              className="mt-3 block text-xs font-semibold text-[#59636e]"
-              htmlFor="clone-ssh"
-            >
-              SSH
-            </label>
-            <input
-              className="mt-1 h-8 w-full rounded-md border border-[#d0d7de] px-2 font-mono text-xs"
-              id="clone-ssh"
-              readOnly
-              value={repository.cloneUrls.git}
-            />
-            <Link
-              className="mt-3 block text-[#0969da] hover:underline"
-              href={repository.cloneUrls.zip}
-            >
-              Download ZIP
-            </Link>
-          </div>
-        </details>
-      </div>
-    </div>
-  );
-}
-
-function RepositorySidebar({ repository }: RepositoryCodeOverviewProps) {
   return (
     <aside className="space-y-5 text-sm">
       <section>
@@ -148,13 +71,33 @@ function RepositorySidebar({ repository }: RepositoryCodeOverviewProps) {
             {repository.sidebar.websiteUrl}
           </Link>
         ) : null}
+        {repository.sidebar.topics.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {repository.sidebar.topics.map((topic) => (
+              <Link
+                className="rounded-full bg-[#ddf4ff] px-2.5 py-1 text-xs font-semibold text-[#0969da] hover:bg-[#b6e3ff]"
+                href={`/topics/${encodeURIComponent(topic)}`}
+                key={topic}
+              >
+                {topic}
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </section>
       <section className="space-y-2 text-[#59636e]">
         <p>{formatCount(repository.sidebar.starsCount, "stars")}</p>
         <p>{formatCount(repository.sidebar.watchersCount, "watching")}</p>
         <p>{formatCount(repository.sidebar.forksCount, "forks")}</p>
-        <p>{formatCount(repository.sidebar.releasesCount, "releases")}</p>
-        <p>{formatCount(repository.sidebar.deploymentsCount, "deployments")}</p>
+        <Link className="block hover:text-[#0969da]" href={`${base}/releases`}>
+          {formatCount(repository.sidebar.releasesCount, "releases")}
+        </Link>
+        <Link
+          className="block hover:text-[#0969da]"
+          href={`${base}/deployments`}
+        >
+          {formatCount(repository.sidebar.deploymentsCount, "deployments")}
+        </Link>
         <p>
           {formatCount(repository.sidebar.contributorsCount, "contributors")}
         </p>
@@ -219,7 +162,7 @@ export function RepositoryCodeOverview({
       </header>
       <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_296px] gap-8 px-6 py-6 max-lg:grid-cols-1">
         <div className="min-w-0 space-y-4">
-          <RepositoryToolbar repository={repository} />
+          <RepositoryCodeToolbar repository={repository} />
           <RepositoryFileTable
             emptyState={
               <div className="rounded-md border border-[#d0d7de] bg-white p-6">
@@ -231,7 +174,9 @@ export function RepositoryCodeOverview({
                   new file to start the default branch.
                 </p>
                 <div className="mt-4 rounded-md bg-[#f6f8fa] p-3 font-mono text-xs text-[#1f2328]">
-                  git remote add origin {repository.cloneUrls.https}
+                  <p>git remote add origin {repository.cloneUrls.https}</p>
+                  <p>git branch -M {repository.default_branch}</p>
+                  <p>git push -u origin {repository.default_branch}</p>
                 </div>
               </div>
             }

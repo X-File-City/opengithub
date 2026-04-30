@@ -58,7 +58,7 @@
 
 ## Phase 4: Branch Selector, Go To File, and Sidebar Polish - complete Code tab ergonomics
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Finish the GitHub-like Code tab ergonomics: branch/tag selector, Go to file combobox, Add file dropdown destinations, clone/download menu details, sidebar topics/resources/language bar, and empty-repository quick setup.
 

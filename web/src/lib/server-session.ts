@@ -5,9 +5,11 @@ import {
   getRepositoryBlobFromCookie,
   getRepositoryCommitHistoryFromCookie,
   getRepositoryCreationOptionsFromCookie,
+  getRepositoryFileFinderFromCookie,
   getRepositoryFromCookie,
   getRepositoryImportFromCookie,
   getRepositoryPathFromCookie,
+  getRepositoryRefsFromCookie,
   getSessionFromHeaders,
 } from "@/lib/api";
 
@@ -70,6 +72,27 @@ export async function getRepositoryCommitHistory(
     repo,
     refName,
     path,
+  );
+}
+
+export async function getRepositoryRefs(owner: string, repo: string) {
+  const requestHeaders = await headers();
+  return getRepositoryRefsFromCookie(requestHeaders.get("cookie"), owner, repo);
+}
+
+export async function getRepositoryFileFinder(
+  owner: string,
+  repo: string,
+  refName: string,
+  query: string,
+) {
+  const requestHeaders = await headers();
+  return getRepositoryFileFinderFromCookie(
+    requestHeaders.get("cookie"),
+    owner,
+    repo,
+    refName,
+    query,
   );
 }
 

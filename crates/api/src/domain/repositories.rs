@@ -343,6 +343,28 @@ pub struct GitRef {
     pub updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryRefSummary {
+    pub name: String,
+    pub short_name: String,
+    pub kind: String,
+    pub href: String,
+    pub target_short_oid: Option<String>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryFileFinderItem {
+    pub path: String,
+    pub name: String,
+    pub kind: String,
+    pub href: String,
+    pub byte_size: i64,
+    pub language: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateOrganization {
     pub slug: String,
@@ -680,6 +702,126 @@ pub async fn repository_overview_for_actor_by_owner_name(
     Ok(Some(
         repository_overview_for_actor(pool, repository, actor_user_id).await?,
     ))
+}
+
+pub async fn repository_refs_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+) -> Result<Option<ListEnvelope<RepositoryRefSummary>>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+
+    let rows = sqlx::query(
+        r#"
+        SELECT repository_git_refs.name,
+               repository_git_refs.kind,
+               repository_git_refs.updated_at,
+               commits.oid AS target_oid
+        FROM repository_git_refs
+        LEFT JOIN commits ON commits.id = repository_git_refs.target_commit_id
+        WHERE repository_git_refs.repository_id = $1
+        ORDER BY repository_git_refs.kind ASC, lower(repository_git_refs.name) ASC
+        "#,
+    )
+    .bind(repository.id)
+    .fetch_all(pool)
+    .await?;
+
+    let items = rows
+        .into_iter()
+        .map(|row| {
+            let name: String = row.get("name");
+            let kind: String = row.get("kind");
+            let short_name = name
+                .strip_prefix("refs/heads/")
+                .or_else(|| name.strip_prefix("refs/tags/"))
+                .unwrap_or(&name)
+                .to_owned();
+            RepositoryRefSummary {
+                href: format!(
+                    "/{}/{}/tree/{}",
+                    repository.owner_login,
+                    repository.name,
+                    percent_encode_segment(&short_name)
+                ),
+                target_short_oid: row
+                    .get::<Option<String>, _>("target_oid")
+                    .map(|oid| oid.chars().take(7).collect()),
+                updated_at: row.get("updated_at"),
+                name,
+                short_name,
+                kind,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(Some(ListEnvelope {
+        total: items.len() as i64,
+        page: 1,
+        page_size: items.len().max(1) as i64,
+        items,
+    }))
+}
+
+pub async fn repository_file_finder_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+    ref_name: Option<&str>,
+    query: Option<&str>,
+) -> Result<Option<ListEnvelope<RepositoryFileFinderItem>>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+    let resolved_ref = resolve_repository_ref_name(pool, &repository, ref_name).await?;
+    let normalized_query = query.unwrap_or("").trim().to_lowercase();
+    let files = list_repository_files(pool, repository.id).await?;
+    let mut items = files
+        .into_iter()
+        .filter(|file| {
+            normalized_query.is_empty() || file.path.to_lowercase().contains(&normalized_query)
+        })
+        .take(20)
+        .map(|file| {
+            let name = file
+                .path
+                .rsplit('/')
+                .next()
+                .filter(|value| !value.is_empty())
+                .unwrap_or(&file.path)
+                .to_owned();
+            RepositoryFileFinderItem {
+                href: format!(
+                    "/{}/{}/blob/{}/{}",
+                    repository.owner_login,
+                    repository.name,
+                    percent_encode_segment(&resolved_ref),
+                    percent_encode_path(&file.path)
+                ),
+                language: language_for_path(&file.path),
+                byte_size: file.byte_size,
+                kind: "file".to_owned(),
+                name,
+                path: file.path,
+            }
+        })
+        .collect::<Vec<_>>();
+    items.sort_by(|left, right| left.path.to_lowercase().cmp(&right.path.to_lowercase()));
+
+    Ok(Some(ListEnvelope {
+        total: items.len() as i64,
+        page: 1,
+        page_size: 20,
+        items,
+    }))
 }
 
 pub async fn repository_overview_for_actor(
