@@ -346,3 +346,11 @@
 - Saved screenshots: `ralph/screenshots/build/dashboard-003-phase4-following-feed.jpg`, `dashboard-003-phase4-for-you-feed.jpg`, `dashboard-003-phase4-filter-dropdown.jpg`, `dashboard-003-phase4-filtered-empty.jpg`, and `dashboard-003-phase4-mobile-feed.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 31 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 18 Playwright tests.
 - Marked Phase 4 as done in `.qrspi/dashboard-003/structure.md`, set `dashboard-003.build_pass` to `true` in `prd.json`, and left `qa_pass` as `false` for the QA agent.
+
+2026-04-30 - repo-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing repository/auth/dashboard code, and prior QRSPI outlines.
+- Determined `repo-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/repo-001/structure.md` did not exist.
+- Added `.qrspi/repo-001/structure.md` with four independently verifiable vertical phases: creation options and availability, basic repository submit, bootstrap files and first commit, and final form polish/QA guardrails.
+- Did not change `prd.json`; `repo-001.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
