@@ -58,7 +58,7 @@
 
 ## Phase 4: Raw and Archive Streaming - bounded downloads use real repository data
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add GitHub-style raw file and source archive endpoints that stream bounded responses from the selected ref. The Code menu Download ZIP action must generate or reuse an archive and every raw/download link on blob pages must resolve through Rust authorization.
 

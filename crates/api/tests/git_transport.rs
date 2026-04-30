@@ -421,6 +421,130 @@ async fn private_repository_supports_token_and_session_upload_pack() {
 }
 
 #[tokio::test]
+async fn public_repository_streams_raw_files_and_reuses_zip_archives() {
+    let _env_guard = GIT_STORAGE_ENV_LOCK.lock().await;
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping raw/archive scenario; set TEST_DATABASE_URL");
+        return;
+    };
+    let storage_dir =
+        std::env::temp_dir().join(format!("opengithub-git-archive-{}", Uuid::new_v4()));
+    std::env::set_var("OPENGITHUB_GIT_STORAGE_DIR", &storage_dir);
+
+    let owner = create_user(&pool, "git-archive-owner").await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("archiveable-{}", Uuid::new_v4().simple()),
+            description: Some("Archiveable public repository".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: Some("main".to_owned()),
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("blank".to_owned()),
+            gitignore_template_slug: None,
+            license_template_slug: None,
+        },
+    )
+    .await
+    .expect("repository should create");
+
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), test_config());
+    let (raw_status, raw_body, raw_content_type) = send_raw(
+        app.clone(),
+        &format!(
+            "/{}/{}/raw/main/README.md",
+            repository.owner_login, repository.name
+        ),
+    )
+    .await;
+    assert_eq!(raw_status, StatusCode::OK);
+    assert_eq!(raw_content_type, "text/markdown; charset=utf-8");
+    assert!(String::from_utf8_lossy(&raw_body).contains(&repository.name));
+
+    let archive_uri = format!(
+        "/{}/{}/archive/refs/heads/main.zip",
+        repository.owner_login, repository.name
+    );
+    let (archive_status, archive_body, archive_content_type) =
+        send_raw(app.clone(), &archive_uri).await;
+    assert_eq!(archive_status, StatusCode::OK);
+    assert_eq!(archive_content_type, "application/zip");
+    assert!(archive_body.starts_with(b"PK"));
+
+    let (second_status, second_body, _) = send_raw(app, &archive_uri).await;
+    assert_eq!(second_status, StatusCode::OK);
+    assert_eq!(second_body, archive_body);
+
+    let archive_count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM repository_archives WHERE repository_id = $1 AND ref_name = 'main' AND format = 'zip'",
+    )
+    .bind(repository.id)
+    .fetch_one(&pool)
+    .await
+    .expect("archive count should read");
+    assert_eq!(archive_count, 1);
+
+    let _ = std::fs::remove_dir_all(storage_dir);
+}
+
+#[tokio::test]
+async fn private_repository_denies_anonymous_raw_and_archives() {
+    let _env_guard = GIT_STORAGE_ENV_LOCK.lock().await;
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping private raw/archive denial scenario; set TEST_DATABASE_URL");
+        return;
+    };
+    let storage_dir =
+        std::env::temp_dir().join(format!("opengithub-git-archive-deny-{}", Uuid::new_v4()));
+    std::env::set_var("OPENGITHUB_GIT_STORAGE_DIR", &storage_dir);
+
+    let owner = create_user(&pool, "git-archive-deny-owner").await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("private-archive-{}", Uuid::new_v4().simple()),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: Some("main".to_owned()),
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("blank".to_owned()),
+            gitignore_template_slug: None,
+            license_template_slug: None,
+        },
+    )
+    .await
+    .expect("repository should create");
+
+    let app = opengithub_api::build_app_with_config(Some(pool), test_config());
+    for uri in [
+        format!(
+            "/{}/{}/raw/main/README.md",
+            repository.owner_login, repository.name
+        ),
+        format!(
+            "/{}/{}/archive/refs/heads/main.zip",
+            repository.owner_login, repository.name
+        ),
+    ] {
+        let (status, body, _) = send_raw(app.clone(), &uri).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        let rendered = String::from_utf8_lossy(&body);
+        assert!(rendered.contains("authentication_required"));
+        assert!(!rendered.contains("README.md"));
+    }
+
+    let _ = std::fs::remove_dir_all(storage_dir);
+}
+
+#[tokio::test]
 async fn private_repository_rejects_invalid_expired_or_unscoped_tokens_without_leaking_secret() {
     let _env_guard = GIT_STORAGE_ENV_LOCK.lock().await;
     let Some(pool) = database_pool().await else {

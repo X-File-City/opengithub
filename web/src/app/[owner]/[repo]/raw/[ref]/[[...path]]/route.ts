@@ -32,11 +32,11 @@ export async function GET(request: Request, { params }: BlobBytesRouteContext) {
   }
 
   const response = await fetch(
-    `${apiBaseUrl()}/api/repos/${encodeURIComponent(
+    `${apiBaseUrl()}/${encodeURIComponent(
       decodeURIComponent(owner),
-    )}/${encodeURIComponent(decodeURIComponent(repo))}/blobs/${filePath}?ref=${encodeURIComponent(
+    )}/${encodeURIComponent(decodeURIComponent(repo))}/raw/${encodeURIComponent(
       decodeURIComponent(ref),
-    )}&raw=1`,
+    )}/${filePath}`,
     {
       headers: request.headers.get("cookie")
         ? { cookie: request.headers.get("cookie") as string }

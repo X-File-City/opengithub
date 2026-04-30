@@ -921,5 +921,24 @@
       "Receive-pack currently synchronizes branch refs and prunes deleted branch rows; tag metadata is discovered but not persisted as a first-class UI surface yet",
       "Smoke used a local session-cookie git push through http.extraHeader; QA should also test standard PAT user:token push flows across real TLS/proxy infrastructure"
     ]
+  },
+  {
+    "feature_id": "git-001",
+    "tests_written": [
+      "Added repository_archives migration with reusable archive identity, storage key, byte size, status, and per-repository indexes",
+      "Added git_archives domain helpers that authorize public/private repository access, stream raw files from the materialized bare Git repository, generate bounded ZIP archives with git archive, and reuse cached archive rows/files",
+      "Added top-level Rust routes for /{owner}/{repo}/raw/{ref}/*path, /download/{ref}/*path, and /archive/refs/heads/{branch}.zip with content-type and attachment headers",
+      "Updated Next.js raw/download proxies and added an archive proxy route so blob toolbar and Code menu actions resolve through the Rust-backed streaming endpoints",
+      "Expanded crates/api/tests/git_transport.rs with public raw streaming, ZIP archive generation/reuse, and private anonymous raw/archive denial against real Postgres and real git plumbing",
+      "Browser smoke seeded a real signed session and repository, opened the Code menu, downloaded ZIP, verified archive contents with unzip -l, opened Raw, downloaded a file, and saved ralph/screenshots/build/git-001-phase4-archive-menu.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test git_transport -- --nocapture, make check, make test with 72 web tests, and make test-e2e with 29 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Archive generation currently caches ZIP files on local filesystem storage under OPENGITHUB_GIT_STORAGE_DIR; production S3/object lifecycle behavior still needs deployment QA",
+      "Phase 4 supports branch ZIP URLs through refs/heads paths; tag and commit archive URL variants should be completed or explicitly covered in Phase 5",
+      "Raw streaming is bounded and byte-backed from git show, but existing repository_files text snapshots still limit binary fidelity for files first created outside Git push/import paths",
+      "Content type inference is extension-based for common formats; QA should test uncommon binary/text extensions and filenames with quoting/non-ASCII before final launch",
+      "Private raw/archive auth uses the same signed-session/PAT actor resolution as Git fetch; retest over real TLS/proxy headers after deployment hardening"
+    ]
   }
 ]
