@@ -503,3 +503,11 @@
 - Browser smoke: Playwright used a real Rust-signed Postgres session to create bootstrapped and empty repositories, verify Code tab controls and navigation, toggle Star/Watch, create a fork, scan for dead controls, and save final repo-003 screenshots under `ralph/screenshots/build/`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_code_security -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 64 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 24 Playwright tests.
 - Marked Phase 5 as done in `.qrspi/repo-003/structure.md` and set `repo-003.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - repo-004 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, `.qrspi/repo-003/structure.md`, current repository tree/blob/refs/file-finder code, and repository visual references.
+- Determined `repo-004` requires structure planning before implementation because `needs_structure: true` and `.qrspi/repo-004/structure.md` did not exist.
+- Added `.qrspi/repo-004/structure.md` with four independently verifiable vertical phases: ref-aware tree contract, split-pane directory browser, searchable branch/tag and Go to file controls, and large-directory/visual guardrails.
+- Did not change `prd.json`; `repo-004.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
