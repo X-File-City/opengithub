@@ -228,7 +228,9 @@ test("signed-in repository Code tab renders files, README, sidebar, and clone me
       repositoryNav.getByRole("link", { name: tab }),
     ).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { name: tab })).toBeVisible();
-    await expect(page.locator("body")).not.toContainText("404");
+    await expect(page.locator("body")).not.toContainText(
+      "This page could not be found",
+    );
     await expectNoDeadControls(page);
     await page.getByRole("link", { exact: true, name: "Code" }).click();
     await expect(page).toHaveURL(repositoryUrl);

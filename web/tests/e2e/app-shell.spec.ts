@@ -58,16 +58,21 @@ async function expectNoDeadControls(page: Page) {
 }
 
 async function expectHeaderControlsWork(page: Page) {
+  const header = page.locator(".app-shell-header").first();
   await expect(
-    page.getByRole("link", { name: "opengithub dashboard" }),
+    header.getByRole("link", { name: "opengithub dashboard" }),
   ).toHaveAttribute("href", "/dashboard");
-  await expect(page.getByRole("button", { name: "Global menu" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Create new" })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Open user menu" }),
+    header.getByRole("button", { name: "Global menu" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /notifications/i }),
+    header.getByRole("button", { name: "Create new" }),
+  ).toBeVisible();
+  await expect(
+    header.getByRole("button", { name: "Open user menu" }),
+  ).toBeVisible();
+  await expect(
+    header.getByRole("link", { name: /notifications/i }),
   ).toHaveAttribute("href", "/notifications");
   await expectNoDeadControls(page);
 }

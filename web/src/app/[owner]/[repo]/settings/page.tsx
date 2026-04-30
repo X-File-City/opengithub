@@ -1,4 +1,4 @@
-import { RepositoryFeaturePage } from "@/components/RepositoryFeaturePage";
+import { RepositorySettingsSectionPage } from "@/components/RepositorySettingsSectionPage";
 
 type RepositorySettingsPageProps = {
   params: Promise<{ owner: string; repo: string }>;
@@ -11,13 +11,20 @@ export default async function RepositorySettingsPage({
   const base = `/${decodeURIComponent(owner)}/${decodeURIComponent(repo)}`;
 
   return (
-    <RepositoryFeaturePage
-      actions={[{ href: `${base}`, label: "Repository Code" }]}
-      activePath={`${base}/settings`}
-      description="Repository settings sections will be expanded in the settings shell phase. For now this route confirms admin navigation has a concrete workspace destination."
+    <RepositorySettingsSectionPage
+      actions={[
+        { href: `${base}`, label: "Repository Code" },
+        {
+          href: `${base}/settings/access`,
+          label: "Manage access",
+          primary: true,
+        },
+      ]}
+      activeSection="general"
+      message="General repository controls will manage the repository name, visibility, default branch, and archive state. This section keeps the settings route concrete while write controls are built in the settings feature."
       owner={owner}
       repo={repo}
-      title="Settings"
+      title="General"
     />
   );
 }

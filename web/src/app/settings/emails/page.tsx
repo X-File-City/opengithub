@@ -1,11 +1,8 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
-import { getSessionAndShellContext } from "@/lib/server-session";
+import { SettingsSectionPage } from "@/components/SettingsSectionPage";
 
 export default async function EmailSettingsPage() {
-  const { session, shellContext } = await getSessionAndShellContext();
-
   return (
-    <PlaceholderPage
+    <SettingsSectionPage
       actions={[
         {
           href: "/settings/notifications",
@@ -14,10 +11,8 @@ export default async function EmailSettingsPage() {
         },
         { href: "/settings/profile", label: "Profile settings" },
       ]}
-      eyebrow="Settings"
+      activeSection="emails"
       message="Email preferences will show the Google account address and delivery choices for opengithub notifications. Password and magic-link email auth remain intentionally out of scope."
-      session={session}
-      shellContext={shellContext}
       title="Emails"
     />
   );

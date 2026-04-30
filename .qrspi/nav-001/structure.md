@@ -40,7 +40,7 @@
 
 ## Phase 3: Settings Shell and Section Navigation - account and repository settings share stable sidebars
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add reusable settings layouts for personal settings and repository settings. Sidebar links should highlight the active section, preserve each section's local form state only within that section, and render right-column form/card content or explicit empty states.
 

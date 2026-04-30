@@ -1163,5 +1163,23 @@
       "Very long owner/repository names and private repository denied states should be stress-tested across the shared repository shell",
       "Repository settings sidebars and deeper settings sections remain nav-001 Phase 3"
     ]
+  },
+  {
+    "feature_id": "nav-001",
+    "tests_written": [
+      "Implemented Phase 3 personal settings shell with shared sidebar, active section highlighting, protected concrete destinations, and route-level placeholder/content pages for Profile, Account, Emails, Notifications, Appearance, Security, Sessions, Keys, and Tokens",
+      "Implemented Phase 3 repository settings shell with permission-context repository header, active Settings tab, settings sidebar destinations for General, Access, Branches, Actions, Webhooks, Pages, Secrets, Tags, and Security analysis",
+      "Added concrete route files for repository settings subsections under /{owner}/{repo}/settings/* and kept each route free of inert links or placeholder controls",
+      "Added Vitest coverage for personal and repository settings sidebars, protected path matching, owner/repo-preserving settings hrefs, active-state matching, and section-local form state replacement",
+      "Added Playwright coverage for signed-in personal settings navigation and repository settings navigation with screenshots saved to ralph/screenshots/build/nav-001-phase3-personal-settings.jpg and nav-001-phase3-settings-shell.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 95 frontend tests plus cargo tests, and make test-e2e with 40 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Settings pages are concrete skeletons and read surfaces only; persisted settings mutations remain later settings-specific PRDs",
+      "Repository settings direct routes require the auth wall but currently render placeholder content after repository access succeeds; QA should verify non-admin/private access as permission work deepens",
+      "Very long section names are not expected, but very long owner/repository names should be stress-tested in the repository settings shell",
+      "Mobile sidebar usability is covered by responsive Playwright screenshots, but deeper screen-reader and keyboard roving/focus-order QA should happen with the final navigation sweep",
+      "Webhook, Pages, Secrets, Branch protection, and Security analysis pages intentionally do not expose write controls yet"
+    ]
   }
 ]

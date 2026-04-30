@@ -259,6 +259,16 @@
 - Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
 - Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
 
+2026-05-01 - nav-001 phase 3 settings shell and section navigation
+
+- Implemented Phase 3 from `.qrspi/nav-001/structure.md`: reusable personal settings and repository settings shells with active sidebars, concrete section routes, and Editorial placeholder/content cards.
+- Added personal settings shell coverage for Profile, Account, Emails, Notifications, Appearance, Security, Sessions, Keys, and Tokens; refactored the token docs page so it composes cleanly inside the shared settings shell while retaining standalone heading support.
+- Added repository settings section routes for General, Access, Branches, Actions, Webhooks, Pages, Secrets, Tags, and Security analysis under `/{owner}/{repo}/settings/*`, preserving owner/repo context and the shared repository header/tabs.
+- Added `web/tests/settings-navigation.test.tsx` and `web/tests/e2e/navigation-settings.spec.ts`; updated existing E2E assertions to scope header/sidebar links and avoid false 404 matches from randomized seed names.
+- Browser smoke: Playwright used a real Postgres-backed signed Rust session, navigated personal and repository settings sidebars, verified active states/no dead controls, and saved `ralph/screenshots/build/nav-001-phase3-personal-settings.jpg` plus `ralph/screenshots/build/nav-001-phase3-settings-shell.jpg`.
+- Verification: targeted Vitest passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 95 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 40 Playwright tests.
+- Marked Phase 3 as done in `.qrspi/nav-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.
+
 2026-05-01 - nav-001 phase 1 route registry and protected placeholders
 
 - Implemented Phase 1 from `.qrspi/nav-001/structure.md`: added a typed navigation registry for global destinations, create actions, personal settings sections, and repository tabs.

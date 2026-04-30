@@ -22,6 +22,11 @@ export type RepositoryTab = NavigationItem & {
   segment: string;
 };
 
+export type RepositorySettingsSection = NavigationItem & {
+  section: string;
+  hrefSuffix: string;
+};
+
 export const GLOBAL_NAV_ITEMS = [
   {
     href: "/dashboard",
@@ -232,6 +237,90 @@ export const REPOSITORY_TABS = [
   },
 ] as const satisfies readonly RepositoryTab[];
 
+export const REPOSITORY_SETTINGS_NAV_ITEMS = [
+  {
+    href: "",
+    hrefSuffix: "/settings",
+    label: "General",
+    section: "general",
+    kind: "settings",
+    description: "Repository name, visibility, and default branch",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/access",
+    label: "Access",
+    section: "access",
+    kind: "settings",
+    description: "Collaborators, teams, and repository permissions",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/branches",
+    label: "Branches",
+    section: "branches",
+    kind: "settings",
+    description: "Default branch and branch protection rules",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/actions",
+    label: "Actions",
+    section: "actions",
+    kind: "settings",
+    description: "Workflow permissions and runner policy",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/hooks",
+    label: "Webhooks",
+    section: "hooks",
+    kind: "settings",
+    description: "Repository webhook endpoints and deliveries",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/pages",
+    label: "Pages",
+    section: "pages",
+    kind: "settings",
+    description: "Static site publishing and custom domains",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/secrets",
+    label: "Secrets",
+    section: "secrets",
+    kind: "settings",
+    description: "Actions secrets and environment variables",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/tags",
+    label: "Tags",
+    section: "tags",
+    kind: "settings",
+    description: "Protected tags and release rules",
+    protected: true,
+  },
+  {
+    href: "",
+    hrefSuffix: "/settings/security",
+    label: "Security analysis",
+    section: "security",
+    kind: "settings",
+    description: "Security features, alerts, and audit controls",
+    protected: true,
+  },
+] as const satisfies readonly RepositorySettingsSection[];
+
 export function navigationHrefs() {
   return [
     ...GLOBAL_NAV_ITEMS.map((item) => item.href),
@@ -252,6 +341,27 @@ export function activeSettingsSection(pathname: string): string {
   return (
     SETTINGS_NAV_ITEMS.find((item) => isActivePath(pathname, item.href))
       ?.section ?? "profile"
+  );
+}
+
+export function repositorySettingsHref(
+  owner: string,
+  repo: string,
+  item: RepositorySettingsSection,
+) {
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}${item.hrefSuffix}`;
+}
+
+export function activeRepositorySettingsSection(pathname: string): string {
+  const [, owner, repo, settings, section] = pathname.split("/");
+
+  if (!owner || !repo || settings !== "settings") {
+    return "general";
+  }
+
+  return (
+    REPOSITORY_SETTINGS_NAV_ITEMS.find((item) => item.section === section)
+      ?.section ?? "general"
   );
 }
 
