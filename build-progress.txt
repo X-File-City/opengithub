@@ -214,3 +214,11 @@
 - Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session, verified anonymous redirect, empty dashboard, Create/Import/Read guide CTAs, dismiss success, repository creation through `POST /api/repos`, non-empty dashboard, and repository-row navigation.
 - Saved final screenshots: `ralph/screenshots/build/onboarding-001-phase5-anonymous-redirect.jpg`, `ralph/screenshots/build/onboarding-001-phase5-empty-dashboard.jpg`, `ralph/screenshots/build/onboarding-001-phase5-dismissed-hint-dashboard.jpg`, and `ralph/screenshots/build/onboarding-001-phase5-non-empty-dashboard.jpg`.
 - Marked Phase 5 as done in `.qrspi/onboarding-001/structure.md` and set `onboarding-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - dashboard-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, current dashboard/frontend components, and dashboard API code.
+- Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
+- Added `.qrspi/dashboard-001/structure.md` with four independently verifiable vertical phases: top repository API contract, sidebar interaction, main feed layout, and responsive regression guardrails.
+- Did not change `prd.json`; `dashboard-001.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
