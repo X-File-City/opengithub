@@ -337,3 +337,12 @@
 - Verification: `make check` passed; `make test` passed with cargo tests and 31 Vitest tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 17 Playwright tests.
 - Browser smoke: started `make dev` against the local Postgres test DB, seeded a real Rust-signed session, verified For you plus Release filtering, and saved `ralph/screenshots/build/dashboard-003-phase3-feed-filters.jpg`.
 - Marked Phase 3 as done in `.qrspi/dashboard-003/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
+
+2026-04-30 - dashboard-003 phase 4 visual polish and regression guardrails
+
+- Implemented Phase 4 from `.qrspi/dashboard-003/structure.md`: finalized dashboard feed browser guardrails for keyboard filter interaction, empty filtered recovery links, mobile dropdown overflow, desktop filter alignment, and dead-control checks.
+- Extended `web/tests/e2e/dashboard-dashboard.spec.ts` with signed-in Playwright coverage for Enter-key dropdown opening/apply, For you + Follows empty state, Clear filters/Create repository/Explore repositories links, mobile no-overflow with the dropdown open, and right-aligned desktop filter menu bounds.
+- Browser smoke: started `make dev` with the local Postgres test DB, seeded a real Rust-signed session, verified Following feed, For you feed, filter dropdown, empty filtered state, and mobile feed.
+- Saved screenshots: `ralph/screenshots/build/dashboard-003-phase4-following-feed.jpg`, `dashboard-003-phase4-for-you-feed.jpg`, `dashboard-003-phase4-filter-dropdown.jpg`, `dashboard-003-phase4-filtered-empty.jpg`, and `dashboard-003-phase4-mobile-feed.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 31 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 18 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/dashboard-003/structure.md`, set `dashboard-003.build_pass` to `true` in `prd.json`, and left `qa_pass` as `false` for the QA agent.

@@ -480,5 +480,24 @@
       "Dense mixed feeds should be manually checked for truncation and readability because seeded E2E data covers a small event set",
       "Real Google OAuth sessions should retest the signed-in dashboard path after consent/test-user configuration is confirmed"
     ]
+  },
+  {
+    "feature_id": "dashboard-003",
+    "tests_written": [
+      "Playwright signed-in dashboard E2E now covers keyboard opening/applying the feed Filter dropdown",
+      "Playwright verifies an empty For you + Follows filtered state with working Clear filters, Create repository, and Explore repositories links",
+      "Playwright verifies feed controls have no dead links or disabled unnamed buttons in empty and non-empty dashboard states",
+      "Playwright verifies mobile dashboard stacking and no horizontal overflow while the filter dropdown is open",
+      "Playwright verifies desktop sidebar/feed alignment and the right-aligned filter dropdown stays inside the feed column",
+      "Browser smoke captured Following feed, For you feed, filter dropdown, filtered empty state, and mobile feed screenshots from a live make dev server with a real Rust-signed Postgres session",
+      "make check, make test, and TEST_DATABASE_URL-backed make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Permission boundaries for Following and For you source selection should be retested with more users, orgs, private repositories, and collaborator-only access",
+      "Recommendation-source ranking is seeded narrowly; QA should inspect mixed starred, watched, followed-org, and contributed repository ordering with realistic data volume",
+      "Feed preference persistence APIs are covered but no visible save-default control exists yet; retest saved defaults when product exposes that control",
+      "Dense feed truncation should be manually checked with long actor names, repository names, titles, excerpts, and many event types",
+      "Mobile dropdown accessibility should be checked with a screen reader and real touch devices beyond the Playwright viewport smoke"
+    ]
   }
 ]

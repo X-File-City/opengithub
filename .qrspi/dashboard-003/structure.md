@@ -57,7 +57,7 @@
 
 ## Phase 4: Feed Visual Polish and Regression Guardrails - finish dashboard-003 and hand off to QA
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Lock the filtered feed behavior across empty, dense, desktop, and mobile states; update bookkeeping only after all verification passes.
 

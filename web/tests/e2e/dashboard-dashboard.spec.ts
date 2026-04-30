@@ -181,6 +181,46 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
   await expect(page).toHaveURL(/\/new$/);
 });
 
+test("signed-in dashboard feed filters support keyboard use and empty states", async ({
+  page,
+}) => {
+  const seeded = seedDashboard();
+  await signIn(page, seeded);
+
+  await page.goto("/dashboard?feedTab=for_you");
+  const dashboardFeed = page.locator(
+    'section[aria-labelledby="dashboard-feed-heading"]',
+  );
+  const filterSummary = dashboardFeed.locator("summary");
+  const filterDetails = dashboardFeed.locator("details");
+  const filterForm = dashboardFeed.locator("form");
+
+  await filterSummary.focus();
+  await page.keyboard.press("Enter");
+  await expect(filterDetails).toHaveAttribute("open", "");
+  await expect(filterForm).toBeVisible();
+
+  await dashboardFeed.getByLabel("Follows").check();
+  await dashboardFeed.getByRole("button", { name: "Apply" }).press("Enter");
+  await expect(page).toHaveURL(/feedTab=for_you/);
+  await expect(page).toHaveURL(/eventType=follow/);
+  await expect(
+    dashboardFeed.getByText(
+      "No dashboard feed events match the current filters.",
+    ),
+  ).toBeVisible();
+  await expect(
+    dashboardFeed.getByRole("link", { name: "Clear filters" }),
+  ).toHaveAttribute("href", "/dashboard?feedTab=for_you");
+  await expect(
+    dashboardFeed.getByRole("link", { name: "Create repository" }),
+  ).toHaveAttribute("href", "/new");
+  await expect(
+    dashboardFeed.getByRole("link", { name: "Explore repositories" }),
+  ).toHaveAttribute("href", "/explore");
+  await expectNoDeadDashboardControls(page);
+});
+
 test("signed-in dashboard has no dead controls on empty and non-empty states", async ({
   page,
 }) => {
@@ -244,6 +284,12 @@ test("signed-in dashboard stacks without horizontal scroll on mobile", async ({
       .getByRole("complementary", { name: "Top repositories" })
       .getByRole("link", { name: /infra-/ }),
   ).toBeVisible();
+
+  const dashboardFeed = page.locator(
+    'section[aria-labelledby="dashboard-feed-heading"]',
+  );
+  await dashboardFeed.locator("summary").click();
+  await expect(dashboardFeed.locator("form")).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
@@ -263,8 +309,26 @@ test("signed-in dashboard keeps the sidebar and feed aligned on desktop", async 
   const feed = await boundingBoxFor(
     page.locator('section[aria-labelledby="dashboard-feed-heading"]'),
   );
+  const feedTabs = await boundingBoxFor(page.getByRole("tablist"));
+  const filterSummary = await boundingBoxFor(
+    page
+      .locator('section[aria-labelledby="dashboard-feed-heading"]')
+      .locator("summary"),
+  );
   expect(sidebar.width).toBeGreaterThanOrEqual(290);
   expect(sidebar.width).toBeLessThanOrEqual(306);
   expect(feed.x).toBeGreaterThan(sidebar.x + sidebar.width);
   expect(feed.width).toBeLessThanOrEqual(720);
+  expect(filterSummary.x).toBeGreaterThan(feedTabs.x + feedTabs.width);
+
+  await page
+    .locator('section[aria-labelledby="dashboard-feed-heading"]')
+    .locator("summary")
+    .click();
+  const filterForm = await boundingBoxFor(
+    page.locator('section[aria-labelledby="dashboard-feed-heading"] form'),
+  );
+  expect(filterForm.x + filterForm.width).toBeLessThanOrEqual(
+    feed.x + feed.width + 1,
+  );
 });
