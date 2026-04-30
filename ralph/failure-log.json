@@ -199,6 +199,14 @@
       "exit_code": 0,
       "category": "compilation_failure",
       "attempt": 25
+    },
+    {
+      "timestamp": "2026-04-30T00:08:47.817821",
+      "phase": "inspect",
+      "feature": "inspect",
+      "exit_code": 0,
+      "category": "test_failure",
+      "attempt": 26
     }
   ]
 }
