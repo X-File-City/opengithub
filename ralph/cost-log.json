@@ -251,6 +251,14 @@
       "input_tokens": 0,
       "output_tokens": 0,
       "cost_usd": 0.0
+    },
+    {
+      "timestamp": "2026-04-30T01:13:17.508492",
+      "phase": "inspect",
+      "feature": "inspect",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cost_usd": 0.0
     }
   ]
 }
