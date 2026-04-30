@@ -1,6 +1,6 @@
 # opengithub Build Spec
 
-Status: partial, iteration 11 repository settings/access/hooks/Pages inspection.
+Status: partial, iteration 18 repository Code Security inspection.
 
 ## Product Overview
 
@@ -38,7 +38,7 @@ Full working sitemap lives in `sitemap.md`. Summary:
 - Search: `/search?q={query}&type=repositories|code|issues|pullrequests|commits|users|discussions`.
 - Packages/Pages: `/{owner}/{repo}/packages`, `/{owner}?tab=packages`, `/{org}?tab=packages`, `/{owner}/{package_type}/{package_name}`, `/{owner}/{repo}/settings/pages`, plus CloudFront/S3-backed published Pages domains.
 
-Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, user/organization profiles, and repository settings/access/hooks/Pages.
+Deep page-level screenshots and interaction details remain pending except auth/public home, the docs-backed personal dashboard slice, repository creation/import, repository code/file browsing, repository issues, repository pull requests, repository Actions workflow runs/logs, global search/code search, user/organization profiles, repository settings/access/hooks/Pages, repository Insights, and repository code-security surfaces.
 
 ## Repository Settings, Access, Webhooks, Secrets, And Pages
 
@@ -981,6 +981,59 @@ Implementation mapping:
 - Postgres stores repository_insight_snapshots, repository_traffic_daily, repository_contributors_weekly, repository_network_forks, dependency_manifests, repository_dependencies, repository_dependents, sbom_exports, and chart cache rows.
 - S3 stores generated SBOM exports and optional large dependency graph artifacts. Background jobs can run inside the API worker initially; move to SQS/ECS workers if graph generation becomes slow.
 
+## Repository Code Security
+
+Status: inspected in iteration 18. Ever was healthy and authenticated. Live inspection covered public `vercel/next.js` security policy/advisory pages and admin-visible empty/disabled alert pages for `namuh-eng/opengithub`. Alert list/detail behavior was cross-checked against scraped GitHub docs for Dependabot alerts, code scanning alerts, secret scanning alerts, security advisories, and SECURITY.md policy setup.
+
+Screenshots:
+- `ralph/screenshots/inspect/security-overview.jpg`
+- `ralph/screenshots/inspect/security-policy.jpg`
+- `ralph/screenshots/inspect/security-advisories-list.jpg`
+- `ralph/screenshots/inspect/security-advisory-detail.jpg`
+- `ralph/screenshots/inspect/security-dependabot-empty.jpg`
+- `ralph/screenshots/inspect/security-dependabot-settings-menu.jpg`
+- `ralph/screenshots/inspect/security-code-scanning-empty.jpg`
+- `ralph/screenshots/inspect/security-secret-scanning-empty.jpg`
+
+Shared security shell:
+- The repository tab label is `Security and quality` and shows a count badge when advisories or alerts exist.
+- The security page renders inside the repository workspace and adds a left sidebar headed `Security and quality`.
+- Observed sidebar groups: Overview, Findings, Code quality, Dependabot, Malware, Vulnerabilities, Code scanning, Secret scanning, Reporting, Security policy, Advisories.
+- Public repositories expose Security policy and published advisories to readers. Alert management pages require repository write/admin-level permissions and feature enablement.
+
+Security policy:
+- `/security/policy` renders repository `SECURITY.md` content with the standard Markdown renderer, heading anchors, email links, and a compact action/menu button near the file title.
+- Docs confirm setup starts from Security -> Security policy -> Start setup, creates `.github/SECURITY.md` or `SECURITY.md`, writes supported versions/reporting instructions, and follows the normal file commit/propose-change flow.
+- opengithub should allow maintainers to author/edit the policy through the same file-editor plumbing used for repository code edits, while public readers get a read-only rendered policy.
+
+Repository advisories:
+- `/security/advisories` uses the security sidebar and a dense advisory list. Rows show published/draft status icon, advisory title, GHSA identifier, state text, relative/published date, author, and severity pill.
+- Advisory pagination uses Previous, numbered pages, and Next. The public security overview also embeds recent advisories below the policy.
+- Detail pages show title, severity badge, author/state, GHSA id, package/ecosystem, affected versions, patched versions, Markdown description, CVSS score modal, CVSS base metrics, CVE id, weakness/CWE disclosure, and footer navigation.
+- Maintainer docs define draft advisory creation with required title plus CVE, description, details, severity/CVSS, CWE, credits, collaborators, private fork collaboration, publish, edit, and delete flows. MVP should implement draft/list/detail/publish metadata and omit Copilot-specific fix generation.
+
+Dependabot alerts:
+- Admin-visible `/security/dependabot` page showed disabled state for `namuh-eng/opengithub`: title `Dependabot alerts`, feedback link, alert-settings kebab, message that alerts are disabled, settings link, and ProTip query `scope:development`.
+- Opening the alert settings menu revealed Manage repository vulnerability settings, Manage Dependabot rules, Manage account notification settings, Refresh Dependabot alerts, and a ProTip for `resolution:auto-dismissed`.
+- Docs confirm enabled lists have Open/Closed tabs, search, package/ecosystem/manifest filters, Most important sort, labels such as Development, row selection, bulk dismiss/reopen, alert detail pages, assignee selector, dismissal reason/comment, reopen, security update PR creation, audit events, and GraphQL dismissal comments.
+- opengithub should generate vulnerability alerts from parsed dependency manifests and an internal advisory feed, not by calling GitHub APIs.
+
+Code scanning alerts:
+- Admin-visible `/security/code-scanning` empty state showed `Code scanning is not enabled`, explanatory text, and an Enable code scanning link.
+- Docs confirm enabled list defaults to the default branch, requires write permission for summary pages, includes free-text search, filter dropdowns, tool/branch/severity/state/ref filters, linked issues, application-code-only filter, detail views with highlighted locations, data-flow `Show paths`, `Show more` remediation guidance, assignee selector, and audit events.
+- opengithub should accept SARIF uploads from Actions or external tools, normalize alerts by rule/location/fingerprint, and expose PR annotations to repository readers while limiting global alert management to write/admin users.
+
+Secret scanning alerts:
+- Admin-visible `/security/secret-scanning` empty state showed `Secret scanning alerts`, disabled text, explanation of accidental secret detection, and an Enable secret scanning link to Advanced Security settings.
+- Docs confirm enabled lists support provider/default and generic results tabs, filters for bypassed, is, provider, repo, resolution, results, secret-type, sort, team, topic, validity, and optional push-protection bypass states.
+- opengithub should scan committed blobs and pushed commits for configured secret patterns, store redacted alert evidence only, support validity states where implemented, and block or warn on pushes through the Rust Git endpoint when push protection is enabled.
+
+Implementation mapping:
+- Rust API owns feature enablement, permission checks, alert search parsing, SARIF ingestion, dependency manifest extraction, secret pattern scanning, advisory CRUD/publish, security-policy file writes, audit events, notification fanout, and PR/check integration.
+- Next.js owns the Security and quality sidebar, alert list/filter/detail surfaces, disabled/empty states, advisory forms, policy Markdown authoring, CVSS/CWE disclosures, and confirmation modals.
+- Postgres stores normalized alerts/advisories, dismissed/reopened state, filters, advisory metadata, SARIF runs, secret-scanning pattern hits, dependency vulnerability matches, and audit records.
+- S3 stores SARIF uploads, code-scanning analysis artifacts, optional evidence bundles, and exported audit/report files. SES sends alert/advisory notifications after domain verification.
+
 ## Repository Creation And Import
 
 Status: inspected in iteration 4. Ever was usable and authenticated for `/new`. Screenshots:
@@ -1275,6 +1328,15 @@ Initial model set inferred from docs/OpenAPI:
 - `repository_dependencies`: id, repository_id, manifest_id, package_id, package_name, version, relationship, scope, license, detected_at, resolved_at.
 - `repository_dependents`: id, package_id, dependent_repository_id, dependent_package_id, detected_at, stars_count, forks_count, owner_id.
 - `sbom_exports`: id, repository_id, actor_id, format, status, storage_key, error_message, created_at, completed_at, expires_at.
+- `repository_security_feature_settings`: id, repository_id, dependabot_alerts_enabled, code_scanning_enabled, secret_scanning_enabled, push_protection_enabled, private_vulnerability_reporting_enabled, updated_by_id, updated_at.
+- `repository_security_policies`: id, repository_id, path, commit_sha, rendered_html, rendered_at, updated_by_id, updated_at.
+- `repository_security_advisories`: id, repository_id, ghsa_id, cve_id, title, description, details, state, severity, cvss_vector, cvss_score, cwe_ids_json, package_ecosystem, package_name, affected_versions, patched_versions, author_id, published_at, created_at, updated_at.
+- `repository_security_advisory_credits`: id, advisory_id, user_id, email, credit_type, state, created_at, updated_at.
+- `dependabot_alerts`: id, repository_id, manifest_id, package_id, advisory_id, number, state, dependency_scope, vulnerable_requirements, fixed_in_version, severity, priority_score, dismissed_reason, dismissed_comment, dismissed_by_id, dismissed_at, created_at, updated_at.
+- `code_scanning_runs`: id, repository_id, tool_name, tool_version, ref, commit_sha, upload_storage_key, status, uploaded_by_id, started_at, completed_at.
+- `code_scanning_alerts`: id, repository_id, run_id, rule_id, tool_name, fingerprint, state, severity, security_severity, path, start_line, end_line, message, details_markdown, remediation_markdown, linked_issue_id, dismissed_reason, dismissed_comment, dismissed_by_id, created_at, updated_at.
+- `secret_scanning_alerts`: id, repository_id, number, state, provider, secret_type, secret_fingerprint, validity, resolution, bypassed, path, start_line, commit_sha, pushed_by_id, assignee_id, resolved_by_id, resolved_at, created_at, updated_at.
+- `security_alert_events`: id, repository_id, alert_type, alert_id, actor_id, event_type, payload_json, created_at.
 - `issues`: id, repository_id, number, title, body, state, author_id, assignee_id, milestone_id, closed_at, created_at, updated_at.
 - `issue_comments`: id, issue_id, author_id, body, rendered_html, created_at, updated_at, edited_at, deleted_at.
 - `issue_timeline_events`: id, issue_id, actor_id, event_type, payload_json, created_at.
@@ -2024,12 +2086,99 @@ Response: { "updated": true }
 Error: { "error": { "code": "policy_locked", "message": "This setting is enforced by a higher-level policy" } }
 ```
 
+```http
+GET /api/repos/{owner}/{repo}/security/dependabot-alerts?q=is:open scope:development&page=1&pageSize=25
+Response: {
+  "items": [{
+    "number": 42,
+    "package": { "ecosystem": "npm", "name": "minimist" },
+    "manifestPath": "package-lock.json",
+    "scope": "development",
+    "severity": "high",
+    "state": "open",
+    "fixedInVersion": "1.2.8",
+    "advisory": { "ghsaId": "GHSA-xxxx-yyyy-zzzz", "summary": "Prototype pollution" }
+  }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "dependabot_alerts_disabled", "message": "Dependabot alerts are disabled for this repository" }, "status": 422 }
+
+PATCH /api/repos/{owner}/{repo}/security/dependabot-alerts/{number}
+Request: { "state": "dismissed", "dismissedReason": "tolerable_risk", "dismissedComment": "Dev-only dependency" }
+Response: { "number": 42, "state": "dismissed", "dismissedReason": "tolerable_risk" }
+Error: { "error": { "code": "forbidden", "message": "Write access required" }, "status": 403 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/security/code-scanning-alerts?q=is:open branch:main severity:high&page=1&pageSize=25
+Response: {
+  "items": [{
+    "number": 7,
+    "ruleId": "js/sql-injection",
+    "tool": "CodeQL",
+    "severity": "high",
+    "state": "open",
+    "path": "src/db.ts",
+    "startLine": 42,
+    "message": "Database query built from user-controlled sources",
+    "linkedIssue": null
+  }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "code_scanning_not_enabled", "message": "Code scanning is not enabled" }, "status": 422 }
+
+POST /api/repos/{owner}/{repo}/security/code-scanning/sarif
+Request: { "commitSha": "abc123", "ref": "refs/heads/main", "toolName": "CodeQL", "sarifStorageKey": "uploads/sarif/uuid.sarif" }
+Response: { "runId": "uuid", "status": "queued" }
+Error: { "error": { "code": "invalid_sarif", "message": "SARIF file exceeds supported result limits" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/security/secret-scanning-alerts?q=is:open provider:github validity:active&page=1&pageSize=25
+Response: {
+  "items": [{
+    "number": 3,
+    "state": "open",
+    "provider": "github",
+    "secretType": "github_personal_access_token",
+    "validity": "active",
+    "path": ".env",
+    "startLine": 12,
+    "createdAt": "2026-04-30T09:00:00Z"
+  }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "secret_scanning_not_enabled", "message": "Secret scanning is not enabled" }, "status": 422 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/security/advisories?page=1&pageSize=25
+Response: {
+  "items": [{ "ghsaId": "GHSA-q4gf-8mx6-v5v3", "title": "Denial of Service with Server Components", "state": "published", "severity": "high", "publishedAt": "2026-04-09T00:00:00Z" }],
+  "total": 37,
+  "page": 1,
+  "pageSize": 25
+}
+Error: { "error": { "code": "not_found", "message": "Repository not found" }, "status": 404 }
+
+POST /api/repos/{owner}/{repo}/security/advisories
+Request: { "title": "Package allows unsafe input", "severity": "high", "description": "Summary", "details": "Markdown details", "package": { "ecosystem": "npm", "name": "demo" }, "affectedVersions": "<1.2.3", "patchedVersions": "1.2.3" }
+Response: { "ghsaId": "GHSA-local-0001", "state": "draft", "title": "Package allows unsafe input" }
+Error: { "error": { "code": "forbidden", "message": "Repository admin access required" }, "status": 403 }
+```
+
 ## Backend Architecture
 
-- Axum routes: auth verification middleware, REST JSON routes, Git smart HTTP endpoints, webhook receivers.
-- Postgres/RDS: primary relational store, search indexes with `pg_trgm`.
-- S3: repository large files if needed, Actions artifacts/log archives, package blobs, Pages static outputs.
-- SES: transactional email for notifications and organization invites. Password reset is not needed while auth remains Google-only.
+- Axum routes: auth verification middleware, REST JSON routes, Git smart HTTP endpoints, webhook receivers, SARIF upload ingestion, and security-alert management endpoints.
+- Postgres/RDS: primary relational store, search indexes with `pg_trgm`, security alert/advisory state, dependency projections, and audit logs.
+- S3: repository large files if needed, Actions artifacts/log archives, package blobs, Pages static outputs, SARIF uploads, and generated security exports.
+- SES: transactional email for notifications, organization invites, security alert fanout, and advisory notifications. Password reset is not needed while auth remains Google-only.
 - ECS Fargate: Rust API and background workers.
 - ECR: container images.
 - CloudFront: Next.js/static asset delivery and Pages CDN.
@@ -2114,6 +2263,12 @@ Error: { "error": { "code": "policy_locked", "message": "This setting is enforce
 - Team nesting must enforce one parent per child, no cycles, and no nested secret teams. Cascaded permissions must be evaluated by repository authorization, PR review request, and team mention paths.
 - Organization base repository permission and repository creation policy must be enforced by Rust API and Git endpoints. Repository create UI restrictions are advisory only.
 - Organization settings pages may expose sensitive members, invites, policies, audit logs, and tokens; every organization settings route requires owner or policy-specific admin permission.
+- Security policy authoring writes real repository files and commits; do not store SECURITY.md only in a side table because raw/tree/blob views must reflect it.
+- Dependabot alerts must be generated from opengithub dependency extraction plus an internal advisory feed. Do not call GitHub APIs or expose GitHub-only advisory IDs as required foreign keys.
+- Code scanning SARIF ingestion must validate upload size, result count, rule metadata, and path normalization before creating alerts; malformed SARIF should fail the upload without corrupting prior alerts.
+- Secret scanning must store redacted evidence and stable fingerprints, never plaintext secrets. Push protection must run inside Rust Git push handling, not only as a web warning.
+- Security alert list counts, filters, suggestions, and search results must be permission-aware and must not leak private repository package names, file paths, alert titles, or secret types.
+- Repository security advisories can involve embargoed/private content. Draft advisories, private forks, collaborators, credits, and comments require strict repository-admin/collaborator authorization and audit events.
 
 ## Build Order
 
@@ -2124,7 +2279,7 @@ Error: { "error": { "code": "policy_locked", "message": "This setting is enforce
 5. Repository create/import and repository overview.
 6. Git plumbing: clone/fetch/push, refs, commits, tree/blob/raw/archive file browser.
 7. Issues and pull requests.
-8. Global search/code search, Actions, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
+8. Global search/code search, Actions, security alerts/advisories, Releases, Packages, Pages, organizations, teams, profiles, settings, notifications.
 9. Public marketing/home surfaces only after the core app is usable.
 10. Deployment and production hardening.
 

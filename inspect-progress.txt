@@ -586,3 +586,44 @@ Key findings:
 
 Next recommended iteration:
 - Inspect Code Security surfaces (`/{owner}/{repo}/security`, Dependabot alerts, code scanning alerts, secret scanning alerts, security advisories, and SECURITY.md policy authoring) or begin Required Coverage Backlog surfaces such as Discussions, Projects v2, and Wiki.
+
+Iteration 18 completed on 2026-04-30.
+
+Scope inspected: repository Code Security and Security and quality surfaces (`/{owner}/{repo}/security`, `/security/policy`, `/security/advisories`, `/security/advisories/{ghsa_id}`, `/security/dependabot`, `/security/code-scanning`, `/security/secret-scanning`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for Dependabot alerts, code scanning alerts, secret scanning alerts, repository security advisories, and SECURITY.md policy setup.
+- Ran the required `ever snapshot`; Ever was authenticated and usable on the signed-in dashboard.
+- Navigated with Ever through public `vercel/next.js` security overview, security policy, advisory list, and advisory detail.
+- Navigated with Ever through admin-visible `namuh-eng/opengithub` disabled states for Dependabot alerts, code scanning, and secret scanning.
+- Opened the Dependabot alert settings menu without changing settings.
+- Captured screenshots:
+  - ralph/screenshots/inspect/security-overview.jpg
+  - ralph/screenshots/inspect/security-policy.jpg
+  - ralph/screenshots/inspect/security-advisories-list.jpg
+  - ralph/screenshots/inspect/security-advisory-detail.jpg
+  - ralph/screenshots/inspect/security-dependabot-empty.jpg
+  - ralph/screenshots/inspect/security-dependabot-settings-menu.jpg
+  - ralph/screenshots/inspect/security-code-scanning-empty.jpg
+  - ralph/screenshots/inspect/security-secret-scanning-empty.jpg
+- Updated build-spec.md with the Security and quality shell, SECURITY.md policy behavior, advisory list/detail behavior, Dependabot/code scanning/secret scanning alert behavior, data models, API examples, backend/cloud mapping, and constraints.
+- Updated sitemap.md to mark security routes as completed and list the remaining high-value surfaces.
+- Appended focused PRD entries:
+  - code-security-001 security overview and SECURITY.md policy viewing/editing
+  - code-security-002 Dependabot vulnerability alerts
+  - code-security-003 code scanning alerts and SARIF ingestion
+  - code-security-004 secret scanning alerts and push protection
+  - code-security-005 repository security advisories
+- Validated `prd.json` parses and all 81 entries have non-empty `ui_details`, `behavior`, `data_model`, and array `dependent_on`.
+
+Key findings:
+- The repository security tab is labeled `Security and quality` and uses a dedicated left sidebar with Overview, Findings, Dependabot, Malware, Vulnerabilities, Code scanning, Secret scanning, Reporting, Security policy, and Advisories.
+- Public readers can see SECURITY.md policy and published repository advisories; alert management surfaces are permissioned and feature-gated.
+- SECURITY.md must be a real repository file so code/blob/raw views and commits remain consistent.
+- Dependabot alert UI includes disabled state, settings menu, Open/Closed lists, search/filter/sort, bulk dismiss/reopen, details, dismissal comments, security-update PR creation, and audit events.
+- Code scanning is SARIF/tool-run backed, defaults to default-branch alerts, supports filter/search, linked issues, data-flow paths, and PR annotations.
+- Secret scanning must store redacted evidence/fingerprints only and integrate push protection into Rust Git push handling.
+- Security advisories need draft/private collaboration and public published states with package, affected/patched version, CVSS, CVE, CWE, credits, and audit trails.
+
+Next recommended iteration:
+- Inspect Discussions (`/{owner}/{repo}/discussions`, create/detail/category management, answers, polls, pinned/locked states) or Projects v2/Wiki to continue clearing the Required Coverage Backlog.

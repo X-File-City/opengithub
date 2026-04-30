@@ -1,8 +1,8 @@
 {
-  "observed_at": "2026-04-30T00:26:54.496Z",
-  "provider": "codex",
+  "observed_at": "2026-04-30T00:31:10.879Z",
+  "provider": "claude-code",
   "event_name": "UserPromptSubmit",
-  "session_id": "019ddbc8-09fe-7c10-9afd-9c18fcdd3d51",
-  "turn_id": "019ddbc8-0a08-77e2-9d01-21c6859827af",
-  "prompt_summary": "# Inspect Loop Prompt\n\nYou are an AI product inspector. Your job is to thoroughly inspect a target web product and generate a complete build specification for building a **fully functional, production…"
+  "session_id": "44435799-4492-4a35-8c03-adcfb80aad1f",
+  "turn_id": null,
+  "prompt_summary": "yeah tee pipe bug should be fixed"
 }

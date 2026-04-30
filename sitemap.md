@@ -77,7 +77,13 @@ Template: `/{owner}/{repo}`.
 - `/{owner}/{repo}/actions/runs/{run_id}` — workflow run detail, jobs, logs, artifacts, re-run/cancel controls.
 - `/{owner}/{repo}/projects` — repository projects list; lower priority than issues/PRs.
 - `/{owner}/{repo}/wiki` — repository wiki; lower priority.
-- `/{owner}/{repo}/security` — security overview, Dependabot/code scanning/secret scanning placeholders.
+- `/{owner}/{repo}/security` — Security and quality overview. Completed in iteration 18 with live public security overview/policy/advisory inspection.
+- `/{owner}/{repo}/security/policy` — rendered SECURITY.md policy and maintainer setup/edit entry point. Completed in iteration 18.
+- `/{owner}/{repo}/security/advisories` — repository security advisory list and pagination. Completed in iteration 18.
+- `/{owner}/{repo}/security/advisories/{ghsa_id}` — public advisory detail with package, affected/patched versions, CVSS, CVE, and CWE disclosures. Completed in iteration 18.
+- `/{owner}/{repo}/security/dependabot` — Dependabot alerts list/detail/filter/dismiss/reopen; disabled state inspected live in iteration 18.
+- `/{owner}/{repo}/security/code-scanning` — code scanning alerts list/detail/filter/SARIF-backed states; disabled state inspected live in iteration 18.
+- `/{owner}/{repo}/security/secret-scanning` — secret scanning alerts list/detail/filter/push-protection states; disabled state inspected live in iteration 18.
 - `/{owner}/{repo}/pulse` — activity summary.
 - `/{owner}/{repo}/graphs/contributors` — contributors graph.
 - `/{owner}/{repo}/graphs/traffic` — traffic graph for push-access users; permission-gated.
@@ -148,4 +154,5 @@ Template: `/{owner}/{repo}`.
 13. Organization/team admin. Completed in iteration 15 with live inspection for `/organizations/new`, organization profile settings, people/member management and invite dialog, teams empty state, new team form, and member privileges.
 14. Branch/commit history details. Completed in iteration 16 with live `vercel/next.js` inspection for commit list filters, commit detail diff, branches overview, and branch row menu.
 15. Insights graphs and dependency/fork analytics. Completed in iteration 17 with live `vercel/next.js` inspection for Pulse, period menu, Contributors, Network, Dependency graph dependencies/dependents, Forks, and docs-backed Traffic permission/retention behavior.
-16. Remaining high-value surfaces: Security overview, wiki/projects/discussions if scope remains.
+16. Security overview and code security. Completed in iteration 18 with live inspection for security overview, policy, advisories, Dependabot disabled/settings menu, code scanning disabled, and secret scanning disabled.
+17. Remaining high-value surfaces: wiki/projects/discussions if scope remains.
