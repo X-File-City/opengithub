@@ -213,7 +213,7 @@ async fn name_availability_normalizes_conflicts_and_checks_owner_permissions() {
     let app = opengithub_api::build_app_with_config(Some(pool), config);
 
     let available_uri = format!(
-        "/api/repos/name-availability?ownerType=user&ownerId={}&name=my%20new%20repo",
+        "/api/repos/name-availability?ownerType=user&ownerId={}&name=my%20new!!%20repo",
         user.id
     );
     let (available_status, available_body) =

@@ -450,7 +450,7 @@ describe("RepositoryCreateForm", () => {
     expect(routerPush).not.toHaveBeenCalled();
   });
 
-  it("normalizes spaces, fills suggested names, and reports availability", async () => {
+  it("normalizes spaces and punctuation, fills suggested names, and reports availability", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -469,7 +469,7 @@ describe("RepositoryCreateForm", () => {
     render(<RepositoryCreateForm options={creationOptions()} />);
 
     fireEvent.change(screen.getByLabelText("Repository name *"), {
-      target: { value: "my new repo" },
+      target: { value: "my new!! repo" },
     });
     expect(screen.getByText(/normalized to/)).toHaveTextContent("my-new-repo");
 
@@ -482,7 +482,7 @@ describe("RepositoryCreateForm", () => {
     );
   });
 
-  it("opens gitignore selector, filters options, and toggles README", () => {
+  it("opens gitignore selector, filters options, and toggles README", async () => {
     render(<RepositoryCreateForm options={creationOptions()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Off" }));
@@ -492,6 +492,9 @@ describe("RepositoryCreateForm", () => {
     );
 
     fireEvent.click(screen.getByText("Add .gitignore"));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Search gitignore templates")).toHaveFocus(),
+    );
     fireEvent.change(screen.getByLabelText("Search gitignore templates"), {
       target: { value: "rust" },
     });
@@ -500,5 +503,61 @@ describe("RepositoryCreateForm", () => {
     expect(within(listbox).queryByRole("option", { name: /Node/ })).toBeNull();
     fireEvent.click(within(listbox).getByRole("option", { name: /Rust/ }));
     expect(screen.getAllByText("Rust").length).toBeGreaterThan(0);
+  });
+
+  it("keeps errors field-level and recovers after an initial validation failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "validation_failed",
+              message:
+                "Repository names can only include letters, numbers, dots, underscores, and hyphens.",
+            },
+            status: 422,
+          }),
+          { status: 422 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(createdRepository()), {
+          status: 201,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<RepositoryCreateForm options={creationOptions()} />);
+
+    fireEvent.change(screen.getByLabelText("Repository name *"), {
+      target: { value: "bad repo!" },
+    });
+    fireEvent.change(screen.getByLabelText(/Description/), {
+      target: { value: "x".repeat(350) },
+    });
+    expect(screen.getByText("350")).toHaveClass("font-semibold");
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          "Repository names can only include letters, numbers, dots, underscores, and hyphens.",
+        ),
+      ).toBeVisible(),
+    );
+    expect(screen.getByLabelText("Repository name *")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+
+    fireEvent.change(screen.getByLabelText("Repository name *"), {
+      target: { value: "my-new-repo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create repository" }));
+
+    await waitFor(() =>
+      expect(routerPush).toHaveBeenCalledWith("/mona/my-new-repo"),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

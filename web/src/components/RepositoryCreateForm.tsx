@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type {
   RepositoryCreationOptions,
   RepositoryNameAvailability,
@@ -21,7 +21,12 @@ const VISIBILITY_COPY: Record<RepositoryVisibility, string> = {
 };
 
 function normalizePreview(value: string) {
-  return value.trim().split(/\s+/).filter(Boolean).join("-");
+  return value
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function ownerKey(ownerType: RepositoryOwnerType, ownerId: string) {
@@ -43,6 +48,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
   const [initializeReadme, setInitializeReadme] = useState(false);
   const [gitignoreSlug, setGitignoreSlug] = useState("");
   const [gitignoreSearch, setGitignoreSearch] = useState("");
+  const [gitignoreOpen, setGitignoreOpen] = useState(false);
   const [licenseSlug, setLicenseSlug] = useState("");
   const [availability, setAvailability] =
     useState<RepositoryNameAvailability | null>(null);
@@ -52,6 +58,13 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const gitignoreSearchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (gitignoreOpen) {
+      gitignoreSearchRef.current?.focus();
+    }
+  }, [gitignoreOpen]);
 
   const selectedOwner = useMemo(
     () =>
@@ -84,6 +97,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
       return;
     }
 
+    setNameError(null);
     setAvailabilityStatus("checking");
     setAvailability(null);
     try {
@@ -160,8 +174,13 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
 
   const createDisabled = submitting || !selectedOwner || !normalizedName;
 
+  const normalizedNameChanged =
+    name.trim().length > 0 && name !== normalizedName;
+  const descriptionAtLimit = description.length >= 350;
+
   return (
     <form
+      aria-busy={submitting}
       className="mx-auto max-w-[760px] px-4 py-7 sm:px-6"
       onSubmit={(event) => void submitRepository(event)}
     >
@@ -181,7 +200,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
         </p>
       </header>
 
-      <section className="grid grid-cols-[36px_1fr] gap-x-4 pt-6">
+      <section className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 pt-6 sm:grid-cols-[36px_minmax(0,1fr)] sm:gap-x-4">
         <div className="flex flex-col items-center">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#afb8c1] text-sm font-semibold text-white">
             1
@@ -201,6 +220,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                 onChange={(event) => {
                   setSelectedOwnerKey(event.target.value);
                   setAvailability(null);
+                  setNameError(null);
                 }}
               >
                 {options.owners.map((owner) => (
@@ -218,6 +238,8 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                 Repository name *
               </span>
               <input
+                aria-describedby="repository-name-help repository-name-feedback"
+                aria-invalid={nameError ? "true" : "false"}
                 className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
                 value={name}
                 onBlur={() => void checkAvailability()}
@@ -231,7 +253,9 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
             </label>
           </div>
           <p className="mt-3 text-sm text-[#59636e]">
-            Great repository names are short and memorable. How about{" "}
+            <span id="repository-name-help">
+              Great repository names are short and memorable. How about{" "}
+            </span>
             <button
               className="font-medium text-[#1a7f37] hover:underline"
               type="button"
@@ -244,40 +268,44 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
             </button>
             ?
           </p>
-          {name.includes(" ") ? (
-            <p className="mt-2 text-sm text-[#59636e]" role="status">
-              This will be normalized to{" "}
-              <span className="font-mono text-[#1f2328]">{normalizedName}</span>
-              .
-            </p>
-          ) : null}
-          {availabilityStatus === "checking" ? (
-            <p className="mt-2 text-sm text-[#59636e]" role="status">
-              Checking repository name...
-            </p>
-          ) : null}
-          {availabilityStatus === "error" ? (
-            <p className="mt-2 text-sm text-[#cf222e]" role="alert">
-              Name availability could not be checked.
-            </p>
-          ) : null}
-          {availability ? (
-            <p
-              className={`mt-2 text-sm ${
-                availability.available ? "text-[#1a7f37]" : "text-[#cf222e]"
-              }`}
-              role={availability.available ? "status" : "alert"}
-            >
-              {availability.available
-                ? `${availability.normalizedName} is available.`
-                : availability.reason}
-            </p>
-          ) : null}
-          {nameError ? (
-            <p className="mt-2 text-sm text-[#cf222e]" role="alert">
-              {nameError}
-            </p>
-          ) : null}
+          <div id="repository-name-feedback">
+            {normalizedNameChanged ? (
+              <p className="mt-2 text-sm text-[#1a7f37]" role="status">
+                This will be normalized to{" "}
+                <span className="font-mono text-[#1f2328]">
+                  {normalizedName}
+                </span>
+                .
+              </p>
+            ) : null}
+            {availabilityStatus === "checking" ? (
+              <p className="mt-2 text-sm text-[#59636e]" role="status">
+                Checking repository name...
+              </p>
+            ) : null}
+            {availabilityStatus === "error" ? (
+              <p className="mt-2 text-sm text-[#cf222e]" role="alert">
+                Name availability could not be checked.
+              </p>
+            ) : null}
+            {availability ? (
+              <p
+                className={`mt-2 text-sm ${
+                  availability.available ? "text-[#1a7f37]" : "text-[#cf222e]"
+                }`}
+                role={availability.available ? "status" : "alert"}
+              >
+                {availability.available
+                  ? `${availability.normalizedName} is available.`
+                  : availability.reason}
+              </p>
+            ) : null}
+            {nameError ? (
+              <p className="mt-2 text-sm text-[#cf222e]" role="alert">
+                {nameError}
+              </p>
+            ) : null}
+          </div>
           <label className="mt-4 block">
             <span className="text-sm font-semibold text-[#1f2328]">
               Description
@@ -289,13 +317,20 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
               onChange={(event) => setDescription(event.target.value)}
             />
             <span className="mt-2 block text-xs text-[#59636e]">
-              {description.length} / 350 characters
+              <span
+                className={
+                  descriptionAtLimit ? "font-semibold text-[#9a6700]" : ""
+                }
+              >
+                {description.length}
+              </span>{" "}
+              / 350 characters
             </span>
           </label>
         </div>
       </section>
 
-      <section className="grid grid-cols-[36px_1fr] gap-x-4">
+      <section className="grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 sm:grid-cols-[36px_minmax(0,1fr)] sm:gap-x-4">
         <div className="flex flex-col items-center">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#afb8c1] text-sm font-semibold text-white">
             2
@@ -351,7 +386,7 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
               </select>
             </label>
 
-            <div className="flex items-center justify-between gap-4 p-4">
+            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <span>
                 <span className="block text-sm font-semibold text-[#1f2328]">
                   Add README
@@ -374,7 +409,11 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
               </button>
             </div>
 
-            <details className="p-4">
+            <details
+              className="p-4"
+              open={gitignoreOpen}
+              onToggle={(event) => setGitignoreOpen(event.currentTarget.open)}
+            >
               <summary className="flex cursor-pointer list-none flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span>
                   <span className="block text-sm font-semibold text-[#1f2328]">
@@ -393,15 +432,22 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                 <label className="block text-sm font-semibold text-[#1f2328]">
                   Search gitignore templates
                   <input
+                    ref={gitignoreSearchRef}
                     className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] bg-white px-3 text-sm"
                     value={gitignoreSearch}
                     onChange={(event) => setGitignoreSearch(event.target.value)}
                   />
                 </label>
-                <div className="mt-3 max-h-48 overflow-auto" role="listbox">
+                <div
+                  aria-label="Gitignore templates"
+                  className="mt-3 max-h-48 overflow-auto"
+                  role="listbox"
+                >
                   <button
                     className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-white"
+                    role="option"
                     type="button"
+                    aria-selected={gitignoreSlug === ""}
                     onClick={() => setGitignoreSlug("")}
                   >
                     No .gitignore
@@ -423,6 +469,11 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
                       </span>
                     </button>
                   ))}
+                  {filteredGitignoreTemplates.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-[#59636e]">
+                      No templates match this search.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </details>
@@ -454,9 +505,12 @@ export function RepositoryCreateForm({ options }: RepositoryCreateFormProps) {
         </div>
       </section>
 
-      <div className="ml-[52px] flex justify-end border-t border-[#d0d7de] pt-5">
+      <div className="flex flex-col gap-3 border-t border-[#d0d7de] pt-5 sm:ml-[52px] sm:flex-row sm:justify-end">
         {formError ? (
-          <p className="mr-4 self-center text-sm text-[#cf222e]" role="alert">
+          <p
+            className="self-center text-sm text-[#cf222e] sm:mr-4"
+            role="alert"
+          >
             {formError}
           </p>
         ) : null}

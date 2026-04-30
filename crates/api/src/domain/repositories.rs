@@ -951,11 +951,7 @@ async fn bootstrap_files(
 ) -> Result<Vec<BootstrapFile>, RepositoryError> {
     let mut files = Vec::new();
 
-    let template_slug = request
-        .template_slug
-        .as_deref()
-        .unwrap_or("blank")
-        .trim();
+    let template_slug = request.template_slug.as_deref().unwrap_or("blank").trim();
     if !template_slug.is_empty() && template_slug != "blank" {
         let exists = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS (SELECT 1 FROM repository_creation_templates WHERE slug = $1)",
@@ -1190,7 +1186,28 @@ async fn repository_exists_for_owner(
 }
 
 pub fn normalize_repository_name(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join("-")
+    let mut normalized = String::new();
+    let mut previous_was_hyphen = false;
+
+    for character in value.trim().chars() {
+        let next = if character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-') {
+            character
+        } else {
+            '-'
+        };
+
+        if next == '-' {
+            if previous_was_hyphen {
+                continue;
+            }
+            previous_was_hyphen = true;
+        } else {
+            previous_was_hyphen = false;
+        }
+        normalized.push(next);
+    }
+
+    normalized.trim_matches('-').to_owned()
 }
 
 fn normalize_repository_description(

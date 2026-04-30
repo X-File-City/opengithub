@@ -128,7 +128,7 @@ async fn create_repository_normalizes_redirect_metadata_labels_and_feed_event() 
     let user = create_user(&pool, "repo-create").await;
     let cookie = cookie_header(&pool, &config, &user).await;
     let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
-    let repo_name = format!("My New Repo {}", Uuid::new_v4().simple());
+    let repo_name = format!("My New Repo !! {}", Uuid::new_v4().simple());
 
     let (status, body) = send_json(
         app,
@@ -153,6 +153,7 @@ async fn create_repository_normalizes_redirect_metadata_labels_and_feed_event() 
     assert_eq!(status, StatusCode::CREATED);
     let normalized_name = body["name"].as_str().expect("name should exist");
     assert!(normalized_name.starts_with("My-New-Repo-"));
+    assert!(!normalized_name.contains("!!"));
     assert_eq!(body["description"], "Created by the real submit flow");
     assert_eq!(body["visibility"], "private");
     assert_eq!(body["created_by_user_id"], user.id.to_string());
@@ -220,12 +221,10 @@ async fn create_repository_normalizes_redirect_metadata_labels_and_feed_event() 
     assert_eq!(read_status, StatusCode::OK);
     assert_eq!(read_body["files"].as_array().expect("files").len(), 3);
     assert_eq!(read_body["readme"]["path"], "README.md");
-    assert!(
-        read_body["readme"]["content"]
-            .as_str()
-            .expect("readme content")
-            .contains(normalized_name)
-    );
+    assert!(read_body["readme"]["content"]
+        .as_str()
+        .expect("readme content")
+        .contains(normalized_name));
 }
 
 #[tokio::test]

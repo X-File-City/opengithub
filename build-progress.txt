@@ -388,3 +388,13 @@
 - Verification: `make check` passed; `make test` passed with 42 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_create_flow -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 20 Playwright tests.
 - Browser smoke: started `make dev` with the local Postgres test DB and Playwright auth env, seeded a real Rust-signed session, created a bootstrapped Rust Axum repository with README, Rust .gitignore, and MIT license, verified file rows and README preview, and saved `ralph/screenshots/build/repo-001-phase3-bootstrap-files.jpg`.
 - Marked Phase 3 as done in `.qrspi/repo-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
+
+2026-04-30 - repo-001 phase 4 full form polish and QA guardrails
+
+- Implemented Phase 4 from `.qrspi/repo-001/structure.md`: repository name preview now normalizes punctuation consistently with Rust, `/new` has tighter mobile-safe layout, field-level error state, description limit feedback, loading state, and gitignore selector focus management.
+- Extended Rust repository tests for punctuation normalization through name availability and create flows while preserving server-authoritative validation and duplicate handling.
+- Extended Vitest and Playwright coverage for dead controls, keyboard gitignore selection, mobile no-overflow, duplicate conflict recovery without clearing the form, and successful create after an initial error.
+- Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session, verified empty form, gitignore selector, duplicate validation, successful redirect, and mobile normalized-name state.
+- Saved screenshots: `ralph/screenshots/build/repo-001-phase4-empty-form.jpg`, `repo-001-phase4-gitignore-selector.jpg`, `repo-001-phase4-validation-error.jpg`, `repo-001-phase4-success-redirect.jpg`, and `repo-001-phase4-mobile-form.jpg`.
+- Verification: `make check` passed; `make test` passed with 43 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 21 Playwright tests; local-Postgres browser smoke passed.
+- Marked Phase 4 as done in `.qrspi/repo-001/structure.md` and set `repo-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

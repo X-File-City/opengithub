@@ -49,6 +49,23 @@ async function signIn(page: Page, seeded: SeededSession) {
   ]);
 }
 
+async function expectNoDeadRepositoryCreateControls(page: Page) {
+  await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
+
+  for (const button of await page.locator("button:visible").all()) {
+    await expect(button).toHaveAccessibleName(/.+/);
+  }
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const metrics = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+}
+
 test.skip(
   !databaseUrl,
   "repository create E2E needs TEST_DATABASE_URL or DATABASE_URL",
@@ -61,6 +78,7 @@ test("signed-in repository creation options render and check availability", asyn
   await signIn(page, seeded);
 
   await page.goto("/new");
+  await expectNoDeadRepositoryCreateControls(page);
 
   await expect(
     page.getByRole("heading", { name: "Create a new repository" }),
@@ -83,9 +101,10 @@ test("signed-in repository creation options render and check availability", asyn
 
   await page
     .getByLabel("Repository name *")
-    .fill(`phase-one-${Date.now().toString(36)}`);
+    .fill(`phase one!! ${Date.now().toString(36)}`);
+  await expect(page.getByText(/normalized to/)).toContainText("phase-one-");
   await page.getByLabel("Repository name *").blur();
-  await expect(page.getByRole("status")).toContainText("is available");
+  await expect(page.getByText(/is available\./)).toBeVisible();
 
   await page.getByRole("button", { name: "Off" }).click();
   await expect(page.getByRole("button", { name: "On" })).toHaveAttribute(
@@ -94,6 +113,7 @@ test("signed-in repository creation options render and check availability", asyn
   );
 
   await page.getByText("Add .gitignore").click();
+  await expect(page.getByLabel("Search gitignore templates")).toBeFocused();
   await page.getByLabel("Search gitignore templates").fill("rust");
   const gitignoreListbox = page.getByRole("listbox");
   await expect(
@@ -103,7 +123,7 @@ test("signed-in repository creation options render and check availability", asyn
   await expect(
     page.getByText(/Ignore Rust build artifacts/).first(),
   ).toBeVisible();
-  await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
+  await expectNoDeadRepositoryCreateControls(page);
 });
 
 test("signed-in repository creation submits, redirects, and reports duplicates", async ({
@@ -127,10 +147,7 @@ test("signed-in repository creation submits, redirects, and reports duplicates",
   await page.getByRole("button", { name: "Off" }).click();
   await page.getByText("Add .gitignore").click();
   await page.getByLabel("Search gitignore templates").fill("rust");
-  await page
-    .getByRole("listbox")
-    .getByRole("option", { name: /Rust/ })
-    .click();
+  await page.getByRole("listbox").getByRole("option", { name: /Rust/ }).click();
   await page.getByRole("combobox", { name: /Add license/ }).selectOption("mit");
   await page.getByRole("button", { name: "Create repository" }).click();
 
@@ -162,4 +179,51 @@ test("signed-in repository creation submits, redirects, and reports duplicates",
   await expect(page.getByLabel("Repository name *")).toHaveValue(
     repositoryName,
   );
+
+  const recoveredRepositoryName = `recovered repo ${Date.now().toString(36)}`;
+  const recoveredNormalizedName = recoveredRepositoryName.replaceAll(
+    /\s+/g,
+    "-",
+  );
+  await page.getByLabel("Repository name *").fill(recoveredRepositoryName);
+  await page.getByLabel("Repository name *").blur();
+  await expect(
+    page.getByText(`${recoveredNormalizedName} is available.`),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Create repository" }).click();
+  await expect(page).toHaveURL(new RegExp(`/${recoveredNormalizedName}$`));
+});
+
+test("repository creation form is keyboard-accessible and mobile-safe", async ({
+  page,
+}) => {
+  const seeded = seedSession();
+  await signIn(page, seeded);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/new");
+
+  await expectNoHorizontalOverflow(page);
+  await page.getByLabel("Repository name *").fill("mobile repo!");
+  await expect(page.getByText(/normalized to/)).toContainText("mobile-repo");
+  await page.getByLabel(/Description/).fill("x".repeat(350));
+  await expect(page.getByText("350")).toBeVisible();
+
+  const gitignoreSummary = page.locator("summary").filter({
+    hasText: "Add .gitignore",
+  });
+  await gitignoreSummary.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Search gitignore templates")).toBeFocused();
+  await page.keyboard.type("node");
+  await expect(
+    page.getByRole("listbox").getByRole("option", { name: /Node/ }),
+  ).toBeVisible();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText(/Ignore Node\.js dependencies/).first(),
+  ).toBeVisible();
+  await expectNoHorizontalOverflow(page);
 });

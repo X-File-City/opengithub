@@ -60,7 +60,7 @@
 
 ## Phase 4: Full Form Polish and QA Guardrails - finish repo-001 and hand off to QA
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Lock the GitHub-like creation experience across validation, keyboard use, mobile layout, dense option lists, and error recovery; update bookkeeping only after the full feature is verified.
 

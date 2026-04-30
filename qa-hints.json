@@ -554,5 +554,22 @@
       "README/license content uses lightweight text substitution; legal/license copy parity with GitHub should be reviewed before production",
       "Phase 4 still needs keyboard/mobile polish for dense selectors, conflict recovery after validation errors, and accessibility review"
     ]
+  },
+  {
+    "feature_id": "repo-001",
+    "tests_written": [
+      "Rust tests now cover repository name normalization for punctuation as well as spaces through availability and create flows",
+      "Vitest covers field-level validation errors, recovery after an initial failed create, description limit styling, suggested-name availability, gitignore focus management, README toggle, and selector filtering",
+      "Playwright E2E covers dead-link/dead-button checks, punctuation normalization preview, gitignore keyboard focus, duplicate recovery followed by successful create, and mobile no-overflow behavior",
+      "Browser smoke used a real Rust-signed Postgres session, captured empty form, gitignore selector, validation error, successful redirect, and mobile form screenshots for repo-001 Phase 4",
+      "make check, make test, make test-e2e, and local-Postgres browser smoke passed"
+    ],
+    "needs_deeper_qa": [
+      "Run a manual screen reader pass on the native details/listbox gitignore selector and the form error announcements",
+      "Probe organization-owner creation with realistic non-owner roles and larger owner lists once org management UI ships",
+      "Stress duplicate-name races with concurrent submissions; current coverage verifies sequential conflict recovery",
+      "Review bootstrap Git object semantics again when smart HTTP clone/fetch/push ships",
+      "Test long repository names/descriptions and dense template lists on real mobile devices beyond Playwright viewport smoke"
+    ]
   }
 ]
