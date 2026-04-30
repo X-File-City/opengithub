@@ -8,6 +8,9 @@ use opengithub_api::{
     config::{AppConfig, AuthConfig},
     domain::{
         identity::{upsert_session, upsert_user_by_email, User},
+        repositories::{
+            replace_repository_snapshot, CreateCommit, RepositorySnapshot, RepositorySnapshotFile,
+        },
         search::{upsert_search_document, SearchDocumentKind, UpsertSearchDocument},
     },
 };
@@ -443,4 +446,131 @@ async fn search_rest_route_accepts_ui_types_and_projects_people_results() {
         format!("/orgs/{organization_slug}")
     );
     assert_eq!(orgs_body["items"][0]["owner_login"], organization_slug);
+}
+
+#[tokio::test]
+async fn search_rest_route_projects_code_and_commit_results_from_repository_snapshots() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping search code/commit contract scenario; set TEST_DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "api-search-code-owner").await;
+    let outsider = create_user(&pool, "api-search-code-outsider").await;
+    let owner_cookie = cookie_header(&pool, &config, &owner).await;
+    let outsider_cookie = cookie_header(&pool, &config, &outsider).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let marker = format!("phase3{}", Uuid::new_v4().simple());
+    let repo_name = format!("code-search-{}", Uuid::new_v4().simple());
+
+    let (create_status, _headers, create_body) = send_json(
+        app.clone(),
+        Method::POST,
+        "/api/repos",
+        Some(&owner_cookie),
+        Some(json!({
+            "ownerType": "user",
+            "ownerId": owner.id,
+            "name": repo_name,
+            "visibility": "private"
+        })),
+    )
+    .await;
+    assert_eq!(create_status, StatusCode::CREATED);
+    let repository_id = Uuid::parse_str(
+        create_body["id"]
+            .as_str()
+            .expect("repository id should exist"),
+    )
+    .expect("repository id should parse");
+    let commit_oid = format!("{}abcdef1234567890", Uuid::new_v4().simple());
+
+    replace_repository_snapshot(
+        &pool,
+        repository_id,
+        RepositorySnapshot {
+            branch_name: "main".to_owned(),
+            commit: CreateCommit {
+                oid: commit_oid.clone(),
+                author_user_id: Some(owner.id),
+                committer_user_id: Some(owner.id),
+                message: format!("Add {marker} searchable code\n\nCommit body for {marker}."),
+                tree_oid: Some(format!("tree-{marker}")),
+                parent_oids: vec![],
+                committed_at: Utc::now(),
+            },
+            files: vec![RepositorySnapshotFile {
+                path: "src/search_phase_three.rs".to_owned(),
+                content: format!("pub fn {marker}() {{\n    println!(\"indexed\");\n}}\n"),
+                oid: format!("blob-{marker}"),
+                byte_size: 64,
+            }],
+        },
+    )
+    .await
+    .expect("snapshot should index code and commit search documents");
+
+    let (code_status, _code_headers, code_body) = send_json(
+        app.clone(),
+        Method::GET,
+        &format!("/api/search?q={marker}&type=code"),
+        Some(&owner_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(code_status, StatusCode::OK);
+    assert_eq!(code_body["total"], 1);
+    assert_eq!(code_body["items"][0]["type"], "code");
+    assert_eq!(
+        code_body["items"][0]["snippet"]["path"],
+        "src/search_phase_three.rs"
+    );
+    assert_eq!(code_body["items"][0]["snippet"]["branch"], "main");
+    assert_eq!(code_body["items"][0]["snippet"]["line_number"], 1);
+    assert!(code_body["items"][0]["href"]
+        .as_str()
+        .expect("href should be a string")
+        .contains("/blob/main/src/search_phase_three.rs#L1"));
+    assert_eq!(code_body["items"][0]["document"]["language"], "Rust");
+
+    let (commit_status, _commit_headers, commit_body) = send_json(
+        app.clone(),
+        Method::GET,
+        &format!("/api/search?q={marker}&type=commits"),
+        Some(&owner_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(commit_status, StatusCode::OK);
+    assert_eq!(commit_body["total"], 1);
+    assert_eq!(commit_body["items"][0]["type"], "commits");
+    assert_eq!(commit_body["items"][0]["commit"]["oid"], commit_oid);
+    assert_eq!(
+        commit_body["items"][0]["commit"]["message_title"],
+        format!("Add {marker} searchable code")
+    );
+    assert_eq!(
+        commit_body["items"][0]["commit"]["message_body"],
+        format!("Commit body for {marker}.")
+    );
+    assert_eq!(
+        commit_body["items"][0]["commit"]["author_login"],
+        owner.email
+    );
+    assert!(commit_body["items"][0]["href"]
+        .as_str()
+        .expect("href should be a string")
+        .contains("/commit/"));
+
+    let (outsider_status, _outsider_headers, outsider_body) = send_json(
+        app,
+        Method::GET,
+        &format!("/api/search?q={marker}&type=code"),
+        Some(&outsider_cookie),
+        None,
+    )
+    .await;
+    assert_eq!(outsider_status, StatusCode::OK);
+    assert_eq!(outsider_body["total"], 0);
 }

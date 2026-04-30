@@ -40,6 +40,8 @@ function result(
     avatar_url: overrides.avatar_url ?? null,
     visibility: overrides.visibility ?? "public",
     updated_at: overrides.updated_at ?? "2026-05-01T00:00:00Z",
+    snippet: overrides.snippet ?? null,
+    commit: overrides.commit ?? null,
   };
 }
 
@@ -154,6 +156,77 @@ describe("SearchResultsPage", () => {
     expect(screen.getByText("Search unavailable")).toBeVisible();
     expect(screen.getByText(/Short searches need/)).toBeVisible();
     expect(screen.queryByText(/DATABASE_URL|stack trace|panic/i)).toBeNull();
+  });
+
+  it("renders code snippets and commit results with direct links", () => {
+    render(
+      <SearchResultsPage
+        activeType="code"
+        query="uniquePhase3"
+        results={envelope([
+          result({
+            document: {
+              ...result().document,
+              id: "doc-code",
+              kind: "code",
+              resource_id: "repo-1:main:src/search_phase_three.rs",
+              title: "src/search_phase_three.rs",
+              body: "pub fn uniquePhase3() {}",
+              path: "src/search_phase_three.rs",
+              language: "Rust",
+              branch: "main",
+            },
+            type: "code",
+            href: "/mona/editorial-search/blob/main/src/search_phase_three.rs#L7",
+            title: "src/search_phase_three.rs",
+            summary: null,
+            snippet: {
+              path: "src/search_phase_three.rs",
+              branch: "main",
+              line_number: 7,
+              fragment: "pub fn uniquePhase3() {}",
+              language: "Rust",
+              match_ranges: [{ start: 7, end: 19 }],
+            },
+          }),
+          result({
+            document: {
+              ...result().document,
+              id: "doc-commit",
+              kind: "commit",
+              resource_id: "abcdef1234567890",
+              title: "Add uniquePhase3 search fixture",
+              body: "Add uniquePhase3 search fixture\n\nIndex code snippets.",
+            },
+            type: "commits",
+            href: "/mona/editorial-search/commit/abcdef1234567890",
+            title: "Add uniquePhase3 search fixture",
+            summary: null,
+            commit: {
+              oid: "abcdef1234567890",
+              short_oid: "abcdef123456",
+              message_title: "Add uniquePhase3 search fixture",
+              message_body: "Index code snippets.",
+              author_login: "mona",
+              committed_at: "2026-05-01T00:00:00Z",
+            },
+          }),
+        ])}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /src\/search_phase_three.rs/ }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/editorial-search/blob/main/src/search_phase_three.rs#L7",
+    );
+    expect(screen.getByText(/pub fn/)).toBeVisible();
+    expect(screen.getAllByText("uniquePhase3").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("link", { name: /Add uniquePhase3 search fixture/ }),
+    ).toHaveAttribute("href", "/mona/editorial-search/commit/abcdef1234567890");
+    expect(screen.getByText("abcdef123456")).toBeVisible();
   });
 
   it("builds the API search path with UI type names", () => {

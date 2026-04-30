@@ -8,9 +8,10 @@ use opengithub_api::{
         permissions::RepositoryRole,
         pulls::{create_pull_request, CreatePullRequest},
         repositories::{
-            create_repository, create_repository_with_bootstrap, insert_commit, upsert_git_ref,
-            CreateCommit, CreateRepository, RepositoryBootstrapRequest, RepositoryOwner,
-            RepositoryVisibility,
+            create_repository, create_repository_with_bootstrap, insert_commit,
+            replace_repository_snapshot, upsert_git_ref, CreateCommit, CreateRepository,
+            RepositoryBootstrapRequest, RepositoryOwner, RepositorySnapshot,
+            RepositorySnapshotFile, RepositoryVisibility,
         },
         search::{upsert_search_document, SearchDocumentKind, UpsertSearchDocument},
     },
@@ -404,6 +405,33 @@ async fn seed_search_documents(
             branch: None,
             visibility: RepositoryVisibility::Public,
             metadata: serde_json::json!({}),
+        },
+    )
+    .await?;
+
+    let commit_oid = format!("search-phase3-{}", Uuid::new_v4().simple());
+    replace_repository_snapshot(
+        pool,
+        repository.id,
+        RepositorySnapshot {
+            branch_name: "main".to_owned(),
+            commit: CreateCommit {
+                oid: commit_oid,
+                author_user_id: Some(user_id),
+                committer_user_id: Some(user_id),
+                message: format!("Add {marker} code search fixture\n\nCommit result for {marker}."),
+                tree_oid: Some(format!("tree-{marker}")),
+                parent_oids: vec![],
+                committed_at: Utc::now(),
+            },
+            files: vec![RepositorySnapshotFile {
+                path: "src/search_phase_three.rs".to_owned(),
+                content: format!(
+                    "pub fn {marker}() {{\n    println!(\"search phase three\");\n}}\n"
+                ),
+                oid: format!("blob-{marker}"),
+                byte_size: 72,
+            }],
         },
     )
     .await?;

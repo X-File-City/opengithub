@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
 use std::collections::BTreeMap;
@@ -515,6 +516,11 @@ pub struct RepositorySnapshot {
     pub commit: CreateCommit,
     pub branch_name: String,
     pub files: Vec<RepositorySnapshotFile>,
+}
+
+struct IndexedSearchFile {
+    path: String,
+    content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1898,7 +1904,7 @@ pub async fn replace_repository_snapshot(
         .execute(&mut *transaction)
         .await?;
 
-    for file in snapshot.files {
+    for file in &snapshot.files {
         sqlx::query(
             r#"
             INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
@@ -1942,7 +1948,18 @@ pub async fn replace_repository_snapshot(
     .execute(&mut *transaction)
     .await?;
 
+    let indexed_files = snapshot
+        .files
+        .iter()
+        .map(|file| IndexedSearchFile {
+            path: file.path.clone(),
+            content: file.content.clone(),
+        })
+        .collect::<Vec<_>>();
     transaction.commit().await?;
+    if let Some(repository) = get_repository(pool, repository_id).await? {
+        upsert_repository_search_index(pool, &repository, &commit, &indexed_files).await?;
+    }
     super::git_transport::materialize_bare_repository_by_id(pool, repository_id)
         .await
         .map_err(|_| RepositoryError::GitStorageFailed)?;
@@ -2015,7 +2032,7 @@ async fn bootstrap_repository(
     .execute(pool)
     .await?;
 
-    for file in files {
+    for file in &files {
         sqlx::query(
             r#"
             INSERT INTO git_objects (repository_id, oid, object_type, byte_size)
@@ -2062,6 +2079,15 @@ async fn bootstrap_repository(
     super::git_transport::materialize_bare_repository(pool, repository)
         .await
         .map_err(|_| RepositoryError::GitStorageFailed)?;
+
+    let indexed_files = files
+        .iter()
+        .map(|file| IndexedSearchFile {
+            path: file.path.clone(),
+            content: file.content.clone(),
+        })
+        .collect::<Vec<_>>();
+    upsert_repository_search_index(pool, repository, &commit, &indexed_files).await?;
 
     Ok(())
 }
@@ -2944,6 +2970,163 @@ async fn repository_commit_history(
         total,
         page,
         page_size,
+    })
+}
+
+async fn upsert_repository_search_index(
+    pool: &PgPool,
+    repository: &Repository,
+    commit: &Commit,
+    files: &[IndexedSearchFile],
+) -> Result<(), RepositoryError> {
+    let author_login = if let Some(author_user_id) = commit.author_user_id {
+        sqlx::query_scalar::<_, String>(
+            "SELECT COALESCE(NULLIF(username, ''), email) FROM users WHERE id = $1",
+        )
+        .bind(author_user_id)
+        .fetch_optional(pool)
+        .await?
+    } else {
+        None
+    };
+    let href = format!(
+        "/{}/{}/commit/{}",
+        percent_encode_segment(&repository.owner_login),
+        percent_encode_segment(&repository.name),
+        percent_encode_segment(&commit.oid)
+    );
+
+    sqlx::query(
+        r#"
+        INSERT INTO search_documents (
+            repository_id,
+            owner_user_id,
+            owner_organization_id,
+            kind,
+            resource_id,
+            title,
+            body,
+            visibility,
+            metadata,
+            indexed_at
+        )
+        VALUES ($1, $2, $3, 'commit', $4, $5, $6, $7, $8, now())
+        ON CONFLICT (kind, resource_id) DO UPDATE SET
+            repository_id = EXCLUDED.repository_id,
+            owner_user_id = EXCLUDED.owner_user_id,
+            owner_organization_id = EXCLUDED.owner_organization_id,
+            title = EXCLUDED.title,
+            body = EXCLUDED.body,
+            visibility = EXCLUDED.visibility,
+            metadata = EXCLUDED.metadata,
+            indexed_at = now()
+        "#,
+    )
+    .bind(repository.id)
+    .bind(repository.owner_user_id)
+    .bind(repository.owner_organization_id)
+    .bind(&commit.oid)
+    .bind(commit.message.lines().next().unwrap_or(&commit.message))
+    .bind(&commit.message)
+    .bind(repository.visibility.as_str())
+    .bind(json!({
+        "href": href,
+        "ownerLogin": repository.owner_login,
+        "repositoryName": repository.name,
+        "authorLogin": author_login,
+        "committedAt": commit.committed_at,
+    }))
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "DELETE FROM search_documents WHERE repository_id = $1 AND kind = 'code' AND branch = $2",
+    )
+    .bind(repository.id)
+    .bind(&repository.default_branch)
+    .execute(pool)
+    .await?;
+
+    for file in files {
+        let Some((line_number, fragment)) = first_searchable_line(&file.content) else {
+            continue;
+        };
+        let href = format!(
+            "/{}/{}/blob/{}/{}#L{}",
+            percent_encode_segment(&repository.owner_login),
+            percent_encode_segment(&repository.name),
+            percent_encode_segment(&repository.default_branch),
+            percent_encode_path(&file.path),
+            line_number
+        );
+        sqlx::query(
+            r#"
+            INSERT INTO search_documents (
+                repository_id,
+                owner_user_id,
+                owner_organization_id,
+                kind,
+                resource_id,
+                title,
+                body,
+                path,
+                language,
+                branch,
+                visibility,
+                metadata,
+                indexed_at
+            )
+            VALUES ($1, $2, $3, 'code', $4, $5, $6, $7, $8, $9, $10, $11, now())
+            ON CONFLICT (kind, resource_id) DO UPDATE SET
+                repository_id = EXCLUDED.repository_id,
+                owner_user_id = EXCLUDED.owner_user_id,
+                owner_organization_id = EXCLUDED.owner_organization_id,
+                title = EXCLUDED.title,
+                body = EXCLUDED.body,
+                path = EXCLUDED.path,
+                language = EXCLUDED.language,
+                branch = EXCLUDED.branch,
+                visibility = EXCLUDED.visibility,
+                metadata = EXCLUDED.metadata,
+                indexed_at = now()
+            "#,
+        )
+        .bind(repository.id)
+        .bind(repository.owner_user_id)
+        .bind(repository.owner_organization_id)
+        .bind(format!(
+            "{}:{}:{}",
+            repository.id, repository.default_branch, file.path
+        ))
+        .bind(&file.path)
+        .bind(&file.content)
+        .bind(&file.path)
+        .bind(language_for_path(&file.path))
+        .bind(&repository.default_branch)
+        .bind(repository.visibility.as_str())
+        .bind(json!({
+            "href": href,
+            "ownerLogin": repository.owner_login,
+            "repositoryName": repository.name,
+            "lineNumber": line_number,
+            "fragment": fragment,
+            "commitOid": commit.oid,
+        }))
+        .execute(pool)
+        .await?;
+    }
+
+    Ok(())
+}
+
+fn first_searchable_line(content: &str) -> Option<(i64, String)> {
+    content.lines().enumerate().find_map(|(index, line)| {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some((index as i64 + 1, trimmed.chars().take(240).collect()))
+        }
     })
 }
 

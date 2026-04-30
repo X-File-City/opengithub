@@ -614,6 +614,22 @@ export type GlobalSearchResult = {
   avatar_url: string | null;
   visibility: RepositoryVisibility;
   updated_at: string;
+  snippet: {
+    path: string;
+    branch: string;
+    line_number: number | null;
+    fragment: string;
+    language: string | null;
+    match_ranges: { start: number; end: number }[];
+  } | null;
+  commit: {
+    oid: string;
+    short_oid: string;
+    message_title: string;
+    message_body: string | null;
+    author_login: string | null;
+    committed_at: string | null;
+  } | null;
 };
 
 export type GlobalSearchQuery = {

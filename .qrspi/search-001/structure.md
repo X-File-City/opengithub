@@ -40,7 +40,7 @@
 
 ## Phase 3: Code and Commit Results - snippets, paths, and direct file links work
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Make code and commit tabs useful: code results show repository, branch, path, matching line/fragment, language, and clickable links to the blob route; commit results show sha/title/body/repository links. Permission filtering must keep private code invisible to outsiders.
 

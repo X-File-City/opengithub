@@ -100,6 +100,32 @@ pub struct SearchQuery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SearchMatchRange {
+    pub start: i64,
+    pub end: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SearchSnippet {
+    pub path: String,
+    pub branch: String,
+    pub line_number: Option<i64>,
+    pub fragment: String,
+    pub language: Option<String>,
+    pub match_ranges: Vec<SearchMatchRange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SearchCommitSummary {
+    pub oid: String,
+    pub short_oid: String,
+    pub message_title: String,
+    pub message_body: Option<String>,
+    pub author_login: Option<String>,
+    pub committed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SearchResult {
     pub document: SearchDocument,
     pub rank: f64,
@@ -114,6 +140,8 @@ pub struct SearchResult {
     pub avatar_url: Option<String>,
     pub visibility: RepositoryVisibility,
     pub updated_at: DateTime<Utc>,
+    pub snippet: Option<SearchSnippet>,
+    pub commit: Option<SearchCommitSummary>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -339,6 +367,8 @@ pub async fn search_documents(
             owner_login.as_deref(),
             repository_name.as_deref(),
         );
+        let snippet = code_snippet_for_document(&document, query);
+        let commit = commit_summary_for_document(&document);
         items.push(SearchResult {
             title: document.title.clone(),
             visibility: document.visibility.clone(),
@@ -352,6 +382,8 @@ pub async fn search_documents(
             repository_name,
             display_name,
             avatar_url,
+            snippet,
+            commit,
         });
     }
 
@@ -361,6 +393,124 @@ pub async fn search_documents(
         page,
         page_size,
     })
+}
+
+fn code_snippet_for_document(document: &SearchDocument, query: &str) -> Option<SearchSnippet> {
+    if document.kind != SearchDocumentKind::Code {
+        return None;
+    }
+
+    let path = document.path.clone()?;
+    let branch = document
+        .branch
+        .clone()
+        .or_else(|| metadata_string(&document.metadata, "branch"))
+        .unwrap_or_else(|| "main".to_owned());
+    let line_number = document
+        .metadata
+        .get("lineNumber")
+        .and_then(serde_json::Value::as_i64)
+        .or_else(|| {
+            document
+                .metadata
+                .get("line_number")
+                .and_then(serde_json::Value::as_i64)
+        });
+    let fragment = metadata_string(&document.metadata, "fragment")
+        .or_else(|| matching_line(&document.body, query))
+        .unwrap_or_else(|| document.body.lines().next().unwrap_or("").trim().to_owned());
+
+    Some(SearchSnippet {
+        path,
+        branch,
+        line_number,
+        match_ranges: match_ranges_for_fragment(&fragment, query),
+        fragment,
+        language: document.language.clone(),
+    })
+}
+
+fn commit_summary_for_document(document: &SearchDocument) -> Option<SearchCommitSummary> {
+    if document.kind != SearchDocumentKind::Commit {
+        return None;
+    }
+
+    let (message_title, message_body) = split_commit_message(&document.title, &document.body);
+    Some(SearchCommitSummary {
+        oid: document.resource_id.clone(),
+        short_oid: document.resource_id.chars().take(12).collect(),
+        message_title,
+        message_body,
+        author_login: metadata_string(&document.metadata, "authorLogin"),
+        committed_at: metadata_string(&document.metadata, "committedAt")
+            .and_then(|value| value.parse::<DateTime<Utc>>().ok()),
+    })
+}
+
+fn metadata_string(metadata: &serde_json::Value, key: &str) -> Option<String> {
+    metadata
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn matching_line(body: &str, query: &str) -> Option<String> {
+    let query = query.trim().to_ascii_lowercase();
+    body.lines()
+        .find(|line| line.to_ascii_lowercase().contains(&query))
+        .or_else(|| body.lines().next())
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn match_ranges_for_fragment(fragment: &str, query: &str) -> Vec<SearchMatchRange> {
+    let needle = query.trim().to_ascii_lowercase();
+    if needle.is_empty() {
+        return Vec::new();
+    }
+    let haystack = fragment.to_ascii_lowercase();
+    let mut ranges = Vec::new();
+    let mut offset = 0;
+    while let Some(index) = haystack[offset..].find(&needle) {
+        let start = offset + index;
+        let end = start + needle.len();
+        ranges.push(SearchMatchRange {
+            start: start as i64,
+            end: end as i64,
+        });
+        offset = end;
+    }
+    ranges
+}
+
+fn split_commit_message(title: &str, body: &str) -> (String, Option<String>) {
+    let title = title.trim();
+    let body = body.trim();
+    let message_title = if title.is_empty() {
+        body.lines().next().unwrap_or(body).trim().to_owned()
+    } else {
+        title.to_owned()
+    };
+    let message_body = if body.is_empty() {
+        String::new()
+    } else if let Some(rest) = body.strip_prefix(&message_title) {
+        rest.trim().to_owned()
+    } else if title.is_empty() {
+        body.lines().skip(1).collect::<Vec<_>>().join("\n").trim().to_owned()
+    } else {
+        body.to_owned()
+    };
+    (
+        message_title,
+        if message_body.is_empty() {
+            None
+        } else {
+            Some(message_body)
+        },
+    )
 }
 
 fn ui_type_for_kind(kind: &SearchDocumentKind) -> &'static str {
@@ -407,12 +557,39 @@ fn result_href(
             .map(|(owner, repo)| {
                 let branch = document.branch.as_deref().unwrap_or("main");
                 let path = document.path.as_deref().unwrap_or("");
-                format!("/{owner}/{repo}/blob/{branch}/{path}")
+                let line = document
+                    .metadata
+                    .get("lineNumber")
+                    .and_then(serde_json::Value::as_i64)
+                    .or_else(|| {
+                        document
+                            .metadata
+                            .get("line_number")
+                            .and_then(serde_json::Value::as_i64)
+                    })
+                    .filter(|line| *line > 0)
+                    .map(|line| format!("#L{line}"))
+                    .unwrap_or_default();
+                format!(
+                    "/{}/{}/blob/{}/{}{}",
+                    percent_encode_segment(owner),
+                    percent_encode_segment(repo),
+                    percent_encode_segment(branch),
+                    percent_encode_path(path),
+                    line
+                )
             })
             .unwrap_or_else(|| "/search?type=code".to_owned()),
         SearchDocumentKind::Commit => owner_login
             .zip(repository_name)
-            .map(|(owner, repo)| format!("/{owner}/{repo}/commit/{}", document.resource_id))
+            .map(|(owner, repo)| {
+                format!(
+                    "/{}/{}/commit/{}",
+                    percent_encode_segment(owner),
+                    percent_encode_segment(repo),
+                    percent_encode_segment(&document.resource_id)
+                )
+            })
             .unwrap_or_else(|| "/search?type=commits".to_owned()),
         SearchDocumentKind::Issue => owner_login
             .zip(repository_name)
@@ -424,6 +601,26 @@ fn result_href(
             .unwrap_or_else(|| "/search?type=pull_requests".to_owned()),
         SearchDocumentKind::Package => "/search?type=packages".to_owned(),
     }
+}
+
+fn percent_encode_path(path: &str) -> String {
+    path.split('/')
+        .filter(|segment| !segment.is_empty())
+        .map(percent_encode_segment)
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+fn percent_encode_segment(segment: &str) -> String {
+    let mut encoded = String::new();
+    for byte in segment.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
 }
 
 fn document_from_row(row: sqlx::postgres::PgRow) -> Result<SearchDocument, SearchError> {

@@ -884,3 +884,12 @@
 - Browser smoke/E2E saved `ralph/screenshots/build/search-001-phase2-results.jpg`.
 - Verification: `.scratch/search-001-results-scenario.sh` passed against `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`; targeted `npx vitest run tests/search-results.test.tsx` passed; targeted `npx playwright test tests/e2e/search.spec.ts` passed; `make check` passed; `make test` passed with cargo tests and 104 frontend tests; `make test-e2e` passed with 45 Playwright tests; mandatory Editorial banned-value scan passed.
 - Marked Phase 2 as done in `.qrspi/search-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-05-01 - search-001 phase 3 code and commit results
+
+- Implemented Phase 3 from `.qrspi/search-001/structure.md`: code results now include branch/path/line snippets with query match ranges, direct blob links, language chips, and mono fragments; commit results now include direct commit links, title, body, short SHA, and author metadata.
+- Repository bootstrap and snapshot replacement paths now upsert code and commit search documents for the default branch, with stable code `resource_id` values and private repository visibility preserved through existing search permission filtering.
+- Added/extended Rust API contract coverage for code snippet shape, commit summary body text, direct links, and outsider private-code filtering; extended Vitest and Playwright coverage for code/commit result rendering and blob navigation.
+- Browser smoke/E2E saved `ralph/screenshots/build/search-001-phase3-code-results.jpg`. Local dev verification required `DB_SSL=false` for Docker Postgres because `.env` is configured for RDS SSL.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 105 frontend tests; focused `npx playwright test tests/e2e/search.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test DB_SSL=false make test-e2e` passed with 46 Playwright tests.
+- Marked Phase 3 as done in `.qrspi/search-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.

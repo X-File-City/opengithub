@@ -1248,5 +1248,21 @@
       "People and organization results depend on search_documents being indexed by future mutation paths; this phase verifies rendering and API projection with seeded documents",
       "Full E2E emits many dynamic screenshots; only search-001-phase2-results.jpg is the intended new handoff screenshot for this phase"
     ]
+  },
+  {
+    "feature_id": "search-001",
+    "tests_written": [
+      "Implemented Phase 3 code and commit search result shaping from repository snapshots",
+      "Rust API contract verifies code snippets, branch/path/line links, commit summaries, commit body text, author metadata, and private repository filtering",
+      "Vitest renders code snippets with highlighted fragments and commit result cards with direct blob/commit links",
+      "Playwright signs in with a real Rust session, seeds a repository snapshot, searches code and commits, opens the matching blob route, verifies no dead controls, and saves ralph/screenshots/build/search-001-phase3-code-results.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 105 frontend tests plus cargo tests, and make test-e2e with 46 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Search indexing currently happens from bootstrap and snapshot replacement paths; full Git push/import indexing should be stress-tested with larger repositories",
+      "Code snippets use the first searchable line plus query highlight ranges; multi-match files, binary files, huge files, and non-UTF-8 content need deeper QA",
+      "Commit result pages are linked, but the commit detail route itself remains a later repository/commit surface",
+      "Full search completion still requires issues, pull requests, discussions, and final guardrail phases"
+    ]
   }
 ]

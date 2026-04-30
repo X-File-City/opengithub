@@ -100,3 +100,44 @@ test("repository and people search render indexed results", async ({
     path: "../ralph/screenshots/build/search-001-phase2-results.jpg",
   });
 });
+
+test("code and commit search link to repository files and commits", async ({
+  page,
+}) => {
+  const marker = `phase3-${Date.now()}`;
+  const seeded = seedSession(marker);
+  await signIn(page, seeded);
+
+  await page.goto(`/search?q=${marker}&type=code`);
+  await expect(page.getByText(/1 code results/)).toBeVisible();
+  const codeResult = page.getByRole("link", {
+    name: /src\/search_phase_three\.rs/,
+  });
+  await expect(codeResult).toHaveAttribute(
+    "href",
+    /\/blob\/main\/src\/search_phase_three\.rs#L1/,
+  );
+  await expect(page.getByText(new RegExp(`pub fn ${marker}`))).toBeVisible();
+  await codeResult.click();
+  await expect(page).toHaveURL(/\/blob\/main\/src\/search_phase_three\.rs/);
+  await expect(
+    page
+      .locator("span")
+      .filter({ hasText: new RegExp(`pub fn ${marker}`) })
+      .first(),
+  ).toBeVisible();
+
+  await page.goto(`/search?q=${marker}&type=commits`);
+  await expect(page.getByText(/1 commits results/)).toBeVisible();
+  const commitResult = page.getByRole("link", {
+    name: new RegExp(`Add ${marker} code search fixture`),
+  });
+  await expect(commitResult).toHaveAttribute("href", /\/commit\//);
+  await expect(page.getByText(/Commit result for/)).toBeVisible();
+
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/search-001-phase3-code-results.jpg",
+  });
+});

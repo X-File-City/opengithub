@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { QueryTabNavigation } from "@/components/QueryTabNavigation";
 import type {
   ApiErrorEnvelope,
@@ -68,7 +69,11 @@ function ResultIcon({ result }: { result: GlobalSearchResult }) {
         ? "U"
         : result.type === "organizations"
           ? "O"
-          : "S";
+          : result.type === "code"
+            ? "{}"
+            : result.type === "commits"
+              ? "C"
+              : "S";
 
   return (
     <span
@@ -85,7 +90,140 @@ function ResultIcon({ result }: { result: GlobalSearchResult }) {
   );
 }
 
+function HighlightedFragment({
+  fragment,
+  ranges,
+}: {
+  fragment: string;
+  ranges: { start: number; end: number }[];
+}) {
+  if (ranges.length === 0) {
+    return <>{fragment}</>;
+  }
+
+  const pieces: ReactNode[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    const start = Math.max(cursor, Math.min(fragment.length, range.start));
+    const end = Math.max(start, Math.min(fragment.length, range.end));
+    if (start > cursor) {
+      pieces.push(fragment.slice(cursor, start));
+    }
+    if (end > start) {
+      pieces.push(
+        <mark
+          key={`${start}-${end}`}
+          style={{
+            background: "var(--accent-soft)",
+            borderRadius: "var(--radius)",
+            color: "var(--ink-1)",
+            padding: "0 2px",
+          }}
+        >
+          {fragment.slice(start, end)}
+        </mark>,
+      );
+    }
+    cursor = end;
+  }
+  if (cursor < fragment.length) {
+    pieces.push(fragment.slice(cursor));
+  }
+  return <>{pieces}</>;
+}
+
+function CodeSearchResultCard({ result }: { result: GlobalSearchResult }) {
+  const snippet = result.snippet;
+  if (!snippet) {
+    return <SearchResultCard result={result} />;
+  }
+
+  return (
+    <Link className="list-row items-start gap-3 px-0" href={result.href}>
+      <ResultIcon result={result} />
+      <span className="min-w-0 flex-1">
+        <span className="t-label block" style={{ color: "var(--ink-3)" }}>
+          {resultKicker(result)}
+        </span>
+        <span className="mt-1 block text-[15px] font-semibold text-[color:var(--ink-1)]">
+          {snippet.path}
+          {snippet.line_number ? (
+            <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
+              :{snippet.line_number}
+            </span>
+          ) : null}
+        </span>
+        <span
+          className="t-mono-sm mt-2 block overflow-x-auto rounded-[var(--radius)] p-3"
+          style={{
+            background: "var(--surface-2)",
+            color: "var(--ink-2)",
+          }}
+        >
+          <HighlightedFragment
+            fragment={snippet.fragment}
+            ranges={snippet.match_ranges}
+          />
+        </span>
+        <span className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="chip soft">{snippet.branch}</span>
+          {snippet.language ? (
+            <span className="chip soft">{snippet.language}</span>
+          ) : null}
+          <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
+            {result.document.resource_id}
+          </span>
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function CommitSearchResultCard({ result }: { result: GlobalSearchResult }) {
+  const commit = result.commit;
+  if (!commit) {
+    return <SearchResultCard result={result} />;
+  }
+
+  return (
+    <Link className="list-row items-start gap-3 px-0" href={result.href}>
+      <ResultIcon result={result} />
+      <span className="min-w-0 flex-1">
+        <span className="t-label block" style={{ color: "var(--ink-3)" }}>
+          {resultKicker(result)}
+        </span>
+        <span className="mt-1 block text-[15px] font-semibold text-[color:var(--ink-1)]">
+          {commit.message_title}
+        </span>
+        {commit.message_body ? (
+          <span className="t-sm mt-1 block" style={{ color: "var(--ink-3)" }}>
+            {commit.message_body}
+          </span>
+        ) : null}
+        <span className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="chip soft">Commit</span>
+          <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
+            {commit.short_oid}
+          </span>
+          {commit.author_login ? (
+            <span className="t-sm" style={{ color: "var(--ink-3)" }}>
+              by {commit.author_login}
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function SearchResultCard({ result }: { result: GlobalSearchResult }) {
+  if (result.type === "code") {
+    return <CodeSearchResultCard result={result} />;
+  }
+  if (result.type === "commits") {
+    return <CommitSearchResultCard result={result} />;
+  }
+
   return (
     <Link className="list-row items-start gap-3 px-0" href={result.href}>
       <ResultIcon result={result} />
