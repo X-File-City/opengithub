@@ -284,3 +284,14 @@
 - Browser smoke: started `make dev` with the local Postgres test DB, used Ever with real Rust-signed sessions to verify empty dashboard, filtered top repositories, repository row navigation, `/new` navigation, no dead links, and no desktop horizontal overflow; used Playwright for the mobile viewport screenshot and no-overflow check because Ever does not expose viewport sizing.
 - Saved screenshots: `ralph/screenshots/build/dashboard-001-phase4-empty-sidebar.jpg`, `ralph/screenshots/build/dashboard-001-phase4-filtered-sidebar.jpg`, `ralph/screenshots/build/dashboard-001-phase4-non-empty-feed.jpg`, and `ralph/screenshots/build/dashboard-001-phase4-mobile-dashboard.jpg`.
 - Marked Phase 4 as done in `.qrspi/dashboard-001/structure.md` and set `dashboard-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - dashboard-002 issue and pull request recent activity
+
+- Implemented the first unbuilt PRD feature `dashboard-002`: `/dashboard` recent activity now focuses on up to four issue and pull request updates involving the signed-in user from the last two weeks.
+- Extended `GET /api/dashboard` recentActivity rows with issue/PR number, state, actor login, actor avatar URL, repository href, and item href metadata; removed commit/repository rows from this feature's recent activity contract.
+- Updated the dashboard feed UI to render compact issue/PR cards with icons, repository links, number, state badge, relative update time, actor avatar fallback, and actor metadata.
+- Added the required empty state actions for no qualifying activity: Create repository and Explore repositories; added reachable `/explore`, issue detail, and pull request detail placeholder destinations until full discovery/detail surfaces ship.
+- Updated Rust, Vitest, and Playwright coverage for the focused issue/PR activity contract, actor/state metadata, empty-state actions, navigation, and no dead controls.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 28 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 17 Playwright tests.
+- Browser smoke: started `make dev` with `.env` loaded and the local Postgres test DB, seeded a real Rust-signed session, verified issue and pull request activity cards, clicked issue and PR titles to non-404 detail placeholder pages, and saved `ralph/screenshots/build/dashboard-002-recent-activity.jpg`.
+- Set `dashboard-002.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

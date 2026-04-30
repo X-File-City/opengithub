@@ -562,21 +562,42 @@ async fn dashboard_summary_populates_activity_assignments_and_review_requests() 
     let (status, body) = send_json(app, "/api/dashboard", Some(&cookie)).await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["recentActivity"][0]["kind"], "commit");
-    assert_eq!(body["recentActivity"][0]["title"], "Wire dashboard feed");
+    let recent_activity = body["recentActivity"]
+        .as_array()
+        .expect("activity should be an array");
+    assert!(!recent_activity.is_empty());
+    assert!(recent_activity.len() <= 4);
+    assert!(recent_activity
+        .iter()
+        .all(|item| item["kind"] == "issue" || item["kind"] == "pull_request"));
     assert_eq!(
-        body["recentActivity"][0]["repositoryName"],
+        recent_activity[0]["repositoryName"],
         format!("{}/{}", user.email, repo_name)
     );
-    assert_eq!(
-        body["recentActivity"][0]["href"],
-        format!("/{}/{}/commit/abcdef1234567890", user.email, repo_name)
-    );
-    assert!(body["recentActivity"]
-        .as_array()
-        .expect("activity should be an array")
-        .iter()
-        .any(|item| item["title"] == "Fix failing setup workflow"));
+    assert!(recent_activity.iter().any(|item| {
+        item["kind"] == "issue"
+            && item["title"] == "Fix failing setup workflow"
+            && item["number"] == assigned_issue.number
+            && item["state"] == "open"
+            && item["href"]
+                == format!(
+                    "/{}/{}/issues/{}",
+                    user.email, repo_name, assigned_issue.number
+                )
+            && item["actorLogin"] == "dashboard-feed"
+    }));
+    assert!(recent_activity.iter().any(|item| {
+        item["kind"] == "pull_request"
+            && item["title"] == "Add dashboard activity feed"
+            && item["number"] == review_request.pull_request.number
+            && item["state"] == "open"
+            && item["href"]
+                == format!(
+                    "/{}/{}/pull/{}",
+                    user.email, repo_name, review_request.pull_request.number
+                )
+            && item["actorLogin"] == "dashboard-review-author"
+    }));
     assert_eq!(
         body["assignedIssues"][0]["title"],
         "Fix failing setup workflow"

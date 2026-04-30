@@ -67,11 +67,15 @@ export type DashboardActivityItem = {
   id: string;
   kind: "repository" | "commit" | "issue" | "pull_request" | string;
   title: string;
+  number: number;
+  state: "open" | "closed" | "merged" | string;
   repositoryName: string;
   repositoryHref: string;
   href: string;
   occurredAt: string;
   description: string | null;
+  actorLogin: string;
+  actorAvatarUrl: string | null;
 };
 
 export type DashboardIssueSummary = {

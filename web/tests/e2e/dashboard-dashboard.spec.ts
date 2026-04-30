@@ -114,14 +114,13 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
     'section[aria-labelledby="recent-activity-heading"]',
   );
   await expect(
-    recentActivity.getByRole("link", { name: "Wire dashboard activity feed" }),
-  ).toBeVisible();
-  await expect(
     recentActivity.getByRole("link", { name: "Fix dashboard setup workflow" }),
   ).toBeVisible();
   await expect(
     recentActivity.getByRole("link", { name: "Add signed-in dashboard feed" }),
   ).toBeVisible();
+  await expect(recentActivity.getByText(/#\d+/).first()).toBeVisible();
+  await expect(recentActivity.getByText("open").first()).toBeVisible();
 
   const topRepositories = page.getByRole("complementary", {
     name: "Top repositories",
@@ -137,6 +136,22 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
 
   await filteredRepository.click();
   await expect(page).toHaveURL(new RegExp(`${seeded.secondRepositoryHref}$`));
+
+  await page.goto("/dashboard");
+  await recentActivity
+    .getByRole("link", { name: "Fix dashboard setup workflow" })
+    .click();
+  await expect(page).toHaveURL(/\/issues\/\d+$/);
+  await expect(page.getByRole("heading", { name: /Issue #\d+/ })).toBeVisible();
+
+  await page.goto("/dashboard");
+  await recentActivity
+    .getByRole("link", { name: "Add signed-in dashboard feed" })
+    .click();
+  await expect(page).toHaveURL(/\/pull\/\d+$/);
+  await expect(
+    page.getByRole("heading", { name: /Pull request #\d+/ }),
+  ).toBeVisible();
 
   await page.goto("/dashboard");
   await newRepositoryLink.click();

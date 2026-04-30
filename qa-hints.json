@@ -406,5 +406,24 @@
       "The current review request rail derives from open PRs by another author in accessible repositories; requested-reviewer-specific behavior should be retested when reviewer tables ship",
       "Mobile coverage verifies no horizontal overflow at 390px; QA should also inspect smaller devices and browser zoom levels manually"
     ]
+  },
+  {
+    "feature_id": "dashboard-002",
+    "tests_written": [
+      "GET /api/dashboard recentActivity now returns at most four permission-scoped issue/pull_request rows from the last two weeks with number, state, actorLogin, actorAvatarUrl, repositoryName, and href metadata",
+      "Postgres-backed dashboard_summary tests cover issue and pull request activity rows, assigned issue links, review request links, actor metadata, no commit/repository rows in recentActivity, and private repository non-leakage",
+      "Vitest dashboard tests cover compact issue/PR activity cards, state badges, actor metadata, issue/PR links, and the empty-state Create repository / Explore repositories actions",
+      "Playwright dashboard E2E covers signed-in recent activity visibility, issue/PR links, number/state metadata, sidebar filtering, navigation, dead controls, desktop layout, and mobile no-overflow guardrails",
+      "Playwright dashboard E2E and browser smoke verify issue/PR activity title clicks land on non-404 placeholder detail pages",
+      "Scenario/browser smoke .scratch/dashboard-002-recent-activity-smoke.mjs passed against make dev with a real Rust-signed Postgres session and saved ralph/screenshots/build/dashboard-002-recent-activity.jpg",
+      "make check, make test, and make test-e2e passed with TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test"
+    ],
+    "needs_deeper_qa": [
+      "Repeat the signed-in recent activity flow through real Google OAuth with TEST_ACCOUNT_EMAIL after Google consent/test-user setup is confirmed",
+      "Review request involvement is still approximated from open PRs by another author in readable repositories because requested-reviewer tables are not modeled yet",
+      "Mentions are detected from @username text in issue/PR title/body; retest richer mention events when a dedicated mentions/activity_events model ships",
+      "The Explore repositories empty-state destination is a functional placeholder until repository discovery/search surfaces ship",
+      "Issue and pull request detail pages are intentionally minimal placeholders in this slice; QA should retest full timelines and review interactions when the dedicated issue/PR detail features ship"
+    ]
   }
 ]

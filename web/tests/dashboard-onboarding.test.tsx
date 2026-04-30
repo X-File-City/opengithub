@@ -70,11 +70,15 @@ function activity(
     id: "activity-1",
     kind: "issue",
     title: "Triage repository import failures",
+    number: 7,
+    state: "open",
     repositoryName: "mona/octo-app",
     repositoryHref: "/mona/octo-app",
     href: "/mona/octo-app/issues/7",
     occurredAt: "2026-04-30T12:30:00Z",
     description: "Issue #7 is open",
+    actorLogin: "mona",
+    actorAvatarUrl: null,
     ...overrides,
   };
 }
@@ -353,6 +357,27 @@ describe("dashboard onboarding", () => {
     expect(screen.getByText("Review requests")).toBeInTheDocument();
   });
 
+  it("renders recent activity empty-state actions when there are no qualifying issue or pull request updates", () => {
+    render(
+      <DashboardOnboarding
+        summary={dashboardSummary({
+          repositories: [repository()],
+          topRepositories: [topRepository()],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("There is no recent activity involving you."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Create repository" })[0],
+    ).toHaveAttribute("href", "/new");
+    expect(
+      screen.getByRole("link", { name: "Explore repositories" }),
+    ).toHaveAttribute("href", "/explore");
+  });
+
   it("renders the non-empty activity feed from dashboard API rows", () => {
     render(
       <DashboardOnboarding
@@ -361,17 +386,19 @@ describe("dashboard onboarding", () => {
           topRepositories: [topRepository()],
           recentActivity: [
             activity({
-              kind: "commit",
+              kind: "issue",
               title: "Wire dashboard feed",
-              href: "/mona/octo-app/commit/abcdef1",
-              description: "Commit abcdef1 on main",
+              number: 9,
+              href: "/mona/octo-app/issues/9",
+              description: "commented on issue #9",
             }),
             activity({
               id: "activity-2",
               kind: "pull_request",
               title: "Ship dashboard rail",
+              number: 12,
               href: "/mona/octo-app/pull/12",
-              description: "Pull request #12 is open",
+              description: "opened pull request #12",
             }),
           ],
           assignedIssues: [assignedIssue()],
@@ -388,8 +415,11 @@ describe("dashboard onboarding", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Wire dashboard feed" }),
-    ).toHaveAttribute("href", "/mona/octo-app/commit/abcdef1");
-    expect(screen.getByText("Commit abcdef1 on main")).toBeInTheDocument();
+    ).toHaveAttribute("href", "/mona/octo-app/issues/9");
+    expect(screen.getByText("commented on issue #9")).toBeInTheDocument();
+    expect(screen.getByText("#9")).toBeInTheDocument();
+    expect(screen.getAllByText("open").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("mona").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("link", { name: "Ship dashboard rail" }),
     ).toHaveAttribute("href", "/mona/octo-app/pull/12");
