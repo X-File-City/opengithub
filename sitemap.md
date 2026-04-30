@@ -56,9 +56,9 @@ Template: `/{owner}/{repo}`.
 - `/{owner}/{repo}` — Code tab / repository overview. Branch selector, file tree, README, clone URL, latest commit summary, repository sidebar.
 - `/{owner}/{repo}/tree/{branch}/{path}` — directory browser for a branch/path.
 - `/{owner}/{repo}/blob/{branch}/{path}` — code file viewer with syntax highlighting, line numbers, blame/history controls, raw/copy/download actions.
-- `/{owner}/{repo}/commits/{branch}` — commit history list.
-- `/{owner}/{repo}/commit/{sha}` — commit detail and diff view.
-- `/{owner}/{repo}/branches` — branch list and protection summaries.
+- `/{owner}/{repo}/commits/{branch}` — commit history list. Completed in iteration 16 with live branch/user/date filters and grouped commit rows.
+- `/{owner}/{repo}/commit/{sha}` — commit detail and diff view. Completed in iteration 16 with live header, verification/checks, parent links, file tree, and split diff inspection.
+- `/{owner}/{repo}/branches` — branch list and protection summaries. Completed in iteration 16 with live Overview/Active/Stale/All tabs, search, ahead/behind counts, PR links, protected badges, and row action menu.
 - `/{owner}/{repo}/releases` — releases list.
 - `/{owner}/{repo}/releases/new` — create release form.
 - `/{owner}/{repo}/tags` — tags list.
@@ -143,4 +143,5 @@ Template: `/{owner}/{repo}`.
 11. Notifications, global inbox, and watches/subscriptions. Completed in iteration 13 with live Ever inspection for `/notifications`, inbox sort/group controls, custom filter dialog, and repository Watch menu.
 12. Personal settings and developer credentials. Completed after iteration 13 with live Ever inspection for `/settings/profile`, `/settings/notifications`, `/settings/tokens`, `/settings/personal-access-tokens/new` sudo-mode gate, `/settings/keys`, `/settings/security`, `/settings/sessions`, and `/settings/security-log`.
 13. Organization/team admin. Completed in iteration 15 with live inspection for `/organizations/new`, organization profile settings, people/member management and invite dialog, teams empty state, new team form, and member privileges.
-14. Remaining high-value surfaces: branch/commit history details, Insights/Security overview, wiki/projects/discussions if scope remains.
+14. Branch/commit history details. Completed in iteration 16 with live `vercel/next.js` inspection for commit list filters, commit detail diff, branches overview, and branch row menu.
+15. Remaining high-value surfaces: Insights/Security overview, wiki/projects/discussions if scope remains.

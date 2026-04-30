@@ -774,6 +774,101 @@ Implementation mapping:
 - S3 stores large blobs, source archives, and any cached rendered artifacts. CloudFront can cache public raw/blob/archive responses with permission-aware cache keys.
 - `pg_trgm` backs Go to file path search and code search metadata; code contents can be indexed into Postgres text/trigram tables for MVP.
 
+## Repository Commit History And Branches
+
+Status: inspected live in iteration 16 against `https://github.com/vercel/next.js` while authenticated. Screenshots:
+
+- `ralph/screenshots/inspect/commits-list.jpg`
+- `ralph/screenshots/inspect/commits-branch-selector.jpg`
+- `ralph/screenshots/inspect/commits-user-selector.jpg`
+- `ralph/screenshots/inspect/commits-date-picker.jpg`
+- `ralph/screenshots/inspect/commit-detail.jpg`
+- `ralph/screenshots/inspect/branches-list.jpg`
+- `ralph/screenshots/inspect/branches-row-menu.jpg`
+
+Commit history:
+
+- `/commits/{branch}` keeps the repository header/tab shell and renders inside `repo-content-turbo-frame`.
+- Top controls are Branch selector, User selector, and Datepicker. Branch selector opens a `Switch branches/tags` dialog with search input, Branches/Tags tabs, selected default-branch badge, and `View all branches` link.
+- User selector opens a searchable author menu plus `View commits for all users`; selecting an author filters to `/commits?author={login}`.
+- Datepicker opens an accessible calendar dialog with month/year selects, previous-month button, date grid, `Clear`, and `Today`.
+- Commits are grouped by day. Rows show linked subject, linked PR number, optional expand button for the full message, author avatar/login, relative authored time, status-check summary, Verified/Partially verified badge, short SHA, browse-at-commit control, and row action menu.
+
+Commit detail:
+
+- `/commit/{sha}` shows short SHA, Browse files button, author avatar/login, relative time, check summary, Verified badge, full subject/body, branch link, linked PR, parent commit link, full SHA, and copy control.
+- Diff content uses a split layout with collapsible file tree, draggable pane splitter, file filter, search-within-code input, per-file more menu, expandable context controls, line-change summaries, and side-by-side diff grids with original/new line numbers.
+- Status check buttons link to check-run summaries and include success/failure counts. Verification must distinguish verified, partially verified, and unverified signatures.
+
+Branches:
+
+- `/branches` uses tabs for Overview, Active, Stale, and All, plus a branch search input. Docs add a Your branches view for users with push access.
+- Overview separates Default and Active branches. Table columns are Branch, Updated, Check status, Behind, Ahead, Pull request, and Action menu.
+- Rows show branch link, copy branch-name button, protected-branch icon/link, latest author avatar, updated relative time, status-check count, ahead/behind counts against default, linked draft/open PR number, and action menu.
+- Default branch row shows `Default`; protected rows show rules affordances. The default branch row menu exposed Activity and View rules.
+- Docs-backed behavior: Active branches have commits within the last three months; Stale branches have no commits in the last three months; All shows default first and then other branches by recency. Search is simple case-insensitive substring matching over branch names.
+
+API examples:
+
+```http
+GET /api/repos/{owner}/{repo}/commits?sha=canary&author=ztanner&until=2026-04-30T23:59:59Z&page=1
+Response: {
+  "commits": [{
+    "sha": "4ba05cc300cd3f196bdcebe56de2f6811171bb68",
+    "shortSha": "4ba05cc",
+    "messageHeadline": "enable validateRSCRequestHeaders by default (#93367)",
+    "author": { "login": "ztanner", "avatarUrl": "https://..." },
+    "authoredAt": "2026-04-30T08:12:00Z",
+    "parents": ["f3f7c7c09b0ad2f79f9c4ac0b464af23721dedbc"],
+    "checks": { "conclusion": "failure", "passed": 174, "total": 184 },
+    "verification": { "verified": true, "reason": "valid", "signatureType": "gpg" },
+    "linkedPullRequest": { "number": 93367, "state": "merged" }
+  }],
+  "total": 41293, "page": 1, "pageSize": 35
+}
+Error: { "error": { "code": "ref_not_found", "message": "Branch, tag, or commit not found" }, "status": 404 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/commits/{sha}
+Response: {
+  "sha": "4ba05cc300cd3f196bdcebe56de2f6811171bb68",
+  "message": "enable validateRSCRequestHeaders by default (#93367)\n\nThis flag has been enabled...",
+  "treeSha": "ab12...",
+  "parents": [{ "sha": "f3f7c7c09b0ad2f79f9c4ac0b464af23721dedbc" }],
+  "author": { "name": "ztanner", "email": "ztanner@example.com", "login": "ztanner", "date": "2026-04-30T08:12:00Z" },
+  "verification": { "verified": true, "reason": "valid" },
+  "stats": { "additions": 2, "deletions": 5, "total": 7 },
+  "files": [{ "path": "packages/next/src/server/config-shared.ts", "status": "modified", "additions": 1, "deletions": 4, "patch": "@@ -13,7 +13,6 @@" }]
+}
+Error: { "error": { "code": "commit_not_found", "message": "Commit not found" }, "status": 404 }
+```
+
+```http
+GET /api/repos/{owner}/{repo}/branches?view=active&query=error&page=1
+Response: {
+  "branches": [{
+    "name": "aurorascharff/error-overlay-metadata-viewport-sync",
+    "default": false,
+    "protected": true,
+    "updatedAt": "2026-04-30T11:20:00Z",
+    "checks": { "conclusion": "failure", "passed": 120, "total": 175 },
+    "ahead": 11,
+    "behind": 43,
+    "pullRequest": { "number": 93287, "state": "draft" }
+  }],
+  "total": 218, "page": 1, "pageSize": 30
+}
+Error: { "error": { "code": "repository_not_found", "message": "Repository not found" }, "status": 404 }
+```
+
+Implementation mapping:
+
+- Next.js owns `/commits/{ref}`, `/commit/{sha}`, `/branches`, filter dialogs, datepicker, commit diff/file-tree rendering, branch table tabs, and row menus.
+- Rust API owns ref resolution, commit walks, author/date filters, commit signature verification, status/check aggregation, diff generation, branch active/stale classification, ahead/behind calculations, protected-branch/rules metadata, and permission checks.
+- Postgres stores commit metadata, commit_search_index rows, commit_signature_verifications, commit_status_summaries, repository_git_refs, branch activity projections, branch protection/rulesets, and linked PR refs. Git object storage remains the source of truth for commit/tree/blob bytes.
+- Actions/check-run data feeds commit and branch status buttons. Branch protection/rules data feeds protected badges and View rules links.
+
 ## Repository Creation And Import
 
 Status: inspected in iteration 4. Ever was usable and authenticated for `/new`. Screenshots:
@@ -1052,6 +1147,10 @@ Initial model set inferred from docs/OpenAPI:
 - `repositories`: id, owner_type, owner_id, name, full_name, description, visibility, default_branch, has_issues, has_projects, has_wiki, has_discussions, is_template, archived, created_at, updated_at.
 - `repository_git_refs`: id, repository_id, ref_type, name, target_sha, created_at, updated_at.
 - `commits`: id, repository_id, sha, tree_sha, parent_shas, author_name, author_email, committer_name, committer_email, message, committed_at.
+- `commit_signature_verifications`: id, repository_id, commit_sha, verified, reason, signature_type, signer_user_id, key_fingerprint, verified_at, raw_payload_hash.
+- `commit_status_summaries`: id, repository_id, commit_sha, total_count, successful_count, failed_count, skipped_count, pending_count, conclusion, updated_at.
+- `commit_file_changes`: id, repository_id, commit_sha, path, previous_path, status, additions, deletions, patch_hash, binary, generated, created_at.
+- `branch_activity_snapshots`: id, repository_id, ref_name, latest_commit_sha, latest_actor_id, active_state, ahead_count, behind_count, linked_pull_request_id, computed_at.
 - `issues`: id, repository_id, number, title, body, state, author_id, assignee_id, milestone_id, closed_at, created_at, updated_at.
 - `issue_comments`: id, issue_id, author_id, body, rendered_html, created_at, updated_at, edited_at, deleted_at.
 - `issue_timeline_events`: id, issue_id, actor_id, event_type, payload_json, created_at.
@@ -1839,6 +1938,10 @@ Error: { "error": { "code": "policy_locked", "message": "This setting is enforce
 - Git clone/fetch/push must be implemented by opengithub smart HTTP endpoints and local/S3 object storage, not by proxying GitHub remotes.
 - SSH clone URLs should be hidden or disabled until `/settings/keys` and SSH git transport are implemented.
 - Public raw/archive responses can be cached, but private repository raw/blob/archive responses must be permission checked and use short-lived signed URLs only.
+- Commit history must walk Git objects from the requested ref and apply author/date filters server-side; cached Postgres commit metadata is an index, not the source of truth.
+- Commit signature verification must distinguish valid, unknown key, unsigned, bad email, expired/revoked key, and partially verified states without blocking commit display.
+- Branch active/stale classification should be computed from latest commit time and refreshed asynchronously, but Rust endpoints must recompute when branch refs change.
+- Ahead/behind counts can be expensive on large repositories; cache by `(repository_id, branch, default_branch, default_sha, branch_sha)` and invalidate on ref updates.
 - Issues can be disabled per repository; routes must return an explicit disabled state instead of exposing stale issue data.
 - Public repositories allow issue reading and often issue creation by authenticated users with read access, but metadata mutation such as labels, assignees, milestones, pinning, transfer, and deletion requires triage/write/admin permission.
 - Issue templates/forms are repository content and configuration; invalid YAML/form schemas should not break issue creation. Show a blank issue fallback for malformed templates.

@@ -513,3 +513,37 @@ Key findings:
 
 Next recommended iteration:
 - Inspect branch/commit history details (`/{owner}/{repo}/commits/{branch}`, `/commit/{sha}`, branches list, compare commit views) including signatures, checks, file diffs, comments, and branch metadata.
+
+Iteration 16 completed on 2026-04-30.
+
+Scope inspected: repository commit history, commit detail diff, and branch list (`/{owner}/{repo}/commits/{branch}`, `/{owner}/{repo}/commit/{sha}`, `/{owner}/{repo}/branches`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, BUILD_GUIDE.md, sitemap.md, build-spec.md, current prd.json, and scraped docs/OpenAPI for commits and branches.
+- Ran the required `ever snapshot`; Ever was authenticated and returned the signed-in GitHub dashboard.
+- Navigated with Ever to `https://github.com/vercel/next.js/commits/canary`, `https://github.com/vercel/next.js/commit/4ba05cc300cd3f196bdcebe56de2f6811171bb68`, and `https://github.com/vercel/next.js/branches`.
+- Captured screenshots:
+  - ralph/screenshots/inspect/commits-list.jpg
+  - ralph/screenshots/inspect/commits-branch-selector.jpg
+  - ralph/screenshots/inspect/commits-user-selector.jpg
+  - ralph/screenshots/inspect/commits-date-picker.jpg
+  - ralph/screenshots/inspect/commit-detail.jpg
+  - ralph/screenshots/inspect/branches-list.jpg
+  - ralph/screenshots/inspect/branches-row-menu.jpg
+- Tested non-destructive interactions: opened branch/tag selector, author selector, datepicker, commit detail diff, and branches row action menu.
+- Updated build-spec.md with repository commit history/branch UI, behavior, data models, API examples, backend/cloud mapping, and constraints.
+- Updated sitemap.md to mark commit history, commit detail, and branches as completed.
+- Appended focused PRD entries:
+  - commits-001 repository commit history and filters
+  - commits-002 commit detail, verification, checks, and diff viewer
+  - branches-001 repository branches list, search, metadata, and row actions
+
+Key findings:
+- Commit history uses three primary filters: branch/tag, author, and calendar date. Commit rows are grouped by day and include PR links, status-check summaries, signature verification badges, short SHA links, and browse-at-commit affordances.
+- Branch selector is a searchable Branches/Tags dialog; author selector is a searchable menu; date filtering is a calendar dialog with month/year selectors and Clear/Today actions.
+- Commit detail combines author/check/signature metadata with branch, linked PR, parent commit, full SHA, Browse files, copy, file-tree, search-within-code, and split diff grid.
+- Branches page uses Overview/Active/Stale/All tabs, search, default/active branch tables, status counts, ahead/behind counts, linked PRs, protected branch badges, and row menu actions such as Activity and View rules.
+- Rust must treat Git object storage as source of truth; Postgres commit/branch rows are indexes/projections that need invalidation on ref updates.
+
+Next recommended iteration:
+- Inspect Insights and Security overview surfaces (`/{owner}/{repo}/pulse`, `/graphs/contributors`, `/network`, `/forks`, `/security`, Dependabot/code-scanning/secret-scanning alert pages) or begin Required Coverage Backlog surfaces such as Discussions, Projects v2, and Wiki.
