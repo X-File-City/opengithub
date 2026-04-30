@@ -222,10 +222,7 @@ async fn repository_code_routes_reject_bad_refs_and_path_traversal() {
     .expect("repository should create");
 
     let app = opengithub_api::build_app_with_config(Some(pool), config);
-    let base = format!(
-        "/api/repos/{}/{}",
-        repository.owner_login, repository.name
-    );
+    let base = format!("/api/repos/{}/{}", repository.owner_login, repository.name);
 
     for uri in [
         format!("{base}/contents/src/..?ref=main"),
@@ -235,7 +232,11 @@ async fn repository_code_routes_reject_bad_refs_and_path_traversal() {
         format!("{base}/commits?ref=main&path=src/.."),
     ] {
         let (status, body, text) = send(app.clone(), Method::GET, &uri, Some(&cookie)).await;
-        assert_eq!(status, StatusCode::NOT_FOUND, "uri should be rejected: {uri}");
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "uri should be rejected: {uri}"
+        );
         assert_eq!(body["error"]["code"], "not_found");
         assert_error_hygiene(&body, &text);
     }

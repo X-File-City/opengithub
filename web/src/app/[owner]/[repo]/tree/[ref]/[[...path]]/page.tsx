@@ -49,6 +49,22 @@ export default async function RepositoryTreePage({
             overview={{
               ...overview,
               refName,
+              resolvedRef: {
+                kind:
+                  refName === overview.default_branch ? "branch" : "unknown",
+                shortName: refName,
+                qualifiedName:
+                  refName === overview.default_branch
+                    ? `refs/heads/${refName}`
+                    : refName,
+                targetOid: overview.latestCommit?.oid ?? null,
+                recoveryHref: `/${ownerLogin}/${repositoryName}/tree/${overview.default_branch}`,
+              },
+              defaultBranchHref: `/${ownerLogin}/${repositoryName}/tree/${overview.default_branch}`,
+              recoveryHref: `/${ownerLogin}/${repositoryName}/tree/${refName}`,
+              page: 1,
+              pageSize: Math.max(overview.rootEntries.length, 1),
+              hasMore: false,
               path: "",
               pathName: repositoryName,
               breadcrumbs: [

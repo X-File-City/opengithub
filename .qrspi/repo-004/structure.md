@@ -6,7 +6,7 @@
 
 ## Phase 1: Ref-Aware Tree Contract - same path can resolve across branches and tags
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Extend the existing tree/blob/file-finder API so `/{owner}/{repo}/tree/{branch}/{path}` has a branch/tag-aware contract instead of always reading the repository's latest stored file snapshot. This phase makes branch/tag selection testable at the API and server-rendered page layer while preserving the existing `repo-003` root, tree, blob, and history flows.
 

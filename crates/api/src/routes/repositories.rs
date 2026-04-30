@@ -9,7 +9,7 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    api_types::{database_unavailable, error_response, ErrorEnvelope},
+    api_types::{database_unavailable, error_response, error_response_with_details, ErrorEnvelope},
     auth::extractor::AuthenticatedUser,
     domain::repositories::{
         create_repository_with_bootstrap, fork_repository_by_owner_name,
@@ -468,6 +468,34 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
         | RepositoryError::RefNotFound => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
+        RepositoryError::RefNotFoundWithRecovery {
+            ref_name,
+            recovery_href,
+            default_branch_href,
+        } => error_response_with_details(
+            StatusCode::NOT_FOUND,
+            "ref_not_found",
+            format!("repository ref `{ref_name}` was not found"),
+            json!({
+                "refName": ref_name,
+                "recoveryHref": recovery_href,
+                "defaultBranchHref": default_branch_href,
+            }),
+        ),
+        RepositoryError::PathNotFoundWithRecovery {
+            path,
+            recovery_href,
+            default_branch_href,
+        } => error_response_with_details(
+            StatusCode::NOT_FOUND,
+            "path_not_found",
+            format!("repository path `{path}` was not found"),
+            json!({
+                "path": path,
+                "recoveryHref": recovery_href,
+                "defaultBranchHref": default_branch_href,
+            }),
+        ),
         RepositoryError::InvalidVisibility(_)
         | RepositoryError::InvalidName(_)
         | RepositoryError::InvalidDescription(_)

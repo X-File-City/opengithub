@@ -722,5 +722,20 @@
       "Optimistic Star/Watch actions are covered for normal latency and reload persistence; QA should stress rapid repeated clicks and slow/failing API responses",
       "Sidebar counts and language bars read current metadata tables; QA should recheck freshness after importer, Git push, releases, deployments, contributors, and topic CRUD mature"
     ]
+  },
+  {
+    "feature_id": "repo-004",
+    "tests_written": [
+      "Added repository_tree_navigation Rust API coverage for branch-specific tree reads, tag-specific blob reads, file-finder results at the selected ref, invalid-ref recovery details, missing-path recovery details, private repository denial, and granted read access",
+      "Added commit-aware repository_files migration so branches and tags can resolve the same path against different target commits",
+      "Updated TypeScript DTOs for resolvedRef, defaultBranchHref, recoveryHref, page, pageSize, and hasMore on tree/blob/finder contracts",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test repository_tree_navigation -- --nocapture, make check, and make test"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke was skipped because repo-004 Phase 1 is a backend/data-contract slice; split-pane tree UI is Phase 2",
+      "Branch names with slashes now work through API query parameters, but the Next.js /tree/[ref]/... route shape still needs browser QA in later phases",
+      "Commit-aware file snapshots are metadata-backed and should be retested after real smart HTTP Git push/fetch lands",
+      "Large-directory pagination fields are present as stable contract placeholders; actual pagination/virtualization is Phase 4"
+    ]
   }
 ]

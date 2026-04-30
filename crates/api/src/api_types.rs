@@ -14,6 +14,8 @@ pub struct ListEnvelope<T> {
 pub struct ErrorEnvelope {
     pub error: ErrorBody,
     pub status: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -35,6 +37,26 @@ pub fn error_response(
                 message: message.into(),
             },
             status: status.as_u16(),
+            details: None,
+        }),
+    )
+}
+
+pub fn error_response_with_details(
+    status: StatusCode,
+    code: impl Into<String>,
+    message: impl Into<String>,
+    details: serde_json::Value,
+) -> (StatusCode, Json<ErrorEnvelope>) {
+    (
+        status,
+        Json(ErrorEnvelope {
+            error: ErrorBody {
+                code: code.into(),
+                message: message.into(),
+            },
+            status: status.as_u16(),
+            details: Some(details),
         }),
     )
 }

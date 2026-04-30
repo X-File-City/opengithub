@@ -511,3 +511,14 @@
 - Added `.qrspi/repo-004/structure.md` with four independently verifiable vertical phases: ref-aware tree contract, split-pane directory browser, searchable branch/tag and Go to file controls, and large-directory/visual guardrails.
 - Did not change `prd.json`; `repo-004.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - repo-004 phase 1 ref-aware tree contract
+
+- Implemented Phase 1 from `.qrspi/repo-004/structure.md`: tree/blob/file-finder API responses now include `resolvedRef`, `defaultBranchHref`, recovery metadata, and stable page fields for repository tree contracts.
+- Added migration `202604300015_repository_files_per_commit` so file snapshots are keyed by repository, commit, and path; tree/blob/finder reads now use the selected branch/tag target commit instead of a repository-wide latest file snapshot.
+- Added typed 404 envelopes for invalid refs and missing paths with default-branch recovery links; private repository access remains permission-gated before any tree data is returned.
+- Updated `web/src/lib/api.ts` and tree-page fallback DTOs for the new contract while preserving existing repo-003 pages and tests.
+- Added `crates/api/tests/repository_tree_navigation.rs` covering branch reads, tag reads, invalid refs, missing paths, file-finder results, private denial, and granted read access against real Postgres.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_tree_navigation -- --nocapture` passed; `make check` passed; `make test` passed with 64 frontend tests plus cargo tests.
+- Browser smoke test skipped because this phase is backend/data-contract only; split-pane tree browser UI is Phase 2.
+- Marked Phase 1 as done in `.qrspi/repo-004/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.

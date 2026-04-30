@@ -65,9 +65,23 @@ export type RepositoryLatestCommit = {
   committedAt: string;
 };
 
+export type RepositoryResolvedRef = {
+  kind: "branch" | "tag" | string;
+  shortName: string;
+  qualifiedName: string;
+  targetOid: string | null;
+  recoveryHref: string;
+};
+
 export type RepositoryPathOverview = RepositorySummary & {
   viewerPermission: string | null;
   refName: string;
+  resolvedRef: RepositoryResolvedRef;
+  defaultBranchHref: string;
+  recoveryHref: string;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
   path: string;
   pathName: string;
   breadcrumbs: RepositoryPathBreadcrumb[];
@@ -81,6 +95,9 @@ export type RepositoryPathOverview = RepositorySummary & {
 export type RepositoryBlobView = RepositorySummary & {
   viewerPermission: string | null;
   refName: string;
+  resolvedRef: RepositoryResolvedRef;
+  defaultBranchHref: string;
+  recoveryHref: string;
   path: string;
   pathName: string;
   breadcrumbs: RepositoryPathBreadcrumb[];
@@ -166,6 +183,13 @@ export type RepositoryFileFinderItem = {
   byteSize: number;
   language: string | null;
 };
+
+export type RepositoryFileFinderResult =
+  ListEnvelope<RepositoryFileFinderItem> & {
+    resolvedRef: RepositoryResolvedRef;
+    defaultBranchHref: string;
+    recoveryHref: string;
+  };
 
 export type RepositoryOverview = RepositorySummary & {
   viewerPermission: string | null;
@@ -759,7 +783,7 @@ export async function getRepositoryFileFinderFromCookie(
   repo: string,
   refName: string,
   query: string,
-): Promise<ListEnvelope<RepositoryFileFinderItem> | null> {
+): Promise<RepositoryFileFinderResult | null> {
   const params = new URLSearchParams({ ref: refName });
   if (query.trim()) {
     params.set("q", query.trim());
@@ -781,7 +805,7 @@ export async function getRepositoryFileFinderFromCookie(
     return null;
   }
 
-  return (await response.json()) as ListEnvelope<RepositoryFileFinderItem>;
+  return (await response.json()) as RepositoryFileFinderResult;
 }
 
 export async function setRepositoryStarFromCookie(

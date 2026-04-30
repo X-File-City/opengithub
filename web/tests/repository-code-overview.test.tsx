@@ -147,6 +147,18 @@ function pathOverview(): RepositoryPathOverview {
   return {
     ...repository,
     refName: "main",
+    resolvedRef: {
+      kind: "branch",
+      shortName: "main",
+      qualifiedName: "refs/heads/main",
+      targetOid: "abcdef1234567890",
+      recoveryHref: "/mona/octo-app/tree/main",
+    },
+    defaultBranchHref: "/mona/octo-app/tree/main",
+    recoveryHref: "/mona/octo-app/tree/main/src",
+    page: 1,
+    pageSize: 1,
+    hasMore: false,
     path: "src",
     pathName: "src",
     breadcrumbs: [
@@ -193,6 +205,15 @@ function blobView(): RepositoryBlobView {
   return {
     ...repository,
     refName: "main",
+    resolvedRef: {
+      kind: "branch",
+      shortName: "main",
+      qualifiedName: "refs/heads/main",
+      targetOid: "abcdef1234567890",
+      recoveryHref: "/mona/octo-app/tree/main",
+    },
+    defaultBranchHref: "/mona/octo-app/tree/main",
+    recoveryHref: "/mona/octo-app/tree/main/src",
     path: "src/index.ts",
     pathName: "index.ts",
     breadcrumbs: [

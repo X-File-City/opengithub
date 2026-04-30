@@ -215,7 +215,9 @@ fn map_dashboard_error(error: DashboardError) -> (StatusCode, Json<ErrorEnvelope
         DashboardError::Repositories(RepositoryError::OwnerNotFound)
         | DashboardError::Repositories(RepositoryError::NotFound)
         | DashboardError::Repositories(RepositoryError::PathNotFound)
-        | DashboardError::Repositories(RepositoryError::RefNotFound) => {
+        | DashboardError::Repositories(RepositoryError::RefNotFound)
+        | DashboardError::Repositories(RepositoryError::PathNotFoundWithRecovery { .. })
+        | DashboardError::Repositories(RepositoryError::RefNotFoundWithRecovery { .. }) => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
         DashboardError::Repositories(RepositoryError::Sqlx(_))

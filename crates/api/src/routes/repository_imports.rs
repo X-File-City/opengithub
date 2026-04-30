@@ -153,7 +153,9 @@ fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelo
         RepositoryError::OwnerNotFound
         | RepositoryError::NotFound
         | RepositoryError::PathNotFound
-        | RepositoryError::RefNotFound => {
+        | RepositoryError::RefNotFound
+        | RepositoryError::PathNotFoundWithRecovery { .. }
+        | RepositoryError::RefNotFoundWithRecovery { .. } => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }
         RepositoryError::InvalidVisibility(_)

@@ -116,6 +116,12 @@ pub struct RepositoryPathOverview {
     pub repository: Repository,
     pub viewer_permission: Option<String>,
     pub ref_name: String,
+    pub resolved_ref: RepositoryResolvedRef,
+    pub default_branch_href: String,
+    pub recovery_href: String,
+    pub page: i64,
+    pub page_size: i64,
+    pub has_more: bool,
     pub path: String,
     pub path_name: String,
     pub breadcrumbs: Vec<RepositoryPathBreadcrumb>,
@@ -133,6 +139,9 @@ pub struct RepositoryBlobView {
     pub repository: Repository,
     pub viewer_permission: Option<String>,
     pub ref_name: String,
+    pub resolved_ref: RepositoryResolvedRef,
+    pub default_branch_href: String,
+    pub recovery_href: String,
     pub path: String,
     pub path_name: String,
     pub breadcrumbs: Vec<RepositoryPathBreadcrumb>,
@@ -345,6 +354,16 @@ pub struct GitRef {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RepositoryResolvedRef {
+    pub kind: String,
+    pub short_name: String,
+    pub qualified_name: String,
+    pub target_oid: Option<String>,
+    pub recovery_href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryRefSummary {
     pub name: String,
     pub short_name: String,
@@ -363,6 +382,16 @@ pub struct RepositoryFileFinderItem {
     pub href: String,
     pub byte_size: i64,
     pub language: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryFileFinderResult {
+    #[serde(flatten)]
+    pub envelope: ListEnvelope<RepositoryFileFinderItem>,
+    pub resolved_ref: RepositoryResolvedRef,
+    pub default_branch_href: String,
+    pub recovery_href: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -438,6 +467,18 @@ pub enum RepositoryError {
     PathNotFound,
     #[error("repository ref was not found")]
     RefNotFound,
+    #[error("repository ref `{ref_name}` was not found")]
+    RefNotFoundWithRecovery {
+        ref_name: String,
+        recovery_href: String,
+        default_branch_href: String,
+    },
+    #[error("repository path `{path}` was not found")]
+    PathNotFoundWithRecovery {
+        path: String,
+        recovery_href: String,
+        default_branch_href: String,
+    },
     #[error("invalid repository visibility `{0}`")]
     InvalidVisibility(String),
     #[error("invalid repository name `{0}`")]
@@ -775,15 +816,15 @@ pub async fn repository_file_finder_for_actor_by_owner_name(
     name: &str,
     ref_name: Option<&str>,
     query: Option<&str>,
-) -> Result<Option<ListEnvelope<RepositoryFileFinderItem>>, RepositoryError> {
+) -> Result<Option<RepositoryFileFinderResult>, RepositoryError> {
     let Some(repository) =
         get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
     else {
         return Ok(None);
     };
-    let resolved_ref = resolve_repository_ref_name(pool, &repository, ref_name).await?;
+    let resolved_ref = resolve_repository_ref(pool, &repository, ref_name).await?;
     let normalized_query = query.unwrap_or("").trim().to_lowercase();
-    let files = list_repository_files(pool, repository.id).await?;
+    let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
     let mut items = files
         .into_iter()
         .filter(|file| {
@@ -803,7 +844,7 @@ pub async fn repository_file_finder_for_actor_by_owner_name(
                     "/{}/{}/blob/{}/{}",
                     repository.owner_login,
                     repository.name,
-                    percent_encode_segment(&resolved_ref),
+                    percent_encode_segment(&resolved_ref.short_name),
                     percent_encode_path(&file.path)
                 ),
                 language: language_for_path(&file.path),
@@ -816,11 +857,16 @@ pub async fn repository_file_finder_for_actor_by_owner_name(
         .collect::<Vec<_>>();
     items.sort_by(|left, right| left.path.to_lowercase().cmp(&right.path.to_lowercase()));
 
-    Ok(Some(ListEnvelope {
-        total: items.len() as i64,
-        page: 1,
-        page_size: 20,
-        items,
+    Ok(Some(RepositoryFileFinderResult {
+        default_branch_href: repository_default_branch_href(&repository),
+        recovery_href: repository_default_branch_href(&repository),
+        resolved_ref,
+        envelope: ListEnvelope {
+            total: items.len() as i64,
+            page: 1,
+            page_size: 20,
+            items,
+        },
     }))
 }
 
@@ -829,7 +875,8 @@ pub async fn repository_overview_for_actor(
     repository: Repository,
     actor_user_id: Uuid,
 ) -> Result<RepositoryOverview, RepositoryError> {
-    let files = list_repository_files(pool, repository.id).await?;
+    let resolved_ref = resolve_repository_ref(pool, &repository, None).await?;
+    let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
     let readme = files
         .iter()
         .find(|file| file.path.eq_ignore_ascii_case("README.md"))
@@ -1056,20 +1103,20 @@ pub async fn repository_commit_history_for_actor_by_owner_name(
     else {
         return Ok(None);
     };
-    let ref_name = resolve_repository_ref_name(pool, &repository, query.ref_name).await?;
+    let resolved_ref = resolve_repository_ref(pool, &repository, query.ref_name).await?;
     let path = normalize_repository_path(query.path.unwrap_or(""))?;
-    let files = list_repository_files(pool, repository.id).await?;
+    let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
     if !path.is_empty()
         && !files
             .iter()
             .any(|file| file.path == path || file.path.starts_with(&format!("{path}/")))
     {
-        return Err(RepositoryError::PathNotFound);
+        return Err(repository_path_not_found_error(&repository, &path));
     }
     repository_commit_history(
         pool,
         &repository,
-        &ref_name,
+        &resolved_ref.short_name,
         Some(path.as_str()).filter(|value| !value.is_empty()),
         query.page,
         query.page_size,
@@ -1085,13 +1132,14 @@ async fn repository_path_overview_for_actor(
     ref_name: Option<&str>,
     path: &str,
 ) -> Result<RepositoryPathOverview, RepositoryError> {
-    let ref_name = resolve_repository_ref_name(pool, &repository, ref_name).await?;
+    let resolved_ref = resolve_repository_ref(pool, &repository, ref_name).await?;
+    let ref_name = resolved_ref.short_name.clone();
     let path = normalize_repository_path(path)?;
-    let files = list_repository_files(pool, repository.id).await?;
+    let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
     let entries = repository_entries_for_path(&repository, &ref_name, &files, &path);
     let readme = readme_for_path(&files, &path);
     if !path.is_empty() && entries.is_empty() && readme.is_none() {
-        return Err(RepositoryError::PathNotFound);
+        return Err(repository_path_not_found_error(&repository, &path));
     }
     let latest_commit = latest_commit_for_repository(pool, &repository).await?;
     let viewer_permission = viewer_permission_for_user(pool, &repository, actor_user_id).await?;
@@ -1100,6 +1148,12 @@ async fn repository_path_overview_for_actor(
     Ok(RepositoryPathOverview {
         viewer_permission,
         ref_name: ref_name.clone(),
+        resolved_ref,
+        default_branch_href: repository_default_branch_href(&repository),
+        recovery_href: repository_tree_href(&repository, &ref_name, &path),
+        page: 1,
+        page_size: entries.len().max(1) as i64,
+        has_more: false,
         path_name: path
             .rsplit('/')
             .next()
@@ -1124,17 +1178,18 @@ async fn repository_blob_for_actor(
     ref_name: Option<&str>,
     path: &str,
 ) -> Result<RepositoryBlobView, RepositoryError> {
-    let ref_name = resolve_repository_ref_name(pool, &repository, ref_name).await?;
+    let resolved_ref = resolve_repository_ref(pool, &repository, ref_name).await?;
+    let ref_name = resolved_ref.short_name.clone();
     let path = normalize_repository_path(path)?;
     if path.is_empty() {
-        return Err(RepositoryError::PathNotFound);
+        return Err(repository_path_not_found_error(&repository, &path));
     }
-    let files = list_repository_files(pool, repository.id).await?;
+    let files = list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?;
     let file = files
         .iter()
         .find(|file| file.path == path)
         .cloned()
-        .ok_or(RepositoryError::PathNotFound)?;
+        .ok_or_else(|| repository_path_not_found_error(&repository, &path))?;
     let latest_commit = latest_commit_for_repository(pool, &repository).await?;
     let viewer_permission = viewer_permission_for_user(pool, &repository, actor_user_id).await?;
     let encoded_path = percent_encode_path(&path);
@@ -1146,6 +1201,9 @@ async fn repository_blob_for_actor(
     Ok(RepositoryBlobView {
         viewer_permission,
         ref_name: ref_name.clone(),
+        resolved_ref,
+        default_branch_href: repository_default_branch_href(&repository),
+        recovery_href: repository_tree_href(&repository, &ref_name, parent_path(&path)),
         path_name: path
             .rsplit('/')
             .next()
@@ -1582,8 +1640,9 @@ pub async fn replace_repository_snapshot(
     .execute(&mut *transaction)
     .await?;
 
-    sqlx::query("DELETE FROM repository_files WHERE repository_id = $1")
+    sqlx::query("DELETE FROM repository_files WHERE repository_id = $1 AND commit_id = $2")
         .bind(repository_id)
+        .bind(commit.id)
         .execute(&mut *transaction)
         .await?;
 
@@ -1719,7 +1778,7 @@ async fn bootstrap_repository(
             r#"
             INSERT INTO repository_files (repository_id, commit_id, path, content, oid, byte_size)
             VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (repository_id, lower(path))
+            ON CONFLICT (repository_id, commit_id, lower(path))
             DO UPDATE SET commit_id = EXCLUDED.commit_id,
                           content = EXCLUDED.content,
                           oid = EXCLUDED.oid,
@@ -1878,6 +1937,39 @@ async fn list_repository_files(
         "#,
     )
     .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(repository_file_from_row).collect())
+}
+
+async fn list_repository_files_for_resolved_ref(
+    pool: &PgPool,
+    repository_id: Uuid,
+    resolved_ref: &RepositoryResolvedRef,
+) -> Result<Vec<RepositoryFile>, RepositoryError> {
+    let Some(target_oid) = resolved_ref.target_oid.as_deref() else {
+        return Ok(Vec::new());
+    };
+    let rows = sqlx::query(
+        r#"
+        SELECT repository_files.id,
+               repository_files.repository_id,
+               repository_files.commit_id,
+               repository_files.path,
+               repository_files.content,
+               repository_files.oid,
+               repository_files.byte_size,
+               repository_files.created_at
+        FROM repository_files
+        JOIN commits ON commits.id = repository_files.commit_id
+        WHERE repository_files.repository_id = $1
+          AND commits.oid = $2
+        ORDER BY lower(repository_files.path) ASC
+        "#,
+    )
+    .bind(repository_id)
+    .bind(target_oid)
     .fetch_all(pool)
     .await?;
 
@@ -2184,6 +2276,43 @@ fn repository_parent_tree_href(
     })
 }
 
+fn repository_default_branch_href(repository: &Repository) -> String {
+    repository_tree_href(repository, &repository.default_branch, "")
+}
+
+fn repository_path_not_found_error(repository: &Repository, path: &str) -> RepositoryError {
+    RepositoryError::PathNotFoundWithRecovery {
+        path: path.to_owned(),
+        recovery_href: repository_default_branch_href(repository),
+        default_branch_href: repository_default_branch_href(repository),
+    }
+}
+
+fn repository_tree_href(repository: &Repository, ref_name: &str, path: &str) -> String {
+    if path.is_empty() {
+        format!(
+            "/{}/{}/tree/{}",
+            repository.owner_login,
+            repository.name,
+            percent_encode_segment(ref_name)
+        )
+    } else {
+        format!(
+            "/{}/{}/tree/{}/{}",
+            repository.owner_login,
+            repository.name,
+            percent_encode_segment(ref_name),
+            percent_encode_path(path)
+        )
+    }
+}
+
+fn parent_path(path: &str) -> &str {
+    path.rsplit_once('/')
+        .map(|(parent, _)| parent)
+        .unwrap_or("")
+}
+
 fn repository_history_href(repository: &Repository, ref_name: &str, path: &str) -> String {
     if path.is_empty() {
         format!(
@@ -2222,40 +2351,63 @@ async fn viewer_permission_for_user(
     )
 }
 
-async fn resolve_repository_ref_name(
+async fn resolve_repository_ref(
     pool: &PgPool,
     repository: &Repository,
     ref_name: Option<&str>,
-) -> Result<String, RepositoryError> {
+) -> Result<RepositoryResolvedRef, RepositoryError> {
     let ref_name = ref_name
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or(&repository.default_branch);
     let normalized = normalize_repository_path(ref_name)?;
-    if normalized == repository.default_branch {
-        return Ok(normalized);
-    }
     let branch_ref = format!("refs/heads/{normalized}");
     let tag_ref = format!("refs/tags/{normalized}");
-    let exists = sqlx::query_scalar::<_, bool>(
+    let row = sqlx::query(
         r#"
-        SELECT EXISTS (
-            SELECT 1
-            FROM repository_git_refs
-            WHERE repository_id = $1 AND name IN ($2, $3)
-        )
+        SELECT repository_git_refs.name,
+               repository_git_refs.kind,
+               commits.oid AS target_oid
+        FROM repository_git_refs
+        LEFT JOIN commits ON commits.id = repository_git_refs.target_commit_id
+        WHERE repository_git_refs.repository_id = $1
+          AND repository_git_refs.name IN ($2, $3, $4)
+        ORDER BY CASE
+            WHEN repository_git_refs.name = $2 THEN 0
+            WHEN repository_git_refs.name = $3 THEN 1
+            ELSE 2
+        END
+        LIMIT 1
         "#,
     )
     .bind(repository.id)
     .bind(&branch_ref)
     .bind(&tag_ref)
-    .fetch_one(pool)
+    .bind(&normalized)
+    .fetch_optional(pool)
     .await?;
-    if exists {
-        Ok(normalized)
-    } else {
-        Err(RepositoryError::RefNotFound)
-    }
+    let Some(row) = row else {
+        return Err(RepositoryError::RefNotFoundWithRecovery {
+            ref_name: normalized,
+            recovery_href: repository_default_branch_href(repository),
+            default_branch_href: repository_default_branch_href(repository),
+        });
+    };
+    let qualified_name: String = row.get("name");
+    let kind: String = row.get("kind");
+    let short_name = qualified_name
+        .strip_prefix("refs/heads/")
+        .or_else(|| qualified_name.strip_prefix("refs/tags/"))
+        .unwrap_or(&qualified_name)
+        .to_owned();
+
+    Ok(RepositoryResolvedRef {
+        recovery_href: repository_tree_href(repository, &short_name, ""),
+        kind,
+        short_name,
+        qualified_name,
+        target_oid: row.get("target_oid"),
+    })
 }
 
 fn normalize_repository_path(value: &str) -> Result<String, RepositoryError> {
