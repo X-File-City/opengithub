@@ -109,3 +109,11 @@
 - Browser smoke: started `make dev`, verified `/login?error=oauth_failed` with Ever, clicked `Continue with Google` and confirmed navigation reached Google OAuth, and saved `ralph/screenshots/build/auth-001-phase4-e2e-smoke.jpg`.
 - Verification: `make check` passed; `make test` passed; `make test-e2e` passed with 5 Playwright tests.
 - Marked Phase 4 as done in `.qrspi/auth-001/structure.md` and set `auth-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - auth-002 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, existing `.qrspi` outlines, and the first incomplete `prd.json` entry.
+- Determined `auth-002` requires structure planning before implementation because `needs_structure: true` and `.qrspi/auth-002/structure.md` did not exist.
+- Added `.qrspi/auth-002/structure.md` with four independently verifiable vertical phases: Rust session guard, repository API authorization, Next.js middleware/protected shell, and E2E/error-UX hardening.
+- Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
