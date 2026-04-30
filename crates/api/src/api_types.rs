@@ -1,6 +1,10 @@
 use axum::{http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 
+pub const DEFAULT_PAGE: i64 = 1;
+pub const DEFAULT_PAGE_SIZE: i64 = 30;
+pub const MAX_PAGE_SIZE: i64 = 100;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ListEnvelope<T> {
     pub items: Vec<T>,
@@ -22,6 +26,30 @@ pub struct ErrorEnvelope {
 pub struct ErrorBody {
     pub code: String,
     pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Pagination {
+    pub page: i64,
+    pub page_size: i64,
+}
+
+impl Default for Pagination {
+    fn default() -> Self {
+        Self {
+            page: DEFAULT_PAGE,
+            page_size: DEFAULT_PAGE_SIZE,
+        }
+    }
+}
+
+pub fn normalize_pagination(page: Option<i64>, page_size: Option<i64>) -> Pagination {
+    Pagination {
+        page: page.unwrap_or(DEFAULT_PAGE).max(1),
+        page_size: page_size
+            .unwrap_or(DEFAULT_PAGE_SIZE)
+            .clamp(1, MAX_PAGE_SIZE),
+    }
 }
 
 pub fn error_response(

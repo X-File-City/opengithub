@@ -958,5 +958,21 @@
       "Personal access token creation UI is still a later developer-experience feature, so private Git CLI flows currently require seeded tokens or future settings-token UI",
       "Raw/archive byte fidelity should be retested once pushed/imported binary objects move from text snapshots to durable object storage"
     ]
+  },
+  {
+    "feature_id": "api-001",
+    "tests_written": [
+      "Added GET /api/user for the signed-in account using the existing Rust signed-session guard",
+      "Added shared pagination normalization constants/helpers for later REST list endpoints",
+      "Added crates/api/tests/api_user_contract.rs covering anonymous 401 envelopes, valid signed-session user responses, valid-cookie database_unavailable behavior, JSON content types, and no cookie/session-secret/stack leakage",
+      "Added .scratch/api-user-contract-scenario.sh and ran it against TEST_DATABASE_URL-backed Postgres",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 73 frontend tests, and the /api/user contract scenario"
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 exposes only the authenticated user endpoint; repository/search/collaboration/Actions/package REST normalization remains for later api-001 phases",
+      "Login currently falls back from nullable username to a sanitized email local part; profile username setup should re-check API login/htmlUrl behavior",
+      "PAT actor support is not wired into /api/user yet; this phase uses browser signed-session auth only",
+      "Browser smoke and E2E were skipped because this phase is backend API-only and adds no UI surface"
+    ]
   }
 ]

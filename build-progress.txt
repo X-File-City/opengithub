@@ -686,3 +686,13 @@
 - Added `.qrspi/api-001/structure.md` with five independently verifiable vertical phases: authenticated user/API contract foundation, repository/search REST normalization, collaboration/automation REST coverage, `/docs/api` discoverability, and final cross-route API hardening.
 - Did not change `prd.json`; `api-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-04-30 - api-001 phase 1 authenticated user REST contract
+
+- Implemented Phase 1 from `.qrspi/api-001/structure.md`: added `GET /api/user` as the GitHub-style authenticated user REST endpoint while preserving `/api/auth/me` for browser session checks.
+- Added `crates/api/src/routes/users.rs` with the public `ApiUser` DTO (`id`, `login`, `name`, `email`, `avatarUrl`, `htmlUrl`, `createdAt`, `updatedAt`) and safe login fallback from email when username is not yet configured.
+- Extended `crates/api/src/api_types.rs` with shared pagination defaults/clamping helpers for later list endpoint normalization.
+- Added `crates/api/tests/api_user_contract.rs` and `.scratch/api-user-contract-scenario.sh` covering anonymous 401 envelopes, valid signed-session responses, valid-cookie database-unavailable behavior, JSON content types, and no stack/cookie/secret leakage.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 73 frontend tests plus cargo tests; `bash .scratch/api-user-contract-scenario.sh` passed.
+- Browser smoke and `make test-e2e` skipped because Phase 1 is backend API-only and changed no UI surface.
+- Marked Phase 1 as done in `.qrspi/api-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

@@ -6,7 +6,7 @@
 
 ## Phase 1: User and API Contract Foundation - expose the authenticated user contract
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Establish the public REST contract conventions for `api-001` and expose the first GitHub-style authenticated user endpoint. This phase should make envelopes, pagination, error mapping, auth, and response headers consistent enough for later resource groups to reuse without changing existing product-page behavior.
 
