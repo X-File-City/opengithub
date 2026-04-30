@@ -47,7 +47,7 @@ Evidence:
 - `/settings/keys` — SSH/GPG key management.
 - `/new` — repository creation form.
 - `/new/import` — repository import flow.
-- `/organizations/new` — create organization flow.
+- `/organizations/new` — create organization flow. Completed in iteration 15 with live plan picker/setup form inspection.
 
 ## Repository Workspace
 
@@ -99,11 +99,11 @@ Template: `/{owner}/{repo}`.
 - `/{user}?tab=projects` — user projects.
 - `/{org}` — organization overview/profile with pinned repos, people count, README/profile content.
 - `/{org}?tab=repositories` — organization repositories.
-- `/{org}?tab=people` — members list.
-- `/{org}?tab=teams` — teams list.
-- `/{org}/{team_slug}` — team page with repositories, members, discussions.
-- `/orgs/{org}/settings/profile` — organization profile settings.
-- `/orgs/{org}/settings/member_privileges` — member permissions.
+- `/{org}?tab=people` — members list. Completed in iteration 15 for admin member list, export, row actions, and invite dialog.
+- `/{org}?tab=teams` — teams list. Completed in iteration 15 for empty state and new team form.
+- `/{org}/{team_slug}` — team page with repositories, members, discussions. Mapped from team docs; detail page still lower-priority if scope remains.
+- `/orgs/{org}/settings/profile` — organization profile settings. Completed in iteration 15 with live settings-shell inspection.
+- `/orgs/{org}/settings/member_privileges` — member permissions. Completed in iteration 15 with live base-permissions/repository-policy inspection.
 - `/orgs/{org}/settings/repository-defaults` — default repository permissions/settings.
 - `/orgs/{org}/settings/actions` — organization Actions settings.
 - `/orgs/{org}/settings/hooks` — organization webhooks.
@@ -142,4 +142,5 @@ Template: `/{owner}/{repo}`.
 10. Packages and releases. Completed in iteration 12 with Chrome fallback after Ever snapshot/navigation failures. Covered repository releases list, latest release detail, tags list, organization package filters, npm empty filtered state, and container package detail/install snippets. Create/edit release and package access-control behavior is docs-backed.
 11. Notifications, global inbox, and watches/subscriptions. Completed in iteration 13 with live Ever inspection for `/notifications`, inbox sort/group controls, custom filter dialog, and repository Watch menu.
 12. Personal settings and developer credentials. Completed after iteration 13 with live Ever inspection for `/settings/profile`, `/settings/notifications`, `/settings/tokens`, `/settings/personal-access-tokens/new` sudo-mode gate, `/settings/keys`, `/settings/security`, `/settings/sessions`, and `/settings/security-log`.
-13. Remaining high-value surfaces: organization/team admin, branch/commit history details, Insights/Security overview, wiki/projects/discussions if scope remains.
+13. Organization/team admin. Completed in iteration 15 with live inspection for `/organizations/new`, organization profile settings, people/member management and invite dialog, teams empty state, new team form, and member privileges.
+14. Remaining high-value surfaces: branch/commit history details, Insights/Security overview, wiki/projects/discussions if scope remains.

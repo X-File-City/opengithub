@@ -979,6 +979,60 @@ Implementation mapping:
 - Rust API owns authoritative writes, sudo-mode token validation, token hashing, session revocation, SSH/GPG key validation, notification preference persistence, audit-event append, and CSV/JSON security-log export.
 - Postgres stores user profile fields, email addresses, notification preferences, PAT metadata/hashes, SSH/GPG public keys, web sessions, sudo grants, and audit events. S3 stores avatar images. SES sends notification emails after verified domain setup.
 
+## Organization And Team Administration
+
+Status: inspected after personal settings with live Ever access. Evidence came from `ever snapshot`, screenshots on `/organizations/new`, `/organizations/namuh-eng/settings/profile`, `/orgs/namuh-eng/people`, `/orgs/namuh-eng/teams`, `/orgs/namuh-eng/teams/new`, `/organizations/namuh-eng/settings/member_privileges`, docs for organization invitations/teams/repository policies, and non-destructive `gh api` checks for `namuh-eng`.
+
+Screenshots:
+
+- `ralph/screenshots/inspect/org-create-plan-picker.jpg`
+- `ralph/screenshots/inspect/org-create-form.jpg`
+- `ralph/screenshots/inspect/org-settings-profile.jpg`
+- `ralph/screenshots/inspect/org-people-members.jpg`
+- `ralph/screenshots/inspect/org-invite-member-dialog.jpg`
+- `ralph/screenshots/inspect/org-teams-empty.jpg`
+- `ralph/screenshots/inspect/org-team-new-form.jpg`
+- `ralph/screenshots/inspect/org-member-privileges.jpg`
+
+Organization creation:
+
+- `/organizations/new` first shows a three-column plan picker. Free, Team, and Enterprise cards list feature bullets in disclosure rows. Free has a direct `Create a free organization` CTA; Team uses a dropdown-style `Continue with Team`; Enterprise offers trial/contact-sales CTAs.
+- The free organization setup form is a narrow centered form titled `Tell us about your organization`. Required fields are organization name, contact email, ownership type, captcha, terms checkbox, and `Next`.
+- Organization name normalizes spaces to hyphens in the account URL preview. Tested value `open github labs` normalized to `open-github-labs` and immediately showed reserved-keyword validation. The Rust API must reserve terms such as `github`, `admin`, `settings`, and future opengithub system slugs server-side.
+- Ownership radio options are `My personal account` and `A business or institution`. Choosing business reveals company name. GitHub requires captcha and terms acceptance; opengithub can use Google OAuth trust plus rate limits instead of captcha unless abuse requires a provider later.
+
+Organization settings shell and profile:
+
+- Organization settings use the same signed-in header plus organization top navigation and a dense two-column settings layout. Left nav groups include Organization, Access, Code/planning/automation, Security, Third-party Access, Integrations, Archive, and Developer settings.
+- Profile settings expose display name, public email, description, URL, up to four social account links, searchable location selector, billing/contact fields, rename organization, archive, and delete danger-zone actions.
+- Non-destructive live API check for `namuh-eng` showed display name `namuh`, email `founders@namuh.co`, blog `namuh.co`, default repository permission `read`, repository creation enabled, public/private repository creation enabled, two-factor requirement disabled, two public members, and no teams.
+
+People and invitations:
+
+- `/orgs/{org}/people` has tabs for Members, Outside collaborators, Pending collaborators, Invitations, Failed invitations, and Security Managers. The page has a member search box, disabled bulk action button until selection, Export dropdown for JSON/CSV, Invite member button, role help link, and a member table.
+- Member rows include checkbox, avatar, display name, username, 2FA state badge, public/private membership visibility menu, organization role, teams count, custom roles count, row action menu, and membership source.
+- Invite member opens a dialog with username/email autocomplete and submit button. Docs add that invitations send an email link, expire after 7 days, can be retried/canceled, and are rate-limited to 50 per 24h for new orgs or 500 per 24h for older/paid orgs. Billing/license checks are out of scope for opengithub.
+- Role changes and removals open confirmation dialogs. Owner continuity must be protected: do not allow removing/demoting the final organization owner.
+
+Teams:
+
+- `/orgs/{org}/teams` renders an onboarding empty state when no teams exist. It explains flexible repository access, request-to-join teams, and team mentions, with `New team` and `Learn more` CTAs.
+- `/orgs/{org}/teams/new` form has team name, description, parent team selector, visibility radio group, notification radio group, and Create team. Visible is recommended and mentionable by every member; Secret can only be seen by members and may not be nested. Notifications Enabled means members are notified when the team is mentioned.
+- Docs confirm nested team permissions cascade from parent to child teams, outside collaborators cannot belong to teams, teams can be requested for review, and team maintainers can manage team membership/settings within their scope.
+
+Member privileges and organization policy:
+
+- `/organizations/{org}/settings/member_privileges` is a long settings page of independent cards/forms. Observed cards include Base permissions, Repository creation, Repository forking, Repository discussions, Projects base permissions, Pages creation, App access requests, repository visibility changes, delete/transfer controls, issue deletion, and team creation.
+- Base permissions are selected from an action menu with None, Read, Write, and Admin options, followed by confirmation. This setting applies to all organization members but excludes outside collaborators; explicit higher repository/team permissions override it.
+- Repository creation uses independent checkboxes for public/private creation and a Save button. Public creation may be disabled by higher-level policy. Outside collaborators can never create organization repositories.
+- Organization-level policy must feed repository creation, repository settings, Git push, PR mergeability, Pages publishing, package visibility, and Actions permissions. UI-only enforcement is insufficient.
+
+Implementation mapping:
+
+- Next.js owns `/organizations/new`, `/orgs/{org}/people`, `/orgs/{org}/teams`, `/orgs/{org}/teams/new`, `/organizations/{org}/settings/profile`, `/organizations/{org}/settings/member_privileges`, invite dialogs, role dialogs, team forms, and settings sidebars.
+- Rust API owns organization slug validation, owner/member permission checks, invitation email generation, team nesting constraints, membership visibility/role updates, base permission policy, repository creation policy, policy audit events, and organization settings writes.
+- Postgres stores organizations, organization_memberships, organization_invitations, teams, team_memberships, team_repository_permissions, organization_policy_settings, organization_social_accounts, organization_audit_events, and organization_verified_domains. SES sends organization invite emails. S3 stores organization avatars. Cloudflare is used for verified-domain checks where domain automation is required.
+
 ## Data Models
 
 Initial model set inferred from docs/OpenAPI:
@@ -1017,10 +1071,16 @@ Initial model set inferred from docs/OpenAPI:
 - `pull_request_checks_summary`: id, pull_request_id, total_count, successful_count, skipped_count, failed_count, pending_count, updated_at.
 - `branch_protection_rules`: id, repository_id, pattern, required_reviews_count, dismiss_stale_reviews, require_code_owner_reviews, required_check_contexts, require_linear_history, created_at, updated_at.
 - `labels`: id, repository_id, name, color, description.
-- `organizations`: id, slug, display_name, description, avatar_url, created_at, updated_at.
+- `organizations`: id, slug, display_name, description, avatar_url, public_email, website_url, location, billing_email, terms_of_service_type, company_name, default_repository_permission, members_can_create_public_repositories, members_can_create_private_repositories, allow_private_repository_forking, readers_can_create_discussions, members_can_create_teams, archived_at, created_at, updated_at.
+- `organization_social_accounts`: id, organization_id, provider_key, url, position, created_at, updated_at.
 - `organization_verified_domains`: id, organization_id, domain, verified_at, verification_token_hash, created_at.
 - `organization_memberships`: id, organization_id, user_id, role, public, state, invited_by_id, created_at, updated_at.
-- `teams`: id, organization_id, slug, name, description, privacy.
+- `organization_invitations`: id, organization_id, invitee_user_id, invitee_email, invited_by_id, role, team_ids_json, token_hash, state, expires_at, created_at, accepted_at, canceled_at.
+- `organization_policy_settings`: id, organization_id, setting_key, value_json, enforced_by, updated_by_id, updated_at.
+- `organization_audit_events`: id, organization_id, actor_id, action, subject_type, subject_id, metadata_json, ip_address, user_agent, created_at.
+- `teams`: id, organization_id, slug, name, description, privacy, parent_team_id, notification_setting, created_by_id, created_at, updated_at, deleted_at.
+- `team_memberships`: id, team_id, user_id, role, state, added_by_id, created_at, updated_at.
+- `team_repository_permissions`: id, team_id, repository_id, permission, inherited_from_team_id, created_at, updated_at.
 - `user_profile_readmes`: id, user_id, repository_id, commit_sha, rendered_html, rendered_at.
 - `profile_pins`: id, owner_type, owner_id, subject_type, subject_id, position, created_at, updated_at.
 - `profile_contribution_days`: id, user_id, date, contribution_count, contribution_level, public_count, private_count.
@@ -1645,7 +1705,101 @@ Response: {
 Error: { "error": { "code": "invalid_query", "message": "Unsupported audit log qualifier" } }
 ```
 
-More endpoint examples must be completed after feature-page inspection.
+```http
+GET /api/orgs/{org}
+Response: {
+  "id": "uuid",
+  "login": "namuh-eng",
+  "displayName": "namuh",
+  "email": "founders@namuh.co",
+  "websiteUrl": "https://namuh.co",
+  "publicRepos": 6,
+  "privateRepos": 2,
+  "viewerRole": "owner",
+  "settings": { "defaultRepositoryPermission": "read", "membersCanCreatePublicRepositories": true, "membersCanCreatePrivateRepositories": true }
+}
+Error: { "error": { "code": "not_found", "message": "Organization not found" } }
+```
+
+```http
+POST /api/orgs
+Request: { "slug": "open-github-labs", "displayName": "Open GitHub Labs", "contactEmail": "team@example.com", "termsOfServiceType": "standard", "companyName": null }
+Response: { "id": "uuid", "login": "open-github-labs", "displayName": "Open GitHub Labs", "viewerRole": "owner" }
+Error: { "error": { "code": "reserved_slug", "message": "This organization name contains a reserved keyword" } }
+```
+
+```http
+GET /api/orgs/{org}/members?q=jae&role=owner&page=1&pageSize=50
+Response: {
+  "items": [{
+    "user": { "id": "uuid", "username": "jaeyunha", "displayName": "Jaeyun Ha", "avatarUrl": "https://..." },
+    "role": "owner",
+    "public": true,
+    "twoFactorEnabled": true,
+    "teamsCount": 0,
+    "customRolesCount": 0,
+    "membershipSource": "direct"
+  }],
+  "total": 2,
+  "page": 1,
+  "pageSize": 50
+}
+Error: { "error": { "code": "forbidden", "message": "Organization owner access required" } }
+```
+
+```http
+POST /api/orgs/{org}/invitations
+Request: { "identifier": "teammate@example.com", "role": "direct_member", "teamIds": ["uuid"] }
+Response: { "id": "uuid", "state": "pending", "expiresAt": "2026-05-07T00:00:00Z" }
+Error: { "error": { "code": "rate_limited", "message": "Organization invitation limit reached" } }
+```
+
+```http
+PATCH /api/orgs/{org}/members/{username}
+Request: { "role": "admin", "public": false }
+Response: { "username": "mona", "role": "admin", "public": false }
+Error: { "error": { "code": "last_owner", "message": "An organization must keep at least one owner" } }
+```
+
+```http
+GET /api/orgs/{org}/teams?page=1&pageSize=50
+Response: {
+  "items": [{ "id": "uuid", "slug": "platform", "name": "Platform", "privacy": "closed", "membersCount": 5, "reposCount": 8, "parentTeam": null }],
+  "total": 1,
+  "page": 1,
+  "pageSize": 50
+}
+Error: { "error": { "code": "forbidden", "message": "Organization member access required" } }
+```
+
+```http
+POST /api/orgs/{org}/teams
+Request: { "name": "Platform", "description": "Core platform maintainers", "parentTeamId": null, "privacy": "closed", "notificationSetting": "notifications_enabled" }
+Response: { "id": "uuid", "slug": "platform", "name": "Platform", "privacy": "closed", "notificationSetting": "notifications_enabled" }
+Error: { "error": { "code": "validation_failed", "message": "Secret teams cannot be nested" } }
+```
+
+```http
+GET /api/orgs/{org}/settings/member-privileges
+Response: {
+  "defaultRepositoryPermission": "read",
+  "membersCanCreatePublicRepositories": true,
+  "membersCanCreatePrivateRepositories": true,
+  "allowPrivateRepositoryForking": false,
+  "readersCanCreateDiscussions": true,
+  "membersCanCreateTeams": false,
+  "projectsBasePermission": "write",
+  "pagesCreation": { "public": true, "private": false }
+}
+Error: { "error": { "code": "forbidden", "message": "Organization owner access required" } }
+```
+
+```http
+PATCH /api/orgs/{org}/settings/member-privileges
+Request: { "defaultRepositoryPermission": "read", "membersCanCreatePublicRepositories": false, "membersCanCreatePrivateRepositories": true }
+Response: { "updated": true }
+Error: { "error": { "code": "policy_locked", "message": "This setting is enforced by a higher-level policy" } }
+```
 
 ## Backend Architecture
 
@@ -1726,6 +1880,13 @@ More endpoint examples must be completed after feature-page inspection.
 - SSH keys should not enable visible SSH clone URLs until SSH Git transport is implemented. HTTPS clone with PAT remains the MVP credential path.
 - Security log/audit export can expose sensitive metadata; restrict export to the account owner, apply pagination/rate limits, and redact token values, secrets, and session cookies.
 - Session revocation must refuse to revoke the current session through bulk/row actions unless the UI explicitly signs the user out; revoked session tokens must be invalidated server-side immediately.
+- Organization slugs must be globally unique and must reject reserved system words and GitHub/opengithub lookalikes server-side, regardless of client-side normalization.
+- Organization creation should not include billing or paid-plan checkout in MVP. Keep plan selection to Free/internal defaults unless billing is explicitly added later.
+- Organization invitations must expire, be cancelable, and be rate-limited. SES invite email failures should leave the invitation in a retryable failed state rather than silently dropping it.
+- Organization membership mutations must preserve at least one active owner and must not allow outside collaborators to be added to teams.
+- Team nesting must enforce one parent per child, no cycles, and no nested secret teams. Cascaded permissions must be evaluated by repository authorization, PR review request, and team mention paths.
+- Organization base repository permission and repository creation policy must be enforced by Rust API and Git endpoints. Repository create UI restrictions are advisory only.
+- Organization settings pages may expose sensitive members, invites, policies, audit logs, and tokens; every organization settings route requires owner or policy-specific admin permission.
 
 ## Build Order
 

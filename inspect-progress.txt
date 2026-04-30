@@ -474,3 +474,42 @@ Key findings:
 
 Next recommended iteration:
 - Inspect organization/team admin (`/organizations/new`, `/orgs/{org}/settings/*`, team pages) including org creation, people/team management, member privileges, repository defaults, and organization-level Actions/webhooks where accessible.
+
+Iteration 15 completed on 2026-04-30.
+
+Scope inspected: organization/team administration (`/organizations/new`, `/organizations/{org}/settings/profile`, `/orgs/{org}/people`, `/orgs/{org}/teams`, `/orgs/{org}/teams/new`, `/organizations/{org}/settings/member_privileges`).
+
+What was done:
+- Read prior progress, inspect strategy, Ever browser skill instructions, stack config, sitemap.md, build-spec.md, current prd.json, and scraped GitHub docs for organization invitations, organization teams, repository creation policies, and base permissions.
+- Ran the required `ever snapshot`; Ever was authenticated and returned the signed-in dashboard snapshot.
+- Navigated with Ever through organization creation, organization profile settings, people/member management, invite member dialog, teams empty state, new team form, and member privileges.
+- Captured screenshots:
+  - ralph/screenshots/inspect/org-create-plan-picker.jpg
+  - ralph/screenshots/inspect/org-create-form.jpg
+  - ralph/screenshots/inspect/org-settings-profile.jpg
+  - ralph/screenshots/inspect/org-people-members.jpg
+  - ralph/screenshots/inspect/org-invite-member-dialog.jpg
+  - ralph/screenshots/inspect/org-teams-empty.jpg
+  - ralph/screenshots/inspect/org-team-new-form.jpg
+  - ralph/screenshots/inspect/org-member-privileges.jpg
+- Tested non-destructive interactions: clicked the Free organization CTA, typed an organization name/contact email and observed slug normalization plus reserved-keyword validation, opened the invite-member dialog, opened the new-team form, and inspected live member-privilege controls without saving changes.
+- Used non-destructive `gh api` checks for `namuh-eng` organization metadata, members, and teams: default repository permission is read, public/private repository creation is enabled, two members exist, and no teams exist.
+- Updated build-spec.md with Organization And Team Administration UI, behavior, data models, API examples, backend/cloud mapping, and constraints.
+- Updated sitemap.md to mark organization/team admin as completed.
+- Appended focused PRD entries:
+  - org-admin-001 organization creation plan picker/setup form
+  - org-admin-002 organization profile/settings shell
+  - org-admin-003 people, invitations, membership roles/visibility/export
+  - org-admin-004 teams list/new team/nesting/notifications
+  - org-admin-005 member privileges and organization repository policy
+
+Key findings:
+- Organization creation starts with a plan picker, then a compact setup form. Names are normalized to URL slugs and validated live; reserved-keyword checks must also be enforced in Rust.
+- Organization settings are a dense grouped settings shell with context switcher and many owner-only routes; opengithub should omit billing/payment pages under current scope.
+- People admin has member/outsider/invitation/security-manager tabs, search, export, bulk selection, invite dialog, role/visibility controls, 2FA state, and removal/role confirmation dialogs.
+- Teams are empty-state driven when none exist. New teams require name, optional description, parent team, visibility, and notification settings. Secret teams cannot be nested; team permissions and mentions cascade from parent teams.
+- Member privileges are independent policy cards for base repository permissions, repository creation, private forking, discussions, projects, Pages, app requests, visibility/delete/transfer controls, issue deletion, and team creation.
+- Organization policy must be enforced by Rust API/Git/PR/Pages/Actions paths, not just by disabling UI controls.
+
+Next recommended iteration:
+- Inspect branch/commit history details (`/{owner}/{repo}/commits/{branch}`, `/commit/{sha}`, branches list, compare commit views) including signatures, checks, file diffs, comments, and branch metadata.
