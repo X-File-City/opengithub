@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-
 export type AuthUser = {
   id: string;
   email: string;
@@ -42,9 +40,9 @@ export function googleStartUrl(nextPath: string): string {
   return url.toString();
 }
 
-export async function getSession(): Promise<AuthSession> {
-  const requestHeaders = await headers();
-  const cookie = requestHeaders.get("cookie");
+export async function getSessionFromCookie(
+  cookie: string | null | undefined,
+): Promise<AuthSession> {
   const response = await fetch(`${apiBaseUrl()}/api/auth/me`, {
     headers: cookie ? { cookie } : undefined,
     cache: "no-store",
@@ -55,6 +53,12 @@ export async function getSession(): Promise<AuthSession> {
   }
 
   return (await response.json()) as AuthSession;
+}
+
+export async function getSessionFromHeaders(
+  requestHeaders: Headers,
+): Promise<AuthSession> {
+  return getSessionFromCookie(requestHeaders.get("cookie"));
 }
 
 export async function logout(cookie: string | null): Promise<string | null> {

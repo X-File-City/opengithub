@@ -1,7 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import LoginPage from "@/app/login/page";
+import { AppShell } from "@/components/AppShell";
 import { googleStartUrl, sanitizeNextPath } from "@/lib/api";
+import {
+  isProtectedPath,
+  loginRedirectUrl,
+  preservedNextPath,
+} from "@/lib/protected-routes";
 
 vi.mock("next/headers", () => ({
   headers: vi.fn(),
@@ -53,6 +59,71 @@ describe("login page", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Google sign-in could not be completed",
+    );
+  });
+});
+
+describe("protected app routes", () => {
+  it("matches authenticated app paths without capturing public pages", () => {
+    expect(isProtectedPath("/dashboard")).toBe(true);
+    expect(isProtectedPath("/dashboard/activity")).toBe(true);
+    expect(isProtectedPath("/new")).toBe(true);
+    expect(isProtectedPath("/settings/profile")).toBe(true);
+    expect(isProtectedPath("/octo/hello/settings/hooks")).toBe(true);
+    expect(isProtectedPath("/login")).toBe(false);
+    expect(isProtectedPath("/octo/hello")).toBe(false);
+  });
+
+  it("preserves protected destinations in the login redirect", () => {
+    const request = {
+      url: "http://localhost:3015/dashboard?tab=activity",
+      nextUrl: new URL("http://localhost:3015/dashboard?tab=activity"),
+    };
+
+    expect(preservedNextPath(request)).toBe("/dashboard?tab=activity");
+    expect(loginRedirectUrl(request).toString()).toBe(
+      "http://localhost:3015/login?next=%2Fdashboard%3Ftab%3Dactivity",
+    );
+  });
+});
+
+describe("app shell", () => {
+  it("renders the signed-in avatar menu and sign-out affordance", () => {
+    render(
+      <AppShell
+        session={{
+          authenticated: true,
+          user: {
+            id: "user-1",
+            email: "mona@example.com",
+            display_name: "Mona Lisa",
+            avatar_url: null,
+          },
+        }}
+      >
+        <p>Dashboard content</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByText("Dashboard content")).toBeInTheDocument();
+    expect(screen.getAllByText("Mona Lisa")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Sign out" })).toHaveAttribute(
+      "href",
+      "/logout",
+    );
+  });
+
+  it("renders a sign-in CTA for anonymous public shells", () => {
+    render(
+      <AppShell session={{ authenticated: false, user: null }}>
+        <p>Public content</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByText("Public content")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
     );
   });
 });

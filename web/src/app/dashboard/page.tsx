@@ -1,29 +1,26 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/api";
+import { AppShell } from "@/components/AppShell";
+import { getSession } from "@/lib/server-session";
 
 export default async function DashboardPage() {
   const session = await getSession();
 
   if (!session.authenticated || !session.user) {
-    redirect("/login?next=/dashboard");
+    return (
+      <AppShell session={session}>
+        <section className="mx-auto max-w-6xl px-6 py-8">
+          <div
+            className="rounded-md border border-[#f1aeb5] bg-[#fff1f3] px-4 py-3 text-sm text-[#82071e]"
+            role="alert"
+          >
+            Your session could not be verified. Sign in again to continue.
+          </div>
+        </section>
+      </AppShell>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      <header className="border-b border-[#d0d7de] bg-[#24292f] px-6 py-3 text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link className="text-base font-semibold" href="/dashboard">
-            opengithub
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <span>{session.user.display_name ?? session.user.email}</span>
-            <a className="hover:underline" href="/logout">
-              Sign out
-            </a>
-          </nav>
-        </div>
-      </header>
+    <AppShell session={session}>
       <section className="mx-auto max-w-6xl px-6 py-8">
         <p className="text-sm text-[#59636e]">Signed in as</p>
         <h1 className="mt-1 text-2xl font-semibold text-[#1f2328]">
@@ -39,6 +36,6 @@ export default async function DashboardPage() {
           </p>
         </div>
       </section>
-    </main>
+    </AppShell>
   );
 }

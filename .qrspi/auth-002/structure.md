@@ -40,7 +40,7 @@
 
 ## Phase 3: Next.js Middleware and Protected App Shell - UI routes share one session gate
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Move protected-page gating out of individual pages into Next.js middleware and add a reusable signed-in app shell with avatar/menu and unauthenticated sign-in CTA behavior.
 

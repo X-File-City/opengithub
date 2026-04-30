@@ -135,3 +135,15 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_authz -- --nocapture` passed; `.scratch/repository-authz-scenario.sh` passed against local Postgres; `make check` passed; `make test` passed.
 - Browser smoke test skipped because this phase is backend-only and changed no UI surface.
 - Marked Phase 2 as done in `.qrspi/auth-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
+
+2026-04-30 - auth-002 phase 3 Next.js proxy and protected app shell
+
+- Implemented Phase 3 from `.qrspi/auth-002/structure.md`: added the Next.js 16 `web/src/proxy.ts` auth wall for `/dashboard`, `/new`, `/notifications`, `/settings`, and repository settings paths.
+- Split session fetch helpers so proxy code can call `GET /api/auth/me` with forwarded cookies without importing `next/headers`; server components now use `web/src/lib/server-session.ts`.
+- Added `web/src/components/AppShell.tsx` with GitHub-style signed-in avatar/menu/sign-out affordance plus anonymous sign-in CTA state.
+- Simplified `web/src/app/dashboard/page.tsx` to render inside the shared shell and rely on the proxy for anonymous redirects while keeping a defensive degraded-session message.
+- Added Vitest coverage for protected-path matching, next-path preservation, login redirect construction, and signed-in/anonymous shell rendering; updated E2E redirect assertion for encoded `next`.
+- Verification: `make check` passed; `make test` passed; `make test-e2e` passed.
+- Browser smoke: started `make dev`, verified `/dashboard` redirects to `/login?next=%2Fdashboard`, `/new` redirects to `/login?next=%2Fnew`, public home still exposes a working Sign in CTA, and saved `ralph/screenshots/build/auth-002-phase3-proxy-login.jpg`.
+- Authenticated browser shell was not smoke-tested because `.env` has no `DATABASE_URL` or `TEST_DATABASE_URL`; unit coverage verifies the signed-in shell state and real-session browser QA remains for Phase 4.
+- Marked Phase 3 as done in `.qrspi/auth-002/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.

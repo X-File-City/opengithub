@@ -5,7 +5,7 @@ test("anonymous dashboard requests redirect to the login card", async ({
 }) => {
   await page.goto("/dashboard");
 
-  await expect(page).toHaveURL(/\/login\?next=\/dashboard$/);
+  await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
   await expect(
     page.getByRole("heading", { name: "Sign in to opengithub" }),
   ).toBeVisible();

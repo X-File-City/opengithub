@@ -181,5 +181,23 @@
       "Public repository reads currently require an authenticated session at the route layer; revisit anonymous public read behavior when public repository pages ship",
       "Team access is represented by repository_permissions rows with source=team; a dedicated team-to-repository grant table is not modeled yet"
     ]
+  },
+  {
+    "feature_id": "auth-002",
+    "tests_written": [
+      "Next.js proxy gates /dashboard, /new, /notifications, /settings, and repository settings paths through GET /api/auth/me",
+      "protected-route helpers preserve next paths such as /dashboard?tab=activity in the login redirect",
+      "shared AppShell renders signed-in avatar/menu/sign-out affordance and anonymous sign-in CTA states",
+      "dashboard page renders inside the shared shell and handles degraded session responses defensively",
+      "Playwright E2E covers anonymous /dashboard redirect through the proxy auth wall",
+      "Ever browser smoke verified /dashboard and /new redirect to login with preserved next values; screenshot saved to ralph/screenshots/build/auth-002-phase3-proxy-login.jpg",
+      "make check, make test, and make test-e2e passed"
+    ],
+    "needs_deeper_qa": [
+      "Authenticated browser rendering of /dashboard with a real Postgres-backed Google session was not smoke-tested because local .env has no DATABASE_URL or TEST_DATABASE_URL",
+      "Real Google OAuth callback with TEST_ACCOUNT_EMAIL should verify that the proxy allows the session through to the signed-in shell",
+      "Future repository creation and settings pages should add page-specific smoke coverage once those pages exist",
+      "Next 16 uses proxy.ts for middleware behavior; QA should look for proxy auth-wall regressions rather than a middleware.ts file"
+    ]
   }
 ]
