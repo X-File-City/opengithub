@@ -924,3 +924,11 @@
 - Browser smoke: started `make dev`, captured `ralph/screenshots/build/marketing-001-home.jpg`, and stopped the dev processes.
 - Verification: `make check` passed; `make test` passed with 113 web tests plus cargo tests; `make test-e2e` passed with 18 Playwright tests; the mandatory Editorial banned-value grep check passed.
 - Set `marketing-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - issues-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `web/AGENTS.md`, `build-progress.txt`, the first incomplete `prd.json` entry, current issue API/domain code, current repository issue placeholder route, `RepositoryShell`, existing QRSPI outlines, and the Editorial Issues reference in `design/project/og-screens-4.jsx`.
+- Determined `issues-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/issues-001/structure.md` did not exist.
+- Added `.qrspi/issues-001/structure.md` with five independently verifiable vertical phases: issue-list API contract, default repository issue list UI, URL filters/empty states, persisted contributor-banner preferences, and final guardrails/QA handoff.
+- Did not change `prd.json`; `issues-001.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
