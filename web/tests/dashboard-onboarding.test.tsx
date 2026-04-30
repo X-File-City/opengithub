@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST as dismissHintRoute } from "@/app/dashboard/onboarding/hints/[hintKey]/route";
 import { DashboardOnboarding } from "@/components/DashboardOnboarding";
 import type {
+  DashboardActivityItem,
   DashboardHintDismissal,
+  DashboardIssueSummary,
+  DashboardReviewRequest,
   DashboardSummary,
   DashboardTopRepository,
   RepositorySummary,
@@ -60,13 +63,63 @@ function dismissedHint(hintKey: string): DashboardHintDismissal {
   };
 }
 
+function activity(
+  overrides: Partial<DashboardActivityItem> = {},
+): DashboardActivityItem {
+  return {
+    id: "activity-1",
+    kind: "issue",
+    title: "Triage repository import failures",
+    repositoryName: "mona/octo-app",
+    repositoryHref: "/mona/octo-app",
+    href: "/mona/octo-app/issues/7",
+    occurredAt: "2026-04-30T12:30:00Z",
+    description: "Issue #7 is open",
+    ...overrides,
+  };
+}
+
+function assignedIssue(
+  overrides: Partial<DashboardIssueSummary> = {},
+): DashboardIssueSummary {
+  return {
+    id: "assigned-issue-1",
+    title: "Fix failing setup workflow",
+    repositoryName: "mona/octo-app",
+    number: 11,
+    href: "/mona/octo-app/issues/11",
+    updatedAt: "2026-04-30T11:00:00Z",
+    ...overrides,
+  };
+}
+
+function reviewRequest(
+  overrides: Partial<DashboardReviewRequest> = {},
+): DashboardReviewRequest {
+  return {
+    id: "review-request-1",
+    title: "Add dashboard activity feed",
+    repositoryName: "mona/octo-app",
+    number: 12,
+    href: "/mona/octo-app/pull/12",
+    updatedAt: "2026-04-30T10:00:00Z",
+    ...overrides,
+  };
+}
+
 function dashboardSummary({
   repositories = [],
   topRepositories,
+  recentActivity = [],
+  assignedIssues = [],
+  reviewRequests = [],
   dismissedHints = [],
 }: {
   repositories?: RepositorySummary[];
   topRepositories?: DashboardTopRepository[];
+  recentActivity?: DashboardActivityItem[];
+  assignedIssues?: DashboardIssueSummary[];
+  reviewRequests?: DashboardReviewRequest[];
   dismissedHints?: DashboardHintDismissal[];
 } = {}): DashboardSummary {
   const sidebarRepositories =
@@ -98,9 +151,9 @@ function dashboardSummary({
       pageSize: 30,
     },
     hasRepositories: repositories.length > 0,
-    recentActivity: [],
-    assignedIssues: [],
-    reviewRequests: [],
+    recentActivity,
+    assignedIssues,
+    reviewRequests,
     dismissedHints,
   };
 }
@@ -298,6 +351,60 @@ describe("dashboard onboarding", () => {
     expect(screen.getByText("Recent activity")).toBeInTheDocument();
     expect(screen.getByText("Assigned issues")).toBeInTheDocument();
     expect(screen.getByText("Review requests")).toBeInTheDocument();
+  });
+
+  it("renders the non-empty activity feed from dashboard API rows", () => {
+    render(
+      <DashboardOnboarding
+        summary={dashboardSummary({
+          repositories: [repository()],
+          topRepositories: [topRepository()],
+          recentActivity: [
+            activity({
+              kind: "commit",
+              title: "Wire dashboard feed",
+              href: "/mona/octo-app/commit/abcdef1",
+              description: "Commit abcdef1 on main",
+            }),
+            activity({
+              id: "activity-2",
+              kind: "pull_request",
+              title: "Ship dashboard rail",
+              href: "/mona/octo-app/pull/12",
+              description: "Pull request #12 is open",
+            }),
+          ],
+          assignedIssues: [assignedIssue()],
+          reviewRequests: [reviewRequest()],
+        })}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Start building on opengithub" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Recent activity" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Wire dashboard feed" }),
+    ).toHaveAttribute("href", "/mona/octo-app/commit/abcdef1");
+    expect(screen.getByText("Commit abcdef1 on main")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ship dashboard rail" }),
+    ).toHaveAttribute("href", "/mona/octo-app/pull/12");
+    expect(
+      screen.getByRole("link", { name: "Fix failing setup workflow" }),
+    ).toHaveAttribute("href", "/mona/octo-app/issues/11");
+    expect(
+      screen.getByText(/mona\/octo-app #11 .* Assigned Apr 30/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Add dashboard activity feed" }),
+    ).toHaveAttribute("href", "/mona/octo-app/pull/12");
+    expect(
+      screen.getByText(/mona\/octo-app #12 .* Review requested Apr 30/i),
+    ).toBeInTheDocument();
   });
 
   it("filters top repositories client-side without changing the New destination", () => {

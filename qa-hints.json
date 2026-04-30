@@ -370,5 +370,23 @@
       "The main feed still duplicates repository links outside the sidebar; this is expected until dashboard-001 Phase 3 replaces it with the fuller activity feed",
       "Mobile stacking and dead-action guardrails remain for dashboard-001 Phase 4"
     ]
+  },
+  {
+    "feature_id": "dashboard-001",
+    "tests_written": [
+      "GET /api/dashboard now populates recentActivity from real visible repositories, commits, issues, and pull requests with permission-scoped hrefs",
+      "GET /api/dashboard now populates assignedIssues from issue_assignees and reviewRequests from open PRs authored by other users in repositories the current user can read",
+      "Postgres-backed dashboard_summary tests cover commit/issue/PR feed rows, assigned issue links, review request links, and no leakage from another user's private repository",
+      "Vitest dashboard tests cover the non-empty main feed, activity links, assigned issue rows, review request rows, and absence of first-run welcome copy",
+      "Playwright dashboard E2E seeds a real signed Postgres session with repository, commit, issue, and PR activity and verifies the visible feed rows",
+      "make check, make test, and make test-e2e passed",
+      "Browser smoke used a real Rust-signed Postgres session and saved ralph/screenshots/build/dashboard-001-phase3-main-feed.jpg"
+    ],
+    "needs_deeper_qa": [
+      "Repeat signed-in feed verification through real Google OAuth with TEST_ACCOUNT_EMAIL after the Google consent/test-user setup is confirmed",
+      "Review request data currently means open PRs by another author in accessible repositories; requested-reviewer tables are not modeled yet",
+      "Recent activity currently derives from repository metadata, commits, issues, and PRs; comments/reactions/timeline-specific activity should be retested when those feeds become visible",
+      "Mobile viewport screenshots and dead-action checks are intentionally left for dashboard-001 Phase 4"
+    ]
   }
 ]

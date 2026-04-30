@@ -70,6 +70,21 @@ test("signed-in dashboard filters top repositories and navigates rows", async ({
   await expect(newRepositoryLink).toHaveAttribute("href", "/new");
   await expect(page.getByText("Rust")).toBeVisible();
   await expect(page.getByText("TypeScript")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Recent activity" }),
+  ).toBeVisible();
+  const recentActivity = page.locator(
+    'section[aria-labelledby="recent-activity-heading"]',
+  );
+  await expect(
+    recentActivity.getByRole("link", { name: "Wire dashboard activity feed" }),
+  ).toBeVisible();
+  await expect(
+    recentActivity.getByRole("link", { name: "Fix dashboard setup workflow" }),
+  ).toBeVisible();
+  await expect(
+    recentActivity.getByRole("link", { name: "Add signed-in dashboard feed" }),
+  ).toBeVisible();
 
   const topRepositories = page.getByRole("complementary", {
     name: "Top repositories",

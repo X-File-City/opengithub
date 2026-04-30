@@ -40,7 +40,7 @@
 
 ## Phase 3: Main Feed Layout - non-empty dashboard renders the fluid activity column
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Bring the main dashboard column up to the PRD shape: max 720px activity feed, stacked cards, non-empty repository activity placeholders, and optional right rail only on wide screens.
 

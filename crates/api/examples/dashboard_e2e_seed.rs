@@ -4,6 +4,9 @@ use opengithub_api::{
     config::{AppConfig, AuthConfig},
     domain::{
         identity::{upsert_session, upsert_user_by_email},
+        issues::{create_issue, CreateIssue},
+        permissions::RepositoryRole,
+        pulls::{create_pull_request, CreatePullRequest},
         repositories::{
             create_repository, CreateRepository, RepositoryOwner, RepositoryVisibility,
         },
@@ -66,6 +69,13 @@ async fn main() -> anyhow::Result<()> {
         .bind(user.id)
         .execute(&pool)
         .await?;
+    let reviewer = upsert_user_by_email(
+        &pool,
+        &format!("reviewer-{suffix}@opengithub.local"),
+        Some("Review Author"),
+        None,
+    )
+    .await?;
 
     let first_repository_name = format!("alpha-{}", &suffix[..12]);
     let second_repository_name = format!("infra-{}", &suffix[..12]);
@@ -107,6 +117,57 @@ async fn main() -> anyhow::Result<()> {
     .bind(user.id)
     .bind(second_repository.id)
     .execute(&pool)
+    .await?;
+    sqlx::query(
+        r#"
+        INSERT INTO repository_permissions (repository_id, user_id, role, source)
+        VALUES ($1, $2, $3, 'direct')
+        ON CONFLICT (repository_id, user_id)
+        DO UPDATE SET role = EXCLUDED.role
+        "#,
+    )
+    .bind(first_repository.id)
+    .bind(reviewer.id)
+    .bind(RepositoryRole::Write.as_str())
+    .execute(&pool)
+    .await?;
+    sqlx::query(
+        r#"
+        INSERT INTO commits (repository_id, oid, author_user_id, committer_user_id, message, committed_at)
+        VALUES ($1, $2, $3, $3, 'Wire dashboard activity feed', now())
+        ON CONFLICT (repository_id, oid) DO NOTHING
+        "#,
+    )
+    .bind(first_repository.id)
+    .bind(format!("{}abcdef", &suffix[..16]))
+    .bind(user.id)
+    .execute(&pool)
+    .await?;
+    create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: first_repository.id,
+            actor_user_id: user.id,
+            title: "Fix dashboard setup workflow".to_owned(),
+            body: None,
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![user.id],
+        },
+    )
+    .await?;
+    create_pull_request(
+        &pool,
+        CreatePullRequest {
+            repository_id: first_repository.id,
+            actor_user_id: reviewer.id,
+            title: "Add signed-in dashboard feed".to_owned(),
+            body: None,
+            head_ref: "dashboard-feed".to_owned(),
+            base_ref: "main".to_owned(),
+            head_repository_id: None,
+        },
+    )
     .await?;
 
     let session_id = Uuid::new_v4().to_string();

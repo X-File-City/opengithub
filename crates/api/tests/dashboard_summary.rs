@@ -8,7 +8,10 @@ use opengithub_api::{
     config::{AppConfig, AuthConfig},
     domain::{
         identity::{upsert_session, upsert_user_by_email, User},
+        issues::{create_issue, CreateIssue},
         onboarding::dismiss_dashboard_hint,
+        permissions::RepositoryRole,
+        pulls::{create_pull_request, CreatePullRequest},
         repositories::{
             create_repository, CreateRepository, RepositoryOwner, RepositoryVisibility,
         },
@@ -429,4 +432,177 @@ async fn dashboard_summary_filters_top_repositories_without_leaking_private_repo
     assert_eq!(body["topRepositories"]["total"], 1);
     assert_eq!(body["topRepositories"]["items"][0]["name"], visible_name);
     assert!(!body.to_string().contains("hidden-match"));
+}
+
+#[tokio::test]
+async fn dashboard_summary_populates_activity_assignments_and_review_requests() {
+    let Some(pool) = database_pool().await else {
+        eprintln!(
+            "skipping Postgres dashboard summary scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
+        return;
+    };
+
+    let config = app_config();
+    let user = create_user(&pool, "dashboard-feed").await;
+    let reviewer = create_user(&pool, "dashboard-review-author").await;
+    let hidden_user = create_user(&pool, "dashboard-feed-hidden").await;
+    let cookie = cookie_header(&pool, &config, &user).await;
+    let repo_name = format!("feed-{}", Uuid::new_v4().simple());
+    let hidden_repo_name = format!("hidden-feed-{}", Uuid::new_v4().simple());
+
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: user.id },
+            name: repo_name.clone(),
+            description: Some("Dashboard activity source".to_owned()),
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: user.id,
+        },
+    )
+    .await
+    .expect("repository should create");
+    create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: hidden_user.id },
+            name: hidden_repo_name.clone(),
+            description: Some("Hidden dashboard activity".to_owned()),
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: hidden_user.id,
+        },
+    )
+    .await
+    .expect("hidden repository should create");
+    sqlx::query(
+        r#"
+        INSERT INTO repository_permissions (repository_id, user_id, role, source)
+        VALUES ($1, $2, $3, 'direct')
+        ON CONFLICT (repository_id, user_id)
+        DO UPDATE SET role = EXCLUDED.role
+        "#,
+    )
+    .bind(repository.id)
+    .bind(reviewer.id)
+    .bind(RepositoryRole::Write.as_str())
+    .execute(&pool)
+    .await
+    .expect("review author should receive repository write access");
+
+    sqlx::query(
+        r#"
+        INSERT INTO commits (repository_id, oid, author_user_id, committer_user_id, message, committed_at)
+        VALUES ($1, 'abcdef1234567890', $2, $2, $3, '2026-04-30T12:00:00Z'::timestamptz)
+        "#,
+    )
+    .bind(repository.id)
+    .bind(user.id)
+    .bind("Wire dashboard feed\n\nBody")
+    .execute(&pool)
+    .await
+    .expect("commit should insert");
+
+    let assigned_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: user.id,
+            title: "Fix failing setup workflow".to_owned(),
+            body: None,
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![user.id],
+        },
+    )
+    .await
+    .expect("assigned issue should create");
+    let review_request = create_pull_request(
+        &pool,
+        CreatePullRequest {
+            repository_id: repository.id,
+            actor_user_id: reviewer.id,
+            title: "Add dashboard activity feed".to_owned(),
+            body: None,
+            head_ref: "feed-layout".to_owned(),
+            base_ref: "main".to_owned(),
+            head_repository_id: None,
+        },
+    )
+    .await
+    .expect("pull request should create");
+
+    sqlx::query(
+        r#"
+        UPDATE issues
+        SET updated_at = CASE
+            WHEN id = $1 THEN '2026-04-30T11:00:00Z'::timestamptz
+            WHEN id = $2 THEN '2026-04-30T10:30:00Z'::timestamptz
+            ELSE updated_at
+        END
+        WHERE id IN ($1, $2)
+        "#,
+    )
+    .bind(assigned_issue.id)
+    .bind(review_request.issue.id)
+    .execute(&pool)
+    .await
+    .expect("issue timestamps should update");
+    sqlx::query(
+        "UPDATE pull_requests SET updated_at = '2026-04-30T10:30:00Z'::timestamptz WHERE id = $1",
+    )
+    .bind(review_request.pull_request.id)
+    .execute(&pool)
+    .await
+    .expect("pull request timestamp should update");
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let (status, body) = send_json(app, "/api/dashboard", Some(&cookie)).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["recentActivity"][0]["kind"], "commit");
+    assert_eq!(body["recentActivity"][0]["title"], "Wire dashboard feed");
+    assert_eq!(
+        body["recentActivity"][0]["repositoryName"],
+        format!("{}/{}", user.email, repo_name)
+    );
+    assert_eq!(
+        body["recentActivity"][0]["href"],
+        format!("/{}/{}/commit/abcdef1234567890", user.email, repo_name)
+    );
+    assert!(body["recentActivity"]
+        .as_array()
+        .expect("activity should be an array")
+        .iter()
+        .any(|item| item["title"] == "Fix failing setup workflow"));
+    assert_eq!(
+        body["assignedIssues"][0]["title"],
+        "Fix failing setup workflow"
+    );
+    assert_eq!(body["assignedIssues"][0]["number"], assigned_issue.number);
+    assert_eq!(
+        body["assignedIssues"][0]["href"],
+        format!(
+            "/{}/{}/issues/{}",
+            user.email, repo_name, assigned_issue.number
+        )
+    );
+    assert_eq!(
+        body["reviewRequests"][0]["title"],
+        "Add dashboard activity feed"
+    );
+    assert_eq!(
+        body["reviewRequests"][0]["number"],
+        review_request.pull_request.number
+    );
+    assert_eq!(
+        body["reviewRequests"][0]["href"],
+        format!(
+            "/{}/{}/pull/{}",
+            user.email, repo_name, review_request.pull_request.number
+        )
+    );
+    assert!(!body.to_string().contains(&hidden_repo_name));
 }

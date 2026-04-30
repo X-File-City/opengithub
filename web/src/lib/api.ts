@@ -57,10 +57,39 @@ export type DashboardSummary = {
   repositories: ListEnvelope<RepositorySummary>;
   topRepositories: ListEnvelope<DashboardTopRepository>;
   hasRepositories: boolean;
-  recentActivity: [];
-  assignedIssues: [];
-  reviewRequests: [];
+  recentActivity: DashboardActivityItem[];
+  assignedIssues: DashboardIssueSummary[];
+  reviewRequests: DashboardReviewRequest[];
   dismissedHints: DashboardHintDismissal[];
+};
+
+export type DashboardActivityItem = {
+  id: string;
+  kind: "repository" | "commit" | "issue" | "pull_request" | string;
+  title: string;
+  repositoryName: string;
+  repositoryHref: string;
+  href: string;
+  occurredAt: string;
+  description: string | null;
+};
+
+export type DashboardIssueSummary = {
+  id: string;
+  title: string;
+  repositoryName: string;
+  number: number;
+  href: string;
+  updatedAt: string;
+};
+
+export type DashboardReviewRequest = {
+  id: string;
+  title: string;
+  repositoryName: string;
+  number: number;
+  href: string;
+  updatedAt: string;
 };
 
 export type RenderMarkdownRequest = {

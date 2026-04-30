@@ -264,3 +264,13 @@
 - Verification: `make check` passed; `make test` passed with cargo tests plus 24 frontend tests; `make test-e2e` passed with 13 Playwright tests.
 - Browser smoke: started `make dev`, verified `/docs/highlight` with Ever, confirmed 56 language options, Find, Wrap, Rust language override, line/comment controls, and saved `ralph/screenshots/build/highlight-001-code-viewer-smoke.jpg`.
 - Set `highlight-001.build_pass` to `true` in `prd.json`; `qa_pass` remains untouched for the QA agent.
+
+2026-04-30 - dashboard-001 phase 3 main feed layout
+
+- Implemented Phase 3 from `.qrspi/dashboard-001/structure.md`: the signed-in dashboard now has a constrained main feed column, stacked activity cards, assigned issue rows, and a responsive review-request rail.
+- Extended `GET /api/dashboard` to populate `recentActivity` from permission-scoped repositories, commits, issues, and pull requests; `assignedIssues` from `issue_assignees`; and `reviewRequests` from open PRs authored by another user in readable repositories.
+- Extended `crates/api/examples/dashboard_e2e_seed.rs` so Playwright/browser smoke uses real Postgres-backed commit, issue, and PR activity in addition to sidebar repositories.
+- Added Rust dashboard summary coverage for activity rows, assigned issue links, review request links, and private repository non-leakage; added Vitest coverage for non-empty feed rendering; updated Playwright dashboard E2E to verify feed rows.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 27 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 14 Playwright tests.
+- Browser smoke: started `make dev` with `.env` loaded and local Postgres (`DB_SSL=false`), seeded a real Rust-signed session, verified the non-empty dashboard feed rows and work-item links via `.scratch/dashboard-main-feed-smoke.mjs`, and saved `ralph/screenshots/build/dashboard-001-phase3-main-feed.jpg`.
+- Marked Phase 3 as done in `.qrspi/dashboard-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.
