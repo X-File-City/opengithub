@@ -126,3 +126,12 @@
 - Verification: `cargo test --test auth_route_guard` passed; `.scratch/auth-route-guard-scenario.sh` passed against `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`; `make check` passed; `make test` passed.
 - Browser smoke test skipped because this phase is backend-only and changed no UI surface.
 - Marked Phase 1 as done in `.qrspi/auth-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-4 remain.
+
+2026-04-30 - auth-002 phase 2 repository API authorization
+
+- Implemented Phase 2 from `.qrspi/auth-002/structure.md`: repository list/create/read routes now authenticate through the signed `__Host-session` cookie and no longer trust caller-supplied `user_id` or `created_by_user_id`.
+- Added permission-aware repository reads with public repository access for authenticated users, private repository 403s for non-members, and team-sourced permission support through existing `repository_permissions` rows.
+- Added `crates/api/tests/repository_authz.rs` covering anonymous 401 responses, session-derived repository creation/list/read, private denial, public read success, and team permission success.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_authz -- --nocapture` passed; `.scratch/repository-authz-scenario.sh` passed against local Postgres; `make check` passed; `make test` passed.
+- Browser smoke test skipped because this phase is backend-only and changed no UI surface.
+- Marked Phase 2 as done in `.qrspi/auth-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.

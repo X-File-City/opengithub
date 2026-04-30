@@ -23,7 +23,7 @@
 
 ## Phase 2: Repository API Authorization - repo routes use the session identity and permission graph
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Apply the guard to repository list/create/read routes and enforce read/write/admin permissions using the existing repository, organization, team, and permission tables.
 

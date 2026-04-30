@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::get,
     Json, Router,
 };
@@ -10,8 +10,9 @@ use uuid::Uuid;
 
 use crate::{
     api_types::{database_unavailable, error_response, ErrorEnvelope},
+    auth::extractor::AuthenticatedUser,
     domain::repositories::{
-        create_repository, get_repository_by_owner_name, list_repositories_for_user,
+        create_repository, get_repository_for_actor_by_owner_name, list_repositories_for_user,
         CreateRepository, RepositoryError, RepositoryOwner, RepositoryVisibility,
     },
     AppState,
@@ -26,7 +27,6 @@ pub fn router() -> Router<AppState> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ListQuery {
-    user_id: Uuid,
     page: Option<i64>,
     page_size: Option<i64>,
 }
@@ -40,7 +40,6 @@ struct CreateRepositoryRequest {
     description: Option<String>,
     visibility: Option<RepositoryVisibility>,
     default_branch: Option<String>,
-    created_by_user_id: Uuid,
 }
 
 #[derive(Debug, Deserialize)]
@@ -52,12 +51,14 @@ enum OwnerType {
 
 async fn list(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(query): Query<ListQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let envelope = list_repositories_for_user(
         pool,
-        query.user_id,
+        actor.0.id,
         query.page.unwrap_or(1),
         query.page_size.unwrap_or(30),
     )
@@ -69,8 +70,10 @@ async fn list(
 
 async fn create(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<CreateRepositoryRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let owner = match request.owner_type {
         OwnerType::User => RepositoryOwner::User {
@@ -88,7 +91,7 @@ async fn create(
             description: request.description,
             visibility: request.visibility.unwrap_or_default(),
             default_branch: request.default_branch,
-            created_by_user_id: request.created_by_user_id,
+            created_by_user_id: actor.0.id,
         },
     )
     .await
@@ -99,10 +102,12 @@ async fn create(
 
 async fn read(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository = get_repository_by_owner_name(pool, &owner, &repo)
+    let repository = get_repository_for_actor_by_owner_name(pool, actor.0.id, &owner, &repo)
         .await
         .map_err(map_repository_error)?
         .ok_or_else(|| {
@@ -118,11 +123,9 @@ async fn read(
 
 fn map_repository_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelope>) {
     match error {
-        RepositoryError::OwnerPermissionDenied => error_response(
-            StatusCode::FORBIDDEN,
-            "forbidden",
-            "user cannot create repositories for this owner".to_owned(),
-        ),
+        RepositoryError::OwnerPermissionDenied | RepositoryError::PermissionDenied => {
+            error_response(StatusCode::FORBIDDEN, "forbidden", error.to_string())
+        }
         RepositoryError::OwnerNotFound | RepositoryError::NotFound => {
             error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
         }

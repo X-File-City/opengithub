@@ -163,5 +163,23 @@
       "Browser smoke test skipped because this phase is backend-only and changed no UI surface",
       "Real Google-created browser sessions should be rechecked once Next.js middleware and authenticated shell land in later phases"
     ]
+  },
+  {
+    "feature_id": "auth-002",
+    "tests_written": [
+      "anonymous GET /api/repos and POST /api/repos return the standard JSON 401 envelope",
+      "authenticated repository create/list/read derives the actor from the signed __Host-session cookie instead of client-supplied user IDs",
+      "authenticated non-members receive 403 for private repository reads",
+      "authenticated users can read public repositories without explicit repository_permissions rows",
+      "team-sourced repository_permissions grants allow private repository reads",
+      ".scratch/repository-authz-scenario.sh passed against TEST_DATABASE_URL-backed Postgres",
+      "make check and make test passed"
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke test skipped because auth-002 Phase 2 is backend-only and changed no UI surface",
+      "Issue, pull request, and search routes still expose legacy caller-supplied actor query/body fields and need to be converted in their own route-hardening phase",
+      "Public repository reads currently require an authenticated session at the route layer; revisit anonymous public read behavior when public repository pages ship",
+      "Team access is represented by repository_permissions rows with source=team; a dedicated team-to-repository grant table is not modeled yet"
+    ]
   }
 ]

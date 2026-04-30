@@ -141,6 +141,8 @@ pub enum RepositoryError {
     OwnerNotFound,
     #[error("user does not have permission to create repositories for this owner")]
     OwnerPermissionDenied,
+    #[error("user does not have repository access")]
+    PermissionDenied,
     #[error("repository was not found")]
     NotFound,
     #[error("invalid repository visibility `{0}`")]
@@ -301,6 +303,23 @@ pub async fn list_repositories_for_user(
     })
 }
 
+pub async fn get_repository_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+) -> Result<Option<Repository>, RepositoryError> {
+    let Some(repository) = get_repository_by_owner_name(pool, owner_login, name).await? else {
+        return Ok(None);
+    };
+
+    if can_read_repository(pool, &repository, actor_user_id).await? {
+        Ok(Some(repository))
+    } else {
+        Err(RepositoryError::PermissionDenied)
+    }
+}
+
 pub async fn get_repository_by_owner_name(
     pool: &PgPool,
     owner_login: &str,
@@ -416,6 +435,46 @@ pub async fn repository_permission_for_user(
     .await?;
 
     row.map(repository_permission_from_row).transpose()
+}
+
+pub async fn can_read_repository(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<bool, RepositoryError> {
+    if repository.visibility == RepositoryVisibility::Public {
+        return Ok(true);
+    }
+
+    if repository.owner_user_id == Some(actor_user_id) {
+        return Ok(true);
+    }
+
+    if let Some(organization_id) = repository.owner_organization_id {
+        let is_org_member = sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM organization_memberships
+                WHERE organization_id = $1 AND user_id = $2
+            )
+            "#,
+        )
+        .bind(organization_id)
+        .bind(actor_user_id)
+        .fetch_one(pool)
+        .await?;
+
+        if is_org_member && repository.visibility == RepositoryVisibility::Internal {
+            return Ok(true);
+        }
+    }
+
+    Ok(
+        repository_permission_for_user(pool, repository.id, actor_user_id)
+            .await?
+            .is_some_and(|permission| permission.role.can_read()),
+    )
 }
 
 pub async fn insert_commit(
