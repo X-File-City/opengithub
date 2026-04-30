@@ -21,6 +21,13 @@ Google OAuth redirect URIs:
 - Local: `http://localhost:3016/api/auth/google/callback`
 - Production: `https://opengithub.namuh.co/api/auth/google/callback`
 
+## AI provider env contract (ai-001)
+- `OPENAI_API_KEY`: server-side OpenAI key used by the Rust API for ai-001 (AI repo summary, AI PR summary tab, AI changelog). Never expose to the browser. Same provider already used by the Codex build loop.
+- Endpoint: `https://api.openai.com/v1/chat/completions`.
+- Models: `gpt-4o-mini` for cheap calls (repo summary, hover blurbs); `gpt-4o` for PR summaries and changelog generation.
+- Per-user calls are rate-limited via the `api-003` buckets. Caching keyed on `(content_hash, prompt_version, model)`.
+- `scripts/deploy.sh` MUST pass `OPENAI_API_KEY` through to the ECS Fargate task definition alongside `DATABASE_URL`, `SESSION_SECRET`, etc. Treat it like a secret (Secrets Manager / SSM Parameter Store, not a plain env var in the task definition).
+
 ## Repo layout
 ```
 .
