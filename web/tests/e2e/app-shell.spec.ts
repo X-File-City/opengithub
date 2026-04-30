@@ -126,9 +126,23 @@ test("signed-in desktop header menus, links, search, and sign-out work", async (
     path: "../ralph/screenshots/build/layout-001-final-create-menu.jpg",
   });
 
+  await page.getByRole("searchbox", { name: "Search or jump to" }).focus();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(
+    page.getByRole("option", {
+      name: new RegExp(seeded.firstRepositoryHref.slice(1)),
+    }),
+  ).toHaveAttribute("href", seeded.firstRepositoryHref);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/search-001-phase1-header-suggestions.jpg",
+  });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+
   await page.getByRole("searchbox", { name: "Search or jump to" }).fill("rust");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/search\?q=rust$/);
+  await expect(page).toHaveURL(/\/search\?q=rust&type=repositories$/);
   await expect(
     page.getByRole("heading", { name: "Search opengithub" }),
   ).toBeVisible();

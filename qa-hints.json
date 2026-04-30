@@ -1216,5 +1216,21 @@
       "Mobile drawer is covered for visibility, links, and overflow; deeper screen-reader focus-trap and long-name truncation QA should happen in accessibility passes",
       "The prompt-provided rg -nE banned-value command is incompatible with this ripgrep build because -E is encoding; use rg -n -e for the same pattern in local QA"
     ]
+  },
+  {
+    "feature_id": "search-001",
+    "tests_written": [
+      "Implemented Phase 1 header jump suggestions in the signed-in app shell using the existing /api/app-shell recent repositories, organizations, teams, and create links",
+      "Added typed navigation helpers for repository jump hrefs, default repository search hrefs, create suggestions, and query suggestions",
+      "Added Vitest coverage for focus-open suggestions, direct repository/org/team/create links, query suggestion hrefs, Escape close, default type=repositories field, and navigation helper contracts",
+      "Updated Playwright signed-in shell coverage to focus the header search, verify recent repository suggestions, submit Enter to /search?q=rust&type=repositories, and save ralph/screenshots/build/search-001-phase1-header-suggestions.jpg",
+      "Verification passed: make check, make test with 100 frontend tests plus cargo tests, and make test-e2e with 44 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "This phase only implements header suggestions and default search submission; the /search results page still renders the existing skeleton until later search-001 phases",
+      "Keyboard Enter defaults to search unless the user has explicitly highlighted a suggestion with arrow keys or pointer hover; QA should stress this with real browser keyboard flows",
+      "Suggestions are sourced from the shell context only, so recently visited repository ordering and team/org availability should be checked against richer real account data",
+      "Mobile keeps the existing drawer behavior and does not expose the desktop jump popover because the header search field is desktop-only in this phase"
+    ]
   }
 ]

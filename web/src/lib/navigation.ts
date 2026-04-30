@@ -434,6 +434,22 @@ export const SEARCH_TABS = [
   },
 ] as const satisfies readonly QueryTab[];
 
+export type JumpSuggestionKind =
+  | "repository"
+  | "organization"
+  | "team"
+  | "create"
+  | "search";
+
+export type JumpSuggestion = {
+  id: string;
+  kind: JumpSuggestionKind;
+  label: string;
+  description: string;
+  href: string;
+  section: "Jump to" | "Create" | "Search";
+};
+
 export function navigationHrefs() {
   return [
     ...GLOBAL_NAV_ITEMS.map((item) => item.href),
@@ -507,6 +523,47 @@ export function activeSearchType(value: string | null | undefined) {
 
 export function searchTypeHref(type: string, query: string | null | undefined) {
   return queryTabHref("/search", "type", type, { q: query });
+}
+
+export function searchQueryHref(query: string) {
+  return searchTypeHref("repositories", query);
+}
+
+export function repositoryJumpHref(owner: string, repo: string) {
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+}
+
+export function profileHref(owner: string) {
+  return `/${encodeURIComponent(owner)}`;
+}
+
+export function createJumpSuggestions(): JumpSuggestion[] {
+  return CREATE_NAV_ITEMS.map((item) => ({
+    id: `create:${item.href}`,
+    kind: "create",
+    label: item.label,
+    description: item.description,
+    href: item.href,
+    section: "Create",
+  }));
+}
+
+export function queryJumpSuggestions(query: string): JumpSuggestion[] {
+  const normalized = query.trim();
+  if (!normalized) {
+    return [];
+  }
+
+  return [
+    {
+      id: `search:${normalized}`,
+      kind: "search",
+      label: `Search repositories for "${normalized}"`,
+      description: "Press Enter",
+      href: searchQueryHref(normalized),
+      section: "Search",
+    },
+  ];
 }
 
 export function isActivePath(pathname: string, href: string): boolean {

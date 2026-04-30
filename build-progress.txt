@@ -864,3 +864,13 @@
 - Added `.qrspi/search-001/structure.md` with five independently verifiable vertical phases: header jump suggestions, repository/people result rendering, code/commit snippets, issue/PR collaboration results, and final search guardrails/QA handoff.
 - Did not change `prd.json`; `search-001.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-05-01 - search-001 phase 1 header jump suggestions
+
+- Implemented Phase 1 from `.qrspi/search-001/structure.md`: the signed-in desktop header search now opens an Editorial suggestion popover for recent repositories, organizations, teams, create actions, and query suggestions from the existing app-shell context.
+- Added typed navigation helpers in `web/src/lib/navigation.ts` for repository jump hrefs, default repository search hrefs, create suggestions, and query suggestions.
+- Pressing Enter in the header search submits to `/search?q=<query>&type=repositories` by default; arrow/pointer-highlighted suggestions navigate directly to their concrete destination.
+- Added Vitest coverage for focus-open suggestions, direct repository/org/team/create links, query suggestion hrefs, Escape close, default `type=repositories`, and navigation helper contracts.
+- Updated signed-in Playwright shell smoke to verify the suggestion popover, direct recent-repository suggestion href, default search submit URL, and screenshot `ralph/screenshots/build/search-001-phase1-header-suggestions.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 100 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 44 Playwright tests.
+- Marked Phase 1 as done in `.qrspi/search-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

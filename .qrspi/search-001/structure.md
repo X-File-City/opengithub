@@ -6,7 +6,7 @@
 
 ## Phase 1: Header Jump Suggestions - search input opens useful destinations
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the signed-in header's plain search form with an Editorial command-field interaction that opens a suggestion popover for recent repositories, organizations/teams, create actions, and query suggestions. Pressing Enter still submits to `/search?q=<query>&type=repositories`; selecting a repository/user/org suggestion navigates directly.
 

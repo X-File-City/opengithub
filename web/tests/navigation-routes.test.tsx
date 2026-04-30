@@ -8,6 +8,7 @@ import {
   activeSearchType,
   activeSettingsSection,
   CREATE_NAV_ITEMS,
+  createJumpSuggestions,
   GLOBAL_NAV_ITEMS,
   isActivePath,
   navigationHrefs,
@@ -19,10 +20,13 @@ import {
   organizationTeamHref,
   PROFILE_TABS,
   profileTabHref,
+  queryJumpSuggestions,
   REPOSITORY_TABS,
+  repositoryJumpHref,
   repositoryTabHref,
   SEARCH_TABS,
   SETTINGS_NAV_ITEMS,
+  searchQueryHref,
   searchTypeHref,
 } from "@/lib/navigation";
 import { isProtectedPath } from "@/lib/protected-routes";
@@ -149,6 +153,32 @@ describe("navigation route registry", () => {
     expect(searchTypeHref("code", "router guards")).toBe(
       "/search?q=router+guards&type=code",
     );
+    expect(searchQueryHref("router guards")).toBe(
+      "/search?q=router+guards&type=repositories",
+    );
+    expect(repositoryJumpHref("mona lisa", "editorial app")).toBe(
+      "/mona%20lisa/editorial%20app",
+    );
+  });
+
+  it("builds typed header jump suggestions with concrete destinations", () => {
+    expect(createJumpSuggestions()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          href: "/new",
+          kind: "create",
+          section: "Create",
+        }),
+      ]),
+    );
+    expect(queryJumpSuggestions("router guards")).toEqual([
+      expect.objectContaining({
+        href: "/search?q=router+guards&type=repositories",
+        kind: "search",
+        section: "Search",
+      }),
+    ]);
+    expect(queryJumpSuggestions("   ")).toEqual([]);
   });
 
   it("keeps phase 4 skeleton routes concrete without colliding with repository pages", () => {

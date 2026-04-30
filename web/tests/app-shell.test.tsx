@@ -90,6 +90,44 @@ describe("AppShell desktop header", () => {
     expect(
       screen.getByRole("searchbox", { name: "Search or jump to" }),
     ).toHaveAttribute("name", "q");
+    expect(screen.getByDisplayValue("repositories")).toHaveAttribute(
+      "name",
+      "type",
+    );
+  });
+
+  it("opens jump suggestions from shell context and keeps default search typed", () => {
+    renderShell();
+
+    const search = screen.getByRole("searchbox", {
+      name: "Search or jump to",
+    });
+    fireEvent.focus(search);
+
+    expect(screen.getByRole("listbox")).toHaveClass("app-shell-search-popover");
+    expect(
+      screen.getByRole("option", { name: /mona\/editorial/ }),
+    ).toHaveAttribute("href", "/mona/editorial");
+    expect(screen.getByRole("option", { name: /Namuh/ })).toHaveAttribute(
+      "href",
+      "/namuh",
+    );
+    expect(
+      screen.getByRole("option", { name: /namuh\/Platform/ }),
+    ).toHaveAttribute("href", "/orgs/namuh/teams/platform");
+    expect(
+      screen.getByRole("option", { name: /New repository/ }),
+    ).toHaveAttribute("href", "/new");
+
+    fireEvent.change(search, { target: { value: "router guards" } });
+    expect(
+      screen.getByRole("option", {
+        name: /Search repositories for "router guards"/,
+      }),
+    ).toHaveAttribute("href", "/search?q=router+guards&type=repositories");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
   it("opens the global menu with recent repositories, teams, and real links", () => {
