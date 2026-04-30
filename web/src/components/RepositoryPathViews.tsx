@@ -4,6 +4,7 @@ import { RepositoryBlobViewer } from "@/components/RepositoryBlobViewer";
 import { RepositoryTreeBrowser } from "@/components/RepositoryTreeBrowser";
 import type {
   ListEnvelope,
+  RepositoryBlameView,
   RepositoryBlobView,
   RepositoryCommitHistoryItem,
   RepositoryPathBreadcrumb,
@@ -90,7 +91,15 @@ export function RepositoryTreeView({
   );
 }
 
-export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
+export function RepositoryBlobViewPage({
+  blob,
+  initialBlame,
+  initialMode,
+}: {
+  blob: RepositoryBlobView;
+  initialBlame?: RepositoryBlameView | null;
+  initialMode?: "code" | "blame";
+}) {
   return (
     <div>
       <RepositoryPathHeader
@@ -101,7 +110,11 @@ export function RepositoryBlobViewPage({ blob }: { blob: RepositoryBlobView }) {
         <Breadcrumbs breadcrumbs={blob.breadcrumbs} />
       </RepositoryPathHeader>
       <main className="mx-auto max-w-7xl space-y-4 px-6 py-6">
-        <RepositoryBlobViewer blob={blob} />
+        <RepositoryBlobViewer
+          blob={blob}
+          initialBlame={initialBlame}
+          initialMode={initialMode}
+        />
       </main>
     </div>
   );

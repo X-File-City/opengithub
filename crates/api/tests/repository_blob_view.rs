@@ -306,6 +306,27 @@ async fn repository_blob_contract_streams_raw_downloads_and_records_visits() {
         "fn main() {\n    println!(\"hello\");\n}\n"
     );
 
+    let (blame_status, blame_body) = send_json(
+        app.clone(),
+        &format!("{base}/blame/src/main.rs?ref=main"),
+        Some(&reader_cookie),
+    )
+    .await;
+    assert_eq!(blame_status, StatusCode::OK);
+    assert_eq!(blame_body["path"], "src/main.rs");
+    assert_eq!(blame_body["lines"].as_array().unwrap().len(), 3);
+    assert_eq!(blame_body["lines"][0]["lineNumber"], 1);
+    assert_eq!(blame_body["lines"][0]["content"], "fn main() {");
+    assert_eq!(blame_body["lines"][0]["commit"]["message"], "Add blob fixtures");
+    assert!(blame_body["lines"][0]["commit"]["authorLogin"]
+        .as_str()
+        .unwrap()
+        .starts_with("blob-owner-"));
+    assert!(blame_body["lines"][0]["commit"]["href"]
+        .as_str()
+        .unwrap()
+        .contains("/commit/blob-"));
+
     let (binary_status, binary_body) = send_json(
         app.clone(),
         &format!("{base}/blobs/bin/app.bin?ref=main"),
@@ -326,6 +347,15 @@ async fn repository_blob_contract_streams_raw_downloads_and_records_visits() {
     assert_eq!(large_body["renderMode"], "large");
     assert_eq!(large_body["displayContent"], Value::Null);
     assert_eq!(large_body["sizeLabel"], "644.5 KB");
+
+    let (binary_blame_status, binary_blame_body) = send_json(
+        app.clone(),
+        &format!("{base}/blame/bin/app.bin?ref=main"),
+        Some(&owner_cookie),
+    )
+    .await;
+    assert_eq!(binary_blame_status, StatusCode::NOT_FOUND);
+    assert_eq!(binary_blame_body["error"]["code"], "path_not_found");
 
     sqlx::query("UPDATE repositories SET visibility = 'private' WHERE id = $1")
         .bind(repository.id)
@@ -349,6 +379,15 @@ async fn repository_blob_contract_streams_raw_downloads_and_records_visits() {
     .await;
     assert_eq!(private_reader_status, StatusCode::FORBIDDEN);
     assert_eq!(private_reader_body["error"]["code"], "forbidden");
+
+    let (private_blame_status, private_blame_body) = send_json(
+        app.clone(),
+        &format!("{base}/blame/src/main.rs?ref=main"),
+        Some(&reader_cookie),
+    )
+    .await;
+    assert_eq!(private_blame_status, StatusCode::FORBIDDEN);
+    assert_eq!(private_blame_body["error"]["code"], "forbidden");
 
     let (missing_ref_status, missing_ref_body) = send_json(
         app.clone(),

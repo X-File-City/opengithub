@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import {
   type DashboardSummaryQuery,
   getDashboardSummaryFromCookie,
+  getRepositoryBlameFromCookie,
   getRepositoryBlobFromCookie,
   getRepositoryCommitHistoryFromCookie,
   getRepositoryCreationOptionsFromCookie,
@@ -53,6 +54,22 @@ export async function getRepositoryBlob(
 ) {
   const requestHeaders = await headers();
   return getRepositoryBlobFromCookie(
+    requestHeaders.get("cookie"),
+    owner,
+    repo,
+    refName,
+    path,
+  );
+}
+
+export async function getRepositoryBlame(
+  owner: string,
+  repo: string,
+  refName: string,
+  path: string,
+) {
+  const requestHeaders = await headers();
+  return getRepositoryBlameFromCookie(
     requestHeaders.get("cookie"),
     owner,
     repo,

@@ -123,6 +123,25 @@ export type RepositoryBlobView = RepositorySummary & {
   permalinkHref: string;
 };
 
+export type RepositoryBlameCommit = {
+  oid: string;
+  shortOid: string;
+  message: string;
+  href: string;
+  committedAt: string;
+  authorLogin: string | null;
+};
+
+export type RepositoryBlameLine = {
+  lineNumber: number;
+  content: string;
+  commit: RepositoryBlameCommit;
+};
+
+export type RepositoryBlameView = RepositoryBlobView & {
+  lines: RepositoryBlameLine[];
+};
+
 export type RepositoryCommitHistoryItem = {
   oid: string;
   shortOid: string;
@@ -738,6 +757,40 @@ export async function getRepositoryBlobFromCookie(
   }
 
   return (await response.json()) as RepositoryBlobView;
+}
+
+export async function getRepositoryBlameFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  refName: string,
+  path: string,
+): Promise<RepositoryBlameView | null> {
+  const encodedPath = path
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  const params = new URLSearchParams({ ref: refName });
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/blame/${encodedPath}?${params.toString()}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as RepositoryBlameView;
 }
 
 export async function getRepositoryCommitHistoryFromCookie(

@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { RepositoryBlobViewPage } from "@/components/RepositoryPathViews";
-import { getRepositoryBlob, getSession } from "@/lib/server-session";
+import {
+  getRepositoryBlame,
+  getRepositoryBlob,
+  getSession,
+} from "@/lib/server-session";
 
 type RepositoryBlobPageProps = {
   params: Promise<{
@@ -10,15 +14,17 @@ type RepositoryBlobPageProps = {
     ref: string;
     path?: string[];
   }>;
+  searchParams: Promise<{
+    view?: string;
+  }>;
 };
 
 export default async function RepositoryBlobPage({
   params,
+  searchParams,
 }: RepositoryBlobPageProps) {
-  const [{ owner, repo, ref, path = [] }, session] = await Promise.all([
-    params,
-    getSession(),
-  ]);
+  const [{ owner, repo, ref, path = [] }, { view }, session] =
+    await Promise.all([params, searchParams, getSession()]);
   const ownerLogin = decodeURIComponent(owner);
   const repositoryName = decodeURIComponent(repo);
   const refName = decodeURIComponent(ref);
@@ -32,11 +38,24 @@ export default async function RepositoryBlobPage({
           repositoryPath,
         )
       : null;
+  const blame =
+    blob && view === "blame"
+      ? await getRepositoryBlame(
+          ownerLogin,
+          repositoryName,
+          refName,
+          repositoryPath,
+        )
+      : null;
 
   return (
     <AppShell session={session}>
       {blob ? (
-        <RepositoryBlobViewPage blob={blob} />
+        <RepositoryBlobViewPage
+          blob={blob}
+          initialBlame={blame}
+          initialMode={view === "blame" ? "blame" : "code"}
+        />
       ) : (
         <section className="mx-auto max-w-6xl px-6 py-8">
           <div className="rounded-md border border-[#d0d7de] bg-white p-5">

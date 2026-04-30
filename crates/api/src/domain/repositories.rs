@@ -169,6 +169,33 @@ pub struct RepositoryBlobView {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RepositoryBlameView {
+    #[serde(flatten)]
+    pub blob: RepositoryBlobView,
+    pub lines: Vec<RepositoryBlameLine>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryBlameLine {
+    pub line_number: i64,
+    pub content: String,
+    pub commit: RepositoryBlameCommit,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryBlameCommit {
+    pub oid: String,
+    pub short_oid: String,
+    pub message: String,
+    pub href: String,
+    pub committed_at: DateTime<Utc>,
+    pub author_login: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryCommitHistoryItem {
     pub oid: String,
     pub short_oid: String,
@@ -1174,6 +1201,24 @@ pub async fn repository_blob_for_actor_by_owner_name(
         .map(Some)
 }
 
+pub async fn repository_blame_for_actor_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Uuid,
+    owner_login: &str,
+    name: &str,
+    ref_name: Option<&str>,
+    path: &str,
+) -> Result<Option<RepositoryBlameView>, RepositoryError> {
+    let Some(repository) =
+        get_repository_for_actor_by_owner_name(pool, actor_user_id, owner_login, name).await?
+    else {
+        return Ok(None);
+    };
+    repository_blame_for_actor(pool, repository, actor_user_id, ref_name, path)
+        .await
+        .map(Some)
+}
+
 pub async fn repository_commit_history_for_actor_by_owner_name(
     pool: &PgPool,
     actor_user_id: Uuid,
@@ -1354,6 +1399,48 @@ async fn repository_blob_for_actor(
         latest_path_commit,
         repository,
     })
+}
+
+async fn repository_blame_for_actor(
+    pool: &PgPool,
+    repository: Repository,
+    actor_user_id: Uuid,
+    ref_name: Option<&str>,
+    path: &str,
+) -> Result<RepositoryBlameView, RepositoryError> {
+    let blob = repository_blob_for_actor(pool, repository.clone(), actor_user_id, ref_name, path).await?;
+    if blob.is_binary || blob.is_large {
+        return Err(repository_path_not_found_error(&repository, &blob.path));
+    }
+    let attribution = blame_commit_for_file(pool, &repository, &blob.file).await?;
+    let commit = attribution.or_else(|| {
+        blob.latest_path_commit
+            .as_ref()
+            .map(|latest| RepositoryBlameCommit {
+                oid: latest.oid.clone(),
+                short_oid: latest.short_oid.clone(),
+                message: latest.message.clone(),
+                href: latest.href.clone(),
+                committed_at: latest.committed_at,
+                author_login: None,
+            })
+    });
+    let commit = commit.ok_or(RepositoryError::NotFound)?;
+    let content = blob
+        .display_content
+        .as_deref()
+        .unwrap_or(blob.file.content.as_str());
+    let lines = blame_lines(content)
+        .into_iter()
+        .enumerate()
+        .map(|(index, content)| RepositoryBlameLine {
+            line_number: (index + 1) as i64,
+            content,
+            commit: commit.clone(),
+        })
+        .collect();
+
+    Ok(RepositoryBlameView { blob, lines })
 }
 
 pub async fn repository_overview(
@@ -2240,6 +2327,43 @@ async fn latest_commit_for_file(
     }))
 }
 
+async fn blame_commit_for_file(
+    pool: &PgPool,
+    repository: &Repository,
+    file: &RepositoryFile,
+) -> Result<Option<RepositoryBlameCommit>, RepositoryError> {
+    let row = sqlx::query(
+        r#"
+        SELECT commits.oid, commits.message, commits.committed_at,
+               COALESCE(NULLIF(users.username, ''), users.email) AS author_login
+        FROM commits
+        LEFT JOIN users ON users.id = commits.author_user_id
+        WHERE commits.id = $1
+          AND commits.repository_id = $2
+        LIMIT 1
+        "#,
+    )
+    .bind(file.commit_id)
+    .bind(repository.id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|row| {
+        let oid: String = row.get("oid");
+        RepositoryBlameCommit {
+            short_oid: oid.chars().take(7).collect(),
+            href: format!(
+                "/{}/{}/commit/{}",
+                repository.owner_login, repository.name, oid
+            ),
+            oid,
+            message: row.get("message"),
+            committed_at: row.get("committed_at"),
+            author_login: row.get("author_login"),
+        }
+    }))
+}
+
 async fn record_recent_repository_visit(
     pool: &PgPool,
     user_id: Uuid,
@@ -2660,6 +2784,20 @@ fn normalize_repository_path(value: &str) -> Result<String, RepositoryError> {
         segments.push(segment);
     }
     Ok(segments.join("/"))
+}
+
+fn blame_lines(content: &str) -> Vec<String> {
+    let mut lines = content
+        .split('\n')
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    if lines.last().is_some_and(String::is_empty) {
+        lines.pop();
+    }
+    if lines.is_empty() {
+        lines.push(String::new());
+    }
+    lines
 }
 
 async fn repository_commit_history(

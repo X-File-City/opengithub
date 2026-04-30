@@ -584,3 +584,12 @@
 - Browser smoke: Playwright created a real Rust-template repository, opened `/blob/main/src/main.rs`, verified line anchors/raw textarea, clicked Raw/Download/History, used Go to file, scanned for dead controls, and saved `ralph/screenshots/build/repo-005-phase2-blob-view.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 69 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 28 Playwright tests.
 - Marked Phase 2 as done in `.qrspi/repo-005/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-04-30 - repo-005 phase 3 blame mode and keyboard shortcuts
+
+- Implemented Phase 3 from `.qrspi/repo-005/structure.md`: added an authenticated Rust blame API for repository blobs, deterministic line attribution from commit metadata, and binary/large-file rejection on blame requests.
+- Updated the blob page to fetch blame data for `?view=blame` and render a GitHub-style attribution column with commit links, Code/Blame mode state, `y` permalink conversion, `b` mode switching, and line jump via `l` plus a visible Jump to line control.
+- Extended Rust integration coverage in `crates/api/tests/repository_blob_view.rs` and frontend coverage in `web/tests/repository-code-overview.test.tsx` plus `web/tests/e2e/repository-blob-view.spec.ts`.
+- Browser smoke/E2E created a real repository, opened `src/main.rs`, verified blame attribution, permalink behavior, line jump, raw/download/history/Go to file flows, dead-control checks, and saved `ralph/screenshots/build/repo-005-phase3-blame-shortcuts.jpg`.
+- Verification: `make check` passed; `make test` passed with 71 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test repository_blob_view -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 28 Playwright tests.
+- Marked Phase 3 as done in `.qrspi/repo-005/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.

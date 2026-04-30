@@ -15,14 +15,14 @@ use crate::{
     domain::repositories::{
         create_repository_with_bootstrap, fork_repository_by_owner_name,
         insert_repository_create_feed_event, list_repositories_for_user,
-        repository_blob_for_actor_by_owner_name, repository_commit_history_for_actor_by_owner_name,
-        repository_creation_options, repository_file_finder_for_actor_by_owner_name,
-        repository_name_availability, repository_overview_for_actor_by_owner_name,
-        repository_path_overview_for_actor_by_owner_name, repository_refs_for_actor_by_owner_name,
-        set_repository_star_by_owner_name, set_repository_watch_by_owner_name, CreateRepository,
-        RepositoryBootstrapRequest, RepositoryCommitHistoryQuery, RepositoryError,
-        RepositoryFileFinderQuery, RepositoryOwner, RepositoryPathQuery, RepositoryRefsQuery,
-        RepositoryVisibility,
+        repository_blame_for_actor_by_owner_name, repository_blob_for_actor_by_owner_name,
+        repository_commit_history_for_actor_by_owner_name, repository_creation_options,
+        repository_file_finder_for_actor_by_owner_name, repository_name_availability,
+        repository_overview_for_actor_by_owner_name, repository_path_overview_for_actor_by_owner_name,
+        repository_refs_for_actor_by_owner_name, set_repository_star_by_owner_name,
+        set_repository_watch_by_owner_name, CreateRepository, RepositoryBootstrapRequest,
+        RepositoryCommitHistoryQuery, RepositoryError, RepositoryFileFinderQuery, RepositoryOwner,
+        RepositoryPathQuery, RepositoryRefsQuery, RepositoryVisibility,
     },
     AppState,
 };
@@ -34,6 +34,7 @@ pub fn router() -> Router<AppState> {
         .route("/name-availability", get(name_availability))
         .route("/:owner/:repo/contents/*path", get(contents))
         .route("/:owner/:repo/blobs/*path", get(blob))
+        .route("/:owner/:repo/blame/*path", get(blame))
         .route("/:owner/:repo/commits", get(commits))
         .route("/:owner/:repo/refs", get(refs))
         .route("/:owner/:repo/file-finder", get(file_finder))
@@ -321,6 +322,35 @@ async fn blob(
     }
 
     Ok(Json(json!(view)).into_response())
+}
+
+async fn blame(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, path)): Path<(String, String, String)>,
+    Query(query): Query<ContentsQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let view = repository_blame_for_actor_by_owner_name(
+        pool,
+        actor.0.id,
+        &owner,
+        &repo,
+        query.ref_name.as_deref(),
+        &path,
+    )
+    .await
+    .map_err(map_repository_error)?
+    .ok_or_else(|| {
+        error_response(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "repository was not found".to_owned(),
+        )
+    })?;
+
+    Ok(Json(json!(view)))
 }
 
 async fn commits(

@@ -819,5 +819,22 @@
       "Raw/download are same-origin proxies over the Rust API so signed cookies are preserved; QA should retest filename and content-type edge cases in the final security phase",
       "The file tree sidebar is path-aware, not a full recursive repository explorer; compare against GitHub after symbol and blame interactions land"
     ]
+  },
+  {
+    "feature_id": "repo-005",
+    "tests_written": [
+      "Added authenticated Rust blame API at /api/repos/{owner}/{repo}/blame/{path}?ref=... with the same repository permission, ref, and path safeguards as blob reads",
+      "Blame rows now attribute each displayed line to the file commit metadata, falling back deterministically to the latest path commit when exact line history is unavailable",
+      "Blob UI now renders blame mode, commit attribution rows, permalink conversion with y, Code/Blame switching with b, and line jump via l plus a visible Jump to line control",
+      "Extended Rust integration coverage for blame success, private access denial, binary rejection, and commit attribution shape",
+      "Extended Vitest and Playwright coverage for blame rendering, permalink/line-jump shortcuts, line focus, full blob user flow, and saved ralph/screenshots/build/repo-005-phase3-blame-shortcuts.jpg",
+      "Verification passed: make check, make test, TEST_DATABASE_URL-backed cargo test --test repository_blob_view -- --nocapture, targeted repository blob Playwright, and full TEST_DATABASE_URL-backed make test-e2e with 28 tests"
+    ],
+    "needs_deeper_qa": [
+      "Blame attribution is file-level, not true per-line Git history, until real Git object history and diff tracking are implemented",
+      "The visible Jump to line control exists to keep the workflow reachable before keyboard hydration; QA should still manually test y, b, and l in a browser",
+      "Binary and large files intentionally reject blame and stay on Raw/Download fallbacks; final security QA should probe malformed paths and private raw/download/blame combinations",
+      "Permalink conversion uses the latest path commit SHA from metadata; retest with branch names containing slashes and older historical commits when real Git refs expand"
+    ]
   }
 ]

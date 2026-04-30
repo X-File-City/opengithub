@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   RepositoryBranchSelector,
   RepositoryFileFinder,
 } from "@/components/RepositoryCodeToolbar";
-import type { RepositoryBlobView } from "@/lib/api";
+import type { RepositoryBlameView, RepositoryBlobView } from "@/lib/api";
 
 type RepositoryBlobViewerProps = {
   blob: RepositoryBlobView;
+  initialBlame?: RepositoryBlameView | null;
+  initialMode?: "code" | "blame";
 };
 
 function splitPath(path: string) {
@@ -75,7 +78,15 @@ function LineNumber({ line }: { line: number }) {
   );
 }
 
-function BlobToolbar({ blob }: RepositoryBlobViewerProps) {
+function BlobToolbar({
+  blob,
+  mode,
+  onLineJump,
+}: {
+  blob: RepositoryBlobView;
+  mode: "code" | "blame";
+  onLineJump: () => void;
+}) {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const base = repositoryBase(blob);
   const raw = rawHref(blob);
@@ -100,14 +111,19 @@ function BlobToolbar({ blob }: RepositoryBlobViewerProps) {
       <fieldset className="inline-flex overflow-hidden rounded-md border border-[#d0d7de] bg-white text-sm font-semibold">
         <legend className="sr-only">Blob view mode</legend>
         <Link
-          aria-current="page"
-          className="bg-[#f6f8fa] px-3 py-1.5 text-[#1f2328]"
+          aria-current={mode === "code" ? "page" : undefined}
+          className={`px-3 py-1.5 text-[#1f2328] ${
+            mode === "code" ? "bg-[#f6f8fa]" : "hover:bg-[#f6f8fa]"
+          }`}
           href={current}
         >
           Code
         </Link>
         <Link
-          className="border-l border-[#d0d7de] px-3 py-1.5 text-[#1f2328] hover:bg-[#f6f8fa]"
+          aria-current={mode === "blame" ? "page" : undefined}
+          className={`border-l border-[#d0d7de] px-3 py-1.5 text-[#1f2328] ${
+            mode === "blame" ? "bg-[#f6f8fa]" : "hover:bg-[#f6f8fa]"
+          }`}
           href={`${current}?view=blame`}
         >
           Blame
@@ -124,6 +140,15 @@ function BlobToolbar({ blob }: RepositoryBlobViewerProps) {
         >
           Symbols
         </Link>
+        {!blob.isBinary && !blob.isLarge ? (
+          <button
+            className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
+            onClick={onLineJump}
+            type="button"
+          >
+            Jump to line
+          </button>
+        ) : null}
         <Link
           className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
           href={raw}
@@ -284,7 +309,133 @@ function CodeTable({ blob }: RepositoryBlobViewerProps) {
   );
 }
 
-export function RepositoryBlobViewer({ blob }: RepositoryBlobViewerProps) {
+function BlameTable({
+  blame,
+}: {
+  blame: RepositoryBlameView | null | undefined;
+}) {
+  if (!blame) {
+    return (
+      <div className="p-6 text-sm text-[#59636e]" role="status">
+        Blame attribution is unavailable for this file.
+      </div>
+    );
+  }
+
+  return (
+    <table className="w-full table-fixed border-collapse font-mono text-xs leading-5">
+      <tbody>
+        {blame.lines.map((line) => (
+          <tr
+            className="group align-top hover:bg-[#fff8c5]"
+            key={`${line.lineNumber}-${line.commit.oid}`}
+          >
+            <td className="w-52 border-r border-[#d0d7de] bg-[#f6f8fa] px-3 py-0.5 text-[#59636e]">
+              <Link
+                className="block truncate font-sans text-xs font-semibold text-[#0969da] hover:underline"
+                href={line.commit.href}
+                title={line.commit.message}
+              >
+                {line.commit.shortOid} {line.commit.authorLogin ?? "Unknown"}
+              </Link>
+              <span
+                className="block truncate font-sans"
+                title={line.commit.message}
+              >
+                {line.commit.message}
+              </span>
+            </td>
+            <td className="w-16 border-r border-[#d0d7de] bg-[#f6f8fa]">
+              <LineNumber line={line.lineNumber} />
+            </td>
+            <td className="whitespace-pre-wrap break-words px-4 text-[#1f2328]">
+              {line.content || " "}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function LineJumpDialog({
+  maxLine,
+  onClose,
+}: {
+  maxLine: number;
+  onClose: () => void;
+}) {
+  const [line, setLine] = useState("1");
+  const clampedMax = Math.max(1, maxLine);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const parsed = Number.parseInt(line, 10);
+    const targetLine = Number.isFinite(parsed)
+      ? Math.min(Math.max(parsed, 1), clampedMax)
+      : 1;
+    const target = document.getElementById(`L${targetLine}`);
+    target?.scrollIntoView({ block: "center" });
+    target?.focus();
+    window.history.replaceState(null, "", `#L${targetLine}`);
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/20 px-4"
+      role="presentation"
+    >
+      <form
+        aria-label="Jump to line"
+        className="w-full max-w-sm rounded-md border border-[#d0d7de] bg-white p-4 shadow-xl"
+        onSubmit={submit}
+      >
+        <label
+          className="block text-sm font-semibold text-[#1f2328]"
+          htmlFor="blob-line-jump"
+        >
+          Jump to line
+        </label>
+        <input
+          className="mt-2 h-9 w-full rounded-md border border-[#d0d7de] px-3 text-sm"
+          id="blob-line-jump"
+          max={clampedMax}
+          min={1}
+          onChange={(event) => setLine(event.target.value)}
+          type="number"
+          value={line}
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <button
+            className="inline-flex h-8 items-center rounded-md border border-[#d0d7de] bg-white px-3 text-sm font-semibold text-[#1f2328] hover:bg-[#f6f8fa]"
+            onClick={onClose}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="inline-flex h-8 items-center rounded-md bg-[#1f883d] px-3 text-sm font-semibold text-white hover:bg-[#1a7f37]"
+            type="submit"
+          >
+            Jump
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export function RepositoryBlobViewer({
+  blob,
+  initialBlame,
+  initialMode = "code",
+}: RepositoryBlobViewerProps) {
+  const [lineJumpOpen, setLineJumpOpen] = useState(false);
+  const mode =
+    initialMode === "blame" && !blob.isBinary && !blob.isLarge
+      ? "blame"
+      : "code";
   const toolbarRepository = useMemo(
     () => ({
       ...blob,
@@ -292,6 +443,48 @@ export function RepositoryBlobViewer({ blob }: RepositoryBlobViewerProps) {
     }),
     [blob],
   );
+  const current = currentBlobHref(blob);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase() ?? "";
+      if (
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select" ||
+        target?.isContentEditable ||
+        blob.isBinary ||
+        blob.isLarge
+      ) {
+        return;
+      }
+      if (event.key === "y") {
+        event.preventDefault();
+        window.history.replaceState(null, "", blob.permalinkHref);
+      }
+      if (event.key === "b") {
+        event.preventDefault();
+        window.location.assign(
+          mode === "blame" ? current : `${current}?view=blame`,
+        );
+      }
+      if (event.key === "l") {
+        event.preventDefault();
+        setLineJumpOpen(true);
+      }
+      if (event.key === "Escape") {
+        setLineJumpOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [blob.isBinary, blob.isLarge, blob.permalinkHref, current, mode]);
 
   return (
     <section
@@ -382,16 +575,34 @@ export function RepositoryBlobViewer({ blob }: RepositoryBlobViewerProps) {
         <LatestCommitStrip blob={blob} />
         <section className="overflow-hidden rounded-md border border-[#d0d7de] bg-white">
           <div className="border-b border-[#d0d7de] bg-[#f6f8fa] px-3 py-2">
-            <BlobToolbar blob={blob} />
+            <BlobToolbar
+              blob={blob}
+              mode={mode}
+              onLineJump={() => setLineJumpOpen(true)}
+            />
           </div>
           {blob.isBinary || blob.isLarge ? (
             <BinaryFallback blob={blob} />
           ) : (
             <div className="max-h-[760px] overflow-auto bg-white">
-              <CodeTable blob={blob} />
+              {mode === "blame" ? (
+                <BlameTable blame={initialBlame} />
+              ) : (
+                <CodeTable blob={blob} />
+              )}
             </div>
           )}
         </section>
+        {lineJumpOpen ? (
+          <LineJumpDialog
+            maxLine={
+              mode === "blame"
+                ? (initialBlame?.lines.length ?? 1)
+                : blob.lineCount
+            }
+            onClose={() => setLineJumpOpen(false)}
+          />
+        ) : null}
       </div>
     </section>
   );

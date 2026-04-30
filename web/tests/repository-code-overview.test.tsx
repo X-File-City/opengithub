@@ -13,6 +13,7 @@ import {
   RepositoryTreeView,
 } from "@/components/RepositoryPathViews";
 import type {
+  RepositoryBlameView,
   RepositoryBlobView,
   RepositoryOverview,
   RepositoryPathOverview,
@@ -268,6 +269,27 @@ function blobView(): RepositoryBlobView {
     downloadApiHref:
       "/api/repos/mona/octo-app/blobs/src/index.ts?ref=main&download=1",
     permalinkHref: "/mona/octo-app/blob/abcdef1234567890/src/index.ts",
+  };
+}
+
+function blameView(): RepositoryBlameView {
+  const blob = blobView();
+  return {
+    ...blob,
+    lines: [
+      {
+        lineNumber: 1,
+        content: "export const answer = 42;",
+        commit: {
+          oid: "abcdef1234567890",
+          shortOid: "abcdef1",
+          message: "Add source",
+          href: "/mona/octo-app/commit/abcdef1234567890",
+          committedAt: "2026-04-30T00:00:00Z",
+          authorLogin: "mona",
+        },
+      },
+    ],
   };
 }
 
@@ -688,6 +710,59 @@ describe("RepositoryCodeOverview", () => {
     for (const button of container.querySelectorAll("button")) {
       expect(button).toHaveAccessibleName();
     }
+  });
+
+  it("renders blame attribution and keeps code mode reachable", () => {
+    render(
+      <RepositoryBlobViewPage
+        blob={blobView()}
+        initialBlame={blameView()}
+        initialMode="blame"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Code" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/blob/main/src/index.ts",
+    );
+    expect(screen.getByRole("link", { name: "Blame" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: /abcdef1 mona/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/commit/abcdef1234567890",
+    );
+    expect(screen.getAllByText("Add source").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Line 1" })).toHaveAttribute(
+      "href",
+      "#L1",
+    );
+  });
+
+  it("handles permalink and line-jump shortcuts without stealing input keys", async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    window.history.pushState(null, "", "/mona/octo-app/blob/main/src/index.ts");
+    render(<RepositoryBlobViewPage blob={blobView()} />);
+
+    fireEvent.keyDown(window, { key: "y" });
+    expect(window.location.pathname).toBe(
+      "/mona/octo-app/blob/abcdef1234567890/src/index.ts",
+    );
+
+    fireEvent.keyDown(window, { key: "l" });
+    expect(screen.getByRole("form", { name: "Jump to line" })).toBeVisible();
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Jump to line" }), {
+      target: { value: "1" },
+    });
+    fireEvent.submit(screen.getByRole("form", { name: "Jump to line" }));
+    await waitFor(() => expect(window.location.hash).toBe("#L1"));
+
+    const fileFinder = screen.getByRole("button", { name: "Go to file" });
+    fireEvent.click(fileFinder);
+    const input = screen.getByLabelText("Find a file");
+    fireEvent.keyDown(input, { key: "l" });
+    expect(screen.queryByRole("form", { name: "Jump to line" })).toBeNull();
   });
 
   it("copies blob raw content through the same-origin raw route", async () => {

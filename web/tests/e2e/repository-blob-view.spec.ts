@@ -123,6 +123,40 @@ test("signed-in blob page exposes file header actions and code line anchors", as
   await page.getByRole("button", { name: "Copy raw" }).click();
   await expect(page.getByRole("status")).toHaveText(/copied|unavailable/);
 
+  await page.keyboard.press("y");
+  await expect(page).toHaveURL(
+    new RegExp(`/${repositoryName}/blob/[a-z0-9]+/src/main\\.rs$`),
+  );
+  await page.goto(`/${owner}/${repositoryName}/blob/main/src/main.rs`);
+
+  await page.locator("body").click();
+  await page.keyboard.press("b");
+  await expect(page).toHaveURL(
+    new RegExp(`/${repositoryName}/blob/main/src/main\\.rs\\?view=blame$`),
+  );
+  await expect(page.getByText("Initial commit").first()).toBeVisible();
+  await expect(
+    page
+      .locator("tbody")
+      .getByRole("link", { name: /[a-f0-9]{7} / })
+      .first(),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Jump to line" }).click();
+  await expect(page.getByRole("form", { name: "Jump to line" })).toBeVisible();
+  await page.getByRole("spinbutton", { name: "Jump to line" }).fill("2");
+  await page.getByRole("button", { name: "Jump", exact: true }).click();
+  await expect(page).toHaveURL(/#L2$/);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/repo-005-phase3-blame-shortcuts.jpg",
+  });
+
+  await page.keyboard.press("b");
+  await expect(page).toHaveURL(
+    new RegExp(`/${repositoryName}/blob/main/src/main\\.rs$`),
+  );
+
   const rawResponse = page.waitForResponse(
     (response) =>
       response.url().includes(`/${repositoryName}/raw/main/src/main.rs`) &&

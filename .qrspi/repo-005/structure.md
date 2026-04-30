@@ -40,7 +40,7 @@
 
 ## Phase 3: Blame Mode and Keyboard Shortcuts - file navigation behaves like a code tool
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add a real blame view and keyboard interactions for the blob page. The Code/Blame segmented control must switch between normal code rendering and line-by-line attribution; `y` creates a permalink to the resolved commit, `b` toggles blame, and `l` opens a line-jump control that scrolls/focuses the selected line.
 
