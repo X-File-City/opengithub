@@ -9,7 +9,9 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::{
-    api_types::{database_unavailable, error_response, normalize_pagination, ErrorEnvelope},
+    api_types::{
+        database_unavailable, error_response, normalize_pagination, ErrorEnvelope, RestJson,
+    },
     auth::extractor::AuthenticatedUser,
     domain::{
         actions::{
@@ -94,7 +96,7 @@ async fn create_package_route(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
-    Json(request): Json<CreatePackageRequest>,
+    RestJson(request): RestJson<CreatePackageRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -182,7 +184,7 @@ async fn create_package_version_route(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, package_id)): Path<(String, String, Uuid)>,
-    Json(request): Json<CreatePackageVersionRequest>,
+    RestJson(request): RestJson<CreatePackageVersionRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;

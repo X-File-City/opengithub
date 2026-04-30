@@ -728,3 +728,13 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 75 frontend tests plus cargo tests; targeted API docs Playwright passed; a transient full-suite repository blob E2E failure passed on targeted rerun; final `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 33 Playwright tests.
 - Browser smoke saved `ralph/screenshots/build/api-001-docs.jpg` and `ralph/screenshots/build/api-001-docs-mobile.jpg`.
 - Marked Phase 4 as done in `.qrspi/api-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.
+
+2026-05-01 - api-001 phase 5 final API contract hardening
+
+- Implemented Phase 5 from `.qrspi/api-001/structure.md`: final cross-route REST contract, malformed JSON, request-log redaction, and bookkeeping guardrails for `api-001`.
+- Added `RestJson<T>` in `crates/api/src/api_types.rs` and wired repository, issue, pull request, Actions, and package mutation routes through it so malformed JSON returns the standard `{ error, status }` envelope with `400 invalid_json`.
+- Added `crates/api/tests/api_contract_hardening.rs` covering `/api/user`, repository, issue, pull request, Actions workflow/run, package/version, and search routes against real Postgres, including 401, 400, 403, 422, 409, 404, pagination clamps, JSON content types, and log redaction for cookies, Authorization, token-like values, and session secrets.
+- Added `.scratch/api-contract-hardening-scenario.sh` as the live Postgres scenario wrapper and appended final `api-001` QA hints for partial REST parity, session-only REST auth, request-log middleware risk, and query parser follow-up.
+- Browser smoke/E2E refreshed the API docs screenshots through the existing `/docs/api` Playwright flow: `ralph/screenshots/build/api-001-docs.jpg` and `ralph/screenshots/build/api-001-docs-mobile.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test .scratch/api-contract-hardening-scenario.sh` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 75 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 33 Playwright tests.
+- Marked Phase 5 as done in `.qrspi/api-001/structure.md` and set `api-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.

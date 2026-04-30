@@ -9,7 +9,9 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    api_types::{database_unavailable, error_response, normalize_pagination, ErrorEnvelope},
+    api_types::{
+        database_unavailable, error_response, normalize_pagination, ErrorEnvelope, RestJson,
+    },
     auth::extractor::AuthenticatedUser,
     domain::{
         actions::{
@@ -108,7 +110,7 @@ async fn create_workflow_route(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
-    Json(request): Json<CreateWorkflowRequest>,
+    RestJson(request): RestJson<CreateWorkflowRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -213,7 +215,7 @@ async fn create_workflow_run_route(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, workflow_id)): Path<(String, String, Uuid)>,
-    Json(request): Json<CreateWorkflowRunRequest>,
+    RestJson(request): RestJson<CreateWorkflowRunRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -269,7 +271,7 @@ async fn update_workflow_run_route(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, run_id)): Path<(String, String, Uuid)>,
-    Json(request): Json<UpdateWorkflowRunRequest>,
+    RestJson(request): RestJson<UpdateWorkflowRunRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;

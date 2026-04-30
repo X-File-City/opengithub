@@ -1027,5 +1027,20 @@
       "API examples currently describe signed-session cookie auth; PAT-based external API consumer auth still needs final API hardening",
       "Pagination, validation, conflict, forbidden, and not-found behavior should still be cross-route probed in api-001 Phase 5"
     ]
+  },
+  {
+    "feature_id": "api-001",
+    "tests_written": [
+      "Added RestJson extractor so malformed JSON on REST mutation routes returns the standard JSON error envelope instead of Axum's default rejection body",
+      "Added crates/api/tests/api_contract_hardening.rs covering authenticated user, repository, issue, pull request, Actions workflow/run, package/version, and search routes through real Postgres-backed router calls",
+      "Cross-route hardening test covers 401, 400 invalid_json, 403, 422 validation_failed, 409 conflict, 404 not_found, list-envelope pagination clamps, JSON content types, and no cookie/session-secret/token leakage",
+      "Added .scratch/api-contract-hardening-scenario.sh and ran it against TEST_DATABASE_URL-backed Postgres"
+    ],
+    "needs_deeper_qa": [
+      "PAT-based auth is still not wired into the public REST API; api-001 remains signed-session-cookie only despite docs mentioning future external API consumer auth",
+      "GitHub REST parity is intentionally partial: labels, milestones, assignees, reviews, checks, merge execution, Actions logs/artifacts/jobs, package blobs, and registry protocols remain later feature work",
+      "Request logging redaction now verifies selected metadata only; QA should recheck future middleware changes do not add raw request bodies or sensitive headers to api_request_logs",
+      "Malformed query extraction for unknown enum/query values outside JSON bodies should be retested when richer query parsers are added"
+    ]
   }
 ]

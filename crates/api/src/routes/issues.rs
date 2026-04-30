@@ -9,7 +9,9 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    api_types::{database_unavailable, error_response, normalize_pagination, ErrorEnvelope},
+    api_types::{
+        database_unavailable, error_response, normalize_pagination, ErrorEnvelope, RestJson,
+    },
     auth::extractor::AuthenticatedUser,
     domain::{
         issues::{
@@ -116,7 +118,7 @@ async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
-    Json(request): Json<CreateIssueRequest>,
+    RestJson(request): RestJson<CreateIssueRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -171,7 +173,7 @@ async fn update_state(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
-    Json(request): Json<UpdateIssueStateRequest>,
+    RestJson(request): RestJson<UpdateIssueStateRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -200,7 +202,7 @@ async fn comment(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
-    Json(request): Json<CreateCommentRequest>,
+    RestJson(request): RestJson<CreateCommentRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -257,7 +259,7 @@ async fn reaction(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
-    Json(request): Json<ReactionRequest>,
+    RestJson(request): RestJson<ReactionRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;

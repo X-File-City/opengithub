@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::{
     api_types::{
         database_unavailable as shared_database_unavailable, normalize_pagination, ErrorEnvelope,
+        RestJson,
     },
     auth::extractor::AuthenticatedUser,
     domain::{
@@ -106,7 +107,7 @@ async fn create(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
-    Json(request): Json<CreatePullRequestRequest>,
+    RestJson(request): RestJson<CreatePullRequestRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -164,7 +165,7 @@ async fn update_state(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
-    Json(request): Json<UpdatePullRequestStateRequest>,
+    RestJson(request): RestJson<UpdatePullRequestStateRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
@@ -194,7 +195,7 @@ async fn comment(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
-    Json(request): Json<CreateCommentRequest>,
+    RestJson(request): RestJson<CreateCommentRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;

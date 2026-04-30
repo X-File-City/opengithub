@@ -74,7 +74,7 @@
 
 ## Phase 5: Final API Contract Hardening - finish api-001 and hand off to QA
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Lock down `api-001` as a coherent external REST surface. This phase should run cross-route contract tests, security probes, request-log checks, and final bookkeeping before setting `build_pass=true`.
 
