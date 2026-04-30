@@ -258,6 +258,7 @@
 2026-04-30 - dashboard-001 phase 2 sidebar interaction
 
 - Implemented Phase 2 from `.qrspi/dashboard-001/structure.md`: the signed-in dashboard now uses the focused `DashboardTopRepositories` client component with the 296px desktop sidebar, green `New` link, search input, client-side repository filtering, language dots, visibility badges, updated timestamps, and clickable repository rows.
+
 - Added/kept authenticated Playwright coverage in `web/tests/e2e/dashboard-dashboard.spec.ts` for a real Postgres-seeded signed session, sidebar filtering, row navigation, and `/new` navigation; tightened selectors to scope repository row assertions to the Top repositories sidebar.
 - Fixed stateful Postgres cache tests in `crates/api/tests/highlight_rendering.rs` and `crates/api/tests/markdown_rendering.rs` by giving their cache-hit scenarios unique cache keys per run.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 26 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 14 Playwright tests.
@@ -555,3 +556,11 @@
 - Browser smoke: `make test-e2e` exercised branch/tag switching, Go to file, nested tree browsing, large-directory paging, invalid-path recovery, and mobile layout; saved `ralph/screenshots/build/repo-004-phase4-large-directory-mobile.jpg`.
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 67 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 27 Playwright tests.
 - Marked Phase 4 as done in `.qrspi/repo-004/structure.md` and set `repo-004.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - repo-005 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `build-progress.txt`, the first incomplete `prd.json` entry, `.qrspi/repo-003/structure.md`, `.qrspi/repo-004/structure.md`, current repository blob API/UI code, and `ralph/screenshots/inspect/repo-blob-file-view.jpg`.
+- Determined `repo-005` requires structure planning before implementation because `needs_structure: true` and `.qrspi/repo-005/structure.md` did not exist.
+- Added `.qrspi/repo-005/structure.md` with five independently verifiable vertical phases: blob read contract/raw streaming, GitHub-style code viewer UI, blame and keyboard shortcuts, syntax highlighting/symbol entry points, and final QA guardrails.
+- Did not change `prd.json`; `repo-005.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
