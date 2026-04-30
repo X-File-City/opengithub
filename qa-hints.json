@@ -1362,5 +1362,22 @@
       "Pagination controls are rendered and URL-backed; the browser smoke does not create enough issues to click through multiple pages.",
       "Contributor banner dismissal and preference persistence are intentionally not built until Phase 4."
     ]
+  },
+  {
+    "feature_id": "issues-001",
+    "tests_written": [
+      "Implemented Phase 4 contributor guidance preferences: repository issue lists now include per-viewer banner preferences and a PATCH preferences endpoint persists dismissal against real Postgres.",
+      "Added repository_issue_preferences migration keyed by repository_id and user_id with dismissed_contributor_banner_at timestamps.",
+      "Added a same-origin Next.js preferences route and client IssueContributorBanner that hides immediately after a successful save, remains visible with an error on persistence failure, and stays hidden after reload when the API returns the persisted preference.",
+      "Extended Rust integration coverage for anonymous preference denial, first-load default preference state, successful dismissal persistence, and per-viewer isolation on a public repository.",
+      "Extended Vitest and Playwright coverage for banner visibility, successful dismiss, error feedback, reload persistence, dead-control checks, and screenshot ralph/screenshots/build/issues-001-phase4-banner-dismissed.jpg.",
+      "Verification passed: .scratch/issues-001-preferences-scenario.sh, focused api_repository_issues_list_contract preference test, focused repository-issues Vitest, focused repository-issues Playwright, repository-code-overview regression Playwright, mandatory Editorial banned-value scan, TEST_DATABASE_URL-backed make check, make test with 119 frontend tests plus cargo tests, and make test-e2e with 54 Playwright tests."
+    ],
+    "needs_deeper_qa": [
+      "Preference persistence is verified for signed-in users on public repositories; deeper QA should revisit fully anonymous public issue browsing when that product behavior is enabled.",
+      "The banner copy is intentionally lightweight and Editorial; QA should check screen-reader announcement quality and keyboard focus behavior across browsers.",
+      "The endpoint supports setting dismissedContributorBanner false for reversibility, but this phase exposes only the dismiss action in UI.",
+      "Final query/accessibility/privacy guardrails and build_pass=true remain Phase 5 work."
+    ]
   }
 ]

@@ -567,6 +567,11 @@ export type IssueListFilters = {
   sort: string;
 };
 
+export type IssueListPreferences = {
+  dismissedContributorBanner: boolean;
+  dismissedContributorBannerAt: string | null;
+};
+
 export type IssueListView = ListEnvelope<IssueListItem> & {
   openCount: number;
   closedCount: number;
@@ -582,6 +587,7 @@ export type IssueListView = ListEnvelope<IssueListItem> & {
     name: string;
     visibility: RepositoryVisibility;
   };
+  preferences: IssueListPreferences;
 };
 
 export type RepositoryIssueListQuery = {
@@ -1016,6 +1022,34 @@ export async function getRepositoryIssuesFromCookie(
   }
 
   return body as IssueListView;
+}
+
+export async function saveRepositoryIssuePreferences(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  preferences: Pick<IssueListPreferences, "dismissedContributorBanner">,
+): Promise<IssueListPreferences> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+      repo,
+    )}/issues/preferences`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(preferences),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Issue preferences failed to save");
+  }
+
+  return (await response.json()) as IssueListPreferences;
 }
 
 export async function getRepositoryFromCookie(

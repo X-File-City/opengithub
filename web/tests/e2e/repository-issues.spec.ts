@@ -235,3 +235,52 @@ test("signed-in repository Issues filters update URL, results, and empty states"
     path: "../ralph/screenshots/build/issues-001-phase3-filtered-empty.jpg",
   });
 });
+
+test("signed-in repository Issues contributor banner dismissal persists on reload", async ({
+  page,
+}) => {
+  const seeded = seedSession();
+  await signIn(page, seeded);
+  const repositoryName = `issues banner ${Date.now().toString(36)}`;
+  const cookie = `${seeded.cookieName}=${seeded.cookieValue}`;
+  const currentUserResponse = await page.request.get(
+    "http://localhost:3016/api/auth/current-user",
+    { headers: { cookie } },
+  );
+  expect(currentUserResponse.status()).toBe(200);
+  const currentUser = (await currentUserResponse.json()) as CurrentUser;
+  const repositoryResponse = await page.request.post(
+    "http://localhost:3016/api/repos",
+    {
+      headers: { cookie },
+      data: {
+        ownerType: "user",
+        ownerId: currentUser.id,
+        name: repositoryName,
+        visibility: "public",
+        initializeReadme: false,
+      },
+    },
+  );
+  expect(repositoryResponse.status()).toBe(201);
+  const repository = (await repositoryResponse.json()) as CreatedRepository;
+
+  await page.goto(`/${repository.owner_login}/${repository.name}/issues`);
+  await expect(
+    page.getByRole("region", { name: "Contributor guidance" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss" }).click();
+  await expect(
+    page.getByRole("region", { name: "Contributor guidance" }),
+  ).toHaveCount(0);
+
+  await page.reload();
+  await expect(
+    page.getByRole("region", { name: "Contributor guidance" }),
+  ).toHaveCount(0);
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-001-phase4-banner-dismissed.jpg",
+  });
+});

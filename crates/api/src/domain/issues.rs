@@ -178,6 +178,7 @@ pub struct IssueListView {
     pub filters: IssueListFilters,
     pub viewer_permission: Option<String>,
     pub repository: IssueListRepository,
+    pub preferences: IssueListPreferences,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -187,6 +188,13 @@ pub struct IssueListRepository {
     pub owner_login: String,
     pub name: String,
     pub visibility: RepositoryVisibility,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueListPreferences {
+    pub dismissed_contributor_banner: bool,
+    pub dismissed_contributor_banner_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -612,6 +620,7 @@ pub async fn repository_issue_list_view(
         .map(issue_from_row)
         .collect::<Result<Vec<_>, _>>()?;
     let items = issue_list_items_for_issues(pool, &repository, issues).await?;
+    let preferences = get_repository_issue_preferences(pool, repository_id, actor_user_id).await?;
 
     Ok(IssueListView {
         items,
@@ -641,7 +650,46 @@ pub async fn repository_issue_list_view(
             name: repository.name,
             visibility: repository.visibility,
         },
+        preferences,
     })
+}
+
+pub async fn get_repository_issue_preferences(
+    pool: &PgPool,
+    repository_id: Uuid,
+    user_id: Uuid,
+) -> Result<IssueListPreferences, CollaborationError> {
+    require_repository_role(pool, repository_id, user_id, RepositoryRole::Read).await?;
+    repository_issue_preferences_row(pool, repository_id, user_id).await
+}
+
+pub async fn save_repository_issue_preferences(
+    pool: &PgPool,
+    repository_id: Uuid,
+    user_id: Uuid,
+    dismissed_contributor_banner: bool,
+) -> Result<IssueListPreferences, CollaborationError> {
+    require_repository_role(pool, repository_id, user_id, RepositoryRole::Read).await?;
+    let dismissed_at = dismissed_contributor_banner.then(Utc::now);
+    sqlx::query(
+        r#"
+        INSERT INTO repository_issue_preferences (
+            repository_id,
+            user_id,
+            dismissed_contributor_banner_at
+        )
+        VALUES ($1, $2, $3)
+        ON CONFLICT (repository_id, user_id)
+        DO UPDATE SET dismissed_contributor_banner_at = EXCLUDED.dismissed_contributor_banner_at
+        "#,
+    )
+    .bind(repository_id)
+    .bind(user_id)
+    .bind(dismissed_at)
+    .execute(pool)
+    .await?;
+
+    repository_issue_preferences_row(pool, repository_id, user_id).await
 }
 
 pub async fn get_issue(
@@ -1000,6 +1048,30 @@ async fn repository_viewer_permission(
     } else {
         Err(CollaborationError::RepositoryAccessDenied)
     }
+}
+
+async fn repository_issue_preferences_row(
+    pool: &PgPool,
+    repository_id: Uuid,
+    user_id: Uuid,
+) -> Result<IssueListPreferences, CollaborationError> {
+    let dismissed_contributor_banner_at = sqlx::query_scalar::<_, Option<DateTime<Utc>>>(
+        r#"
+        SELECT dismissed_contributor_banner_at
+        FROM repository_issue_preferences
+        WHERE repository_id = $1 AND user_id = $2
+        "#,
+    )
+    .bind(repository_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+
+    Ok(IssueListPreferences {
+        dismissed_contributor_banner: dismissed_contributor_banner_at.is_some(),
+        dismissed_contributor_banner_at,
+    })
 }
 
 async fn count_issue_list_items(

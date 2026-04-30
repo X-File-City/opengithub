@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    routing::get,
+    routing::{get, patch},
     Json, Router,
 };
 use serde::Deserialize;
@@ -17,8 +17,9 @@ use crate::{
         identity::User,
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
-            repository_issue_list_view, update_issue_state, CollaborationError, CreateComment,
-            CreateIssue, IssueListQuery, IssueState, ReactionContent, UpdateIssueState,
+            repository_issue_list_view, save_repository_issue_preferences, update_issue_state,
+            CollaborationError, CreateComment, CreateIssue, IssueListQuery, IssueState,
+            ReactionContent, UpdateIssueState,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
@@ -29,6 +30,10 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/repos/:owner/:repo/issues", get(list).post(create))
+        .route(
+            "/api/repos/:owner/:repo/issues/preferences",
+            patch(update_preferences),
+        )
         .route(
             "/api/repos/:owner/:repo/issues/:number",
             get(read).patch(update_state),
@@ -91,6 +96,12 @@ struct CreateCommentRequest {
 #[serde(rename_all = "camelCase")]
 struct ReactionRequest {
     content: ReactionContent,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateIssuePreferencesRequest {
+    dismissed_contributor_banner: bool,
 }
 
 async fn list(
@@ -295,6 +306,30 @@ async fn create(
     .map_err(map_collaboration_error)?;
 
     Ok((StatusCode::CREATED, Json(json!(issue))))
+}
+
+async fn update_preferences(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+    RestJson(request): RestJson<UpdateIssuePreferencesRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_collaboration_error)?;
+    let preferences = save_repository_issue_preferences(
+        pool,
+        repository_id,
+        actor.0.id,
+        request.dismissed_contributor_banner,
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+
+    Ok(Json(json!(preferences)))
 }
 
 async fn read(

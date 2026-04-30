@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IssueContributorBanner } from "@/components/IssueContributorBanner";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
   IssueListItem,
@@ -215,6 +216,12 @@ export function RepositoryIssuesPage({
             </Link>
           </div>
         </div>
+
+        <IssueContributorBanner
+          dismissed={issues.preferences.dismissedContributorBanner}
+          owner={owner}
+          repo={repo}
+        />
 
         <form
           action={`/${owner}/${repo}/issues`}

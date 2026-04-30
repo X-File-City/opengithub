@@ -56,7 +56,7 @@
 
 ## Phase 4: Issue List Preferences and Contributor Banner - dismiss persists per viewer/repository
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the dismissible contributor guidance banner and persist dismissal for the signed-in viewer and repository. The banner should appear on first view, hide immediately on dismiss, stay hidden on reload for that viewer/repository, and never block public read-only issue browsing.
 

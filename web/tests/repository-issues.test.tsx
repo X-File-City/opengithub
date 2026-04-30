@@ -1,5 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RepositoryIssuesPage } from "@/components/RepositoryIssuesPage";
 import type {
   IssueListItem,
@@ -140,11 +146,19 @@ function issueListView(overrides: Partial<IssueListView> = {}): IssueListView {
       name: "octo-app",
       visibility: "public",
     },
+    preferences: {
+      dismissedContributorBanner: false,
+      dismissedContributorBannerAt: null,
+    },
   };
   return { ...base, ...overrides };
 }
 
 describe("RepositoryIssuesPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders the default open issue list with real row metadata", () => {
     render(
       <RepositoryIssuesPage
@@ -155,6 +169,9 @@ describe("RepositoryIssuesPage", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Issues" })).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Contributor guidance" }),
+    ).toBeVisible();
     expect(screen.getByLabelText("issue-query")).toHaveValue(
       "is:issue state:open",
     );
@@ -185,6 +202,87 @@ describe("RepositoryIssuesPage", () => {
     expect(within(row).getByText("@hubot")).toBeVisible();
     expect(within(row).getByText("3")).toBeVisible();
     expect(within(row).getByText("#42")).toBeVisible();
+  });
+
+  it("dismisses the contributor banner through the preferences endpoint", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          dismissedContributorBanner: true,
+          dismissedContributorBannerAt: "2026-05-01T00:00:00Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView()}
+        query={{ q: "is:issue state:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/issues/preferences",
+        expect.objectContaining({
+          body: JSON.stringify({ dismissedContributorBanner: true }),
+          method: "PATCH",
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", { name: "Contributor guidance" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("keeps the contributor banner visible when persistence fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("{}", { status: 502 }),
+    );
+
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView()}
+        query={{ q: "is:issue state:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("This preference could not be saved. Try again."),
+      ).toBeVisible(),
+    );
+    expect(
+      screen.getByRole("region", { name: "Contributor guidance" }),
+    ).toBeVisible();
+  });
+
+  it("does not render the contributor banner after dismissal persists", () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView({
+          preferences: {
+            dismissedContributorBanner: true,
+            dismissedContributorBannerAt: "2026-05-01T00:00:00Z",
+          },
+        })}
+        query={{ q: "is:issue state:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Contributor guidance" }),
+    ).not.toBeInTheDocument();
   });
 
   it("builds issue list hrefs without inert targets", () => {

@@ -103,6 +103,35 @@ async fn send_json(app: axum::Router, uri: &str, cookie: Option<&str>) -> (Statu
     (status, value)
 }
 
+async fn patch_json(
+    app: axum::Router,
+    uri: &str,
+    cookie: Option<&str>,
+    body: Value,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method(Method::PATCH)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    let request = builder
+        .body(Body::from(body.to_string()))
+        .expect("request should build");
+    let response = app.oneshot(request).await.expect("request should run");
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body should read");
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("response should be json")
+    };
+    (status, value)
+}
+
 #[tokio::test]
 async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
     let Some(pool) = database_pool().await else {
@@ -256,6 +285,11 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["filters"]["labels"][0], "bug");
     assert_eq!(body["repository"]["name"], repo_name);
     assert_eq!(body["viewerPermission"], "read");
+    assert_eq!(body["preferences"]["dismissedContributorBanner"], false);
+    assert_eq!(
+        body["preferences"]["dismissedContributorBannerAt"],
+        Value::Null
+    );
     let item = &body["items"][0];
     assert_eq!(item["number"], open_issue.number);
     assert_eq!(item["title"], "Issue list keeps search filters");
@@ -274,6 +308,101 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             "/{}/{}/issues/{}",
             owner.email, repo_name, open_issue.number
         )
+    );
+}
+
+#[tokio::test]
+async fn issue_preferences_persist_contributor_banner_dismissal_per_viewer_repository() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping issue preferences scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-preferences-owner").await;
+    let reader = create_user(&pool, "issue-preferences-reader").await;
+    let other_reader = create_user(&pool, "issue-preferences-other-reader").await;
+    let repo_name = format!("issue-preferences-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("repository should create");
+    create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Contributor banner preference".to_owned(),
+            body: None,
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("issue should create");
+
+    let reader_cookie = cookie_header(&pool, &config, &reader).await;
+    let other_cookie = cookie_header(&pool, &config, &other_reader).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let list_uri = format!("/api/repos/{}/{}/issues", owner.email, repo_name);
+    let preferences_uri = format!(
+        "/api/repos/{}/{}/issues/preferences",
+        owner.email, repo_name
+    );
+
+    let (anonymous_status, anonymous_body) = patch_json(
+        app.clone(),
+        &preferences_uri,
+        None,
+        json!({ "dismissedContributorBanner": true }),
+    )
+    .await;
+    assert_eq!(anonymous_status, StatusCode::UNAUTHORIZED);
+    assert_eq!(anonymous_body["error"]["code"], "not_authenticated");
+
+    let (initial_status, initial_body) =
+        send_json(app.clone(), &list_uri, Some(&reader_cookie)).await;
+    assert_eq!(initial_status, StatusCode::OK);
+    assert_eq!(
+        initial_body["preferences"]["dismissedContributorBanner"],
+        false
+    );
+
+    let (patch_status, patch_body) = patch_json(
+        app.clone(),
+        &preferences_uri,
+        Some(&reader_cookie),
+        json!({ "dismissedContributorBanner": true }),
+    )
+    .await;
+    assert_eq!(patch_status, StatusCode::OK);
+    assert_eq!(patch_body["dismissedContributorBanner"], true);
+    assert!(patch_body["dismissedContributorBannerAt"].is_string());
+
+    let (persisted_status, persisted_body) =
+        send_json(app.clone(), &list_uri, Some(&reader_cookie)).await;
+    assert_eq!(persisted_status, StatusCode::OK);
+    assert_eq!(
+        persisted_body["preferences"]["dismissedContributorBanner"],
+        true
+    );
+    assert!(persisted_body["preferences"]["dismissedContributorBannerAt"].is_string());
+
+    let (other_status, other_body) = send_json(app, &list_uri, Some(&other_cookie)).await;
+    assert_eq!(other_status, StatusCode::OK);
+    assert_eq!(
+        other_body["preferences"]["dismissedContributorBanner"],
+        false
     );
 }
 
