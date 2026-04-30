@@ -24,6 +24,7 @@ export const config = {
     "/pulls/:path*",
     "/notifications/:path*",
     "/search/:path*",
+    "/explore/:path*",
     "/settings/:path*",
     "/:owner/:repo/settings/:path*",
   ],

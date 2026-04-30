@@ -779,3 +779,13 @@
 - Browser smoke: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` exercised a real signed Rust session, opened every desktop header menu/control, submitted search, signed out, and saved `ralph/screenshots/build/layout-001-phase2-desktop-header.jpg`.
 - Verification: `make check` passed; `make test` passed with 84 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 36 Playwright tests.
 - Marked Phase 2 as done in `.qrspi/layout-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-4 remain.
+
+2026-05-01 - layout-001 phase 3 mobile drawer and responsive frame
+
+- Implemented Phase 3 from `.qrspi/layout-001/structure.md`: the signed-in hamburger now opens a mobile drawer with backdrop close, Escape close, focus entry, quick navigation, recent repositories, and organization/team links backed by the shell context.
+- Added `AppShellFrame` with centered and repository frame modes; dashboard content now uses the centered 1240px frame and repository Code overview uses the repository frame marker while retaining full-width workspace behavior.
+- Protected the `/explore` signed-in header destination through the shared route guard and proxy matcher.
+- Added Vitest coverage for the mobile drawer, Escape close behavior, protected `/explore`, and existing header actions; added Playwright coverage for a real signed-session mobile drawer flow, responsive frame markers, and horizontal overflow.
+- Browser smoke/E2E saved `ralph/screenshots/build/layout-001-phase3-mobile-drawer.jpg`.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 85 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 37 Playwright tests.
+- Marked Phase 3 as done in `.qrspi/layout-001/structure.md`; `prd.json` remains `build_pass: false` because Phase 4 remains.

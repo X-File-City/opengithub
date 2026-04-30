@@ -119,6 +119,29 @@ describe("AppShell desktop header", () => {
     ).toHaveLength(0);
   });
 
+  it("renders the mobile drawer with recent repositories and closes from Escape", () => {
+    renderShell();
+
+    fireEvent.click(screen.getByRole("button", { name: "Global menu" }));
+
+    expect(screen.getByRole("dialog", { name: "Global menu" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(
+      screen.getByRole("link", { name: /mona\/editorial/ }),
+    ).toHaveAttribute("href", "/mona/editorial");
+    expect(
+      screen.getByRole("link", { name: /namuh\/Platform/ }),
+    ).toHaveAttribute("href", "/orgs/namuh/teams/platform");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "Global menu" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens create and avatar menus with concrete actions", () => {
     renderShell();
 
@@ -149,6 +172,7 @@ describe("AppShell desktop header", () => {
       "/pulls",
       "/notifications",
       "/search",
+      "/explore",
       "/settings/profile",
     ]) {
       expect(isProtectedPath(path)).toBe(true);

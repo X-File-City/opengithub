@@ -125,3 +125,40 @@ test("signed-in desktop header menus, links, search, and sign-out work", async (
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL("http://localhost:3015/");
 });
+
+test("signed-in mobile drawer exposes navigation and responsive frames", async ({
+  page,
+}) => {
+  const seeded = seedDashboard();
+  await signIn(page, seeded);
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.goto("/dashboard");
+  await expect(page.locator("[data-app-shell-frame='centered']")).toBeVisible();
+
+  await page.getByRole("button", { name: "Global menu" }).click();
+  const drawer = page.getByRole("dialog", { name: "Global menu" });
+  await expect(drawer).toBeVisible();
+  await expect(
+    drawer.getByRole("link", { name: /Pull requests/ }),
+  ).toHaveAttribute("href", "/pulls");
+  await expect(
+    drawer.getByRole("link", { name: seeded.firstRepositoryHref.slice(1) }),
+  ).toHaveAttribute("href", seeded.firstRepositoryHref);
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
+
+  await page.goto(seeded.firstRepositoryHref);
+  await expect(
+    page.locator("[data-app-shell-frame='repository']"),
+  ).toBeVisible();
+  const horizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(horizontalOverflow).toBe(false);
+
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/layout-001-phase3-mobile-drawer.jpg",
+  });
+});

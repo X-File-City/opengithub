@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { AppShellFrame } from "@/components/AppShellFrame";
 import { DashboardRepositoryFeed } from "@/components/DashboardRepositoryFeed";
 import { DashboardTopRepositories } from "@/components/DashboardTopRepositories";
 import type {
@@ -187,7 +188,10 @@ export function DashboardOnboarding(props: DashboardOnboardingProps) {
   }
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 px-6 py-8 lg:grid-cols-[296px_minmax(0,1fr)]">
+    <AppShellFrame
+      className="grid gap-8 lg:grid-cols-[296px_minmax(0,1fr)]"
+      mode="centered"
+    >
       <DashboardTopRepositories repositories={summary.topRepositories.items} />
       <div className="min-w-0 space-y-5">
         {summary.repositories.total === 0 ? (
@@ -206,6 +210,6 @@ export function DashboardOnboarding(props: DashboardOnboardingProps) {
           />
         )}
       </div>
-    </div>
+    </AppShellFrame>
   );
 }

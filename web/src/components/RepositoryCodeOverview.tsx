@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppShellFrame } from "@/components/AppShellFrame";
 import { RepositoryCodeToolbar } from "@/components/RepositoryCodeToolbar";
 import { RepositoryFileTable } from "@/components/RepositoryFileTable";
 import { RepositoryHeaderActions } from "@/components/RepositoryHeaderActions";
@@ -188,7 +189,10 @@ export function RepositoryCodeOverview({
           <RepositoryTabs repository={repository} />
         </div>
       </header>
-      <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)_296px] gap-8 px-6 py-6 max-lg:grid-cols-1">
+      <AppShellFrame
+        className="grid grid-cols-[minmax(0,1fr)_296px] gap-8 max-lg:grid-cols-1"
+        mode="repository"
+      >
         <div className="min-w-0 space-y-4">
           <RepositoryCodeToolbar repository={repository} />
           <RepositoryFileTable
@@ -221,7 +225,7 @@ export function RepositoryCodeOverview({
           ) : null}
         </div>
         <RepositorySidebar repository={repository} />
-      </div>
+      </AppShellFrame>
     </div>
   );
 }

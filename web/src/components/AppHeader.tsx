@@ -11,6 +11,11 @@ type AppHeaderProps = {
 };
 
 type MenuName = "global" | "create" | "avatar" | null;
+type DrawerSectionLink = {
+  href: string;
+  label: string;
+  detail?: string;
+};
 
 function userLabel(session: AuthSession) {
   return session.user?.display_name ?? session.user?.email ?? "Sign in";
@@ -121,20 +126,112 @@ function MenuLink({
   );
 }
 
+function DrawerLink({
+  detail,
+  href,
+  label,
+  onNavigate,
+}: DrawerSectionLink & { onNavigate: () => void }) {
+  return (
+    <Link
+      className="flex min-h-11 items-center justify-between gap-3 border-b px-5 py-3 focus:outline-none focus:ring-2"
+      href={href}
+      onClick={onNavigate}
+      style={{ borderColor: "var(--line)", outlineColor: "var(--accent)" }}
+    >
+      <span className="min-w-0 truncate t-sm">{label}</span>
+      {detail ? (
+        <span className="shrink-0 t-xs" style={{ color: "var(--ink-3)" }}>
+          {detail}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+function DrawerSection({
+  empty,
+  links,
+  onNavigate,
+  title,
+}: {
+  empty: string;
+  links: DrawerSectionLink[];
+  onNavigate: () => void;
+  title: string;
+}) {
+  return (
+    <section>
+      <div className="px-5 pb-2 pt-5">
+        <h2 className="t-label" style={{ color: "var(--ink-3)" }}>
+          {title}
+        </h2>
+      </div>
+      {links.length > 0 ? (
+        links.map((link) => (
+          <DrawerLink
+            key={`${link.href}-${link.label}`}
+            {...link}
+            onNavigate={onNavigate}
+          />
+        ))
+      ) : (
+        <p className="px-5 py-3 t-xs" style={{ color: "var(--ink-3)" }}>
+          {empty}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function AppHeader({ session, shellContext }: AppHeaderProps) {
   const signedIn = session.authenticated && session.user;
   const [openMenu, setOpenMenu] = useState<MenuName>(null);
   const headerRef = useRef<HTMLElement | null>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
   const globalButtonId = useId();
   const createButtonId = useId();
   const avatarButtonId = useId();
   const globalMenuId = useId();
+  const mobileGlobalMenuId = useId();
   const createMenuId = useId();
   const avatarMenuId = useId();
   const unreadCount = shellContext?.unreadNotificationCount ?? 0;
   const recentRepositories = shellContext?.recentRepositories ?? [];
   const organizations = shellContext?.organizations ?? [];
   const teams = shellContext?.teams ?? [];
+  const quickLinks = shellContext?.quickLinks ?? [];
+  const mobilePrimaryLinks =
+    quickLinks.length > 0
+      ? quickLinks.map((link) => ({
+          href: link.href,
+          label: link.label,
+          detail: link.kind === "create" ? "Create" : undefined,
+        }))
+      : [
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/pulls", label: "Pull requests" },
+          { href: "/issues", label: "Issues" },
+          { href: "/notifications", label: "Notifications" },
+          { href: "/new", label: "New repository", detail: "Create" },
+        ];
+  const mobileRepositoryLinks = recentRepositories.slice(0, 6).map((repo) => ({
+    href: repo.href,
+    label: `${repo.ownerLogin}/${repo.name}`,
+    detail: repo.visibility,
+  }));
+  const mobileOrganizationLinks = [
+    ...organizations.slice(0, 4).map((org) => ({
+      href: org.href,
+      label: org.displayName,
+      detail: org.role,
+    })),
+    ...teams.slice(0, 4).map((team) => ({
+      href: team.href,
+      label: `${team.organizationSlug}/${team.name}`,
+      detail: team.role,
+    })),
+  ];
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -156,6 +253,21 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, []);
+
+  useEffect(() => {
+    if (openMenu !== "global") {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const firstFocusable = mobileDrawerRef.current?.querySelector<
+        HTMLAnchorElement | HTMLButtonElement
+      >("a, button");
+      firstFocusable?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [openMenu]);
 
   return (
     <header
@@ -182,62 +294,133 @@ export function AppHeader({ session, shellContext }: AppHeaderProps) {
             <Icon name="menu" />
           </button>
           {openMenu === "global" ? (
-            <MenuPanel id={globalMenuId} labelledBy={globalButtonId}>
-              <div
-                className="border-b px-4 pb-2"
-                style={{ borderColor: "var(--line)" }}
-              >
-                <p className="t-label" style={{ color: "var(--ink-3)" }}>
-                  Navigate
-                </p>
-              </div>
-              <MenuLink href="/dashboard">Dashboard</MenuLink>
-              <MenuLink href="/issues">Issues</MenuLink>
-              <MenuLink href="/pulls">Pull requests</MenuLink>
-              <MenuLink href="/notifications">Notifications</MenuLink>
-              <MenuLink href="/explore">Explore</MenuLink>
-              <div
-                className="mt-2 border-t px-4 pb-1 pt-3"
-                style={{ borderColor: "var(--line)" }}
-              >
-                <p className="t-label" style={{ color: "var(--ink-3)" }}>
-                  Recent repositories
-                </p>
-              </div>
-              {recentRepositories.length > 0 ? (
-                recentRepositories.slice(0, 5).map((repo) => (
-                  <MenuLink href={repo.href} key={repo.id}>
-                    <span className="t-mono-sm">
-                      {repo.ownerLogin}/{repo.name}
-                    </span>
-                  </MenuLink>
-                ))
-              ) : (
-                <p className="px-4 py-2 t-xs">No recent repositories yet.</p>
-              )}
-              {organizations.length > 0 || teams.length > 0 ? (
-                <>
+            <>
+              <div className="hidden md:block">
+                <MenuPanel id={globalMenuId} labelledBy={globalButtonId}>
+                  <div
+                    className="border-b px-4 pb-2"
+                    style={{ borderColor: "var(--line)" }}
+                  >
+                    <p className="t-label" style={{ color: "var(--ink-3)" }}>
+                      Navigate
+                    </p>
+                  </div>
+                  <MenuLink href="/dashboard">Dashboard</MenuLink>
+                  <MenuLink href="/issues">Issues</MenuLink>
+                  <MenuLink href="/pulls">Pull requests</MenuLink>
+                  <MenuLink href="/notifications">Notifications</MenuLink>
+                  <MenuLink href="/explore">Explore</MenuLink>
                   <div
                     className="mt-2 border-t px-4 pb-1 pt-3"
                     style={{ borderColor: "var(--line)" }}
                   >
                     <p className="t-label" style={{ color: "var(--ink-3)" }}>
-                      Organizations and teams
+                      Recent repositories
                     </p>
                   </div>
-                  {organizations.slice(0, 3).map((org) => (
-                    <MenuLink href={org.href} key={org.id}>
-                      {org.displayName}
-                    </MenuLink>
-                  ))}
-                  {teams.slice(0, 3).map((team) => (
-                    <MenuLink href={team.href} key={team.id}>
-                      {team.organizationSlug}/{team.name}
-                    </MenuLink>
-                  ))}
-                </>
-              ) : null}
-            </MenuPanel>
+                  {recentRepositories.length > 0 ? (
+                    recentRepositories.slice(0, 5).map((repo) => (
+                      <MenuLink href={repo.href} key={repo.id}>
+                        <span className="t-mono-sm">
+                          {repo.ownerLogin}/{repo.name}
+                        </span>
+                      </MenuLink>
+                    ))
+                  ) : (
+                    <p className="px-4 py-2 t-xs">
+                      No recent repositories yet.
+                    </p>
+                  )}
+                  {organizations.length > 0 || teams.length > 0 ? (
+                    <>
+                      <div
+                        className="mt-2 border-t px-4 pb-1 pt-3"
+                        style={{ borderColor: "var(--line)" }}
+                      >
+                        <p
+                          className="t-label"
+                          style={{ color: "var(--ink-3)" }}
+                        >
+                          Organizations and teams
+                        </p>
+                      </div>
+                      {organizations.slice(0, 3).map((org) => (
+                        <MenuLink href={org.href} key={org.id}>
+                          {org.displayName}
+                        </MenuLink>
+                      ))}
+                      {teams.slice(0, 3).map((team) => (
+                        <MenuLink href={team.href} key={team.id}>
+                          {team.organizationSlug}/{team.name}
+                        </MenuLink>
+                      ))}
+                    </>
+                  ) : null}
+                </MenuPanel>
+              </div>
+              <div
+                aria-hidden="true"
+                className="fixed inset-0 z-40 md:hidden"
+                onClick={() => setOpenMenu(null)}
+                style={{
+                  background:
+                    "color-mix(in oklch, var(--ink-1) 28%, transparent)",
+                }}
+              />
+              <div
+                aria-labelledby={globalButtonId}
+                aria-modal="true"
+                className="fixed bottom-0 left-0 top-0 z-50 flex w-[min(88vw,360px)] flex-col border-r shadow-lg md:hidden"
+                id={mobileGlobalMenuId}
+                ref={mobileDrawerRef}
+                role="dialog"
+                style={{
+                  background: "var(--surface)",
+                  borderColor: "var(--line)",
+                  boxShadow: "var(--shadow-lg)",
+                }}
+              >
+                <div
+                  className="flex min-h-[var(--header-h)] items-center justify-between border-b px-5"
+                  style={{ borderColor: "var(--line)" }}
+                >
+                  <div className="min-w-0">
+                    <p className="t-label" style={{ color: "var(--ink-3)" }}>
+                      Menu
+                    </p>
+                    <p className="truncate t-sm">{userLabel(session)}</p>
+                  </div>
+                  <button
+                    aria-label="Close global menu"
+                    className="btn ghost grid h-8 w-8 place-items-center p-0"
+                    onClick={() => setOpenMenu(null)}
+                    type="button"
+                  >
+                    <Icon name="menu" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pb-6">
+                  <DrawerSection
+                    empty="No navigation links available."
+                    links={mobilePrimaryLinks}
+                    onNavigate={() => setOpenMenu(null)}
+                    title="Navigate"
+                  />
+                  <DrawerSection
+                    empty="No recent repositories yet."
+                    links={mobileRepositoryLinks}
+                    onNavigate={() => setOpenMenu(null)}
+                    title="Recent repositories"
+                  />
+                  <DrawerSection
+                    empty="No organizations or teams yet."
+                    links={mobileOrganizationLinks}
+                    onNavigate={() => setOpenMenu(null)}
+                    title="Organizations and teams"
+                  />
+                </div>
+              </div>
+            </>
           ) : null}
         </div>
 

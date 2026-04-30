@@ -41,7 +41,7 @@
 
 ## Phase 3: Mobile Drawer and Responsive Frame - signed-in navigation collapses cleanly below desktop widths
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Implement the hamburger drawer and responsive page frame. Mobile should collapse global navigation into a drawer with recent repositories, organizations/teams, projects/quick links, and primary app links while repository workspaces remain full-width and dashboard/settings pages keep centered containers.
 

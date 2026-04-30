@@ -5,6 +5,7 @@ export const PROTECTED_PATHS = [
   "/pulls",
   "/notifications",
   "/search",
+  "/explore",
   "/settings",
 ] as const;
 

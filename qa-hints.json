@@ -1094,5 +1094,22 @@
       "Issues, pulls, notifications, and profile settings pages are lightweight destinations to avoid dead routes; full list/detail behavior remains later PRD work",
       "QA should stress very long user, repository, organization, and team names in the global and avatar menus"
     ]
+  },
+  {
+    "feature_id": "layout-001",
+    "tests_written": [
+      "Implemented Phase 3 mobile app shell drawer with backdrop close, Escape close, focus entry, recent repository links, organization/team links, and quick-link navigation backed by /api/app-shell context",
+      "Added AppShellFrame with centered and repository frame modes; dashboard uses the centered 1240px frame and repository Code overview uses the full-width repository frame marker",
+      "Protected the /explore header destination through the shared Next.js proxy route guard",
+      "Added Vitest coverage for mobile drawer contents, Escape close, protected /explore matching, and existing desktop header actions",
+      "Added Playwright coverage for a real Postgres-backed signed-in mobile session opening the drawer, checking navigation/recent repository links, verifying dashboard/repository frame modes, checking horizontal overflow, and saving ralph/screenshots/build/layout-001-phase3-mobile-drawer.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with 85 frontend tests plus cargo tests, and make test-e2e with 37 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Drawer focus enters the panel and Escape/backdrop close are covered; full keyboard focus trapping and screen reader announcement quality should receive deeper accessibility QA in Phase 4",
+      "Very long repository, organization, team, and user names should be stress-tested in the mobile drawer for truncation and scroll behavior",
+      "Repository frame now spans the viewport for Code overview content; QA should compare other repository subpages for consistent responsive width as they adopt the frame helper",
+      "Notification count remains a page-load value from shell context; live update behavior belongs to later notification work"
+    ]
   }
 ]
