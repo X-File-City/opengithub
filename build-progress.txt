@@ -1,0 +1,7 @@
+2026-04-30 - infra-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, and the first incomplete `prd.json` entry.
+- Determined `infra-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/infra-001/structure.md` did not exist.
+- Added `.qrspi/infra-001/structure.md` with five independently verifiable vertical phases: identity, repository ownership, collaboration, automation/delivery, and search/observability hardening.
+- Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
