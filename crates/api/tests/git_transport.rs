@@ -10,7 +10,8 @@ use opengithub_api::config::{AppConfig, AuthConfig};
 use opengithub_api::domain::{
     identity::{upsert_user_by_email, User},
     repositories::{
-        create_repository_with_bootstrap, CreateRepository, RepositoryBootstrapRequest,
+        create_repository_with_bootstrap, get_repository_by_owner_name,
+        repository_overview_for_actor, CreateRepository, RepositoryBootstrapRequest,
         RepositoryOwner, RepositoryVisibility,
     },
     tokens::hash_personal_access_token,
@@ -480,4 +481,191 @@ async fn private_repository_rejects_invalid_expired_or_unscoped_tokens_without_l
     }
 
     let _ = std::fs::remove_dir_all(storage_dir);
+}
+
+#[tokio::test]
+async fn authorized_token_push_updates_repository_snapshot_and_activity() {
+    let _env_guard = GIT_STORAGE_ENV_LOCK.lock().await;
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping git receive-pack scenario; set TEST_DATABASE_URL");
+        return;
+    };
+    let storage_dir = std::env::temp_dir().join(format!("opengithub-git-push-{}", Uuid::new_v4()));
+    std::env::set_var("OPENGITHUB_GIT_STORAGE_DIR", &storage_dir);
+
+    let owner = create_user(&pool, "git-push-owner").await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("push-target-{}", Uuid::new_v4().simple()),
+            description: Some("Push target".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: Some("main".to_owned()),
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest::default(),
+    )
+    .await
+    .expect("empty repository should create");
+
+    let token = create_pat(&pool, owner.id, &["repo:write"], None).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), test_config());
+    let mut token_headers = HeaderMap::new();
+    token_headers.insert(header::AUTHORIZATION, basic_auth_header(&token));
+    let (status, body, content_type) = send_raw_with_headers(
+        app.clone(),
+        &format!(
+            "/{}/{}.git/info/refs?service=git-receive-pack",
+            repository.owner_login, repository.name
+        ),
+        token_headers,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(content_type, "application/x-git-receive-pack-advertisement");
+    assert!(String::from_utf8_lossy(&body).contains("# service=git-receive-pack"));
+
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener should bind");
+    let address = listener.local_addr().expect("local addr should read");
+    let server = tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("server should run");
+    });
+
+    let worktree =
+        std::env::temp_dir().join(format!("opengithub-push-worktree-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&worktree).expect("worktree should create");
+    git_in(&worktree, ["init", "-b", "main"]).await;
+    git_in(&worktree, ["config", "user.email", "push@example.com"]).await;
+    git_in(&worktree, ["config", "user.name", "Push User"]).await;
+    std::fs::write(
+        worktree.join("README.md"),
+        format!("# {}\n\nPushed over opengithub HTTPS.\n", repository.name),
+    )
+    .expect("README should write");
+    std::fs::create_dir_all(worktree.join("src")).expect("src should create");
+    std::fs::write(
+        worktree.join("src/lib.rs"),
+        "pub fn pushed() -> bool { true }\n",
+    )
+    .expect("source should write");
+    git_in(&worktree, ["add", "."]).await;
+    git_in(&worktree, ["commit", "-m", "Push repository contents"]).await;
+    let remote = format!(
+        "http://x-access-token:{}@{}/{}/{}.git",
+        token, address, repository.owner_login, repository.name
+    );
+    git_in(&worktree, ["remote", "add", "origin", &remote]).await;
+    git_in(&worktree, ["push", "-u", "origin", "main"]).await;
+    server.abort();
+
+    let repository = get_repository_by_owner_name(&pool, &repository.owner_login, &repository.name)
+        .await
+        .expect("repository lookup should run")
+        .expect("repository should exist");
+    let overview = repository_overview_for_actor(&pool, repository.clone(), owner.id)
+        .await
+        .expect("overview should load");
+    assert_eq!(
+        overview
+            .latest_commit
+            .as_ref()
+            .map(|commit| commit.message.as_str()),
+        Some("Push repository contents")
+    );
+    assert!(overview.files.iter().any(|file| file.path == "README.md"));
+    assert!(overview.files.iter().any(|file| file.path == "src/lib.rs"));
+    assert!(overview
+        .root_entries
+        .iter()
+        .any(|entry| entry.name == "src"));
+
+    let feed_count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM feed_events WHERE repository_id = $1 AND actor_user_id = $2 AND event_type = 'push'",
+    )
+    .bind(repository.id)
+    .bind(owner.id)
+    .fetch_one(&pool)
+    .await
+    .expect("feed count should read");
+    assert!(feed_count >= 1);
+    let audit_count: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM audit_events WHERE target_id = $1 AND actor_user_id = $2 AND event_type = 'repository.push'",
+    )
+    .bind(repository.id.to_string())
+    .bind(owner.id)
+    .fetch_one(&pool)
+    .await
+    .expect("audit count should read");
+    assert!(audit_count >= 1);
+
+    let _ = std::fs::remove_dir_all(worktree);
+    let _ = std::fs::remove_dir_all(storage_dir);
+}
+
+#[tokio::test]
+async fn receive_pack_requires_write_scope_or_write_permission() {
+    let _env_guard = GIT_STORAGE_ENV_LOCK.lock().await;
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping receive-pack auth scenario; set TEST_DATABASE_URL");
+        return;
+    };
+    let storage_dir =
+        std::env::temp_dir().join(format!("opengithub-git-push-deny-{}", Uuid::new_v4()));
+    std::env::set_var("OPENGITHUB_GIT_STORAGE_DIR", &storage_dir);
+
+    let owner = create_user(&pool, "git-push-deny-owner").await;
+    let repository = create_repository_with_bootstrap(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("push-deny-{}", Uuid::new_v4().simple()),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: Some("main".to_owned()),
+            created_by_user_id: owner.id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("blank".to_owned()),
+            gitignore_template_slug: None,
+            license_template_slug: None,
+        },
+    )
+    .await
+    .expect("repository should create");
+    let read_token = create_pat(&pool, owner.id, &["repo:read"], None).await;
+    let app = opengithub_api::build_app_with_config(Some(pool), test_config());
+    let mut headers = HeaderMap::new();
+    headers.insert(header::AUTHORIZATION, basic_auth_header(&read_token));
+    let (status, body, _) = send_raw_with_headers(
+        app,
+        &format!(
+            "/{}/{}.git/info/refs?service=git-receive-pack",
+            repository.owner_login, repository.name
+        ),
+        headers,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let rendered = String::from_utf8_lossy(&body);
+    assert!(rendered.contains("authentication_required"));
+    assert!(!rendered.contains(&read_token));
+    let _ = std::fs::remove_dir_all(storage_dir);
+}
+
+async fn git_in<const N: usize>(current_dir: &Path, args: [&str; N]) {
+    let output = Command::new("git")
+        .current_dir(current_dir)
+        .args(args)
+        .output()
+        .await
+        .expect("git command should run");
+    assert!(
+        output.status.success(),
+        "git failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }

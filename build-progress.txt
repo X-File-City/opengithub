@@ -645,3 +645,13 @@
 - Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test git_transport -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 72 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 29 Playwright tests.
 - Browser smoke test skipped for this phase because it is backend Git transport auth only; no new UI was added.
 - Marked Phase 2 as done in `.qrspi/git-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-04-30 - git-001 phase 3 authenticated push
+
+- Implemented Phase 3 from `.qrspi/git-001/structure.md`: authorized users can now push over HTTPS through smart HTTP `git-receive-pack`.
+- Added receive-pack advertisement/POST routing under `/{owner}/{repo}.git`, requiring write-capable signed sessions or PAT scopes while preserving public/private upload-pack fetch behavior.
+- Added post-push synchronization from the bare Git repository into Postgres `commits`, `git_objects`, `repository_git_refs`, and `repository_files`, plus push feed events and `repository.push` audit events.
+- Extended `crates/api/tests/git_transport.rs` with real `git push` coverage into an empty repository, Code tab snapshot assertions, feed/audit assertions, and receive-pack denial for read-only tokens.
+- Verification: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test cargo test --test git_transport -- --nocapture` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 72 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 29 Playwright tests.
+- Browser smoke: started `make dev`, created an empty repository through the Rust API using a real signed session, pushed `README.md` and `src/lib.rs` from a local Git checkout over HTTPS with the session cookie, loaded the repository Code tab, and saved `ralph/screenshots/build/git-001-phase3-push-code-tab.jpg`.
+- Marked Phase 3 as done in `.qrspi/git-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.

@@ -13,7 +13,8 @@ use crate::{
     api_types::{database_unavailable, error_response, ErrorEnvelope},
     auth::session,
     domain::git_transport::{
-        advertise_upload_pack, run_upload_pack, GitServiceRequest, GitTransportError,
+        advertise_receive_pack, advertise_upload_pack, run_receive_pack, run_upload_pack,
+        GitServiceRequest, GitTransportError,
     },
     domain::tokens::verify_personal_access_token,
     AppState,
@@ -29,6 +30,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/:owner/:repo_git/info/refs", get(info_refs))
         .route("/:owner/:repo_git/git-upload-pack", post(upload_pack))
+        .route("/:owner/:repo_git/git-receive-pack", post(receive_pack))
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,17 +49,20 @@ async fn info_refs(
         .db
         .as_ref()
         .ok_or_else(|| with_git_auth_challenge(database_unavailable()))?;
-    let actor_user_id = git_actor_user_id(pool, &state, &headers).await;
-    let response = advertise_upload_pack(
-        pool,
-        GitServiceRequest {
-            owner,
-            repo: repo.to_owned(),
-            service: query.service.unwrap_or_default(),
-            actor_user_id,
-        },
-    )
-    .await
+    let service = query.service.unwrap_or_default();
+    let requires_write = service == "git-receive-pack";
+    let actor_user_id = git_actor_user_id(pool, &state, &headers, requires_write).await;
+    let request = GitServiceRequest {
+        owner,
+        repo: repo.to_owned(),
+        service,
+        actor_user_id,
+    };
+    let response = if request.service == "git-receive-pack" {
+        advertise_receive_pack(pool, request).await
+    } else {
+        advertise_upload_pack(pool, request).await
+    }
     .map_err(map_git_error)?;
     Ok(git_response(response.content_type, response.body))
 }
@@ -73,7 +78,7 @@ async fn upload_pack(
         .db
         .as_ref()
         .ok_or_else(|| with_git_auth_challenge(database_unavailable()))?;
-    let actor_user_id = git_actor_user_id(pool, &state, &headers).await;
+    let actor_user_id = git_actor_user_id(pool, &state, &headers, false).await;
     let response = run_upload_pack(
         pool,
         GitServiceRequest {
@@ -89,14 +94,44 @@ async fn upload_pack(
     Ok(git_response(response.content_type, response.body))
 }
 
+async fn receive_pack(
+    State(state): State<AppState>,
+    Path((owner, repo_git)): Path<(String, String)>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, GitRouteError> {
+    let repo = repository_name_from_git_path(&repo_git).ok_or_else(repository_not_found)?;
+    let pool = state
+        .db
+        .as_ref()
+        .ok_or_else(|| with_git_auth_challenge(database_unavailable()))?;
+    let actor_user_id = git_actor_user_id(pool, &state, &headers, true).await;
+    let response = run_receive_pack(
+        pool,
+        GitServiceRequest {
+            owner,
+            repo: repo.to_owned(),
+            service: "git-receive-pack".to_owned(),
+            actor_user_id,
+        },
+        body.to_vec(),
+    )
+    .await
+    .map_err(map_git_error)?;
+    Ok(git_response(response.content_type, response.body))
+}
+
 async fn git_actor_user_id(
     pool: &sqlx::PgPool,
     state: &AppState,
     headers: &HeaderMap,
+    requires_write: bool,
 ) -> Option<uuid::Uuid> {
     if let Some(token) = git_token_from_headers(headers) {
         if let Ok(verified) = verify_personal_access_token(pool, &token).await {
-            if verified.allows_repo_read() {
+            if (requires_write && verified.allows_repo_write())
+                || (!requires_write && verified.allows_repo_read())
+            {
                 return Some(verified.user_id);
             }
         }

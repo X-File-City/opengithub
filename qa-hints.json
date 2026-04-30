@@ -903,5 +903,23 @@
       "Git transport currently accepts repo, repo:read, repo:write, repository:read, and repository:write scopes for read access; final security QA should re-check scope boundaries before token UI ships",
       "Private clone was verified through local Axum and local bare storage; production HTTPS, proxy headers, and ECS/S3 durability need retesting after deployment hardening"
     ]
+  },
+  {
+    "feature_id": "git-001",
+    "tests_written": [
+      "Added smart HTTP receive-pack advertisement and POST routes for git push over HTTPS",
+      "Added repo write-scope PAT checks plus repository write-permission/session checks for receive-pack while preserving read-only upload-pack behavior",
+      "After receive-pack, pushed branch refs are synchronized from the bare Git repository into commits, git_objects, repository_git_refs, and repository_files",
+      "Pushes now write dashboard feed push events and repository.push audit events",
+      "Expanded crates/api/tests/git_transport.rs with a real local git push into an empty repository, database Code tab snapshot assertions, feed/audit assertions, and read-scope receive-pack denial",
+      "Browser smoke created an empty repository, pushed README.md and src/lib.rs over HTTPS using a signed Rust session cookie, loaded the Code tab, and saved ralph/screenshots/build/git-001-phase3-push-code-tab.jpg",
+      "Verification passed: TEST_DATABASE_URL-backed cargo test --test git_transport -- --nocapture, make check, make test with 72 web tests, and make test-e2e with 29 Playwright tests"
+    ],
+    "needs_deeper_qa": [
+      "Phase 3 indexes pushed file content into the existing text-backed repository_files table; byte-perfect binary and large-file behavior remains for raw/archive/object-storage phases",
+      "Per-line author attribution is not updated by push sync yet; blame remains metadata/fallback based until deeper Git history indexing lands",
+      "Receive-pack currently synchronizes branch refs and prunes deleted branch rows; tag metadata is discovered but not persisted as a first-class UI surface yet",
+      "Smoke used a local session-cookie git push through http.extraHeader; QA should also test standard PAT user:token push flows across real TLS/proxy infrastructure"
+    ]
   }
 ]

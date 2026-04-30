@@ -27,6 +27,12 @@ impl VerifiedPersonalAccessToken {
             )
         })
     }
+
+    pub fn allows_repo_write(&self) -> bool {
+        self.scopes
+            .iter()
+            .any(|scope| matches!(scope.as_str(), "repo" | "repo:write" | "repository:write"))
+    }
 }
 
 pub async fn verify_personal_access_token(

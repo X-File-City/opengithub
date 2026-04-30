@@ -1711,6 +1711,22 @@ pub async fn can_read_repository(
     )
 }
 
+pub async fn can_write_repository(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<bool, RepositoryError> {
+    if repository.owner_user_id == Some(actor_user_id) {
+        return Ok(true);
+    }
+
+    Ok(
+        repository_permission_for_user(pool, repository.id, actor_user_id)
+            .await?
+            .is_some_and(|permission| permission.role.can_write()),
+    )
+}
+
 pub async fn insert_commit(
     pool: &PgPool,
     repository_id: Uuid,
