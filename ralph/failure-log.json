@@ -399,6 +399,14 @@
       "exit_code": 0,
       "category": "test_failure",
       "attempt": 9
+    },
+    {
+      "timestamp": "2026-04-30T09:12:48.933436",
+      "phase": "build",
+      "feature": "build_cycle_2",
+      "exit_code": 0,
+      "category": "test_failure",
+      "attempt": 10
     }
   ]
 }
