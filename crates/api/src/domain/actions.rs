@@ -4,9 +4,14 @@ use serde_json::Value;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
+use crate::api_types::ListEnvelope;
+
 use super::{
     permissions::RepositoryRole,
-    repositories::{get_repository, repository_permission_for_user, Repository, RepositoryError},
+    repositories::{
+        get_repository, get_repository_by_owner_name, repository_permission_for_user, Repository,
+        RepositoryError,
+    },
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -335,6 +340,64 @@ pub async fn create_workflow(
     workflow_from_row(row)
 }
 
+pub async fn list_workflows(
+    pool: &PgPool,
+    repository_id: Uuid,
+    actor_user_id: Uuid,
+    page: i64,
+    page_size: i64,
+) -> Result<ListEnvelope<ActionsWorkflow>, AutomationError> {
+    require_repository_role(pool, repository_id, actor_user_id, RepositoryRole::Read).await?;
+    let page = page.max(1);
+    let page_size = page_size.clamp(1, 100);
+    let offset = (page - 1) * page_size;
+    let total = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM actions_workflows WHERE repository_id = $1",
+    )
+    .bind(repository_id)
+    .fetch_one(pool)
+    .await?;
+    let rows = sqlx::query(
+        r#"
+        SELECT id, repository_id, name, path, state, trigger_events, created_at, updated_at
+        FROM actions_workflows
+        WHERE repository_id = $1
+        ORDER BY lower(name), path
+        LIMIT $2 OFFSET $3
+        "#,
+    )
+    .bind(repository_id)
+    .bind(page_size)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    let items = rows
+        .into_iter()
+        .map(workflow_from_row)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(ListEnvelope {
+        items,
+        total,
+        page,
+        page_size,
+    })
+}
+
+pub async fn get_workflow_for_actor(
+    pool: &PgPool,
+    repository_id: Uuid,
+    workflow_id: Uuid,
+    actor_user_id: Uuid,
+) -> Result<ActionsWorkflow, AutomationError> {
+    require_repository_role(pool, repository_id, actor_user_id, RepositoryRole::Read).await?;
+    let workflow = get_workflow(pool, workflow_id).await?;
+    if workflow.repository_id != repository_id {
+        return Err(AutomationError::WorkflowNotFound);
+    }
+    Ok(workflow)
+}
+
 pub async fn create_workflow_run(
     pool: &PgPool,
     input: CreateWorkflowRun,
@@ -369,6 +432,84 @@ pub async fn create_workflow_run(
     .bind(&input.event)
     .fetch_one(pool)
     .await?;
+
+    workflow_run_from_row(row)
+}
+
+pub async fn list_workflow_runs(
+    pool: &PgPool,
+    repository_id: Uuid,
+    workflow_id: Option<Uuid>,
+    actor_user_id: Uuid,
+    page: i64,
+    page_size: i64,
+) -> Result<ListEnvelope<WorkflowRun>, AutomationError> {
+    require_repository_role(pool, repository_id, actor_user_id, RepositoryRole::Read).await?;
+    let page = page.max(1);
+    let page_size = page_size.clamp(1, 100);
+    let offset = (page - 1) * page_size;
+    let total = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT count(*)
+        FROM workflow_runs
+        WHERE repository_id = $1
+          AND ($2::uuid IS NULL OR workflow_id = $2)
+        "#,
+    )
+    .bind(repository_id)
+    .bind(workflow_id)
+    .fetch_one(pool)
+    .await?;
+    let rows = sqlx::query(
+        r#"
+        SELECT id, repository_id, workflow_id, actor_user_id, run_number, status, conclusion,
+               head_branch, head_sha, event, started_at, completed_at, created_at, updated_at
+        FROM workflow_runs
+        WHERE repository_id = $1
+          AND ($2::uuid IS NULL OR workflow_id = $2)
+        ORDER BY created_at DESC, run_number DESC
+        LIMIT $3 OFFSET $4
+        "#,
+    )
+    .bind(repository_id)
+    .bind(workflow_id)
+    .bind(page_size)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    let items = rows
+        .into_iter()
+        .map(workflow_run_from_row)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(ListEnvelope {
+        items,
+        total,
+        page,
+        page_size,
+    })
+}
+
+pub async fn get_workflow_run_for_actor(
+    pool: &PgPool,
+    repository_id: Uuid,
+    run_id: Uuid,
+    actor_user_id: Uuid,
+) -> Result<WorkflowRun, AutomationError> {
+    require_repository_role(pool, repository_id, actor_user_id, RepositoryRole::Read).await?;
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, workflow_id, actor_user_id, run_number, status, conclusion,
+               head_branch, head_sha, event, started_at, completed_at, created_at, updated_at
+        FROM workflow_runs
+        WHERE id = $1 AND repository_id = $2
+        "#,
+    )
+    .bind(run_id)
+    .bind(repository_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(AutomationError::WorkflowRunNotFound)?;
 
     workflow_run_from_row(row)
 }
@@ -511,6 +652,128 @@ pub async fn create_package_version(
     .await?;
 
     Ok(package_version_from_row(row))
+}
+
+pub async fn list_packages(
+    pool: &PgPool,
+    repository_id: Uuid,
+    actor_user_id: Uuid,
+    page: i64,
+    page_size: i64,
+) -> Result<ListEnvelope<Package>, AutomationError> {
+    require_repository_role(pool, repository_id, actor_user_id, RepositoryRole::Read).await?;
+    let page = page.max(1);
+    let page_size = page_size.clamp(1, 100);
+    let offset = (page - 1) * page_size;
+    let total =
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM packages WHERE repository_id = $1")
+            .bind(repository_id)
+            .fetch_one(pool)
+            .await?;
+    let rows = sqlx::query(
+        r#"
+        SELECT id, repository_id, name, package_type, visibility, created_by_user_id, created_at, updated_at
+        FROM packages
+        WHERE repository_id = $1
+        ORDER BY lower(name), package_type
+        LIMIT $2 OFFSET $3
+        "#,
+    )
+    .bind(repository_id)
+    .bind(page_size)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    let items = rows
+        .into_iter()
+        .map(package_from_row)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(ListEnvelope {
+        items,
+        total,
+        page,
+        page_size,
+    })
+}
+
+pub async fn get_package_for_actor(
+    pool: &PgPool,
+    repository_id: Uuid,
+    package_id: Uuid,
+    actor_user_id: Uuid,
+) -> Result<Package, AutomationError> {
+    require_repository_role(pool, repository_id, actor_user_id, RepositoryRole::Read).await?;
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, name, package_type, visibility, created_by_user_id, created_at, updated_at
+        FROM packages
+        WHERE id = $1 AND repository_id = $2
+        "#,
+    )
+    .bind(package_id)
+    .bind(repository_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(AutomationError::PackageNotFound)?;
+
+    package_from_row(row)
+}
+
+pub async fn list_package_versions(
+    pool: &PgPool,
+    repository_id: Uuid,
+    package_id: Uuid,
+    actor_user_id: Uuid,
+    page: i64,
+    page_size: i64,
+) -> Result<ListEnvelope<PackageVersion>, AutomationError> {
+    get_package_for_actor(pool, repository_id, package_id, actor_user_id).await?;
+    let page = page.max(1);
+    let page_size = page_size.clamp(1, 100);
+    let offset = (page - 1) * page_size;
+    let total =
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM package_versions WHERE package_id = $1")
+            .bind(package_id)
+            .fetch_one(pool)
+            .await?;
+    let rows = sqlx::query(
+        r#"
+        SELECT id, package_id, version, manifest, blob_key, size_bytes, published_by_user_id, created_at
+        FROM package_versions
+        WHERE package_id = $1
+        ORDER BY created_at DESC, lower(version)
+        LIMIT $2 OFFSET $3
+        "#,
+    )
+    .bind(package_id)
+    .bind(page_size)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+    let items = rows.into_iter().map(package_version_from_row).collect();
+
+    Ok(ListEnvelope {
+        items,
+        total,
+        page,
+        page_size,
+    })
+}
+
+pub async fn repository_for_actor_by_name(
+    pool: &PgPool,
+    owner_login: &str,
+    repo_name: &str,
+    actor_user_id: Uuid,
+    required_role: RepositoryRole,
+) -> Result<Uuid, AutomationError> {
+    let repository = get_repository_by_owner_name(pool, owner_login, repo_name)
+        .await
+        .map_err(map_repository_error)?
+        .ok_or(AutomationError::RepositoryNotFound)?;
+    require_repository_role(pool, repository.id, actor_user_id, required_role).await?;
+    Ok(repository.id)
 }
 
 async fn get_workflow(

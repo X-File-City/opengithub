@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::get,
     Json, Router,
 };
@@ -9,7 +9,8 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    api_types::{database_unavailable, error_response, ErrorEnvelope},
+    api_types::{database_unavailable, error_response, normalize_pagination, ErrorEnvelope},
+    auth::extractor::AuthenticatedUser,
     domain::{
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
@@ -49,23 +50,16 @@ fn post_reaction_route() -> axum::routing::MethodRouter<AppState> {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ActorQuery {
-    user_id: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct ListQuery {
-    user_id: Uuid,
     state: Option<IssueState>,
     page: Option<i64>,
+    #[serde(alias = "page_size")]
     page_size: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CreateIssueRequest {
-    actor_user_id: Uuid,
     title: String,
     body: Option<String>,
     milestone_id: Option<Uuid>,
@@ -76,41 +70,41 @@ struct CreateIssueRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct UpdateIssueStateRequest {
-    actor_user_id: Uuid,
     state: IssueState,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CreateCommentRequest {
-    actor_user_id: Uuid,
     body: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReactionRequest {
-    user_id: Uuid,
     content: ReactionContent,
 }
 
 async fn list(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
     Query(query): Query<ListQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, query.user_id, RepositoryRole::Read)
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
             .await
             .map_err(map_collaboration_error)?;
+    let pagination = normalize_pagination(query.page, query.page_size);
     let envelope = list_issues(
         pool,
         repository_id,
-        query.user_id,
+        actor.0.id,
         query.state,
-        query.page.unwrap_or(1),
-        query.page_size.unwrap_or(30),
+        pagination.page,
+        pagination.page_size,
     )
     .await
     .map_err(map_collaboration_error)?;
@@ -120,24 +114,33 @@ async fn list(
 
 async fn create(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
     Json(request): Json<CreateIssueRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id = repository_for_actor_by_name(
         pool,
         &owner,
         &repo,
-        request.actor_user_id,
+        actor.0.id,
         RepositoryRole::Write,
     )
     .await
     .map_err(map_collaboration_error)?;
+    if request.title.trim().is_empty() {
+        return Err(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            "issue title is required",
+        ));
+    }
     let issue = create_issue(
         pool,
         CreateIssue {
             repository_id,
-            actor_user_id: request.actor_user_id,
+            actor_user_id: actor.0.id,
             title: request.title,
             body: request.body,
             milestone_id: request.milestone_id,
@@ -153,15 +156,16 @@ async fn create(
 
 async fn read(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
-    Query(query): Query<ActorQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, query.user_id, RepositoryRole::Read)
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
             .await
             .map_err(map_collaboration_error)?;
-    let issue = get_issue(pool, repository_id, number, query.user_id)
+    let issue = get_issue(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
 
@@ -170,27 +174,29 @@ async fn read(
 
 async fn update_state(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
     Json(request): Json<UpdateIssueStateRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id = repository_for_actor_by_name(
         pool,
         &owner,
         &repo,
-        request.actor_user_id,
+        actor.0.id,
         RepositoryRole::Write,
     )
     .await
     .map_err(map_collaboration_error)?;
-    let issue = get_issue(pool, repository_id, number, request.actor_user_id)
+    let issue = get_issue(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
     let updated = update_issue_state(
         pool,
         issue.id,
         UpdateIssueState {
-            actor_user_id: request.actor_user_id,
+            actor_user_id: actor.0.id,
             state: request.state,
         },
     )
@@ -202,27 +208,36 @@ async fn update_state(
 
 async fn comment(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
     Json(request): Json<CreateCommentRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id = repository_for_actor_by_name(
         pool,
         &owner,
         &repo,
-        request.actor_user_id,
+        actor.0.id,
         RepositoryRole::Write,
     )
     .await
     .map_err(map_collaboration_error)?;
-    let issue = get_issue(pool, repository_id, number, request.actor_user_id)
+    let issue = get_issue(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
+    if request.body.trim().is_empty() {
+        return Err(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            "comment body is required",
+        ));
+    }
     let comment = add_issue_comment(
         pool,
         issue.id,
         CreateComment {
-            actor_user_id: request.actor_user_id,
+            actor_user_id: actor.0.id,
             body: request.body,
         },
     )
@@ -234,18 +249,19 @@ async fn comment(
 
 async fn timeline(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
-    Query(query): Query<ActorQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, query.user_id, RepositoryRole::Read)
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
             .await
             .map_err(map_collaboration_error)?;
-    let issue = get_issue(pool, repository_id, number, query.user_id)
+    let issue = get_issue(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
-    let events = issue_timeline(pool, issue.id, query.user_id)
+    let events = issue_timeline(pool, issue.id, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
 
@@ -254,18 +270,20 @@ async fn timeline(
 
 async fn reaction(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
     Json(request): Json<ReactionRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
     let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, request.user_id, RepositoryRole::Read)
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
             .await
             .map_err(map_collaboration_error)?;
-    let issue = get_issue(pool, repository_id, number, request.user_id)
+    let issue = get_issue(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
-    let reaction = add_issue_reaction(pool, issue.id, request.user_id, request.content)
+    let reaction = add_issue_reaction(pool, issue.id, actor.0.id, request.content)
         .await
         .map_err(map_collaboration_error)?;
 

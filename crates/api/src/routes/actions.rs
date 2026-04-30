@@ -1,0 +1,329 @@
+use axum::{
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode},
+    routing::get,
+    Json, Router,
+};
+use serde::Deserialize;
+use serde_json::json;
+use uuid::Uuid;
+
+use crate::{
+    api_types::{database_unavailable, error_response, normalize_pagination, ErrorEnvelope},
+    auth::extractor::AuthenticatedUser,
+    domain::{
+        actions::{
+            create_workflow, create_workflow_run, get_workflow_for_actor,
+            get_workflow_run_for_actor, list_workflow_runs, list_workflows,
+            repository_for_actor_by_name, transition_workflow_run, AutomationError,
+            CreateWorkflow, CreateWorkflowRun, RunConclusion, RunStatus, TransitionRun,
+        },
+        permissions::RepositoryRole,
+    },
+    AppState,
+};
+
+pub fn router() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/repos/:owner/:repo/actions/workflows",
+            get(list_workflows_route).post(create_workflow_route),
+        )
+        .route(
+            "/api/repos/:owner/:repo/actions/workflows/:workflow_id",
+            get(read_workflow_route),
+        )
+        .route(
+            "/api/repos/:owner/:repo/actions/workflows/:workflow_id/runs",
+            get(list_workflow_runs_route).post(create_workflow_run_route),
+        )
+        .route(
+            "/api/repos/:owner/:repo/actions/runs",
+            get(list_all_runs_route),
+        )
+        .route(
+            "/api/repos/:owner/:repo/actions/runs/:run_id",
+            get(read_workflow_run_route).patch(update_workflow_run_route),
+        )
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListQuery {
+    page: Option<i64>,
+    #[serde(alias = "page_size")]
+    page_size: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateWorkflowRequest {
+    name: String,
+    path: String,
+    trigger_events: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateWorkflowRunRequest {
+    head_branch: String,
+    head_sha: Option<String>,
+    event: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateWorkflowRunRequest {
+    status: RunStatus,
+    conclusion: Option<RunConclusion>,
+}
+
+async fn list_workflows_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+    Query(query): Query<ListQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_automation_error)?;
+    let pagination = normalize_pagination(query.page, query.page_size);
+    let envelope =
+        list_workflows(pool, repository_id, actor.0.id, pagination.page, pagination.page_size)
+            .await
+            .map_err(map_automation_error)?;
+
+    Ok(Json(json!(envelope)))
+}
+
+async fn create_workflow_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+    Json(request): Json<CreateWorkflowRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_automation_error)?;
+    if request.name.trim().is_empty() || request.path.trim().is_empty() {
+        return Err(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            "workflow name and path are required",
+        ));
+    }
+    let workflow = create_workflow(
+        pool,
+        CreateWorkflow {
+            repository_id,
+            actor_user_id: actor.0.id,
+            name: request.name,
+            path: request.path,
+            trigger_events: request.trigger_events.unwrap_or_default(),
+        },
+    )
+    .await
+    .map_err(map_automation_error)?;
+
+    Ok((StatusCode::CREATED, Json(json!(workflow))))
+}
+
+async fn read_workflow_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, workflow_id)): Path<(String, String, Uuid)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_automation_error)?;
+    let workflow = get_workflow_for_actor(pool, repository_id, workflow_id, actor.0.id)
+        .await
+        .map_err(map_automation_error)?;
+
+    Ok(Json(json!(workflow)))
+}
+
+async fn list_workflow_runs_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, workflow_id)): Path<(String, String, Uuid)>,
+    Query(query): Query<ListQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    list_runs_for_workflow(&state, &headers, owner, repo, Some(workflow_id), query).await
+}
+
+async fn list_all_runs_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+    Query(query): Query<ListQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    list_runs_for_workflow(&state, &headers, owner, repo, None, query).await
+}
+
+async fn list_runs_for_workflow(
+    state: &AppState,
+    headers: &HeaderMap,
+    owner: String,
+    repo: String,
+    workflow_id: Option<Uuid>,
+    query: ListQuery,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(state, headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_automation_error)?;
+    if let Some(workflow_id) = workflow_id {
+        get_workflow_for_actor(pool, repository_id, workflow_id, actor.0.id)
+            .await
+            .map_err(map_automation_error)?;
+    }
+    let pagination = normalize_pagination(query.page, query.page_size);
+    let envelope = list_workflow_runs(
+        pool,
+        repository_id,
+        workflow_id,
+        actor.0.id,
+        pagination.page,
+        pagination.page_size,
+    )
+    .await
+    .map_err(map_automation_error)?;
+
+    Ok(Json(json!(envelope)))
+}
+
+async fn create_workflow_run_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, workflow_id)): Path<(String, String, Uuid)>,
+    Json(request): Json<CreateWorkflowRunRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_automation_error)?;
+    get_workflow_for_actor(pool, repository_id, workflow_id, actor.0.id)
+        .await
+        .map_err(map_automation_error)?;
+    if request.head_branch.trim().is_empty() || request.event.trim().is_empty() {
+        return Err(error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            "headBranch and event are required",
+        ));
+    }
+    let run = create_workflow_run(
+        pool,
+        CreateWorkflowRun {
+            workflow_id,
+            actor_user_id: Some(actor.0.id),
+            head_branch: request.head_branch,
+            head_sha: request.head_sha,
+            event: request.event,
+        },
+    )
+    .await
+    .map_err(map_automation_error)?;
+
+    Ok((StatusCode::CREATED, Json(json!(run))))
+}
+
+async fn read_workflow_run_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, run_id)): Path<(String, String, Uuid)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_automation_error)?;
+    let run = get_workflow_run_for_actor(pool, repository_id, run_id, actor.0.id)
+        .await
+        .map_err(map_automation_error)?;
+
+    Ok(Json(json!(run)))
+}
+
+async fn update_workflow_run_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, run_id)): Path<(String, String, Uuid)>,
+    Json(request): Json<UpdateWorkflowRunRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_automation_error)?;
+    get_workflow_run_for_actor(pool, repository_id, run_id, actor.0.id)
+        .await
+        .map_err(map_automation_error)?;
+    let run = transition_workflow_run(
+        pool,
+        run_id,
+        TransitionRun {
+            status: request.status,
+            conclusion: request.conclusion,
+        },
+    )
+    .await
+    .map_err(map_automation_error)?;
+
+    Ok(Json(json!(run)))
+}
+
+pub(crate) fn map_automation_error(error: AutomationError) -> (StatusCode, Json<ErrorEnvelope>) {
+    match error {
+        AutomationError::RepositoryAccessDenied => error_response(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "user does not have repository access",
+        ),
+        AutomationError::RepositoryNotFound
+        | AutomationError::WorkflowNotFound
+        | AutomationError::WorkflowRunNotFound
+        | AutomationError::WorkflowJobNotFound
+        | AutomationError::PackageNotFound => {
+            error_response(StatusCode::NOT_FOUND, "not_found", error.to_string())
+        }
+        AutomationError::InvalidWorkflowState(_)
+        | AutomationError::InvalidRunStatus(_)
+        | AutomationError::InvalidRunConclusion(_)
+        | AutomationError::InvalidPackageType(_) => error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "validation_failed",
+            error.to_string(),
+        ),
+        AutomationError::Sqlx(sqlx::Error::Database(database_error))
+            if database_error.is_unique_violation() =>
+        {
+            error_response(
+                StatusCode::CONFLICT,
+                "conflict",
+                database_error.message().to_owned(),
+            )
+        }
+        AutomationError::Sqlx(_) => error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "automation operation failed",
+        ),
+    }
+}

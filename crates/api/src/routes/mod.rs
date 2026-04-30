@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod actions;
 pub mod dashboard;
 pub mod git;
 pub mod health;
@@ -6,6 +7,7 @@ pub mod highlight;
 pub mod issues;
 pub mod markdown;
 pub mod onboarding;
+pub mod packages;
 pub mod pulls;
 pub mod repositories;
 pub mod repository_imports;

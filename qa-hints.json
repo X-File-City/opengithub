@@ -990,5 +990,23 @@
       "Browser smoke and Playwright E2E were skipped because this phase is backend API-only and adds no UI surface",
       "Search kind deserialization still relies on Axum query extraction for unknown enum variants; final API hardening should decide whether invalid kind should become a JSON 422 envelope"
     ]
+  },
+  {
+    "feature_id": "api-001",
+    "tests_written": [
+      "Converted repository issue and pull request REST routes to derive the actor from the signed Rust session instead of trusting user_id or actor_user_id request fields",
+      "Added Actions REST routes for workflow list/create/read, workflow run list/create/read, and run status transitions backed by the existing Postgres workflow tables",
+      "Added package REST routes for package list/create/read and package version list/create backed by the existing Postgres package tables",
+      "Added crates/api/tests/api_collaboration_automation_contract.rs covering anonymous 401, private-resource 403, validation 422, list pagination clamps, issue comment/reaction, pull request creation, workflow run transitions, package version uniqueness conflict, and no cookie/session-secret/stack leakage",
+      "Added .scratch/api-collaboration-automation-contract-scenario.sh and ran it against TEST_DATABASE_URL-backed Postgres",
+      "Verification passed: TEST_DATABASE_URL-backed scenario wrapper, make check, and make test with 73 frontend tests"
+    ],
+    "needs_deeper_qa": [
+      "Phase 3 is backend/API-only; browser smoke and Playwright E2E were skipped because no UI surface changed",
+      "Actions endpoints create metadata and transition run status only; runner execution, jobs/steps route depth, logs, and artifacts remain later feature work",
+      "Package endpoints cover metadata and versions only; blob upload/download, registry protocol compatibility, and storage lifecycle remain later feature work",
+      "Session-cookie auth is now authoritative for these REST routes; PAT actor support for external API consumers still needs final API hardening",
+      "Issue and pull request APIs expose basic list/create/read/comment/reaction/state flows; labels, milestones, assignees, reviews, checks, merge mechanics, and rich timeline parity remain later PRD features"
+    ]
   }
 ]

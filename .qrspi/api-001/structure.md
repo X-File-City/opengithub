@@ -40,7 +40,7 @@
 
 ## Phase 3: Collaboration and Automation REST Surface - cover issues, pulls, Actions, and packages
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Expose the collaboration and automation resource families named by the PRD: repository issues, pull requests, Actions runs, and packages. Existing domain tables already exist for most of this data, so this phase should focus on route completeness, permission checks, and contract tests instead of broad new product UI.
 

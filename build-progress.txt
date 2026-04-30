@@ -706,3 +706,15 @@
 - Verification: targeted `cargo test --test api_repository_search_contract -- --nocapture` passed; scenario wrapper passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 73 frontend tests plus cargo tests.
 - Browser smoke and `make test-e2e` skipped because this phase is backend API-only and changed no UI surface.
 - Marked Phase 2 as done in `.qrspi/api-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-05-01 - api-001 phase 3 collaboration and automation REST surface
+
+- Implemented Phase 3 from `.qrspi/api-001/structure.md`: repository issues, pull requests, Actions workflows/runs, and packages now expose session-authenticated REST surfaces with standard JSON envelopes.
+- Converted issue and pull request routes away from trusted `user_id`/`actor_user_id` request fields; all list/create/read/comment/reaction/state operations now derive the actor from the Rust signed-session cookie and enforce repository permissions server-side.
+- Added `crates/api/src/routes/actions.rs` for workflow list/create/read, workflow run list/create/read, and run status transitions backed by the existing Postgres Actions tables.
+- Added `crates/api/src/routes/packages.rs` for package list/create/read and package version list/create backed by the existing package metadata tables, including validation and duplicate-version conflict mapping.
+- Extended `crates/api/src/domain/actions.rs` with list/read helpers for workflows, workflow runs, packages, package versions, and owner/repo actor resolution.
+- Added `crates/api/tests/api_collaboration_automation_contract.rs` plus `.scratch/api-collaboration-automation-contract-scenario.sh` covering anonymous 401, private-resource 403, validation 422, pagination clamps, issue comment/reaction, PR creation, workflow run transition, package version uniqueness, and no cookie/session-secret/stack leakage against real Postgres.
+- Verification: `bash .scratch/api-collaboration-automation-contract-scenario.sh` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 73 frontend tests.
+- Browser smoke and `make test-e2e` skipped because this phase is backend API-only and changed no UI surface.
+- Marked Phase 3 as done in `.qrspi/api-001/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.

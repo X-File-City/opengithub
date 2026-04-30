@@ -41,6 +41,8 @@ pub fn build_app_with_config(db: Option<DbPool>, config: AppConfig) -> Router {
         .nest("/api/repos", routes::repositories::router())
         .merge(routes::issues::router())
         .merge(routes::pulls::router())
+        .merge(routes::actions::router())
+        .merge(routes::packages::router())
         .merge(routes::search::router())
         .merge(routes::markdown::router())
         .merge(routes::highlight::router())
