@@ -974,5 +974,21 @@
       "PAT actor support is not wired into /api/user yet; this phase uses browser signed-session auth only",
       "Browser smoke and E2E were skipped because this phase is backend API-only and adds no UI surface"
     ]
+  },
+  {
+    "feature_id": "api-001",
+    "tests_written": [
+      "Normalized repository list/tree/commit pagination through the shared REST helper while preserving refs/file-finder defaults used by the UI",
+      "Changed GET /api/search to derive the actor from the signed Rust session instead of trusting a user_id/userId query parameter",
+      "Added crates/api/tests/api_repository_search_contract.rs covering repository create/read/list envelopes, conflict 409 responses, page/pageSize clamps, search 401/422 envelopes, private search filtering, and userId spoofing resistance",
+      "Added .scratch/api-repository-search-contract-scenario.sh and ran it against TEST_DATABASE_URL-backed Postgres",
+      "Verification passed: TEST_DATABASE_URL-backed targeted contract test, scenario wrapper, make check, and make test with 73 frontend tests"
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 covers repository and search REST normalization only; issues, pulls, Actions, and packages remain for api-001 Phase 3",
+      "Search supports session-cookie auth in this phase; PAT actor support for public API consumers remains a follow-up hardening area",
+      "Browser smoke and Playwright E2E were skipped because this phase is backend API-only and adds no UI surface",
+      "Search kind deserialization still relies on Axum query extraction for unknown enum variants; final API hardening should decide whether invalid kind should become a JSON 422 envelope"
+    ]
   }
 ]

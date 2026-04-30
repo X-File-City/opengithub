@@ -1,15 +1,15 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::get,
     Json, Router,
 };
 use serde::Deserialize;
 use serde_json::json;
-use uuid::Uuid;
 
 use crate::{
-    api_types::{database_unavailable, error_response, ErrorEnvelope},
+    api_types::{database_unavailable, error_response, normalize_pagination, ErrorEnvelope},
+    auth::extractor::AuthenticatedUser,
     domain::search::{search_documents, SearchDocumentKind, SearchError, SearchQuery},
     AppState,
 };
@@ -21,26 +21,29 @@ pub fn router() -> Router<AppState> {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SearchRequest {
-    user_id: Uuid,
-    q: String,
+    q: Option<String>,
     kind: Option<SearchDocumentKind>,
     page: Option<i64>,
+    #[serde(alias = "page_size")]
     page_size: Option<i64>,
 }
 
 async fn search(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(request): Query<SearchRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let pagination = normalize_pagination(request.page, request.page_size);
     let results = search_documents(
         pool,
         SearchQuery {
-            actor_user_id: request.user_id,
-            query: request.q,
+            actor_user_id: actor.0.id,
+            query: request.q.unwrap_or_default(),
             kind: request.kind,
-            page: request.page.unwrap_or(1),
-            page_size: request.page_size.unwrap_or(30),
+            page: pagination.page,
+            page_size: pagination.page_size,
         },
     )
     .await

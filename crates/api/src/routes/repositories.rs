@@ -10,7 +10,10 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    api_types::{database_unavailable, error_response, error_response_with_details, ErrorEnvelope},
+    api_types::{
+        database_unavailable, error_response, error_response_with_details, normalize_pagination,
+        ErrorEnvelope,
+    },
     auth::extractor::AuthenticatedUser,
     domain::repositories::{
         create_repository_with_bootstrap, fork_repository_by_owner_name,
@@ -49,6 +52,7 @@ pub fn router() -> Router<AppState> {
 #[serde(rename_all = "camelCase")]
 struct ListQuery {
     page: Option<i64>,
+    #[serde(alias = "page_size")]
     page_size: Option<i64>,
 }
 
@@ -81,6 +85,7 @@ struct ContentsQuery {
     #[serde(rename = "ref")]
     ref_name: Option<String>,
     page: Option<i64>,
+    #[serde(alias = "page_size")]
     page_size: Option<i64>,
     raw: Option<String>,
     download: Option<String>,
@@ -93,6 +98,7 @@ struct CommitsQuery {
     ref_name: Option<String>,
     path: Option<String>,
     page: Option<i64>,
+    #[serde(alias = "page_size")]
     page_size: Option<i64>,
 }
 
@@ -103,6 +109,7 @@ struct RefsQuery {
     current_path: Option<String>,
     active_ref: Option<String>,
     page: Option<i64>,
+    #[serde(alias = "page_size")]
     page_size: Option<i64>,
 }
 
@@ -113,6 +120,7 @@ struct FileFinderQuery {
     ref_name: Option<String>,
     q: Option<String>,
     page: Option<i64>,
+    #[serde(alias = "page_size")]
     page_size: Option<i64>,
 }
 
@@ -130,14 +138,11 @@ async fn list(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let envelope = list_repositories_for_user(
-        pool,
-        actor.0.id,
-        query.page.unwrap_or(1),
-        query.page_size.unwrap_or(30),
-    )
-    .await
-    .map_err(map_repository_error)?;
+    let pagination = normalize_pagination(query.page, query.page_size);
+    let envelope =
+        list_repositories_for_user(pool, actor.0.id, pagination.page, pagination.page_size)
+            .await
+            .map_err(map_repository_error)?;
 
     Ok(Json(json!(envelope)))
 }
@@ -245,6 +250,7 @@ async fn contents(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let pagination = normalize_pagination(query.page, query.page_size);
     let overview = repository_path_overview_for_actor_by_owner_name(
         pool,
         actor.0.id,
@@ -253,8 +259,8 @@ async fn contents(
         RepositoryPathQuery {
             ref_name: query.ref_name.as_deref(),
             path: &path,
-            page: query.page.unwrap_or(1),
-            page_size: query.page_size.unwrap_or(30),
+            page: pagination.page,
+            page_size: pagination.page_size,
         },
     )
     .await
@@ -362,6 +368,7 @@ async fn commits(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let pagination = normalize_pagination(query.page, query.page_size);
     let envelope = repository_commit_history_for_actor_by_owner_name(
         pool,
         actor.0.id,
@@ -370,8 +377,8 @@ async fn commits(
         RepositoryCommitHistoryQuery {
             ref_name: query.ref_name.as_deref(),
             path: query.path.as_deref(),
-            page: query.page.unwrap_or(1),
-            page_size: query.page_size.unwrap_or(30),
+            page: pagination.page,
+            page_size: pagination.page_size,
         },
     )
     .await
@@ -404,8 +411,8 @@ async fn refs(
             query: query.q.as_deref(),
             current_path: query.current_path.as_deref(),
             active_ref: query.active_ref.as_deref(),
-            page: query.page.unwrap_or(1),
-            page_size: query.page_size.unwrap_or(100),
+            page: query.page.unwrap_or(1).max(1),
+            page_size: query.page_size.unwrap_or(100).clamp(1, 100),
         },
     )
     .await
@@ -437,8 +444,8 @@ async fn file_finder(
         RepositoryFileFinderQuery {
             ref_name: query.ref_name.as_deref(),
             query: query.q.as_deref(),
-            page: query.page.unwrap_or(1),
-            page_size: query.page_size.unwrap_or(20),
+            page: query.page.unwrap_or(1).max(1),
+            page_size: query.page_size.unwrap_or(20).clamp(1, 100),
         },
     )
     .await

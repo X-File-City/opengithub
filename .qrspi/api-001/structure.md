@@ -23,7 +23,7 @@
 
 ## Phase 2: Repository and Search REST Surface - normalize existing resource endpoints
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Bring repository create/detail/list, code browsing helpers, and search endpoints fully under the `api-001` contract. Existing routes should keep their UI-facing behavior, but their public JSON shapes, pagination, and error responses must become predictable and GitHub-style enough for external API consumers.
 
