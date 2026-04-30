@@ -398,3 +398,11 @@
 - Saved screenshots: `ralph/screenshots/build/repo-001-phase4-empty-form.jpg`, `repo-001-phase4-gitignore-selector.jpg`, `repo-001-phase4-validation-error.jpg`, `repo-001-phase4-success-redirect.jpg`, and `repo-001-phase4-mobile-form.jpg`.
 - Verification: `make check` passed; `make test` passed with 43 frontend tests plus cargo tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 21 Playwright tests; local-Postgres browser smoke passed.
 - Marked Phase 4 as done in `.qrspi/repo-001/structure.md` and set `repo-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-04-30 - repo-002 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing repo-001 structure, current repository import placeholder page, repository routes/domain code, job lease helpers, and notification helpers.
+- Determined `repo-002` requires structure planning before implementation because `needs_structure: true` and `.qrspi/repo-002/structure.md` did not exist.
+- Added `.qrspi/repo-002/structure.md` with four independently verifiable vertical phases: import request/status API contract, worker Git ingestion, import wizard/status UI, and final error/security/notification guardrails.
+- Did not change `prd.json`; `repo-002.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
