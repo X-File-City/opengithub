@@ -73,7 +73,7 @@
 
 ## Phase 5: Search Guardrails and QA Handoff - finish search-001
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Harden cross-type behavior, performance bounds, accessibility, visual compliance, and bookkeeping. Mark `search-001` complete only after all tabs, header suggestions, empty states, pagination, and dead-control scans pass.
 

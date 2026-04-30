@@ -182,10 +182,44 @@ function HighlightedFragment({
   return <>{pieces}</>;
 }
 
+function GenericSearchResultCard({ result }: { result: GlobalSearchResult }) {
+  return (
+    <Link className="list-row items-start gap-3 px-0" href={result.href}>
+      <ResultIcon result={result} />
+      <span className="min-w-0 flex-1">
+        <span className="t-label block" style={{ color: "var(--ink-3)" }}>
+          {resultKicker(result)}
+        </span>
+        <span className="mt-1 block text-[15px] font-semibold text-[color:var(--ink-1)]">
+          {result.display_name ?? result.title}
+        </span>
+        {result.summary ? (
+          <span className="t-sm mt-1 block" style={{ color: "var(--ink-3)" }}>
+            {result.summary}
+          </span>
+        ) : null}
+        <span className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="chip soft">
+            {visibilityLabel(result.visibility)}
+          </span>
+          {result.document.language ? (
+            <span className="chip soft">{result.document.language}</span>
+          ) : null}
+          {result.document.path ? (
+            <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
+              {result.document.path}
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function CodeSearchResultCard({ result }: { result: GlobalSearchResult }) {
   const snippet = result.snippet;
   if (!snippet) {
-    return <SearchResultCard result={result} />;
+    return <GenericSearchResultCard result={result} />;
   }
 
   return (
@@ -232,7 +266,7 @@ function CodeSearchResultCard({ result }: { result: GlobalSearchResult }) {
 function CommitSearchResultCard({ result }: { result: GlobalSearchResult }) {
   const commit = result.commit;
   if (!commit) {
-    return <SearchResultCard result={result} />;
+    return <GenericSearchResultCard result={result} />;
   }
 
   return (
@@ -335,37 +369,7 @@ function SearchResultCard({ result }: { result: GlobalSearchResult }) {
     return <CollaborationSearchResultCard result={result} />;
   }
 
-  return (
-    <Link className="list-row items-start gap-3 px-0" href={result.href}>
-      <ResultIcon result={result} />
-      <span className="min-w-0 flex-1">
-        <span className="t-label block" style={{ color: "var(--ink-3)" }}>
-          {resultKicker(result)}
-        </span>
-        <span className="mt-1 block text-[15px] font-semibold text-[color:var(--ink-1)]">
-          {result.display_name ?? result.title}
-        </span>
-        {result.summary ? (
-          <span className="t-sm mt-1 block" style={{ color: "var(--ink-3)" }}>
-            {result.summary}
-          </span>
-        ) : null}
-        <span className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="chip soft">
-            {visibilityLabel(result.visibility)}
-          </span>
-          {result.document.language ? (
-            <span className="chip soft">{result.document.language}</span>
-          ) : null}
-          {result.document.path ? (
-            <span className="t-mono-sm" style={{ color: "var(--ink-3)" }}>
-              {result.document.path}
-            </span>
-          ) : null}
-        </span>
-      </span>
-    </Link>
-  );
+  return <GenericSearchResultCard result={result} />;
 }
 
 function EmptySearchState({ query }: { query: string }) {

@@ -319,6 +319,78 @@ describe("SearchResultsPage", () => {
     ).toHaveLength(0);
   });
 
+  it("preserves search context through pagination and exposes accessible controls", () => {
+    render(
+      <SearchResultsPage
+        activeType="code"
+        query="router guards"
+        results={{
+          items: [result({ type: "code" })],
+          total: 61,
+          page: 2,
+          pageSize: 30,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("navigation", { name: "Search result types" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("navigation", { name: "Search results pages" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("searchbox", { name: "Search query" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Search" })).toHaveAttribute(
+      "type",
+      "submit",
+    );
+    expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute(
+      "href",
+      "/search?q=router+guards&type=code",
+    );
+    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+      "href",
+      "/search?q=router+guards&type=code&page=3",
+    );
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+    for (const button of Array.from(document.querySelectorAll("button"))) {
+      expect(
+        button.textContent?.trim() || button.getAttribute("aria-label"),
+      ).toBeTruthy();
+    }
+  });
+
+  it("keeps every advertised search tab linked to a concrete result state", () => {
+    render(
+      <SearchResultsPage
+        activeType="repositories"
+        query="phase5"
+        results={{ items: [], total: 0, page: 1, pageSize: 30 }}
+      />,
+    );
+
+    for (const tab of [
+      "Repositories",
+      "Code",
+      "Issues",
+      "Pull requests",
+      "Commits",
+      "Users",
+      "Organizations",
+      "Discussions",
+    ]) {
+      const link = screen.getByRole("link", { name: tab });
+      expect(link).toHaveAttribute("href");
+      expect(link.getAttribute("href")).toContain("q=phase5");
+      expect(link.getAttribute("href")).toContain("type=");
+      expect(link.getAttribute("href")).not.toBe("#");
+    }
+  });
+
   it("builds the API search path with UI type names", () => {
     expect(
       globalSearchPath({

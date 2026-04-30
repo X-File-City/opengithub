@@ -1280,5 +1280,21 @@
       "Discussion search is intentionally an explicit empty/not-yet-indexed state until discussions data exists",
       "Search document resource IDs were made repository-scoped for issues and pull requests; QA should stress multiple repositories with the same issue/PR numbers"
     ]
+  },
+  {
+    "feature_id": "search-001",
+    "tests_written": [
+      "Added search_global_contract Rust integration coverage for anonymous 401, invalid type 422, short query 422, page/pageSize clamps, private visibility filtering across repository/code/commit/issue/pull request kinds, no leak strings in error envelopes, and repeatable ordering.",
+      "Fixed SearchResultsPage fallback rendering so code or commit results without enriched snippet/commit metadata render generically instead of recursively re-entering their specialized renderer.",
+      "Extended SearchResultsPage Vitest coverage for accessible search controls, pagination query/type preservation, no inert anchors, concrete links for every advertised search tab, and explicit discussions empty state.",
+      "Extended Playwright search E2E with a final signed-session sweep covering header query suggestions, Enter submission, repositories/code/issues/pull_requests/commits/users/organizations/discussions tabs, no dead controls, no horizontal overflow, empty-state syntax tips, and final desktop/mobile screenshots.",
+      "Verification passed: targeted search_global_contract Rust test, targeted search-results Vitest, targeted search Playwright, TEST_DATABASE_URL-backed make check, make test with 109 frontend tests plus cargo tests, make test-e2e with 48 Playwright tests, and mandatory Editorial banned-value scan."
+    ],
+    "needs_deeper_qa": [
+      "Ranking is deterministic under the current Postgres query shape but still needs real corpus tuning for large repositories, many same-score results, and mixed qualifiers.",
+      "Discussions intentionally returns a working empty state because discussion data/indexing is not implemented yet.",
+      "Issue, pull request, and commit links are concrete, but their full detail surfaces remain later feature work; QA should verify navigation and placeholder quality rather than expecting full parity there.",
+      "Final E2E uses seeded real Postgres data and browser flows; QA should still stress long queries, non-ASCII paths, huge snippets, and screen-reader focus behavior."
+    ]
   }
 ]

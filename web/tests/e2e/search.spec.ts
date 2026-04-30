@@ -190,3 +190,92 @@ test("issue, pull request, and discussions search tabs stay navigable", async ({
     path: "../ralph/screenshots/build/search-001-phase4-collaboration-results.jpg",
   });
 });
+
+test("final search sweep covers header submit, all tabs, mobile layout, and empty states", async ({
+  page,
+}) => {
+  const marker = `phase5-${Date.now()}`;
+  const seeded = seedSession(marker);
+  await signIn(page, seeded);
+
+  await page.goto("/dashboard");
+  await page.getByRole("searchbox", { name: "Search or jump to" }).focus();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search or jump to" }).fill(marker);
+  await expect(
+    page.getByRole("option", { name: /Search repositories for/ }),
+  ).toHaveAttribute("href", /\/search\?q=/);
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(
+    new RegExp(`/search\\?q=${marker}&type=repositories$`),
+  );
+
+  const expectedByType = [
+    {
+      label: "Repositories",
+      type: "repositories",
+      text: /repositories results/,
+    },
+    { label: "Code", type: "code", text: /code results/ },
+    { label: "Issues", type: "issues", text: /issues results/ },
+    {
+      label: "Pull requests",
+      type: "pull_requests",
+      text: /pull requests results/,
+    },
+    { label: "Commits", type: "commits", text: /commits results/ },
+    { label: "Users", type: "users", text: /users results/ },
+    {
+      label: "Organizations",
+      type: "organizations",
+      text: /organizations results/,
+    },
+  ] as const;
+
+  for (const tab of expectedByType) {
+    await page.goto(`/search?q=${marker}&type=${tab.type}`);
+    await expect(
+      page.getByRole("heading", { name: "Search opengithub" }),
+    ).toBeVisible();
+    await expect(page.getByText(tab.text)).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Search result types" })
+        .getByRole("link", { name: tab.label }),
+    ).toHaveAttribute("href", `/search?q=${marker}&type=${tab.type}`);
+    await expectNoDeadControls(page);
+    const horizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(horizontalOverflow).toBe(false);
+  }
+
+  await page.goto(`/search?q=${marker}&type=discussions`);
+  await expect(
+    page.getByText("Discussion search is ready for indexing."),
+  ).toBeVisible();
+  await expectNoDeadControls(page);
+
+  await page.goto(`/search?q=no-result-${marker}&type=code`);
+  await expect(page.getByText(/Nothing matched/)).toBeVisible();
+  await expect(page.getByText("language:", { exact: true })).toBeVisible();
+
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/search-001-phase5-final-desktop.jpg",
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/search?q=${marker}&type=repositories`);
+  await expect(
+    page.getByRole("heading", { name: "Search opengithub" }),
+  ).toBeVisible();
+  const mobileOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(mobileOverflow).toBe(false);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/search-001-phase5-final-mobile.jpg",
+  });
+});
