@@ -613,8 +613,11 @@ for ((cycle=1; cycle<=MAX_CYCLES; cycle++)); do
   check_budget
 
   # ─── PHASE 2: Build ───
-  MAX_BUILD_RESTARTS="${MAX_BUILD_RESTARTS:-10}"
+  MAX_BUILD_RESTARTS="${MAX_BUILD_RESTARTS:-200}"
   build_restarts=0
+  no_progress_streak=0
+  PASSES_BEFORE_LOOP=$(count_passes)
+  HEAD_BEFORE_LOOP=$(git rev-parse HEAD 2>/dev/null || echo "")
 
   while ! all_passed; do
     if [ "$build_restarts" -ge "$MAX_BUILD_RESTARTS" ]; then
@@ -623,7 +626,7 @@ for ((cycle=1; cycle<=MAX_CYCLES; cycle++)); do
     fi
 
     check_time_budget
-    log "Phase 2: Building... $(count_passes)/$(total_tasks) passes (attempt $((build_restarts + 1)))"
+    log "Phase 2: Building... $(count_passes)/$(total_tasks) passes (attempt $((build_restarts + 1)), no-progress streak ${no_progress_streak})"
 
     PHASE_LOG_TMP=$(mktemp)
     ./ralph/build-ralph.sh 2>&1 | tee -a "$LOG_FILE" > "$PHASE_LOG_TMP" || true
@@ -650,7 +653,28 @@ for ((cycle=1; cycle<=MAX_CYCLES; cycle++)); do
 
     build_restarts=$((build_restarts + 1))
     REMAINING=$(($(total_tasks) - $(count_passes)))
-    log "Phase 2: Build stopped with $REMAINING remaining (exit=$BUILD_EXIT, category=$FAILURE_CAT, attempt=$FAILURE_ATTEMPT). Restarting..."
+
+    # Reset the streak counter on real forward progress: either a new build_pass
+    # or a new commit (a phase landed for a structured feature). Structured
+    # features can take 5+ codex iterations to complete; without this reset we
+    # would burn the global cap on a single feature.
+    PASSES_NOW=$(count_passes)
+    HEAD_NOW=$(git rev-parse HEAD 2>/dev/null || echo "")
+    if [ "$PASSES_NOW" -gt "$PASSES_BEFORE_LOOP" ] || [ "$HEAD_NOW" != "$HEAD_BEFORE_LOOP" ]; then
+      no_progress_streak=0
+      PASSES_BEFORE_LOOP="$PASSES_NOW"
+      HEAD_BEFORE_LOOP="$HEAD_NOW"
+    else
+      no_progress_streak=$((no_progress_streak + 1))
+    fi
+
+    log "Phase 2: Build stopped with $REMAINING remaining (exit=$BUILD_EXIT, category=$FAILURE_CAT, attempt=$FAILURE_ATTEMPT, streak=$no_progress_streak). Restarting..."
+
+    # True stall: 8 attempts in a row with zero new passes AND zero new commits.
+    if [ "$no_progress_streak" -ge 8 ]; then
+      log "Phase 2: True stall — ${no_progress_streak} attempts with no commits and no new passes. Aborting build phase."
+      break
+    fi
 
     if [ "${FAILURE_ATTEMPT:-1}" -ge 3 ]; then
       log "Phase 2: Build failing repeatedly (attempt $FAILURE_ATTEMPT)."
