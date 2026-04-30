@@ -915,3 +915,12 @@
 - Verification: targeted `search_global_contract` Rust test passed; targeted `cd web && npx vitest run tests/search-results.test.tsx` passed with 9 tests; focused `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test npx playwright test tests/e2e/search.spec.ts` passed with 5 tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 109 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 48 Playwright tests.
 - Mandatory Editorial banned-value scan passed with zero matches using the compatible ripgrep form: `rg -n -e '#(0969da|1f883d|1a7f37|cf222e|82071e|f6f8fa|1f2328|d0d7de|59636e|f1aeb5|fff1f3)\b|@primer/|Octicon' web/src/ --glob '!**/og*.css'`.
 - Marked Phase 5 as done in `.qrspi/search-001/structure.md` and set `search-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - marketing-001 logged-out public home
+
+- Built the simple `marketing-001` feature in one iteration: replaced `/` with an Editorial logged-out marketing home, interactive dropdown mega-nav groups, a real search/jump form, login/signup CTAs, repository preview, capability sections, customer story cards, hosted/self-host CTA cards, and a dense footer of concrete internal links.
+- Added `web/src/components/MarketingHome.tsx`, expanded Editorial CSS in `web/src/app/globals.css`, and kept `web/src/app/page.tsx` as a thin route wrapper.
+- Added `web/tests/marketing-home.test.tsx` for dropdown/search/auth/footer behavior and `web/tests/e2e/marketing-home.spec.ts` for browser dropdown, Escape close, auth CTA, dead-control, mobile visibility, and search-intent flows.
+- Browser smoke: started `make dev`, captured `ralph/screenshots/build/marketing-001-home.jpg`, and stopped the dev processes.
+- Verification: `make check` passed; `make test` passed with 113 web tests plus cargo tests; `make test-e2e` passed with 18 Playwright tests; the mandatory Editorial banned-value grep check passed.
+- Set `marketing-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
