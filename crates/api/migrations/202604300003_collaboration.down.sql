@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS issue_cross_references;
+DROP TABLE IF EXISTS reactions;
+DROP TABLE IF EXISTS timeline_events;
+DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS issue_labels;
+DROP TABLE IF EXISTS issue_assignees;
+DROP TABLE IF EXISTS pull_requests;
+DROP TABLE IF EXISTS issues;
+DROP TABLE IF EXISTS milestones;
+DROP TABLE IF EXISTS labels;

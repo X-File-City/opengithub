@@ -26,3 +26,13 @@
 - `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make db-migrate` could not run because `sqlx-cli` is not installed in this environment; cargo tests still applied migrations through SQLx's migrator.
 - Browser smoke test skipped because this phase is backend schema/data access only.
 - Marked Phase 2 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because later infra-001 phases remain.
+
+2026-04-30 - infra-001 phase 3 collaboration core
+
+- Implemented Phase 3 from `.qrspi/infra-001/structure.md`: issue/PR collaboration schema, Rust issue and pull request accessors, and initial JSON routes under `/api/repos/{owner}/{repo}/issues` and `/api/repos/{owner}/{repo}/pulls`.
+- Added SQLx migration `202604300003_collaboration` for `labels`, `milestones`, `issues`, `pull_requests`, `comments`, `timeline_events`, `reactions`, assignees, issue labels, and cross references.
+- Added `crates/api/src/domain/issues.rs`, `crates/api/src/domain/pulls.rs`, `crates/api/src/routes/issues.rs`, and `crates/api/src/routes/pulls.rs`; collaboration operations use repository permissions and standard list envelopes.
+- Added Postgres-backed tests for default labels, issue creation/status filters/comments/reactions/timelines, unauthorized access, PR shared numbering, PR lookup/listing, and merge timeline events.
+- Verification: `make check` passed; `make test` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed against local Postgres.
+- Browser smoke test skipped because this phase is backend schema/data access only.
+- Marked Phase 3 as done in `.qrspi/infra-001/structure.md`; `prd.json` remains `build_pass: false` because later infra-001 phases remain.

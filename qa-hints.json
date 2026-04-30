@@ -28,5 +28,22 @@
       "Repository JSON routes are compiled but should be exercised through HTTP once auth/session middleware exists",
       "Owner login for user-owned repositories currently falls back to email until username/profile setup ships"
     ]
+  },
+  {
+    "feature_id": "infra-001",
+    "tests_written": [
+      "default issue labels are created idempotently per repository",
+      "issues can be created, listed by status, commented on, reacted to, closed, and read through ordered timeline events",
+      "users without repository permissions cannot create issues",
+      "pull requests share the repository issue number sequence and keep a linked issue record",
+      "pull requests can be listed, fetched by number, merged, and read through ordered timeline events",
+      "make check, make test, and TEST_DATABASE_URL-backed make test passed"
+    ],
+    "needs_deeper_qa": [
+      "HTTP issue and pull request JSON routes are compiled but should be exercised through real auth once auth-001 lands",
+      "Concurrent issue and pull request creation should be stress-tested because number allocation currently uses max(number)+1",
+      "Milestone, cross-reference, and label editing APIs are schema-ready but not exposed until their product features are selected",
+      "Browser smoke test skipped because infra-001 phase 3 is backend schema/data access only"
+    ]
   }
 ]

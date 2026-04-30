@@ -35,7 +35,7 @@ Done: [x]
 
 ## Phase 3: Collaboration Core - issues, pull requests, labels, milestones, comments, and reactions become testable
 
-Done: [ ]
+Done: [x]
 
 **Scope**: Add the issue/PR collaboration data model and enough Rust accessors for list, detail, and create workflows.
 **Key changes**:
