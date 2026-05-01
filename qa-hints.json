@@ -1681,5 +1681,22 @@
       "Contributor banner dismissal is included as a read-model preference default only; the PATCH persistence route is Phase 4.",
       "No E2E was run for this phase because the structure outline marks browser smoke as not required until the UI phase."
     ]
+  },
+  {
+    "feature_id": "prs-001",
+    "tests_written": [
+      "Implemented Phase 2 repository Pull requests page: /{owner}/{repo}/pulls now fetches repository metadata and PullRequestListView server-side, renders inside RepositoryShell, and shows default is:pr is:open rows with branch refs, labels, author role, checks, review state, linked issues, task progress, comments, counts, and concrete row/detail-section hrefs.",
+      "Added a concrete /{owner}/{repo}/compare landing route so New pull request and Compare changes controls do not point to placeholders.",
+      "Added navigation helpers for pull-list state tabs, pagination, detail links, compare links, and list href generation.",
+      "Added RepositoryPullsPage Vitest coverage for default open rendering, row metadata, empty state, no inert links, and navigation helper URLs.",
+      "Added signed-session Playwright coverage that creates a real repository and real pull request through the Rust API, verifies the Pull requests tab, row navigation, compare route, no dead controls, and saves ralph/screenshots/build/prs-001-phase2-open-list.jpg.",
+      "Verification passed: TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 145 frontend tests, focused repository-pulls Playwright, full make test-e2e with 61 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 intentionally leaves query toolbar menus, advanced filters, invalid-query feedback, and pagination stress flows for Phase 3.",
+      "Contributor banner is rendered from the API preference default but dismissal persistence is still Phase 4.",
+      "The compare page is a concrete landing route only; full branch comparison and PR creation flow remain later PR creation work.",
+      "PR detail, review threads, checks pages, file diffs, and mergeability remain future PR phases/features."
+    ]
   }
 ]

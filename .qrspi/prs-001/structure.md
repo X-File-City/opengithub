@@ -24,7 +24,7 @@
 
 ## Phase 2: Repository Pulls Page - default open PR list renders real data
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder `/{owner}/{repo}/pulls` route with an Editorial repository pull request list that fetches Phase 1 data server-side and renders the default `is:pr is:open` list with repository tabs, query input, Labels/Milestones links, New pull request link, Open/Closed tabs, contributor banner, and dense PR rows.
 

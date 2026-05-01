@@ -697,6 +697,89 @@ export function repositoryIssueDetailHref(
   return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`;
 }
 
+export type RepositoryPullRequestHrefQuery = {
+  q?: string | null;
+  state?: "open" | "closed" | "merged" | null;
+  labels?: string[] | null;
+  milestone?: string | null;
+  review?: string | null;
+  checks?: string | null;
+  sort?: string | null;
+  page?: number | null;
+};
+
+export function repositoryPullRequestsHref(
+  owner: string,
+  repo: string,
+  query: RepositoryPullRequestHrefQuery = {},
+) {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) {
+    params.set("q", query.q.trim());
+  }
+  if (query.state) {
+    params.set("state", query.state);
+  }
+  if (query.labels?.length) {
+    params.set("labels", query.labels.join(","));
+  }
+  if (query.milestone?.trim()) {
+    params.set("milestone", query.milestone.trim());
+  }
+  if (query.review?.trim()) {
+    params.set("review", query.review.trim());
+  }
+  if (query.checks?.trim()) {
+    params.set("checks", query.checks.trim());
+  }
+  if (query.sort?.trim()) {
+    params.set("sort", query.sort.trim());
+  }
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${suffix}`;
+}
+
+export function repositoryPullRequestDetailHref(
+  owner: string,
+  repo: string,
+  pullNumber: number,
+) {
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pull/${pullNumber}`;
+}
+
+export function repositoryPullRequestCompareHref(owner: string, repo: string) {
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare`;
+}
+
+export function repositoryPullRequestStateHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  state: "open" | "closed" | "merged",
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    state,
+    q: pullRequestQueryWithState(current.q, state),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestPageHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  page: number,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    page,
+  });
+}
+
 export function repositoryIssueStateHref(
   owner: string,
   repo: string,
@@ -985,6 +1068,27 @@ function issueQueryWithState(
     );
   if (!terms.some((term) => term === "is:issue")) {
     terms.unshift("is:issue");
+  }
+  terms.push(`state:${state}`);
+  return terms.join(" ");
+}
+
+function pullRequestQueryWithState(
+  query: string | null | undefined,
+  state: "open" | "closed" | "merged",
+) {
+  const terms = (query?.trim() || "is:pr")
+    .split(/\s+/)
+    .filter(
+      (term) =>
+        term &&
+        !term.startsWith("state:") &&
+        term !== "is:open" &&
+        term !== "is:closed" &&
+        term !== "is:merged",
+    );
+  if (!terms.some((term) => term === "is:pr")) {
+    terms.unshift("is:pr");
   }
   terms.push(`state:${state}`);
   return terms.join(" ");
