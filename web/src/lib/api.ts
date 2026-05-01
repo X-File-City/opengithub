@@ -724,12 +724,22 @@ export type IssueListView = ListEnvelope<IssueListItem> & {
 export type PullRequestState = "open" | "closed" | "merged";
 
 export type PullRequestSort =
+  | "best-match"
   | "updated-desc"
   | "updated-asc"
   | "created-desc"
   | "created-asc"
   | "comments-desc"
-  | "comments-asc";
+  | "comments-asc"
+  | "reactions-desc"
+  | "reactions-thumbs_up-desc"
+  | "reactions-thumbs_down-desc"
+  | "reactions-laugh-desc"
+  | "reactions-hooray-desc"
+  | "reactions-confused-desc"
+  | "reactions-heart-desc"
+  | "reactions-rocket-desc"
+  | "reactions-eyes-desc";
 
 export type LinkedIssueHint = {
   number: number;

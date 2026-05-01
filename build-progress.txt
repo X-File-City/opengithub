@@ -218,6 +218,7 @@
 - Added `web/src/components/DashboardRepositoryFeed.tsx` for the non-empty dashboard state with recent activity, assigned issues, and review request panels while suppressing the first-run welcome copy.
 - Added `web/src/app/dashboard/onboarding/hints/[hintKey]/route.ts` to forward signed session cookies to `POST /api/dashboard/onboarding/hints/:hint_key`.
 - Added a minimal `web/src/app/[owner]/[repo]/page.tsx` repository overview destination so dashboard repository rows navigate to a real page instead of a 404; full code browsing remains for the repository overview feature.
+
 - Extended `web/tests/dashboard-onboarding.test.tsx` for dismiss success, dismiss failure, previously dismissed hints, proxy forwarding, and non-empty dashboard behavior.
 - Verification: `make check` passed; `make test` passed with 16 frontend tests plus cargo tests; `make test-e2e` passed with 8 Playwright tests.
 - Browser smoke: started `make dev` against `postgresql://postgres:postgres@localhost:5432/opengithub_identity_test`, seeded a real Rust-signed Postgres session, verified hint dismissal persistence after reload, created a repository through `POST /api/repos`, verified the non-empty dashboard, clicked a repository row, and saved `ralph/screenshots/build/onboarding-001-phase4-dashboard.jpg`.
@@ -1233,3 +1234,23 @@
 - Added Rust, Vitest, and Playwright coverage for no-milestone filtering, disabled project options, invalid project validation, query helper URLs, menu focus, no inert controls, and signed browser smoke; screenshot saved at `ralph/screenshots/build/prs-002-phase2-metadata-filters.jpg`.
 - Verification: focused Rust `api_repository_pulls_list_contract` passed; focused `web/tests/repository-pulls.test.tsx` passed; focused `web/tests/e2e/repository-pulls.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test DB_SSL=false make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test DB_SSL=false make test` passed with Cargo tests and 150 frontend tests; `make test-e2e` passed with 61 Playwright tests; mandatory Editorial banned-value scan passed with zero matches using `rg -n -e`.
 - Marked Phase 2 as done in `.qrspi/prs-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-05-01 - prs-002 phase 3 review filter semantics
+
+- Implemented Phase 3 from `.qrspi/prs-002/structure.md`: expanded pull request review filters to No reviews, Review required, Approved review, Changes requested, Reviewed by you, Not reviewed by you, Awaiting review from you, and Awaiting review from you or your team.
+- Updated Rust pull-list parsing and SQL filtering for explicit `review`, typed `review:` qualifiers, `review-requested:@me`, viewer-relative validation, direct review requests, and shared-team/direct review-request semantics.
+- Added `web/src/components/PullRequestReviewMenu.tsx` and replaced the searchable Reviews picker with a radio-style Editorial popover that preserves existing query filters and shows selected review chips.
+- Extended Rust contract, Vitest, and Playwright coverage for review filter matrix behavior, all review menu hrefs, selected chip clearing, and browser screenshot evidence.
+- Verification: focused `cargo test --test api_repository_pulls_list_contract -- --nocapture` passed against local Postgres; focused `cd web && npx vitest run tests/repository-pulls.test.tsx` passed; focused `cd web && TEST_DATABASE_URL=... npx playwright test tests/e2e/repository-pulls.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `make test` passed with Cargo tests plus 150 frontend tests; `make test-e2e` passed with 61 Playwright tests.
+- Browser smoke screenshot saved at `ralph/screenshots/build/prs-002-phase3-review-menu.jpg`.
+- Marked Phase 3 done in `.qrspi/prs-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 4 and 5 remain.
+
+2026-05-01 - prs-002 phase 4 expanded sort menu
+
+- Implemented Phase 4 from `.qrspi/prs-002/structure.md`: pull request list sorting now supports Newest, Oldest, Most/Least commented, Recently/Least recently updated, Best match, total reactions, and individual emoji reaction sorts.
+- Extended Rust sort normalization and SQL ordering in `crates/api/src/routes/pulls.rs` and `crates/api/src/domain/pulls.rs`, including alias handling, best-match validation when no search term exists, comment/reaction count ordering, and best-match relevance over title/body/head/base refs.
+- Expanded frontend sort typing and the Editorial sort menu in `web/src/components/RepositoryPullsPage.tsx`; generalized `IssueSortMenu` with a PR-specific accessible label while preserving filter/query state in sort hrefs.
+- Extended Rust, Vitest, and Playwright coverage for sort option hrefs, selected radio state, comments/updates/best-match/reaction ordering, validation warnings, and browser sort-in-place behavior.
+- Browser smoke screenshot saved at `ralph/screenshots/build/prs-002-phase4-sort-menu.jpg`.
+- Verification: mandatory Editorial banned-value scan passed with zero matches using `rg -n -e`; focused Rust `api_repository_pulls_list_contract` passed; focused `web/tests/repository-pulls.test.tsx` passed with 8 tests; focused `web/tests/e2e/repository-pulls.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test DB_SSL=false make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test DB_SSL=false make test` passed with Cargo tests and 150 frontend tests; `make test-e2e` passed with 61 Playwright tests.
+- Marked Phase 4 as done in `.qrspi/prs-002/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.

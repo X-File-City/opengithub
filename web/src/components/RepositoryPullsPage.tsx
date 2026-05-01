@@ -8,6 +8,10 @@ import {
   type IssueSortOption,
 } from "@/components/IssueSortMenu";
 import { PullRequestContributorBanner } from "@/components/PullRequestContributorBanner";
+import {
+  PullRequestReviewMenu,
+  type PullRequestReviewOption,
+} from "@/components/PullRequestReviewMenu";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
   ApiErrorEnvelope,
@@ -155,6 +159,13 @@ function reviewLabel(review: PullRequestListItem["review"]) {
 
 const PULL_SORT_OPTIONS = [
   {
+    value: "best-match",
+    label: "Best match",
+    group: "Sort by",
+    description: "Rank pull requests by the current search terms.",
+    shortcut: "b",
+  },
+  {
     value: "updated-desc",
     label: "Recently updated",
     group: "Sort by",
@@ -196,13 +207,94 @@ const PULL_SORT_OPTIONS = [
     description: "Pull requests with the quietest conversations first.",
     shortcut: "C",
   },
+  {
+    value: "reactions-desc",
+    label: "Most reactions",
+    group: "Reactions",
+    description: "Pull requests with the highest total reactions first.",
+    shortcut: "r",
+  },
+  {
+    value: "reactions-thumbs_up-desc",
+    label: "Most +1",
+    group: "Reactions",
+    description: "Pull requests with the most thumbs-up reactions first.",
+    shortcut: "+1",
+  },
+  {
+    value: "reactions-thumbs_down-desc",
+    label: "Most -1",
+    group: "Reactions",
+    description: "Pull requests with the most thumbs-down reactions first.",
+    shortcut: "-1",
+  },
+  {
+    value: "reactions-laugh-desc",
+    label: "Most laugh",
+    group: "Reactions",
+    description: "Pull requests with the most laugh reactions first.",
+    shortcut: ":)",
+  },
+  {
+    value: "reactions-hooray-desc",
+    label: "Most hooray",
+    group: "Reactions",
+    description: "Pull requests with the most hooray reactions first.",
+    shortcut: "!",
+  },
+  {
+    value: "reactions-confused-desc",
+    label: "Most confused",
+    group: "Reactions",
+    description: "Pull requests with the most confused reactions first.",
+    shortcut: "?",
+  },
+  {
+    value: "reactions-heart-desc",
+    label: "Most heart",
+    group: "Reactions",
+    description: "Pull requests with the most heart reactions first.",
+    shortcut: "<3",
+  },
+  {
+    value: "reactions-rocket-desc",
+    label: "Most rocket",
+    group: "Reactions",
+    description: "Pull requests with the most rocket reactions first.",
+    shortcut: "^",
+  },
+  {
+    value: "reactions-eyes-desc",
+    label: "Most eyes",
+    group: "Reactions",
+    description: "Pull requests with the most eyes reactions first.",
+    shortcut: "e",
+  },
 ] as const satisfies readonly Omit<IssueSortOption, "href" | "active">[];
 
 const REVIEW_FILTER_LABELS: Record<string, string> = {
+  none: "No reviews",
   required: "Review required",
-  approved: "Approved",
+  approved: "Approved review",
   changes_requested: "Changes requested",
+  reviewed_by_me: "Reviewed by you",
+  not_reviewed_by_me: "Not reviewed by you",
+  review_requested: "Awaiting review from you",
+  team_review_requested: "Awaiting review from you or your team",
   commented: "Commented",
+};
+
+const REVIEW_FILTER_DESCRIPTIONS: Record<string, string> = {
+  none: "Pull requests with no submitted reviews or review requests.",
+  required: "Pull requests with at least one pending review request.",
+  approved: "Pull requests that have an approved review.",
+  changes_requested: "Pull requests where a reviewer requested changes.",
+  reviewed_by_me: "Pull requests you have reviewed.",
+  not_reviewed_by_me: "Pull requests you have not reviewed yet.",
+  review_requested: "Pull requests directly awaiting your review.",
+  team_review_requested:
+    "Pull requests awaiting review from you or someone on one of your teams.",
+  commented: "Pull requests with comment-only reviews.",
 };
 
 const CHECK_FILTER_LABELS: Record<string, string> = {
@@ -422,15 +514,19 @@ export function RepositoryPullsPage({
             "Project filters will activate when project links exist.",
         },
       ];
-  const reviewOptions: IssuePickerOption[] =
+  const reviewOptions: PullRequestReviewOption[] =
     pulls.filterOptions.reviewStates.map((review) => ({
-      id: review,
+      value: review,
       label: REVIEW_FILTER_LABELS[review] ?? review,
-      description: `Show pull requests with ${review.replaceAll("_", " ")} review state.`,
+      description:
+        REVIEW_FILTER_DESCRIPTIONS[review] ??
+        `Show pull requests with ${review.replaceAll("_", " ")} review state.`,
       href: repositoryPullRequestSetReviewHref(owner, repo, baseQuery, review),
-      selected: pulls.filters.review === review,
-      badge: null,
+      active: pulls.filters.review === review,
     }));
+  const activeReviewLabel = pulls.filters.review
+    ? (REVIEW_FILTER_LABELS[pulls.filters.review] ?? pulls.filters.review)
+    : "";
   const checkOptions: IssuePickerOption[] = pulls.filterOptions.checkStates.map(
     (checks) => ({
       id: checks,
@@ -627,13 +723,9 @@ export function RepositoryPullsPage({
             searchLabel="Filter assignees"
             searchPlaceholder="Filter assignees"
           />
-          <IssuePickerMenu
-            buttonLabel="Reviews"
-            dialogLabel="Pull request reviews filter"
-            emptyMessage="No review states match this search."
+          <PullRequestReviewMenu
+            activeLabel={activeReviewLabel}
             options={reviewOptions}
-            searchLabel="Filter review states"
-            searchPlaceholder="Filter reviews"
           />
           <IssuePickerMenu
             buttonLabel="Checks"
@@ -679,6 +771,7 @@ export function RepositoryPullsPage({
             <div className="flex flex-wrap gap-2 py-3">
               <IssueSortMenu
                 activeLabel={activeSort.label}
+                menuLabel="Sort pull requests"
                 options={sortOptions}
               />
               {pulls.filters.author ? (
@@ -792,7 +885,9 @@ export function RepositoryPullsPage({
                   )}
                   title={`Remove review:${pulls.filters.review}`}
                 >
-                  review:{pulls.filters.review}
+                  review:
+                  {REVIEW_FILTER_LABELS[pulls.filters.review] ??
+                    pulls.filters.review}
                 </Link>
               ) : null}
               {pulls.filters.checks ? (

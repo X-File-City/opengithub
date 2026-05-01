@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 export type IssueSortOption = {
   value: string;
   label: string;
-  group: "Sort by" | "Order";
+  group: "Sort by" | "Order" | "Reactions";
   description: string;
   shortcut: string;
   href: string;
@@ -15,10 +15,15 @@ export type IssueSortOption = {
 
 type IssueSortMenuProps = {
   activeLabel: string;
+  menuLabel?: string;
   options: IssueSortOption[];
 };
 
-export function IssueSortMenu({ activeLabel, options }: IssueSortMenuProps) {
+export function IssueSortMenu({
+  activeLabel,
+  menuLabel = "Sort issues",
+  options,
+}: IssueSortMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const firstOptionRef = useRef<HTMLAnchorElement>(null);
@@ -61,7 +66,7 @@ export function IssueSortMenu({ activeLabel, options }: IssueSortMenuProps) {
       groups[option.group].push(option);
       return groups;
     },
-    { "Sort by": [], Order: [] },
+    { "Sort by": [], Order: [], Reactions: [] },
   );
 
   return (
@@ -81,13 +86,13 @@ export function IssueSortMenu({ activeLabel, options }: IssueSortMenuProps) {
       </button>
       {open ? (
         <div
-          aria-label="Sort issues"
+          aria-label={menuLabel}
           className="card absolute right-0 z-20 mt-2 w-[min(360px,calc(100vw-2rem))] p-3 shadow-md"
           id={menuId}
           role="menu"
           style={{ background: "var(--surface)" }}
         >
-          {(["Sort by", "Order"] as const).map((group) =>
+          {(["Sort by", "Order", "Reactions"] as const).map((group) =>
             grouped[group].length ? (
               <div key={group}>
                 <div

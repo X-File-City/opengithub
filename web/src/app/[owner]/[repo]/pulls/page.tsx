@@ -32,12 +32,22 @@ type RepositoryPullsPageProps = {
 };
 
 const PULL_SORTS = new Set<PullRequestSort>([
+  "best-match",
   "updated-desc",
   "updated-asc",
   "created-desc",
   "created-asc",
   "comments-desc",
   "comments-asc",
+  "reactions-desc",
+  "reactions-thumbs_up-desc",
+  "reactions-thumbs_down-desc",
+  "reactions-laugh-desc",
+  "reactions-hooray-desc",
+  "reactions-confused-desc",
+  "reactions-heart-desc",
+  "reactions-rocket-desc",
+  "reactions-eyes-desc",
 ]);
 
 function fallbackSort(value: string | undefined): PullRequestSort {

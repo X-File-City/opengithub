@@ -42,7 +42,7 @@
 
 ## Phase 3: Review Filter Semantics - full review and review-request radio menu
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Expand the Reviews menu from the basic `required|approved|changes_requested|commented` set to the PRD contract: No reviews, Review required, Approved review, Changes requested, Reviewed by you, Not reviewed by you, Awaiting review from you, and Awaiting review from you or your team. The menu behaves as a radio popover and maps viewer-relative options through the signed-in actor.
 
@@ -59,7 +59,7 @@
 
 ## Phase 4: Expanded Sort Menu - comments, updates, best match, and reactions sort in place
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Extend the Sort menu to the full PRD set: Newest, Oldest, Most/Least commented, Recently/Least recently updated, Best match, and emoji reaction sorts. Sort choices update results in place, preserve all active filters, and show validation when best match or reaction sorts cannot be honored.
 

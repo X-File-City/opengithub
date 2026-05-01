@@ -185,12 +185,22 @@ fn pull_list_query(
         .map(ToOwned::to_owned)
         .or_else(|| qualifier_from_query(q, "order:"));
 
+    let normalized_sort = normalize_pull_sort(&raw_sort, raw_order.as_deref())?;
+    if normalized_sort == "best-match" && search_text_from_pull_query(q).is_empty() {
+        return Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "best match sort requires a search term".to_owned(),
+            ),
+        );
+    }
+
     Ok(PullRequestListQuery {
         query: Some(q.chars().take(240).collect()),
         state: query
             .state
             .clone()
             .unwrap_or_else(|| pull_state_from_query(q)),
+        viewer_user_id: actor.map(|user| user.id),
         author: query
             .author
             .as_deref()
@@ -224,17 +234,7 @@ fn pull_list_query(
             }),
         no_assignee: query.no_assignee.unwrap_or(false) || no_filter_from_query(q, "assignee"),
         project: project_filter_from_query(query, q)?,
-        review: query
-            .review
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(|value| normalize_actor_alias(value, actor))
-            .or_else(|| {
-                qualifier_from_query(q, "review:").map(|value| normalize_actor_alias(&value, actor))
-            })
-            .map(validate_review_filter)
-            .transpose()?,
+        review: review_filter_from_query(query, q, actor)?,
         checks: query
             .checks
             .as_deref()
@@ -244,7 +244,7 @@ fn pull_list_query(
             .or_else(|| qualifier_from_query(q, "checks:"))
             .map(validate_checks_filter)
             .transpose()?,
-        sort: normalize_pull_sort(&raw_sort, raw_order.as_deref())?,
+        sort: normalized_sort,
     })
 }
 
@@ -270,14 +270,27 @@ fn project_filter_from_query(
     Ok(None)
 }
 
-fn normalize_actor_alias(value: &str, actor: Option<&User>) -> String {
-    if value == "@me" {
-        actor
-            .map(|user| user.username.as_deref().unwrap_or(&user.email).to_owned())
-            .unwrap_or_else(|| value.to_owned())
-    } else {
-        value.to_owned()
-    }
+fn review_filter_from_query(
+    query: &ListQuery,
+    q: &str,
+    actor: Option<&User>,
+) -> Result<Option<String>, crate::domain::issues::CollaborationError> {
+    query
+        .review
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| qualifier_from_query(q, "review:"))
+        .or_else(|| {
+            qualifier_from_query(q, "review-requested:")
+                .map(|value| format!("review-requested:{value}"))
+        })
+        .or_else(|| {
+            qualifier_from_query(q, "reviewed-by:").map(|value| format!("reviewed-by:{value}"))
+        })
+        .map(|value| normalize_review_filter(&value, actor))
+        .transpose()
 }
 
 fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::CollaborationError> {
@@ -307,6 +320,8 @@ fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::Collabo
             "project:",
             "assignee:",
             "review:",
+            "review-requested:",
+            "reviewed-by:",
             "checks:",
             "sort:",
             "order:",
@@ -400,20 +415,61 @@ fn normalize_pull_sort(
         );
     }
     let normalized = match sort.to_lowercase().as_str() {
+        "best-match" | "best_match" => "best-match".to_owned(),
         "updated" | "recently-updated" => format!("updated-{order}"),
         "created" | "newest" => format!("created-{order}"),
         "comments" | "commented" | "most-commented" => format!("comments-{order}"),
         "least-commented" => "comments-asc".to_owned(),
         "oldest" => "created-asc".to_owned(),
         "least-recently-updated" => "updated-asc".to_owned(),
+        "reactions" | "most-reactions" => "reactions-desc".to_owned(),
+        "thumbs-up" | "thumbs_up" | "+1" => "reactions-thumbs_up-desc".to_owned(),
+        "thumbs-down" | "thumbs_down" | "-1" => "reactions-thumbs_down-desc".to_owned(),
+        "laugh" | "smile" => "reactions-laugh-desc".to_owned(),
+        "hooray" | "tada" => "reactions-hooray-desc".to_owned(),
+        "confused" | "thinking_face" => "reactions-confused-desc".to_owned(),
+        "heart" => "reactions-heart-desc".to_owned(),
+        "rocket" => "reactions-rocket-desc".to_owned(),
+        "eyes" => "reactions-eyes-desc".to_owned(),
         value => value.to_owned(),
     };
     if !pull_sort_options().contains(&normalized) {
-        return Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
-            "sort must be one of updated-desc, updated-asc, created-desc, created-asc, comments-desc, comments-asc".to_owned(),
-        ));
+        return Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(format!(
+                "sort must be one of {}",
+                pull_sort_options().join(", ")
+            )),
+        );
     }
     Ok(normalized)
+}
+
+fn search_text_from_pull_query(query: &str) -> String {
+    pull_query_terms(query)
+        .into_iter()
+        .filter(|term| {
+            !matches!(
+                term.as_str(),
+                "is:pr" | "is:pull-request" | "is:open" | "is:closed" | "is:merged"
+            ) && !term.starts_with("state:")
+                && !term.starts_with("author:")
+                && !term.starts_with("label:")
+                && !term.starts_with("milestone:")
+                && term != "no:milestone"
+                && !term.starts_with("assignee:")
+                && term != "no:assignee"
+                && !term.starts_with("project:")
+                && !term.starts_with("review:")
+                && !term.starts_with("review-requested:")
+                && !term.starts_with("reviewed-by:")
+                && !term.starts_with("checks:")
+                && !term.starts_with("sort:")
+                && !term.starts_with("order:")
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim()
+        .to_owned()
 }
 
 fn validate_review_filter(
@@ -421,16 +477,58 @@ fn validate_review_filter(
 ) -> Result<String, crate::domain::issues::CollaborationError> {
     if matches!(
         value.as_str(),
-        "required" | "approved" | "changes_requested" | "commented"
+        "none"
+            | "required"
+            | "approved"
+            | "changes_requested"
+            | "commented"
+            | "reviewed_by_me"
+            | "not_reviewed_by_me"
+            | "review_requested"
+            | "team_review_requested"
     ) {
         Ok(value)
     } else {
         Err(
             crate::domain::issues::CollaborationError::InvalidIssueFilter(
-                "review must be required, approved, changes_requested, or commented".to_owned(),
+                "review must be none, required, approved, changes_requested, reviewed_by_me, not_reviewed_by_me, review_requested, or team_review_requested".to_owned(),
             ),
         )
     }
+}
+
+fn normalize_review_filter(
+    value: &str,
+    actor: Option<&User>,
+) -> Result<String, crate::domain::issues::CollaborationError> {
+    let normalized = value.trim().trim_matches('"').to_lowercase();
+    let canonical = match normalized.as_str() {
+        "none" | "no_reviews" | "no-reviews" => "none",
+        "required" | "review_required" | "review-required" => "required",
+        "approved" => "approved",
+        "changes_requested" | "changes-requested" => "changes_requested",
+        "commented" => "commented",
+        "reviewed_by_me" | "reviewed-by-me" | "reviewed-by:@me" => "reviewed_by_me",
+        "not_reviewed_by_me" | "not-reviewed-by-me" => "not_reviewed_by_me",
+        "review_requested" | "review-requested" | "review-requested:@me" => "review_requested",
+        "team_review_requested"
+        | "team-review-requested"
+        | "team-review-requested:@me"
+        | "review-requested:team" => "team_review_requested",
+        other => return validate_review_filter(other.to_owned()),
+    };
+    if matches!(
+        canonical,
+        "reviewed_by_me" | "not_reviewed_by_me" | "review_requested" | "team_review_requested"
+    ) && actor.is_none()
+    {
+        return Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "viewer-relative review filters require a signed-in session".to_owned(),
+            ),
+        );
+    }
+    Ok(canonical.to_owned())
 }
 
 fn validate_checks_filter(

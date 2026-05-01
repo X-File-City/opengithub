@@ -1780,5 +1780,42 @@
       "Expanded review semantics, reaction sorts, best-match behavior, and final advanced-query guardrails remain later prs-002 phases.",
       "Repeat metadata filter checks with a real Google OAuth-created session once OAuth consent/test-user setup is complete."
     ]
+  },
+  {
+    "feature_id": "prs-002",
+    "tests_written": [
+      "Implemented Phase 3 review filter semantics for /{owner}/{repo}/pulls: No reviews, Review required, Approved review, Changes requested, Reviewed by you, Not reviewed by you, Awaiting review from you, and Awaiting review from you or your team.",
+      "Rust pull-list API now normalizes explicit review params, review: qualifiers, review-requested:@me aliases, and viewer-relative filters through the signed-in actor; anonymous viewer-relative filters return validation_failed without leaking data.",
+      "Pull-list SQL now filters no-review, required review, concrete review states, reviewed-by-me, not-reviewed-by-me, direct review requests, and team/direct review-request semantics in both count and list queries.",
+      "Frontend Reviews control is now a radio-style popover with checked state, focused first option, PRD labels, selected chips, and URL-backed qualifier preservation.",
+      "Vitest covers all review menu options, href round-trips, selected review chip clearing, and no inert controls.",
+      "Playwright smoke opens the full Reviews radio menu on a real signed-in repository/PR, verifies every option href, applies No reviews, confirms the PR remains visible, and saves ralph/screenshots/build/prs-002-phase3-review-menu.jpg.",
+      "Verification passed: focused Rust api_repository_pulls_list_contract, focused repository-pulls Vitest, focused repository-pulls Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 150 frontend tests, make test-e2e with 61 Playwright tests."
+    ],
+    "needs_deeper_qa": [
+      "Team review-request behavior currently resolves through users who share a team with the signed-in viewer; there is no separate team-request row yet, so QA should revisit once team review request data is modeled.",
+      "Browser smoke verified the menu and No reviews selection with deterministic Rust sessions; repeat with a real Google OAuth-created session once OAuth consent/test-user setup is complete.",
+      "Approved/changes-requested/review-requested list filtering is covered by Rust contract tests, while the browser smoke focuses on the menu/URL interaction because the PR creation UI does not yet create review metadata.",
+      "Expanded sort controls, reaction sorts, best-match behavior, and final advanced-query guardrails remain prs-002 phases 4 and 5."
+    ]
+  },
+  {
+    "feature_id": "prs-002",
+    "tests_written": [
+      "Implemented Phase 4 expanded pull request sort controls: API normalizes Newest, Oldest, Most/Least commented, Recently/Least recently updated, Best match, total reactions, and per-emoji reaction sort values.",
+      "Pull-list SQL now orders by created, updated, comment counts, best-match relevance against the typed search term, total reactions, and individual reaction contents backed by the existing reactions table.",
+      "Best match without a non-qualifier search term returns a validation_failed warning that preserves the typed query instead of silently falling back.",
+      "RepositoryPullsPage now renders the full Editorial PR sort menu with Sort by, Order, and Reactions groups; the shared IssueSortMenu accepts a PR-specific accessible menu label.",
+      "Rust contract coverage seeds comments and reactions, verifies comments-desc, updated-asc aliasing, reaction sorting, best-match ordering, and best-match validation.",
+      "Vitest covers the expanded PR sort menu, selected radio state, reaction hrefs, and filter-preserving navigation helpers.",
+      "Playwright smoke opens the Sort menu on a real signed-in repository/PR, verifies Newest, Least recently updated, Best match, and Most rocket options, applies reaction sorting in place, checks the best-match warning, and saves ralph/screenshots/build/prs-002-phase4-sort-menu.jpg.",
+      "Verification passed: focused Rust api_repository_pulls_list_contract, focused repository-pulls Vitest, focused repository-pulls Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 150 frontend tests, make test-e2e with 61 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke verifies reaction sort URLs and in-place refresh, but seeded PRs have no browser-created reactions; QA should recheck ordering once PR reaction mutation UI exists.",
+      "Best-match ranking is a Postgres title/body/ref relevance heuristic for the pull-list scope; tune against real PR search index data when broader search ranking ships.",
+      "Emoji sort labels use textual reaction names rather than custom iconography; visual QA should confirm this is acceptable within the Editorial toolbar.",
+      "Final Phase 5 still needs the full advanced-query guardrail sweep, keyboard close behavior, cross-filter matrix, mobile no-overflow, and final build_pass bookkeeping."
+    ]
   }
 ]

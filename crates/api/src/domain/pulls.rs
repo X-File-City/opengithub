@@ -244,6 +244,7 @@ pub struct PullRequestListView {
 pub struct PullRequestListQuery {
     pub query: Option<String>,
     pub state: PullRequestState,
+    pub viewer_user_id: Option<Uuid>,
     pub author: Option<String>,
     pub labels: Vec<String>,
     pub milestone: Option<String>,
@@ -261,6 +262,7 @@ impl Default for PullRequestListQuery {
         Self {
             query: Some("is:pr is:open".to_owned()),
             state: PullRequestState::Open,
+            viewer_user_id: None,
             author: None,
             labels: Vec::new(),
             milestone: None,
@@ -451,6 +453,7 @@ pub async fn repository_pull_request_list_view_for_viewer(
         PullRequestState::Open.as_str(),
         text_filter.as_deref(),
         &filters,
+        actor_user_id,
     )
     .await?;
     let closed_count = count_pull_request_list_items(
@@ -459,6 +462,7 @@ pub async fn repository_pull_request_list_view_for_viewer(
         PullRequestState::Closed.as_str(),
         text_filter.as_deref(),
         &filters,
+        actor_user_id,
     )
     .await?;
     let merged_count = count_pull_request_list_items(
@@ -467,6 +471,7 @@ pub async fn repository_pull_request_list_view_for_viewer(
         PullRequestState::Merged.as_str(),
         text_filter.as_deref(),
         &filters,
+        actor_user_id,
     )
     .await?;
     let total = match filters.state {
@@ -549,44 +554,123 @@ pub async fn repository_pull_request_list_view_for_viewer(
           )
           AND (
               $10::text IS NULL
-              OR EXISTS (
+              OR ($10 = 'none' AND NOT EXISTS (
+                  SELECT 1
+                  FROM pull_request_reviews
+                  WHERE pull_request_reviews.pull_request_id = pull_requests.id
+              ) AND NOT EXISTS (
+                  SELECT 1
+                  FROM pull_request_review_requests
+                  WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+              ))
+              OR ($10 IN ('approved', 'changes_requested', 'commented') AND EXISTS (
                   SELECT 1
                   FROM pull_request_reviews
                   WHERE pull_request_reviews.pull_request_id = pull_requests.id
                     AND pull_request_reviews.state = $10
-              )
+              ))
               OR ($10 = 'required' AND EXISTS (
                   SELECT 1
                   FROM pull_request_review_requests
                   WHERE pull_request_review_requests.pull_request_id = pull_requests.id
               ))
+              OR ($10 = 'reviewed_by_me' AND $11::uuid IS NOT NULL AND EXISTS (
+                  SELECT 1
+                  FROM pull_request_reviews
+                  WHERE pull_request_reviews.pull_request_id = pull_requests.id
+                    AND pull_request_reviews.reviewer_user_id = $11
+              ))
+              OR ($10 = 'not_reviewed_by_me' AND $11::uuid IS NOT NULL AND NOT EXISTS (
+                  SELECT 1
+                  FROM pull_request_reviews
+                  WHERE pull_request_reviews.pull_request_id = pull_requests.id
+                    AND pull_request_reviews.reviewer_user_id = $11
+              ))
+              OR ($10 = 'review_requested' AND $11::uuid IS NOT NULL AND EXISTS (
+                  SELECT 1
+                  FROM pull_request_review_requests
+                  WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+                    AND pull_request_review_requests.requested_user_id = $11
+              ))
+              OR ($10 = 'team_review_requested' AND $11::uuid IS NOT NULL AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM pull_request_review_requests
+                      WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+                        AND pull_request_review_requests.requested_user_id = $11
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM pull_request_review_requests
+                      JOIN team_memberships requested_memberships
+                        ON requested_memberships.user_id = pull_request_review_requests.requested_user_id
+                      JOIN team_memberships viewer_memberships
+                        ON viewer_memberships.team_id = requested_memberships.team_id
+                       AND viewer_memberships.user_id = $11
+                      WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+                  )
+              ))
           )
           AND (
-              $11::text IS NULL
+              $12::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_checks_summary
                   WHERE pull_request_checks_summary.pull_request_id = pull_requests.id
                     AND (
-                        pull_request_checks_summary.status = $11
-                        OR pull_request_checks_summary.conclusion = $11
+                        pull_request_checks_summary.status = $12
+                        OR pull_request_checks_summary.conclusion = $12
                     )
               )
           )
         ORDER BY
-          CASE WHEN $12 = 'created-asc' THEN pull_requests.created_at END ASC,
-          CASE WHEN $12 = 'created-desc' THEN pull_requests.created_at END DESC,
-          CASE WHEN $12 = 'updated-asc' THEN pull_requests.updated_at END ASC,
-          CASE WHEN $12 = 'updated-desc' THEN pull_requests.updated_at END DESC,
-          CASE WHEN $12 = 'comments-desc' THEN (
+          CASE WHEN $13 = 'best-match' THEN (
+              (CASE WHEN pull_requests.title ILIKE $3 || '%' THEN 12 ELSE 0 END)
+              + (CASE WHEN pull_requests.title ILIKE '%' || $3 || '%' THEN 8 ELSE 0 END)
+              + (CASE WHEN COALESCE(pull_requests.body, '') ILIKE '%' || $3 || '%' THEN 3 ELSE 0 END)
+              + (CASE WHEN pull_requests.head_ref ILIKE '%' || $3 || '%' THEN 2 ELSE 0 END)
+              + (CASE WHEN pull_requests.base_ref ILIKE '%' || $3 || '%' THEN 1 ELSE 0 END)
+          ) END DESC,
+          CASE WHEN $13 = 'created-asc' THEN pull_requests.created_at END ASC,
+          CASE WHEN $13 = 'created-desc' THEN pull_requests.created_at END DESC,
+          CASE WHEN $13 = 'updated-asc' THEN pull_requests.updated_at END ASC,
+          CASE WHEN $13 = 'updated-desc' THEN pull_requests.updated_at END DESC,
+          CASE WHEN $13 = 'comments-desc' THEN (
               SELECT count(*) FROM comments WHERE comments.pull_request_id = pull_requests.id
           ) END DESC,
-          CASE WHEN $12 = 'comments-asc' THEN (
+          CASE WHEN $13 = 'comments-asc' THEN (
               SELECT count(*) FROM comments WHERE comments.pull_request_id = pull_requests.id
           ) END ASC,
+          CASE WHEN $13 = 'reactions-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-thumbs_up-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'thumbs_up'
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-thumbs_down-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'thumbs_down'
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-laugh-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'laugh'
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-hooray-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'hooray'
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-confused-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'confused'
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-heart-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'heart'
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-rocket-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'rocket'
+          ) END DESC,
+          CASE WHEN $13 = 'reactions-eyes-desc' THEN (
+              SELECT count(*) FROM reactions WHERE reactions.pull_request_id = pull_requests.id AND reactions.content = 'eyes'
+          ) END DESC,
           pull_requests.updated_at DESC,
           pull_requests.number DESC
-        LIMIT $13 OFFSET $14
+        LIMIT $14 OFFSET $15
         "#,
     )
     .bind(repository_id)
@@ -599,6 +683,7 @@ pub async fn repository_pull_request_list_view_for_viewer(
     .bind(filters.assignee.as_deref())
     .bind(filters.no_assignee)
     .bind(filters.review.as_deref())
+    .bind(filters.viewer_user_id)
     .bind(filters.checks.as_deref())
     .bind(&filters.sort)
     .bind(page_size)
@@ -652,10 +737,14 @@ pub async fn repository_pull_request_list_view_for_viewer(
             milestones: pull_list_milestone_options(pool, repository_id).await?,
             projects: pull_list_project_options().await?,
             review_states: vec![
+                "none".to_owned(),
                 "required".to_owned(),
                 "approved".to_owned(),
                 "changes_requested".to_owned(),
-                "commented".to_owned(),
+                "reviewed_by_me".to_owned(),
+                "not_reviewed_by_me".to_owned(),
+                "review_requested".to_owned(),
+                "team_review_requested".to_owned(),
             ],
             check_states: vec![
                 "success".to_owned(),
@@ -979,6 +1068,7 @@ async fn count_pull_request_list_items(
     state: &str,
     text_filter: Option<&str>,
     filters: &PullRequestListQuery,
+    actor_user_id: Option<Uuid>,
 ) -> Result<i64, CollaborationError> {
     sqlx::query_scalar::<_, i64>(
         r#"
@@ -1048,27 +1138,72 @@ async fn count_pull_request_list_items(
           )
           AND (
               $10::text IS NULL
-              OR EXISTS (
+              OR ($10 = 'none' AND NOT EXISTS (
+                  SELECT 1
+                  FROM pull_request_reviews
+                  WHERE pull_request_reviews.pull_request_id = pull_requests.id
+              ) AND NOT EXISTS (
+                  SELECT 1
+                  FROM pull_request_review_requests
+                  WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+              ))
+              OR ($10 IN ('approved', 'changes_requested', 'commented') AND EXISTS (
                   SELECT 1
                   FROM pull_request_reviews
                   WHERE pull_request_reviews.pull_request_id = pull_requests.id
                     AND pull_request_reviews.state = $10
-              )
+              ))
               OR ($10 = 'required' AND EXISTS (
                   SELECT 1
                   FROM pull_request_review_requests
                   WHERE pull_request_review_requests.pull_request_id = pull_requests.id
               ))
+              OR ($10 = 'reviewed_by_me' AND $11::uuid IS NOT NULL AND EXISTS (
+                  SELECT 1
+                  FROM pull_request_reviews
+                  WHERE pull_request_reviews.pull_request_id = pull_requests.id
+                    AND pull_request_reviews.reviewer_user_id = $11
+              ))
+              OR ($10 = 'not_reviewed_by_me' AND $11::uuid IS NOT NULL AND NOT EXISTS (
+                  SELECT 1
+                  FROM pull_request_reviews
+                  WHERE pull_request_reviews.pull_request_id = pull_requests.id
+                    AND pull_request_reviews.reviewer_user_id = $11
+              ))
+              OR ($10 = 'review_requested' AND $11::uuid IS NOT NULL AND EXISTS (
+                  SELECT 1
+                  FROM pull_request_review_requests
+                  WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+                    AND pull_request_review_requests.requested_user_id = $11
+              ))
+              OR ($10 = 'team_review_requested' AND $11::uuid IS NOT NULL AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM pull_request_review_requests
+                      WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+                        AND pull_request_review_requests.requested_user_id = $11
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM pull_request_review_requests
+                      JOIN team_memberships requested_memberships
+                        ON requested_memberships.user_id = pull_request_review_requests.requested_user_id
+                      JOIN team_memberships viewer_memberships
+                        ON viewer_memberships.team_id = requested_memberships.team_id
+                       AND viewer_memberships.user_id = $11
+                      WHERE pull_request_review_requests.pull_request_id = pull_requests.id
+                  )
+              ))
           )
           AND (
-              $11::text IS NULL
+              $12::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_checks_summary
                   WHERE pull_request_checks_summary.pull_request_id = pull_requests.id
                     AND (
-                        pull_request_checks_summary.status = $11
-                        OR pull_request_checks_summary.conclusion = $11
+                        pull_request_checks_summary.status = $12
+                        OR pull_request_checks_summary.conclusion = $12
                     )
               )
           )
@@ -1084,6 +1219,7 @@ async fn count_pull_request_list_items(
     .bind(filters.assignee.as_deref())
     .bind(filters.no_assignee)
     .bind(filters.review.as_deref())
+    .bind(actor_user_id)
     .bind(filters.checks.as_deref())
     .fetch_one(pool)
     .await
@@ -1732,6 +1868,8 @@ fn search_text_from_pull_query(query: &str) -> String {
                 && term != "no:assignee"
                 && !term.starts_with("project:")
                 && !term.starts_with("review:")
+                && !term.starts_with("review-requested:")
+                && !term.starts_with("reviewed-by:")
                 && !term.starts_with("checks:")
                 && !term.starts_with("sort:")
                 && !term.starts_with("order:")
@@ -1772,12 +1910,22 @@ fn pull_query_terms(query: &str) -> Vec<String> {
 
 pub fn pull_sort_options() -> Vec<String> {
     [
+        "best-match",
         "updated-desc",
         "updated-asc",
         "created-desc",
         "created-asc",
         "comments-desc",
         "comments-asc",
+        "reactions-desc",
+        "reactions-thumbs_up-desc",
+        "reactions-thumbs_down-desc",
+        "reactions-laugh-desc",
+        "reactions-hooray-desc",
+        "reactions-confused-desc",
+        "reactions-heart-desc",
+        "reactions-rocket-desc",
+        "reactions-eyes-desc",
     ]
     .into_iter()
     .map(ToOwned::to_owned)

@@ -220,9 +220,35 @@ function pullRequestListView(
             "Project filters will activate when project links exist.",
         },
       ],
-      reviewStates: ["required", "approved", "changes_requested"],
+      reviewStates: [
+        "none",
+        "required",
+        "approved",
+        "changes_requested",
+        "reviewed_by_me",
+        "not_reviewed_by_me",
+        "review_requested",
+        "team_review_requested",
+      ],
       checkStates: ["success", "failure", "pending", "running"],
-      sortOptions: ["updated-desc", "created-desc", "comments-desc"],
+      sortOptions: [
+        "best-match",
+        "updated-desc",
+        "updated-asc",
+        "created-desc",
+        "created-asc",
+        "comments-desc",
+        "comments-asc",
+        "reactions-desc",
+        "reactions-thumbs_up-desc",
+        "reactions-thumbs_down-desc",
+        "reactions-laugh-desc",
+        "reactions-hooray-desc",
+        "reactions-confused-desc",
+        "reactions-heart-desc",
+        "reactions-rocket-desc",
+        "reactions-eyes-desc",
+      ],
     },
     viewerPermission: "owner",
     repository: {
@@ -410,9 +436,24 @@ describe("RepositoryPullsPage", () => {
     fireEvent.keyDown(document, { key: "Escape" });
 
     fireEvent.click(screen.getByRole("button", { name: /Reviews/ }));
-    expect(screen.getByRole("option", { name: /Approved/ })).toHaveAttribute(
+    expect(
+      screen.getByRole("menuitemradio", { name: /Approved review/ }),
+    ).toHaveAttribute("href", expect.stringContaining("review%3Aapproved"));
+    expect(
+      screen.getAllByRole("menuitemradio", {
+        name: /Awaiting review from you/,
+      })[0],
+    ).toHaveAttribute(
       "href",
-      expect.stringContaining("review%3Aapproved"),
+      expect.stringContaining("review%3Areview_requested"),
+    );
+    expect(
+      screen.getByRole("menuitemradio", {
+        name: /Awaiting review from you or your team/,
+      }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("review%3Ateam_review_requested"),
     );
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -424,8 +465,32 @@ describe("RepositoryPullsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Sort by/ }));
     expect(
+      screen.getByRole("menu", { name: "Sort pull requests" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("menuitemradio", { name: /Best match/ }),
+    ).toHaveAttribute("href", expect.stringContaining("sort=best-match"));
+    expect(
       screen.getByRole("menuitemradio", { name: /Most commented/ }),
     ).toHaveAttribute("href", expect.stringContaining("sort=comments-desc"));
+    expect(
+      screen.getByRole("menuitemradio", { name: /Recently updated/ }),
+    ).toHaveAttribute("aria-checked", "false");
+    expect(
+      screen.getByRole("menuitemradio", { name: /Most reactions/ }),
+    ).toHaveAttribute("href", expect.stringContaining("sort=reactions-desc"));
+    expect(
+      screen.getByRole("menuitemradio", { name: /Most \+1/ }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("sort=reactions-thumbs_up-desc"),
+    );
+    expect(
+      screen.getByRole("menuitemradio", { name: /Most rocket/ }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("sort=reactions-rocket-desc"),
+    );
 
     expect(screen.getByRole("link", { name: "label:review" })).toHaveAttribute(
       "href",
@@ -443,7 +508,7 @@ describe("RepositoryPullsPage", () => {
       expect.not.stringContaining("assignee=mona"),
     );
     expect(
-      screen.getByRole("link", { name: "review:approved" }),
+      screen.getByRole("link", { name: "review:Approved review" }),
     ).toHaveAttribute("href", expect.not.stringContaining("review="));
     expect(
       screen.getByRole("link", { name: "checks:success" }),
@@ -628,10 +693,10 @@ describe("RepositoryPullsPage", () => {
         "mona",
         "octo-app",
         { q: "is:pr state:open", state: "open" },
-        "approved",
+        "review_requested",
       ),
     ).toBe(
-      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+review%3Aapproved&state=open&review=approved",
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+review%3Areview_requested&state=open&review=review_requested",
     );
     expect(
       repositoryPullRequestSetChecksHref(
@@ -652,6 +717,20 @@ describe("RepositoryPullsPage", () => {
       ),
     ).toBe(
       "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen&state=open&sort=comments-desc",
+    );
+    expect(
+      repositoryPullRequestSortHref(
+        "mona",
+        "octo-app",
+        {
+          q: "is:pr state:open label:review sort:comments-desc",
+          labels: ["review"],
+          state: "open",
+        },
+        "reactions-rocket-desc",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+label%3Areview&state=open&labels=review&sort=reactions-rocket-desc",
     );
     expect(
       repositoryPullRequestClearFilterHref(

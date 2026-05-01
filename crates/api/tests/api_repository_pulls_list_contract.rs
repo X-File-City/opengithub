@@ -385,9 +385,10 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     .await
     .expect("private pull should create");
     let owner_cookie = cookie_header(&pool, &config, &owner).await;
+    let reviewer_cookie = cookie_header(&pool, &config, &reviewer).await;
     let outsider_cookie = cookie_header(&pool, &config, &outsider).await;
 
-    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
     let default_uri = format!("/api/repos/{}/{}/pulls", owner.email, repo_name);
     let (default_status, default_body) = send_json(app.clone(), &default_uri, None).await;
     assert_eq!(default_status, StatusCode::OK);
@@ -602,6 +603,215 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(
         typed_filter_body["items"][0]["number"],
         open_pr.pull_request.number
+    );
+
+    let sort_competitor = create_pull_request(
+        &pool,
+        CreatePullRequest {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Rocket sort best match candidate".to_owned(),
+            body: Some("Rocket search text for best match ordering.".to_owned()),
+            head_ref: "feature/rocket-sort".to_owned(),
+            base_ref: "main".to_owned(),
+            head_repository_id: None,
+        },
+    )
+    .await
+    .expect("sort competitor pull should create");
+    sqlx::query(
+        r#"
+        INSERT INTO comments (repository_id, pull_request_id, author_user_id, body)
+        VALUES ($1, $2, $3, 'Sort comment A'), ($1, $2, $3, 'Sort comment B'), ($1, $2, $3, 'Sort comment C')
+        "#,
+    )
+    .bind(repository.id)
+    .bind(sort_competitor.pull_request.id)
+    .bind(reviewer.id)
+    .execute(&pool)
+    .await
+    .expect("sort comments should create");
+    sqlx::query(
+        r#"
+        INSERT INTO reactions (repository_id, pull_request_id, user_id, content)
+        VALUES
+            ($1, $2, $3, 'rocket'),
+            ($1, $2, $4, 'rocket'),
+            ($1, $2, $3, 'heart'),
+            ($1, $5, $3, 'thumbs_up')
+        "#,
+    )
+    .bind(repository.id)
+    .bind(sort_competitor.pull_request.id)
+    .bind(owner.id)
+    .bind(reviewer.id)
+    .bind(open_pr.pull_request.id)
+    .execute(&pool)
+    .await
+    .expect("sort reactions should create");
+    sqlx::query(
+        r#"
+        UPDATE pull_requests
+        SET created_at = CASE id
+                WHEN $1 THEN now() - interval '3 days'
+                WHEN $2 THEN now() - interval '1 day'
+                ELSE created_at
+            END,
+            updated_at = CASE id
+                WHEN $1 THEN now() - interval '1 day'
+                WHEN $2 THEN now() - interval '3 days'
+                ELSE updated_at
+            END
+        WHERE id IN ($1, $2)
+        "#,
+    )
+    .bind(open_pr.pull_request.id)
+    .bind(sort_competitor.pull_request.id)
+    .execute(&pool)
+    .await
+    .expect("sort timestamps should update");
+
+    let comments_sort_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&sort=comments-desc",
+        owner.email, repo_name
+    );
+    let (comments_sort_status, comments_sort_body) =
+        send_json(app.clone(), &comments_sort_uri, None).await;
+    assert_eq!(comments_sort_status, StatusCode::OK);
+    assert_eq!(comments_sort_body["filters"]["sort"], "comments-desc");
+    assert_eq!(
+        comments_sort_body["items"][0]["number"],
+        sort_competitor.pull_request.number
+    );
+
+    let least_updated_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&sort=least-recently-updated",
+        owner.email, repo_name
+    );
+    let (least_updated_status, least_updated_body) =
+        send_json(app.clone(), &least_updated_uri, None).await;
+    assert_eq!(least_updated_status, StatusCode::OK);
+    assert_eq!(least_updated_body["filters"]["sort"], "updated-asc");
+    assert_eq!(
+        least_updated_body["items"][0]["number"],
+        sort_competitor.pull_request.number
+    );
+
+    let reaction_sort_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&sort=reactions-rocket-desc",
+        owner.email, repo_name
+    );
+    let (reaction_sort_status, reaction_sort_body) =
+        send_json(app.clone(), &reaction_sort_uri, None).await;
+    assert_eq!(reaction_sort_status, StatusCode::OK);
+    assert_eq!(
+        reaction_sort_body["filters"]["sort"],
+        "reactions-rocket-desc"
+    );
+    assert_eq!(
+        reaction_sort_body["items"][0]["number"],
+        sort_competitor.pull_request.number
+    );
+
+    let best_match_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20Rocket&sort=best-match",
+        owner.email, repo_name
+    );
+    let (best_match_status, best_match_body) = send_json(app.clone(), &best_match_uri, None).await;
+    assert_eq!(best_match_status, StatusCode::OK);
+    assert_eq!(best_match_body["filters"]["sort"], "best-match");
+    assert_eq!(
+        best_match_body["items"][0]["number"],
+        sort_competitor.pull_request.number
+    );
+
+    let best_match_without_text_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&sort=best-match",
+        owner.email, repo_name
+    );
+    let (best_match_without_text_status, best_match_without_text_body) =
+        send_json(app.clone(), &best_match_without_text_uri, None).await;
+    assert_eq!(
+        best_match_without_text_status,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        best_match_without_text_body["details"]["reason"],
+        "invalid issue filter: best match sort requires a search term"
+    );
+
+    let review_required_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20review%3Arequired",
+        owner.email, repo_name
+    );
+    let (review_required_status, review_required_body) =
+        send_json(app.clone(), &review_required_uri, None).await;
+    assert_eq!(review_required_status, StatusCode::OK);
+    assert_eq!(review_required_body["filters"]["review"], "required");
+    assert_eq!(review_required_body["total"], 1);
+
+    let no_reviews_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20review%3Anone",
+        owner.email, repo_name
+    );
+    let (no_reviews_status, no_reviews_body) = send_json(app.clone(), &no_reviews_uri, None).await;
+    assert_eq!(no_reviews_status, StatusCode::OK);
+    assert_eq!(no_reviews_body["filters"]["review"], "none");
+    assert_eq!(no_reviews_body["total"], 1);
+    assert_eq!(
+        no_reviews_body["items"][0]["number"],
+        sort_competitor.pull_request.number
+    );
+
+    let reviewed_by_me_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20review%3Areviewed_by_me",
+        owner.email, repo_name
+    );
+    let (reviewed_by_me_status, reviewed_by_me_body) =
+        send_json(app.clone(), &reviewed_by_me_uri, Some(&reviewer_cookie)).await;
+    assert_eq!(reviewed_by_me_status, StatusCode::OK);
+    assert_eq!(reviewed_by_me_body["filters"]["review"], "reviewed_by_me");
+    assert_eq!(reviewed_by_me_body["total"], 1);
+
+    let requested_me_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20review-requested%3A%40me",
+        owner.email, repo_name
+    );
+    let (requested_me_status, requested_me_body) =
+        send_json(app.clone(), &requested_me_uri, Some(&reviewer_cookie)).await;
+    assert_eq!(requested_me_status, StatusCode::OK);
+    assert_eq!(requested_me_body["filters"]["review"], "review_requested");
+    assert_eq!(requested_me_body["total"], 1);
+
+    let team_requested_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&review=team_review_requested",
+        owner.email, repo_name
+    );
+    let (team_requested_status, team_requested_body) =
+        send_json(app.clone(), &team_requested_uri, Some(&reviewer_cookie)).await;
+    assert_eq!(team_requested_status, StatusCode::OK);
+    assert_eq!(
+        team_requested_body["filters"]["review"],
+        "team_review_requested"
+    );
+    assert_eq!(team_requested_body["total"], 1);
+
+    let (anonymous_viewer_filter_status, anonymous_viewer_filter_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&review=review_requested",
+            owner.email, repo_name
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(
+        anonymous_viewer_filter_status,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(
+        anonymous_viewer_filter_body["details"]["reason"],
+        "invalid issue filter: viewer-relative review filters require a signed-in session"
     );
 
     let (invalid_filter_status, invalid_filter_body) = send_json(
