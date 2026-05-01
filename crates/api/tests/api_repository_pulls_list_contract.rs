@@ -713,6 +713,25 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
         sort_competitor.pull_request.number
     );
 
+    let advanced_matrix_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20no%3Aassignee%20no%3Amilestone%20review%3Anone&noAssignee=true&noMilestone=true&review=none&sort=reactions-desc&page=1&pageSize=1",
+        owner.email, repo_name
+    );
+    let (advanced_matrix_status, advanced_matrix_body) =
+        send_json(app.clone(), &advanced_matrix_uri, None).await;
+    assert_eq!(advanced_matrix_status, StatusCode::OK);
+    assert_eq!(advanced_matrix_body["filters"]["noAssignee"], true);
+    assert_eq!(advanced_matrix_body["filters"]["noMilestone"], true);
+    assert_eq!(advanced_matrix_body["filters"]["review"], "none");
+    assert_eq!(advanced_matrix_body["filters"]["sort"], "reactions-desc");
+    assert_eq!(advanced_matrix_body["page"], 1);
+    assert_eq!(advanced_matrix_body["pageSize"], 1);
+    assert_eq!(advanced_matrix_body["total"], 1);
+    assert_eq!(
+        advanced_matrix_body["items"][0]["number"],
+        sort_competitor.pull_request.number
+    );
+
     let best_match_uri = format!(
         "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20Rocket&sort=best-match",
         owner.email, repo_name
@@ -738,6 +757,19 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(
         best_match_without_text_body["details"]["reason"],
         "invalid issue filter: best match sort requires a search term"
+    );
+
+    let invalid_order_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&sort=updated&order=sideways",
+        owner.email, repo_name
+    );
+    let (invalid_order_status, invalid_order_body) =
+        send_json(app.clone(), &invalid_order_uri, None).await;
+    assert_eq!(invalid_order_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(invalid_order_body["error"]["code"], "validation_failed");
+    assert_eq!(
+        invalid_order_body["details"]["reason"],
+        "invalid issue filter: order must be asc or desc"
     );
 
     let review_required_uri = format!(

@@ -389,6 +389,9 @@ describe("RepositoryPullsPage", () => {
       expect.stringContaining("author%3Ahubot"),
     );
     fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "Pull request author filter" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Labels/ }));
     expect(
@@ -422,6 +425,9 @@ describe("RepositoryPullsPage", () => {
       screen.getByRole("option", { name: /No milestone/ }),
     ).toHaveAttribute("href", expect.stringContaining("no%3Amilestone"));
     fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "Pull request milestones filter" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Projects/ }));
     expect(
@@ -433,9 +439,15 @@ describe("RepositoryPullsPage", () => {
     expect(
       screen.getByRole("option", { name: /No repository projects/ }),
     ).toHaveAttribute("aria-disabled", "true");
-    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.pointerDown(document.body);
+    expect(
+      screen.queryByRole("dialog", { name: "Pull request projects filter" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Reviews/ }));
+    expect(
+      screen.getByRole("menuitemradio", { name: /No reviews/ }),
+    ).toHaveFocus();
     expect(
       screen.getByRole("menuitemradio", { name: /Approved review/ }),
     ).toHaveAttribute("href", expect.stringContaining("review%3Aapproved"));
@@ -456,6 +468,9 @@ describe("RepositoryPullsPage", () => {
       expect.stringContaining("review%3Ateam_review_requested"),
     );
     fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("menu", { name: "Pull request reviews filter" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Checks/ }));
     expect(
@@ -467,6 +482,9 @@ describe("RepositoryPullsPage", () => {
     expect(
       screen.getByRole("menu", { name: "Sort pull requests" }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("menuitemradio", { name: /Best match/ }),
+    ).toHaveFocus();
     expect(
       screen.getByRole("menuitemradio", { name: /Best match/ }),
     ).toHaveAttribute("href", expect.stringContaining("sort=best-match"));
@@ -513,6 +531,70 @@ describe("RepositoryPullsPage", () => {
     expect(
       screen.getByRole("link", { name: "checks:success" }),
     ).toHaveAttribute("href", expect.not.stringContaining("checks="));
+  });
+
+  it("preserves invalid advanced query text while offering real recovery actions", () => {
+    render(
+      <RepositoryPullsPage
+        pulls={pullRequestListView({
+          items: [],
+          total: 0,
+          filters: {
+            query: "is:pr state:closed project:roadmap",
+            state: "closed",
+            author: null,
+            labels: [],
+            milestone: null,
+            noMilestone: false,
+            assignee: null,
+            noAssignee: false,
+            project: "roadmap",
+            review: null,
+            checks: null,
+            sort: "updated-desc",
+          },
+        })}
+        query={{
+          q: "is:pr state:closed project:roadmap",
+          state: "closed",
+          project: "roadmap",
+        }}
+        repository={repositoryOverview()}
+        validationError={{
+          error: {
+            code: "validation_failed",
+            message: "Invalid pull request filter.",
+          },
+          status: 422,
+          details: {
+            reason:
+              "invalid issue filter: project filters are not available until repository project links are modeled",
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "project filters are not available",
+    );
+    expect(screen.getByLabelText("pull-query")).toHaveValue(
+      "is:pr state:closed project:roadmap",
+    );
+    expect(
+      screen.getByRole("link", { name: "Clear invalid query" }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/pulls?q=is%3Apr+is%3Aopen&state=open",
+    );
+    expect(
+      screen.getByRole("link", { name: "project:roadmap" }),
+    ).toHaveAttribute("href", expect.not.stringContaining("project="));
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveAccessibleName();
+    }
   });
 
   it("dismisses the contributor banner through the preferences endpoint", async () => {

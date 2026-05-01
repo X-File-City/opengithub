@@ -77,7 +77,7 @@
 
 ## Phase 5: Advanced Query Guardrails and QA Handoff - finish prs-002
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Harden the full pull request filter toolbar: invalid advanced queries preserve typed text, all menus remain keyboard-accessible, every visible control performs a real action, the URL is the source of truth, and the feature is ready for QA to verify against GitHub-style information architecture rendered in the Editorial system.
 

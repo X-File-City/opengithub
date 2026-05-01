@@ -1817,5 +1817,22 @@
       "Emoji sort labels use textual reaction names rather than custom iconography; visual QA should confirm this is acceptable within the Editorial toolbar.",
       "Final Phase 5 still needs the full advanced-query guardrail sweep, keyboard close behavior, cross-filter matrix, mobile no-overflow, and final build_pass bookkeeping."
     ]
+  },
+  {
+    "feature_id": "prs-002",
+    "tests_written": [
+      "Completed Phase 5 final guardrails for /{owner}/{repo}/pulls: invalid advanced queries preserve typed text, show inline validation, and provide concrete recovery links.",
+      "Rust contract coverage now includes a combined author/assignee/no-assignee/label/project/milestone/no-milestone/review/check/sort/pagination/privacy matrix plus invalid order validation envelopes.",
+      "Vitest coverage now verifies Escape and outside-click close behavior, first-option focus for radio menus, invalid-query fallback rendering, selected-chip clearing, no inert links, and named buttons.",
+      "Playwright signed-session smoke now verifies invalid project queries, all main toolbar menus, filter combinations, reaction sort refresh, best-match warning recovery, concrete row/detail navigation, no dead controls, and mobile no-overflow.",
+      "Saved final browser evidence at ralph/screenshots/build/prs-002-phase5-final-desktop.jpg and ralph/screenshots/build/prs-002-phase5-final-mobile.jpg.",
+      "Verification passed: focused Rust api_repository_pulls_list_contract, focused repository-pulls Vitest, focused repository-pulls Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 151 frontend tests, make test-e2e with 61 Playwright tests, and the Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke uses deterministic Rust-signed sessions and seeded PRs; repeat with a real Google OAuth-created session once OAuth consent/test-user setup is complete.",
+      "Project filters intentionally remain disabled and validation-backed until project-link data is modeled; QA should verify this reads as honest unsupported state, not a broken menu.",
+      "Reaction ordering is API-tested with seeded reactions, but browser-created PR reactions are not available yet; recheck once PR reaction mutation UI ships.",
+      "Team review-request behavior currently infers shared-team semantics through user memberships rather than a dedicated team-request row; revisit after team review requests are modeled."
+    ]
   }
 ]

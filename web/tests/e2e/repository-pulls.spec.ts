@@ -255,6 +255,19 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   ).toBeVisible();
   await page.getByRole("link", { name: "Clear invalid query" }).click();
 
+  await page.goto(
+    `/${ownerLogin}/${repoName}/pulls?q=is%3Apr%20state%3Aopen%20project%3Aroadmap&state=open&project=roadmap`,
+  );
+  await expect(page.getByLabel("pull-query")).toHaveValue(
+    "is:pr state:open project:roadmap",
+  );
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "project filters are not available",
+    }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Clear invalid query" }).click();
+
   await page.getByRole("button", { name: "Labels" }).click();
   await page.getByRole("option", { name: /bug/ }).click();
   await expect(page).toHaveURL(/labels=bug/);
@@ -323,6 +336,8 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   await expect(page).toHaveURL(/review=none/);
   await expect(page.getByRole("link", { name: pullTitle })).toBeVisible();
 
+  await expect(page.getByRole("button", { name: "Checks" })).toBeVisible();
+
   await expectNoDeadControls(page);
   await expect(
     page.getByRole("link", { name: /No checks|passing|failed|checks/ }),
@@ -342,7 +357,7 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   });
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/prs-001-phase5-final-desktop.jpg",
+    path: "../ralph/screenshots/build/prs-002-phase5-final-desktop.jpg",
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -358,7 +373,7 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   expect(overflow).toBeLessThanOrEqual(1);
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/prs-001-phase5-final-mobile.jpg",
+    path: "../ralph/screenshots/build/prs-002-phase5-final-mobile.jpg",
   });
   await page.setViewportSize({ width: 1280, height: 720 });
 
