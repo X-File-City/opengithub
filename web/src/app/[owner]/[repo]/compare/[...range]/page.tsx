@@ -12,7 +12,11 @@ import {
 
 type RepositoryCompareRangePageProps = {
   params: Promise<{ owner: string; repo: string; range: string[] }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    headOwner?: string;
+    headRepo?: string;
+  }>;
 };
 
 function normalizeViewMode(value: string | undefined) {
@@ -44,7 +48,12 @@ export default async function RepositoryCompareRangePage({
           repositoryName,
           parsedRange.base,
           parsedRange.head,
-          { commits: 25, files: 100 },
+          {
+            commits: 25,
+            files: 100,
+            headOwner: query.headOwner,
+            headRepo: query.headRepo,
+          },
         )
       : null;
   const error = isApiError(compare)

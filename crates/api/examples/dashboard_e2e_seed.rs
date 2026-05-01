@@ -32,6 +32,7 @@ struct SeedOutput {
     second_repository_href: String,
     social_source_repository_href: String,
     tree_repository_href: String,
+    fork_compare_href: String,
 }
 
 fn seed_empty_dashboard() -> bool {
@@ -44,6 +45,13 @@ fn seed_empty_dashboard() -> bool {
 fn seed_tree_repository() -> bool {
     matches!(
         std::env::var("DASHBOARD_E2E_TREE_REFS").as_deref(),
+        Ok("1" | "true" | "yes")
+    )
+}
+
+fn seed_fork_compare_repository() -> bool {
+    matches!(
+        std::env::var("DASHBOARD_E2E_FORK_REFS").as_deref(),
         Ok("1" | "true" | "yes")
     )
 }
@@ -142,7 +150,7 @@ async fn main() -> anyhow::Result<()> {
         },
     )
     .await?;
-    let tree_repository_href = if seed_tree_repository() {
+    let (tree_repository_href, fork_compare_href) = if seed_tree_repository() {
         let tree_repository_name = format!("tree-nav-{}", &suffix[..12]);
         let tree_repository = create_repository_with_bootstrap(
             &pool,
@@ -165,9 +173,22 @@ async fn main() -> anyhow::Result<()> {
         if seed_blob_edge_files() {
             seed_blob_edge_cases(&pool, tree_repository.id).await?;
         }
-        format!("/{username}/{tree_repository_name}")
+        let fork_compare_href = if seed_fork_compare_repository() {
+            seed_fork_compare_refs(
+                &pool,
+                user.id,
+                &username,
+                source_owner.id,
+                &source_owner_username,
+                &suffix,
+            )
+            .await?
+        } else {
+            String::new()
+        };
+        (format!("/{username}/{tree_repository_name}"), fork_compare_href)
     } else {
-        String::new()
+        (String::new(), String::new())
     };
     let (first_repository_href, second_repository_href) = if seed_empty_dashboard() {
         (String::new(), String::new())
@@ -384,6 +405,7 @@ async fn main() -> anyhow::Result<()> {
             social_source_repository.owner_login, social_source_repository.name
         ),
         tree_repository_href,
+        fork_compare_href,
     };
     println!("{}", serde_json::to_string(&output)?);
     Ok(())
@@ -765,6 +787,126 @@ Describe the change.
     .execute(pool)
     .await?;
     Ok(())
+}
+
+async fn seed_fork_compare_refs(
+    pool: &PgPool,
+    user_id: Uuid,
+    username: &str,
+    source_owner_id: Uuid,
+    source_owner_username: &str,
+    suffix: &str,
+) -> anyhow::Result<String> {
+    let repository_name = format!("fork-base-{}", &suffix[..12]);
+    let fork_name = format!("fork-head-{}", &suffix[..12]);
+    let base_repository = create_repository_with_bootstrap(
+        pool,
+        CreateRepository {
+            owner: RepositoryOwner::User {
+                id: source_owner_id,
+            },
+            name: repository_name.clone(),
+            description: Some("Fork comparison base repository".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: source_owner_id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("rust-axum".to_owned()),
+            ..RepositoryBootstrapRequest::default()
+        },
+    )
+    .await?;
+    let fork_repository = create_repository_with_bootstrap(
+        pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: user_id },
+            name: fork_name.clone(),
+            description: Some("Fork comparison head repository".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: user_id,
+        },
+        RepositoryBootstrapRequest {
+            initialize_readme: true,
+            template_slug: Some("rust-axum".to_owned()),
+            ..RepositoryBootstrapRequest::default()
+        },
+    )
+    .await?;
+    sqlx::query(
+        r#"
+        INSERT INTO repository_forks (source_repository_id, fork_repository_id, forked_by_user_id)
+        VALUES ($1, $2, $3)
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(base_repository.id)
+    .bind(fork_repository.id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+
+    let base_commit_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        SELECT target_commit_id
+        FROM repository_git_refs
+        WHERE repository_id = $1 AND name = 'refs/heads/main'
+        "#,
+    )
+    .bind(base_repository.id)
+    .fetch_one(pool)
+    .await?;
+    let base_commit_oid = sqlx::query_scalar::<_, String>("SELECT oid FROM commits WHERE id = $1")
+        .bind(base_commit_id)
+        .fetch_one(pool)
+        .await?;
+    let fork_commit = insert_commit(
+        pool,
+        fork_repository.id,
+        CreateCommit {
+            oid: format!("fork-feature-{}", Uuid::new_v4().simple()),
+            author_user_id: Some(user_id),
+            committer_user_id: Some(user_id),
+            message: "Add public fork contribution".to_owned(),
+            tree_oid: None,
+            parent_oids: vec![base_commit_oid],
+            committed_at: Utc::now(),
+        },
+    )
+    .await?;
+    for (path, content) in [
+        ("README.md", "# Fork contribution\n"),
+        ("docs/fork-guide.md", "# Fork guide\n"),
+    ] {
+        sqlx::query(
+            r#"
+            INSERT INTO repository_files (repository_id, commit_id, path, content, oid, byte_size)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(fork_repository.id)
+        .bind(fork_commit.id)
+        .bind(path)
+        .bind(content)
+        .bind(format!("{}-{}", fork_commit.oid, path.replace('/', "-")))
+        .bind(content.len() as i64)
+        .execute(pool)
+        .await?;
+    }
+    upsert_git_ref(
+        pool,
+        fork_repository.id,
+        "refs/heads/feature/fork-contribution",
+        "branch",
+        Some(fork_commit.id),
+    )
+    .await?;
+
+    Ok(format!(
+        "/{source_owner_username}/{repository_name}/compare/main...feature%2Ffork-contribution?headOwner={username}&headRepo={fork_name}"
+    ))
 }
 
 async fn seed_blob_edge_cases(pool: &PgPool, repository_id: Uuid) -> anyhow::Result<()> {

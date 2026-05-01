@@ -1898,5 +1898,22 @@
       "The form uses checkbox/select metadata controls for the initial create UI; QA should recheck keyboard ergonomics after richer popover selectors or PR detail metadata editing ships.",
       "Real Google OAuth sessions were not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database."
     ]
+  },
+  {
+    "feature_id": "prs-003",
+    "tests_written": [
+      "Completed Phase 5 fork comparison and PR creation guardrails for /{owner}/{repo}/compare/{base}...{head} and POST /api/repos/{owner}/{repo}/pulls.",
+      "Rust compare/create now resolves readable fork repositories through headOwner/headRepo or headRepositoryId, enforces readable fork checks, allows public fork contributions from writable fork heads, blocks base metadata edits without base write access, and keeps notifications/audit/search attribution tied to the base repository.",
+      "Compare UI now preserves fork selection in ref selector, swap, and split/unified URLs; the fork comparison panel lists readable base/fork options with concrete compare hrefs and selected state.",
+      "Vitest covers fork selector rendering, selected fork hrefs, create payload headRepositoryId propagation, and no inert controls.",
+      "Playwright signed-session smoke covers same-repository create, fork compare/create, same-ref no-diff, invalid-ref recovery, anonymous public read with write CTA, desktop/mobile no-overflow, and saves ralph/screenshots/build/prs-003-phase5-final-desktop.jpg plus ralph/screenshots/build/prs-003-phase5-final-mobile.jpg.",
+      "Verification passed: .scratch/prs-003-compare-contract-scenario.sh, .scratch/prs-003-create-contract-scenario.sh, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 157 frontend tests, make test-e2e with 63 Playwright tests, and the Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "Real Google OAuth sessions were not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database.",
+      "Fork comparison currently supports source-repository forks from the repository_forks table; upstream/sibling fork networks and cross-owner fork discovery should be revisited when richer fork modeling ships.",
+      "Base metadata controls are intentionally withheld for public fork contributors without base write access; QA should verify that this reads as an authorization boundary, not a missing form.",
+      "The post-create PR detail route is still a skeleton, so browser smoke verifies redirect reachability while full PR conversation/files review waits for prs-004/prs-005."
+    ]
   }
 ]

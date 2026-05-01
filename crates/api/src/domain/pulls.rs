@@ -108,6 +108,17 @@ pub struct PullRequestDetail {
     pub href: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ComparePullRequestRefsInput<'a> {
+    pub repository_id: Uuid,
+    pub actor_user_id: Option<Uuid>,
+    pub base_ref: &'a str,
+    pub head_ref: &'a str,
+    pub head_repository_id: Option<Uuid>,
+    pub commit_limit: i64,
+    pub file_limit: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PullRequestReviewSummary {
@@ -261,6 +272,7 @@ pub enum PullRequestCompareStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CompareRef {
+    pub repository: PullRequestListRepository,
     pub name: String,
     pub short_name: String,
     pub kind: String,
@@ -335,10 +347,26 @@ pub struct PullRequestTemplateOption {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct PullRequestCreateOptions {
+    pub can_create: bool,
     pub templates: Vec<PullRequestTemplateOption>,
     pub labels: Vec<IssueListLabel>,
     pub users: Vec<IssueListUser>,
     pub milestones: Vec<IssueListMilestone>,
+    pub fork_repositories: Vec<PullRequestCompareRepositoryOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestCompareRepositoryOption {
+    pub id: Uuid,
+    pub owner_login: String,
+    pub name: String,
+    pub visibility: RepositoryVisibility,
+    pub default_branch: String,
+    pub href: String,
+    pub compare_href: String,
+    pub is_base: bool,
+    pub is_selected_head: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -387,28 +415,62 @@ pub async fn compare_pull_request_refs_for_viewer(
     commit_limit: i64,
     file_limit: i64,
 ) -> Result<PullRequestCompareView, CollaborationError> {
-    let repository = get_repository(pool, repository_id)
+    compare_pull_request_refs_for_viewer_with_head(
+        pool,
+        ComparePullRequestRefsInput {
+            repository_id,
+            actor_user_id,
+            base_ref,
+            head_ref,
+            head_repository_id: None,
+            commit_limit,
+            file_limit,
+        },
+    )
+    .await
+}
+
+pub async fn compare_pull_request_refs_for_viewer_with_head(
+    pool: &PgPool,
+    input: ComparePullRequestRefsInput<'_>,
+) -> Result<PullRequestCompareView, CollaborationError> {
+    let repository = get_repository(pool, input.repository_id)
         .await
         .map_err(|error| match error {
             super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
             _ => CollaborationError::RepositoryNotFound,
         })?
         .ok_or(CollaborationError::RepositoryNotFound)?;
-    let viewer_permission = match actor_user_id {
+    let viewer_permission = match input.actor_user_id {
         Some(user_id) => {
             repository_viewer_permission(pool, &repository, user_id, RepositoryRole::Read).await?
         }
         None if repository.visibility == RepositoryVisibility::Public => Some("read".to_owned()),
         None => return Err(CollaborationError::RepositoryAccessDenied),
     };
+    let head_repository = if let Some(head_repository_id) = input.head_repository_id {
+        get_repository(pool, head_repository_id)
+            .await
+            .map_err(|error| match error {
+                super::repositories::RepositoryError::Sqlx(error) => {
+                    CollaborationError::Sqlx(error)
+                }
+                _ => CollaborationError::RepositoryNotFound,
+            })?
+            .ok_or(CollaborationError::RepositoryNotFound)?
+    } else {
+        repository.clone()
+    };
+    validate_compare_head_repository(pool, &repository, &head_repository, input.actor_user_id)
+        .await?;
 
-    let base = resolve_compare_ref(pool, &repository, base_ref).await?;
-    let head = resolve_compare_ref(pool, &repository, head_ref).await?;
-    let commit_limit = commit_limit.clamp(1, 250);
-    let file_limit = file_limit.clamp(1, 500);
+    let base = resolve_compare_ref(pool, &repository, input.base_ref).await?;
+    let head = resolve_compare_ref(pool, &head_repository, input.head_ref).await?;
+    let commit_limit = input.commit_limit.clamp(1, 250);
+    let file_limit = input.file_limit.clamp(1, 500);
 
     let base_ancestors = commit_ancestor_oids(pool, repository.id, &base.oid).await?;
-    let head_ancestors = commit_ancestor_oids(pool, repository.id, &head.oid).await?;
+    let head_ancestors = commit_ancestor_oids(pool, head_repository.id, &head.oid).await?;
     let ahead_oids = head_ancestors
         .iter()
         .filter(|oid| !base_ancestors.contains(*oid))
@@ -419,13 +481,21 @@ pub async fn compare_pull_request_refs_for_viewer(
         .filter(|oid| !head_ancestors.contains(*oid))
         .cloned()
         .collect::<HashSet<_>>();
-    let mut commits = compare_commits(pool, &repository, &ahead_oids, commit_limit).await?;
+    let mut commits = compare_commits(pool, &head_repository, &ahead_oids, commit_limit).await?;
     commits.sort_by(|left, right| {
         left.committed_at
             .cmp(&right.committed_at)
             .then(left.oid.cmp(&right.oid))
     });
-    let files = compare_files(pool, &repository, &base, &head, file_limit).await?;
+    let files = compare_files(
+        pool,
+        &repository,
+        &head_repository,
+        &base,
+        &head,
+        file_limit,
+    )
+    .await?;
     let additions = files.iter().map(|file| file.additions).sum();
     let deletions = files.iter().map(|file| file.deletions).sum();
     let same_target = base.commit_id == head.commit_id || base.oid == head.oid;
@@ -438,26 +508,57 @@ pub async fn compare_pull_request_refs_for_viewer(
     } else {
         PullRequestCompareStatus::Diverged
     };
-    let compare_href = format!(
-        "/{}/{}/compare/{}...{}",
-        repository.owner_login,
-        repository.name,
-        encode_path_component(&base.short_name),
-        encode_path_component(&head.short_name)
+    let compare_href = compare_href_for_repositories(
+        &repository,
+        &head_repository,
+        &base.short_name,
+        &head.short_name,
     );
-    let swap_href = format!(
-        "/{}/{}/compare/{}...{}",
-        repository.owner_login,
-        repository.name,
-        encode_path_component(&head.short_name),
-        encode_path_component(&base.short_name)
+    let swap_href = compare_href_for_repositories(
+        &repository,
+        &head_repository,
+        &head.short_name,
+        &base.short_name,
     );
-    let create_options = if actor_user_id.is_some()
-        && viewer_permission
-            .as_deref()
-            .is_some_and(|role| matches!(role, "write" | "admin" | "owner"))
-    {
-        pull_request_create_options(pool, repository.id).await?
+    let can_write_base = viewer_permission
+        .as_deref()
+        .is_some_and(|role| matches!(role, "write" | "admin" | "owner"));
+    let can_create_from_head = if let Some(actor_user_id) = input.actor_user_id {
+        can_write_base
+            || can_open_pull_from_head_repository(
+                pool,
+                &repository,
+                &head_repository,
+                actor_user_id,
+            )
+            .await?
+    } else {
+        false
+    };
+    let create_options = if can_create_from_head {
+        pull_request_create_options(
+            pool,
+            &repository,
+            input.actor_user_id,
+            &head_repository,
+            &base.short_name,
+            &head.short_name,
+            can_write_base,
+        )
+        .await?
+    } else if input.actor_user_id.is_some() {
+        PullRequestCreateOptions {
+            fork_repositories: pull_request_fork_options(
+                pool,
+                &repository,
+                input.actor_user_id,
+                &head_repository,
+                input.base_ref,
+                input.head_ref,
+            )
+            .await?,
+            ..PullRequestCreateOptions::default()
+        }
     } else {
         PullRequestCreateOptions::default()
     };
@@ -500,7 +601,6 @@ pub async fn create_pull_request(
     pool: &PgPool,
     mut input: CreatePullRequest,
 ) -> Result<PullRequestDetail, CollaborationError> {
-    require_repository_write(pool, input.repository_id, input.actor_user_id).await?;
     let repository = get_repository(pool, input.repository_id)
         .await
         .map_err(|error| match error {
@@ -508,6 +608,32 @@ pub async fn create_pull_request(
             _ => CollaborationError::RepositoryNotFound,
         })?
         .ok_or(CollaborationError::RepositoryNotFound)?;
+    let head_repository =
+        resolve_create_head_repository(pool, &repository, input.head_repository_id).await?;
+    let can_write_base =
+        can_write_repository_id(pool, input.repository_id, input.actor_user_id).await?;
+    if !can_write_base {
+        if !can_open_pull_from_head_repository(
+            pool,
+            &repository,
+            &head_repository,
+            input.actor_user_id,
+        )
+        .await?
+        {
+            return Err(CollaborationError::RepositoryAccessDenied);
+        }
+        if !input.label_ids.is_empty()
+            || !input.assignee_user_ids.is_empty()
+            || !input.reviewer_user_ids.is_empty()
+            || input.milestone_id.is_some()
+        {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "metadata".to_owned(),
+                message: "labels, assignees, reviewers, and milestones require write access to the base repository".to_owned(),
+            });
+        }
+    }
     let compare = match compare_pull_request_refs_for_viewer(
         pool,
         input.repository_id,
@@ -526,6 +652,32 @@ pub async fn create_pull_request(
             None
         }
         Err(error) => return Err(error),
+    };
+    let compare = if input.head_repository_id.is_some() {
+        match compare_pull_request_refs_for_viewer_with_head(
+            pool,
+            ComparePullRequestRefsInput {
+                repository_id: input.repository_id,
+                actor_user_id: Some(input.actor_user_id),
+                base_ref: &input.base_ref,
+                head_ref: &input.head_ref,
+                head_repository_id: input.head_repository_id,
+                commit_limit: 250,
+                file_limit: 500,
+            },
+        )
+        .await
+        {
+            Ok(compare) => Some(compare),
+            Err(CollaborationError::InvalidIssueFilter(message))
+                if message.contains("was not found") =>
+            {
+                None
+            }
+            Err(error) => return Err(error),
+        }
+    } else {
+        compare
     };
     if compare.as_ref().is_some_and(|view| {
         matches!(
@@ -627,7 +779,7 @@ pub async fn create_pull_request(
     notify_pull_request_participants(pool, &pull_request, &assignee_user_ids, &reviewer_user_ids)
         .await?;
     insert_pull_request_audit_event(pool, &pull_request, input.actor_user_id).await?;
-    index_pull_request_search_document(pool, &pull_request, input.actor_user_id).await?;
+    index_pull_request_search_document(pool, &pull_request, repository.created_by_user_id).await?;
 
     let href = pull_request_href(&repository, pull_request.number);
     Ok(PullRequestDetail {
@@ -1260,6 +1412,121 @@ async fn require_repository_write(
     require_role(pool, repository_id, user_id, RepositoryRole::Write).await
 }
 
+async fn can_write_repository_id(
+    pool: &PgPool,
+    repository_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, CollaborationError> {
+    let repository = get_repository(pool, repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    if repository.owner_user_id == Some(user_id) {
+        return Ok(true);
+    }
+    let permission = repository_permission_for_user(pool, repository_id, user_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryAccessDenied,
+        })?;
+    Ok(permission.is_some_and(|permission| permission.role.can_write()))
+}
+
+async fn resolve_create_head_repository(
+    pool: &PgPool,
+    base_repository: &Repository,
+    head_repository_id: Option<Uuid>,
+) -> Result<Repository, CollaborationError> {
+    let Some(head_repository_id) = head_repository_id else {
+        return Ok(base_repository.clone());
+    };
+    get_repository(pool, head_repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)
+}
+
+async fn can_open_pull_from_head_repository(
+    pool: &PgPool,
+    base_repository: &Repository,
+    head_repository: &Repository,
+    actor_user_id: Uuid,
+) -> Result<bool, CollaborationError> {
+    if base_repository.id == head_repository.id {
+        return can_write_repository_id(pool, base_repository.id, actor_user_id).await;
+    }
+    let is_fork = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM repository_forks
+            WHERE source_repository_id = $1 AND fork_repository_id = $2
+        )
+        "#,
+    )
+    .bind(base_repository.id)
+    .bind(head_repository.id)
+    .fetch_one(pool)
+    .await?;
+    if !is_fork {
+        return Ok(false);
+    }
+    let base_readable = base_repository.visibility == RepositoryVisibility::Public
+        || repository_viewer_permission(pool, base_repository, actor_user_id, RepositoryRole::Read)
+            .await
+            .is_ok();
+    if !base_readable {
+        return Ok(false);
+    }
+    can_write_repository_id(pool, head_repository.id, actor_user_id).await
+}
+
+async fn validate_compare_head_repository(
+    pool: &PgPool,
+    base_repository: &Repository,
+    head_repository: &Repository,
+    actor_user_id: Option<Uuid>,
+) -> Result<(), CollaborationError> {
+    if base_repository.id == head_repository.id {
+        return Ok(());
+    }
+    let is_fork = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM repository_forks
+            WHERE source_repository_id = $1 AND fork_repository_id = $2
+        )
+        "#,
+    )
+    .bind(base_repository.id)
+    .bind(head_repository.id)
+    .fetch_one(pool)
+    .await?;
+    if !is_fork {
+        return Err(CollaborationError::InvalidIssueField {
+            field_key: "headRepositoryId".to_owned(),
+            message: "head repository must be a readable fork of the base repository".to_owned(),
+        });
+    }
+    match actor_user_id {
+        Some(user_id) => {
+            repository_viewer_permission(pool, head_repository, user_id, RepositoryRole::Read)
+                .await?;
+            Ok(())
+        }
+        None if head_repository.visibility == RepositoryVisibility::Public => Ok(()),
+        None => Err(CollaborationError::RepositoryAccessDenied),
+    }
+}
+
 async fn require_role(
     pool: &PgPool,
     repository_id: Uuid,
@@ -1346,6 +1613,60 @@ fn pull_request_from_row(row: sqlx::postgres::PgRow) -> Result<PullRequest, Coll
     })
 }
 
+fn repository_from_row(row: sqlx::postgres::PgRow) -> Result<Repository, CollaborationError> {
+    let visibility: String = row.get("visibility");
+    Ok(Repository {
+        id: row.get("id"),
+        owner_user_id: row.get("owner_user_id"),
+        owner_organization_id: row.get("owner_organization_id"),
+        owner_login: row.get("owner_login"),
+        name: row.get("name"),
+        description: row.get("description"),
+        visibility: RepositoryVisibility::try_from(visibility.as_str())
+            .map_err(|_| CollaborationError::RepositoryNotFound)?,
+        default_branch: row.get("default_branch"),
+        is_archived: row.get("is_archived"),
+        created_by_user_id: row.get("created_by_user_id"),
+        created_at: row.get("created_at"),
+        updated_at: row.get("updated_at"),
+    })
+}
+
+fn pull_request_list_repository(repository: &Repository) -> PullRequestListRepository {
+    PullRequestListRepository {
+        id: repository.id,
+        owner_login: repository.owner_login.clone(),
+        name: repository.name.clone(),
+        visibility: repository.visibility.clone(),
+        default_branch: repository.default_branch.clone(),
+    }
+}
+
+fn compare_href_for_repositories(
+    base_repository: &Repository,
+    head_repository: &Repository,
+    base_ref: &str,
+    head_ref: &str,
+) -> String {
+    let base = format!(
+        "/{}/{}/compare/{}...{}",
+        base_repository.owner_login,
+        base_repository.name,
+        encode_path_component(base_ref),
+        encode_path_component(head_ref)
+    );
+    if head_repository.id == base_repository.id {
+        base
+    } else {
+        format!(
+            "{}?headOwner={}&headRepo={}",
+            base,
+            encode_path_component(&head_repository.owner_login),
+            encode_path_component(&head_repository.name)
+        )
+    }
+}
+
 async fn resolve_compare_ref(
     pool: &PgPool,
     repository: &Repository,
@@ -1386,6 +1707,7 @@ async fn resolve_compare_ref(
     let short_name = short_ref_name(&name);
 
     Ok(CompareRef {
+        repository: pull_request_list_repository(repository),
         name,
         short_name: short_name.clone(),
         kind,
@@ -1483,13 +1805,14 @@ async fn compare_commits(
 
 async fn compare_files(
     pool: &PgPool,
-    repository: &Repository,
+    base_repository: &Repository,
+    head_repository: &Repository,
     base: &CompareRef,
     head: &CompareRef,
     limit: i64,
 ) -> Result<Vec<CompareFile>, CollaborationError> {
-    let base_files = files_at_commit(pool, repository.id, base.commit_id).await?;
-    let head_files = files_at_commit(pool, repository.id, head.commit_id).await?;
+    let base_files = files_at_commit(pool, base_repository.id, base.commit_id).await?;
+    let head_files = files_at_commit(pool, head_repository.id, head.commit_id).await?;
     let paths = base_files
         .keys()
         .chain(head_files.keys())
@@ -1502,7 +1825,7 @@ async fn compare_files(
             let head_file = head_files.get(&path);
             match (base_file, head_file) {
                 (None, Some(head_file)) => Some(compare_file_from_parts(
-                    repository,
+                    head_repository,
                     FileCompareParts {
                         ref_name: &head.short_name,
                         path,
@@ -1514,7 +1837,7 @@ async fn compare_files(
                     },
                 )),
                 (Some(base_file), None) => Some(compare_file_from_parts(
-                    repository,
+                    base_repository,
                     FileCompareParts {
                         ref_name: &head.short_name,
                         path,
@@ -1527,7 +1850,7 @@ async fn compare_files(
                 )),
                 (Some(base_file), Some(head_file)) if base_file.oid != head_file.oid => {
                     Some(compare_file_from_parts(
-                        repository,
+                        head_repository,
                         FileCompareParts {
                             ref_name: &head.short_name,
                             path,
@@ -2496,14 +2819,136 @@ async fn pull_request_label_options(
 
 async fn pull_request_create_options(
     pool: &PgPool,
-    repository_id: Uuid,
+    repository: &Repository,
+    actor_user_id: Option<Uuid>,
+    selected_head_repository: &Repository,
+    base_ref: &str,
+    head_ref: &str,
+    include_base_metadata: bool,
 ) -> Result<PullRequestCreateOptions, CollaborationError> {
     Ok(PullRequestCreateOptions {
-        templates: pull_request_template_options(pool, repository_id).await?,
-        labels: pull_request_label_options(pool, repository_id).await?,
-        users: pull_list_user_options(pool, repository_id).await?,
-        milestones: pull_list_milestone_options(pool, repository_id).await?,
+        can_create: true,
+        templates: pull_request_template_options(pool, repository.id).await?,
+        labels: if include_base_metadata {
+            pull_request_label_options(pool, repository.id).await?
+        } else {
+            Vec::new()
+        },
+        users: if include_base_metadata {
+            pull_list_user_options(pool, repository.id).await?
+        } else {
+            Vec::new()
+        },
+        milestones: if include_base_metadata {
+            pull_list_milestone_options(pool, repository.id).await?
+        } else {
+            Vec::new()
+        },
+        fork_repositories: pull_request_fork_options(
+            pool,
+            repository,
+            actor_user_id,
+            selected_head_repository,
+            base_ref,
+            head_ref,
+        )
+        .await?,
     })
+}
+
+async fn pull_request_fork_options(
+    pool: &PgPool,
+    repository: &Repository,
+    actor_user_id: Option<Uuid>,
+    selected_head_repository: &Repository,
+    base_ref: &str,
+    head_ref: &str,
+) -> Result<Vec<PullRequestCompareRepositoryOption>, CollaborationError> {
+    let mut options = vec![compare_repository_option(
+        repository,
+        repository,
+        base_ref,
+        head_ref,
+        true,
+        selected_head_repository.id == repository.id,
+    )];
+    let rows = sqlx::query(
+        r#"
+        SELECT forks.id,
+               forks.owner_user_id,
+               forks.owner_organization_id,
+               COALESCE(NULLIF(owner_user.username, ''), owner_user.email, organizations.slug) AS owner_login,
+               forks.name,
+               forks.description,
+               forks.visibility,
+               forks.default_branch,
+               forks.is_archived,
+               forks.created_by_user_id,
+               forks.created_at,
+               forks.updated_at
+        FROM repository_forks
+        JOIN repositories forks ON forks.id = repository_forks.fork_repository_id
+        LEFT JOIN users owner_user ON owner_user.id = forks.owner_user_id
+        LEFT JOIN organizations ON organizations.id = forks.owner_organization_id
+        WHERE repository_forks.source_repository_id = $1
+        ORDER BY repository_forks.created_at DESC
+        LIMIT 25
+        "#,
+    )
+    .bind(repository.id)
+    .fetch_all(pool)
+    .await?;
+    for row in rows {
+        let fork = repository_from_row(row)?;
+        let readable = match actor_user_id {
+            Some(user_id) => {
+                repository_viewer_permission(pool, &fork, user_id, RepositoryRole::Read)
+                    .await
+                    .is_ok()
+            }
+            None => fork.visibility == RepositoryVisibility::Public,
+        };
+        if readable {
+            options.push(compare_repository_option(
+                repository,
+                &fork,
+                base_ref,
+                head_ref,
+                false,
+                selected_head_repository.id == fork.id,
+            ));
+        }
+    }
+    Ok(options)
+}
+
+fn compare_repository_option(
+    base_repository: &Repository,
+    option_repository: &Repository,
+    base_ref: &str,
+    head_ref: &str,
+    is_base: bool,
+    is_selected_head: bool,
+) -> PullRequestCompareRepositoryOption {
+    PullRequestCompareRepositoryOption {
+        id: option_repository.id,
+        owner_login: option_repository.owner_login.clone(),
+        name: option_repository.name.clone(),
+        visibility: option_repository.visibility.clone(),
+        default_branch: option_repository.default_branch.clone(),
+        href: format!(
+            "/{}/{}",
+            option_repository.owner_login, option_repository.name
+        ),
+        compare_href: compare_href_for_repositories(
+            base_repository,
+            option_repository,
+            base_ref,
+            head_ref,
+        ),
+        is_base,
+        is_selected_head,
+    }
 }
 
 async fn pull_list_project_options() -> Result<Vec<IssueListMetadataOption>, CollaborationError> {

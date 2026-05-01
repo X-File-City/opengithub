@@ -106,6 +106,13 @@ function compareView(
     },
     viewerPermission: "owner",
     base: {
+      repository: {
+        id: "repo-1",
+        ownerLogin: "mona",
+        name: "octo-app",
+        visibility: "public",
+        defaultBranch: "main",
+      },
       name: "refs/heads/main",
       shortName: "main",
       kind: "branch",
@@ -114,6 +121,13 @@ function compareView(
       href: "/mona/octo-app/tree/main",
     },
     head: {
+      repository: {
+        id: "repo-1",
+        ownerLogin: "mona",
+        name: "octo-app",
+        visibility: "public",
+        defaultBranch: "main",
+      },
       name: "refs/heads/feature/compare",
       shortName: "feature/compare",
       kind: "branch",
@@ -164,6 +178,7 @@ function compareView(
     compareHref: "/mona/octo-app/compare/main...feature%2Fcompare",
     swapHref: "/mona/octo-app/compare/feature%2Fcompare...main",
     createOptions: {
+      canCreate: true,
       templates: [
         {
           slug: "default",
@@ -194,6 +209,7 @@ function compareView(
           state: "open",
         },
       ],
+      forkRepositories: [],
     },
   };
   return { ...base, ...overrides };
@@ -410,6 +426,79 @@ describe("PullRequestComparePage", () => {
     );
 
     vi.unstubAllGlobals();
+  });
+
+  it("renders fork repository choices and preserves selected fork query links", async () => {
+    const forkCompare = compareView({
+      head: {
+        repository: {
+          id: "repo-fork",
+          ownerLogin: "contributor",
+          name: "octo-app",
+          visibility: "public",
+          defaultBranch: "main",
+        },
+        name: "refs/heads/feature/fork",
+        shortName: "feature/fork",
+        kind: "branch",
+        oid: "forkoid",
+        commitId: "commit-fork",
+        href: "/contributor/octo-app/tree/feature%2Ffork",
+      },
+      compareHref:
+        "/mona/octo-app/compare/main...feature%2Ffork?headOwner=contributor&headRepo=octo-app",
+      createOptions: {
+        ...compareView().createOptions,
+        labels: [],
+        users: [],
+        milestones: [],
+        forkRepositories: [
+          {
+            id: "repo-1",
+            ownerLogin: "mona",
+            name: "octo-app",
+            visibility: "public",
+            defaultBranch: "main",
+            href: "/mona/octo-app",
+            compareHref: "/mona/octo-app/compare/main...feature%2Ffork",
+            isBase: true,
+            isSelectedHead: false,
+          },
+          {
+            id: "repo-fork",
+            ownerLogin: "contributor",
+            name: "octo-app",
+            visibility: "public",
+            defaultBranch: "main",
+            href: "/contributor/octo-app",
+            compareHref:
+              "/mona/octo-app/compare/main...feature%2Ffork?headOwner=contributor&headRepo=octo-app",
+            isBase: false,
+            isSelectedHead: true,
+          },
+        ],
+      },
+    });
+    render(
+      <PullRequestComparePage
+        compare={forkCompare}
+        refs={[refSummary("main"), refSummary("feature/fork")]}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Compare across forks" }),
+    );
+
+    expect(
+      screen.getByRole("link", { name: /contributor\/octo-app/ }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/compare/main...feature%2Ffork?headOwner=contributor&headRepo=octo-app",
+    );
+    expect(screen.getByText("Selected")).toBeVisible();
+    expect(screen.getByLabelText("Mark as draft")).toBeVisible();
   });
 });
 

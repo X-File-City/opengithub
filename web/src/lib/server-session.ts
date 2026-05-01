@@ -199,7 +199,12 @@ export async function getPullRequestCompare(
   repo: string,
   base: string,
   head: string,
-  options: { commits?: number; files?: number } = {},
+  options: {
+    commits?: number;
+    files?: number;
+    headOwner?: string;
+    headRepo?: string;
+  } = {},
 ) {
   const requestHeaders = await headers();
   return getPullRequestCompareFromCookie(

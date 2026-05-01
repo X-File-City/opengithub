@@ -78,7 +78,7 @@
 
 ## Phase 5: Fork Comparison and PR Creation Guardrails - finish prs-003
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Complete fork-aware compare/create behavior and harden the full feature for QA. Compare-across-forks lets users choose a readable head repository, preserves base repository notifications, enforces write permissions on metadata while allowing public fork contributions where permitted, handles invalid/missing refs cleanly, and leaves no GitHub-style visual regressions.
 

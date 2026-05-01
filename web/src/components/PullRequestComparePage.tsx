@@ -36,6 +36,8 @@ type CompareRefSelectorProps = {
   side: "base" | "head";
   initialRefs: RepositoryRefSummary[];
   viewMode: "split" | "unified";
+  headOwner?: string | null;
+  headRepo?: string | null;
 };
 
 function formatCount(value: number, label: string) {
@@ -68,6 +70,8 @@ function compareHrefForSide({
   selected,
   otherValue,
   viewMode,
+  headOwner,
+  headRepo,
 }: {
   owner: string;
   repo: string;
@@ -75,13 +79,19 @@ function compareHrefForSide({
   selected: string;
   otherValue: string;
   viewMode: "split" | "unified";
+  headOwner?: string | null;
+  headRepo?: string | null;
 }) {
   return side === "base"
     ? repositoryCompareRangeHref(owner, repo, selected, otherValue, {
         view: viewMode,
+        headOwner,
+        headRepo,
       })
     : repositoryCompareRangeHref(owner, repo, otherValue, selected, {
         view: viewMode,
+        headOwner,
+        headRepo,
       });
 }
 
@@ -94,6 +104,8 @@ function CompareRefSelector({
   side,
   initialRefs,
   viewMode,
+  headOwner,
+  headRepo,
 }: CompareRefSelectorProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -233,6 +245,8 @@ function CompareRefSelector({
                   selected: ref.shortName,
                   otherValue,
                   viewMode,
+                  headOwner,
+                  headRepo,
                 })}
                 key={ref.name}
                 style={{ color: "var(--ink-1)" }}
@@ -348,11 +362,22 @@ export function PullRequestComparePage({
     return "Ready for review";
   }, [compare]);
   const viewerCanCreate =
+    compare?.createOptions.canCreate === true ||
     compare?.viewerPermission === "write" ||
     compare?.viewerPermission === "admin" ||
     compare?.viewerPermission === "owner";
   const refsDiffer =
     compare?.status === "ahead" || compare?.status === "diverged";
+  const selectedHeadRepository = compare?.head.repository;
+  const headRepositoryQuery =
+    selectedHeadRepository &&
+    selectedHeadRepository.id !== compare?.repository.id
+      ? {
+          headOwner: selectedHeadRepository.ownerLogin,
+          headRepo: selectedHeadRepository.name,
+        }
+      : { headOwner: null, headRepo: null };
+  const forkRepositories = compare?.createOptions.forkRepositories ?? [];
 
   return (
     <RepositoryShell
@@ -399,19 +424,43 @@ export function PullRequestComparePage({
                   <p className="t-label" style={{ color: "var(--ink-3)" }}>
                     Fork comparison
                   </p>
-                  <p
-                    className="mt-2 leading-6"
-                    style={{ color: "var(--ink-2)" }}
-                  >
-                    {owner}/{repo} is selected as both the base and head
-                    repository.
-                  </p>
-                  <Link
-                    className="btn ghost sm mt-3"
-                    href={`/${owner}/${repo}/forks`}
-                  >
-                    Browse forks
-                  </Link>
+                  <div className="mt-3 space-y-2">
+                    {forkRepositories.length > 0 ? (
+                      forkRepositories.map((fork) => (
+                        <Link
+                          className={`flex items-center justify-between gap-3 rounded-md px-3 py-2 ${
+                            fork.isSelectedHead
+                              ? "bg-[var(--surface-2)]"
+                              : "hover:bg-[var(--surface-2)]"
+                          }`}
+                          href={fork.compareHref}
+                          key={fork.id}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate t-sm">
+                              {fork.ownerLogin}/{fork.name}
+                            </span>
+                            <span
+                              className="t-xs"
+                              style={{ color: "var(--ink-3)" }}
+                            >
+                              {fork.isBase ? "Base repository" : "Fork"}
+                            </span>
+                          </span>
+                          {fork.isSelectedHead ? (
+                            <span className="chip active">Selected</span>
+                          ) : null}
+                        </Link>
+                      ))
+                    ) : (
+                      <p
+                        className="leading-6"
+                        style={{ color: "var(--ink-2)" }}
+                      >
+                        No readable forks are available for this comparison.
+                      </p>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -432,12 +481,14 @@ export function PullRequestComparePage({
               side="base"
               value={baseRef}
               viewMode={viewMode}
+              {...headRepositoryQuery}
             />
             <Link
               aria-label="Swap base and compare refs"
               className="btn sm"
               href={repositoryCompareSwapHref(owner, repo, baseRef, headRef, {
                 view: viewMode,
+                ...headRepositoryQuery,
               })}
             >
               Swap
@@ -451,6 +502,7 @@ export function PullRequestComparePage({
               side="head"
               value={headRef}
               viewMode={viewMode}
+              {...headRepositoryQuery}
             />
             <div className="ml-auto flex gap-2">
               <Link
@@ -462,6 +514,7 @@ export function PullRequestComparePage({
                   baseRef,
                   headRef,
                   "split",
+                  headRepositoryQuery,
                 )}
               >
                 Split
@@ -475,6 +528,7 @@ export function PullRequestComparePage({
                   baseRef,
                   headRef,
                   "unified",
+                  headRepositoryQuery,
                 )}
               >
                 Unified

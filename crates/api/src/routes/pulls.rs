@@ -19,11 +19,12 @@ use crate::{
         issues::CreateComment,
         permissions::RepositoryRole,
         pulls::{
-            add_pull_request_comment, compare_pull_request_refs_for_viewer, create_pull_request,
-            get_pull_request, pull_request_timeline, pull_sort_options,
+            add_pull_request_comment, compare_pull_request_refs_for_viewer_with_head,
+            create_pull_request, get_pull_request, pull_request_timeline, pull_sort_options,
             repository_for_actor_by_name, repository_pull_request_list_view_for_viewer,
-            save_repository_pull_preferences, update_pull_request_state, CreatePullRequest,
-            PullRequestListQuery, PullRequestState, UpdatePullRequestState,
+            save_repository_pull_preferences, update_pull_request_state,
+            ComparePullRequestRefsInput, CreatePullRequest, PullRequestListQuery, PullRequestState,
+            UpdatePullRequestState,
         },
         repositories::{get_repository_by_owner_name, RepositoryError},
     },
@@ -81,6 +82,10 @@ struct ListQuery {
 struct CompareQuery {
     commits: Option<i64>,
     files: Option<i64>,
+    #[serde(alias = "head_owner", alias = "headOwner")]
+    head_owner: Option<String>,
+    #[serde(alias = "head_repo", alias = "headRepo")]
+    head_repo: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -91,6 +96,10 @@ struct CreatePullRequestRequest {
     head_ref: String,
     base_ref: String,
     head_repository_id: Option<Uuid>,
+    #[serde(alias = "head_owner", alias = "headOwner")]
+    head_owner: Option<String>,
+    #[serde(alias = "head_repo", alias = "headRepo")]
+    head_repo: Option<String>,
     is_draft: Option<bool>,
     label_ids: Option<Vec<Uuid>>,
     milestone_id: Option<Uuid>,
@@ -162,14 +171,19 @@ async fn compare(
             map_collaboration_error(crate::domain::issues::CollaborationError::RepositoryNotFound)
         })?;
     let (base, head) = parse_compare_range(&range).map_err(map_collaboration_error)?;
-    let view = compare_pull_request_refs_for_viewer(
+    let head_repository_id =
+        resolve_optional_head_repository_id(pool, &query.head_owner, &query.head_repo).await?;
+    let view = compare_pull_request_refs_for_viewer_with_head(
         pool,
-        repository.id,
-        actor.as_ref().map(|user| user.id),
-        &base,
-        &head,
-        query.commits.unwrap_or(100),
-        query.files.unwrap_or(300),
+        ComparePullRequestRefsInput {
+            repository_id: repository.id,
+            actor_user_id: actor.as_ref().map(|user| user.id),
+            base_ref: &base,
+            head_ref: &head,
+            head_repository_id,
+            commit_limit: query.commits.unwrap_or(100),
+            file_limit: query.files.unwrap_or(300),
+        },
     )
     .await
     .map_err(map_collaboration_error)?;
@@ -239,6 +253,42 @@ fn urlencoding_decode(value: &str) -> Result<String, crate::domain::issues::Coll
                 "compare range contains an invalid ref".to_owned(),
             )
         })
+}
+
+async fn resolve_optional_head_repository_id(
+    pool: &sqlx::PgPool,
+    head_owner: &Option<String>,
+    head_repo: &Option<String>,
+) -> Result<Option<Uuid>, (StatusCode, Json<ErrorEnvelope>)> {
+    match (
+        head_owner
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        head_repo
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+    ) {
+        (Some(owner), Some(repo)) => Ok(Some(
+            get_repository_by_owner_name(pool, owner, repo)
+                .await
+                .map_err(repository_lookup_error)?
+                .ok_or_else(|| {
+                    map_collaboration_error(
+                        crate::domain::issues::CollaborationError::RepositoryNotFound,
+                    )
+                })?
+                .id,
+        )),
+        (None, None) => Ok(None),
+        _ => Err(map_collaboration_error(
+            crate::domain::issues::CollaborationError::InvalidIssueField {
+                field_key: "headRepository".to_owned(),
+                message: "headOwner and headRepo must be provided together".to_owned(),
+            },
+        )),
+    }
 }
 
 fn pull_list_query(
@@ -694,10 +744,13 @@ async fn create(
 ) -> Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<ErrorEnvelope>)> {
     let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
-            .await
-            .map_err(map_collaboration_error)?;
+    let repository_id = get_repository_by_owner_name(pool, &owner, &repo)
+        .await
+        .map_err(repository_lookup_error)?
+        .ok_or_else(|| {
+            map_collaboration_error(crate::domain::issues::CollaborationError::RepositoryNotFound)
+        })?
+        .id;
     if request.title.trim().is_empty()
         || request.head_ref.trim().is_empty()
         || request.base_ref.trim().is_empty()
@@ -717,7 +770,17 @@ async fn create(
             body: request.body,
             head_ref: request.head_ref,
             base_ref: request.base_ref,
-            head_repository_id: request.head_repository_id,
+            head_repository_id: match request.head_repository_id {
+                Some(id) => Some(id),
+                None => {
+                    resolve_optional_head_repository_id(
+                        pool,
+                        &request.head_owner,
+                        &request.head_repo,
+                    )
+                    .await?
+                }
+            },
             is_draft: request.is_draft.unwrap_or(false),
             label_ids: request.label_ids.unwrap_or_default(),
             milestone_id: request.milestone_id,

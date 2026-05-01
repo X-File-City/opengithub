@@ -79,6 +79,10 @@ export function PullRequestCreateForm({
           body,
           baseRef: compare.base.shortName,
           headRef: compare.head.shortName,
+          headRepositoryId:
+            compare.head.repository.id === compare.repository.id
+              ? null
+              : compare.head.repository.id,
           isDraft,
           templateSlug: selectedTemplate || null,
           labelIds,

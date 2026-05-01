@@ -801,11 +801,19 @@ export function repositoryCompareRangeHref(
   repo: string,
   base: string,
   head: string,
-  query: { view?: "split" | "unified" } = {},
+  query: {
+    view?: "split" | "unified";
+    headOwner?: string | null;
+    headRepo?: string | null;
+  } = {},
 ) {
   const params = new URLSearchParams();
   if (query.view && query.view !== "split") {
     params.set("view", query.view);
+  }
+  if (query.headOwner && query.headRepo) {
+    params.set("headOwner", query.headOwner);
+    params.set("headRepo", query.headRepo);
   }
   const suffix = params.size ? `?${params.toString()}` : "";
   return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}${suffix}`;
@@ -816,7 +824,11 @@ export function repositoryCompareSwapHref(
   repo: string,
   base: string,
   head: string,
-  query: { view?: "split" | "unified" } = {},
+  query: {
+    view?: "split" | "unified";
+    headOwner?: string | null;
+    headRepo?: string | null;
+  } = {},
 ) {
   return repositoryCompareRangeHref(owner, repo, head, base, query);
 }
@@ -827,8 +839,13 @@ export function repositoryCompareViewHref(
   base: string,
   head: string,
   view: "split" | "unified",
+  query: { headOwner?: string | null; headRepo?: string | null } = {},
 ) {
-  return repositoryCompareRangeHref(owner, repo, base, head, { view });
+  return repositoryCompareRangeHref(owner, repo, base, head, {
+    view,
+    headOwner: query.headOwner,
+    headRepo: query.headRepo,
+  });
 }
 
 export function repositoryPullRequestStateHref(

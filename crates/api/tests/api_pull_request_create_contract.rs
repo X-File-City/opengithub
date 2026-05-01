@@ -109,6 +109,25 @@ async fn post_json(
     (status, value)
 }
 
+async fn get_json(app: axum::Router, uri: &str, cookie: Option<&str>) -> (StatusCode, Value) {
+    let mut builder = Request::builder().method(Method::GET).uri(uri);
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    let request = builder.body(Body::empty()).expect("request should build");
+    let response = app.oneshot(request).await.expect("request should run");
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body should read");
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("response should be json")
+    };
+    (status, value)
+}
+
 async fn create_repo(pool: &PgPool, owner: &User, name: &str) -> Repository {
     create_repository(
         pool,
@@ -407,4 +426,162 @@ async fn pull_request_create_contract_persists_metadata_snapshots_and_guardrails
     .await;
     assert_eq!(same_ref_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(same_ref_body["error"]["code"], "validation_failed");
+}
+
+#[tokio::test]
+async fn pull_request_create_contract_supports_public_fork_heads_with_base_metadata_guardrails() {
+    let Some(pool) = database_pool().await else {
+        eprintln!(
+            "skipping fork pull create contract scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "pull-fork-owner").await;
+    let fork_owner = create_user(&pool, "pull-fork-contributor").await;
+    let repo_name = format!("pull-fork-{}", Uuid::new_v4().simple());
+    let repository = create_repo(&pool, &owner, &repo_name).await;
+    let fork_repository = create_repo(&pool, &fork_owner, &repo_name).await;
+    sqlx::query(
+        r#"
+        INSERT INTO repository_forks (source_repository_id, fork_repository_id, forked_by_user_id)
+        VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(repository.id)
+    .bind(fork_repository.id)
+    .bind(fork_owner.id)
+    .execute(&pool)
+    .await
+    .expect("fork relationship should create");
+
+    let labels = ensure_default_labels(&pool, repository.id)
+        .await
+        .expect("labels should exist");
+    let label = labels
+        .iter()
+        .find(|label| label.name == "bug")
+        .expect("bug label");
+
+    let base_oid = format!("base{}", Uuid::new_v4().simple());
+    let head_oid = format!("fork{}", Uuid::new_v4().simple());
+    let base_commit =
+        insert_commit(&pool, &repository, &owner, &base_oid, "Base", Vec::new()).await;
+    let fork_head_commit = insert_commit(
+        &pool,
+        &fork_repository,
+        &fork_owner,
+        &head_oid,
+        "Fork feature",
+        vec![base_oid.clone()],
+    )
+    .await;
+    insert_file(
+        &pool,
+        &repository,
+        base_commit,
+        "README.md",
+        "base\n",
+        "base-blob",
+    )
+    .await;
+    insert_file(
+        &pool,
+        &fork_repository,
+        fork_head_commit,
+        "README.md",
+        "base\nfork\n",
+        "fork-blob",
+    )
+    .await;
+    upsert_ref(&pool, &repository, "main", base_commit).await;
+    upsert_ref(&pool, &fork_repository, "feature/fork", fork_head_commit).await;
+
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config.clone());
+    let fork_cookie = cookie_header(&pool, &config, &fork_owner).await;
+    let compare_uri = format!(
+        "/api/repos/{}/{}/compare/main...feature%2Ffork?headOwner={}&headRepo={}",
+        owner.email, repo_name, fork_owner.email, repo_name
+    );
+    let (compare_status, compare_body) =
+        get_json(app.clone(), &compare_uri, Some(&fork_cookie)).await;
+    assert_eq!(compare_status, StatusCode::OK, "{compare_body}");
+    assert_eq!(
+        compare_body["head"]["repository"]["id"],
+        fork_repository.id.to_string()
+    );
+    assert_eq!(compare_body["createOptions"]["canCreate"], true);
+    assert_eq!(compare_body["createOptions"]["labels"], json!([]));
+    assert!(compare_body["createOptions"]["forkRepositories"]
+        .as_array()
+        .expect("fork options")
+        .iter()
+        .any(|option| option["id"] == fork_repository.id.to_string()
+            && option["isSelectedHead"] == true));
+
+    let uri = format!("/api/repos/{}/{}/pulls", owner.email, repo_name);
+    let (metadata_status, metadata_body) = post_json(
+        app.clone(),
+        &uri,
+        Some(&fork_cookie),
+        json!({
+            "title": "Fork metadata should fail",
+            "headRef": "feature/fork",
+            "baseRef": "main",
+            "headRepositoryId": fork_repository.id,
+            "labelIds": [label.id]
+        }),
+    )
+    .await;
+    assert_eq!(metadata_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(metadata_body["error"]["code"], "validation_failed");
+
+    let (create_status, create_body) = post_json(
+        app.clone(),
+        &uri,
+        Some(&fork_cookie),
+        json!({
+            "title": "Fork contribution PR",
+            "body": "Compare from a readable fork",
+            "headRef": "feature/fork",
+            "baseRef": "main",
+            "headRepositoryId": fork_repository.id
+        }),
+    )
+    .await;
+    assert_eq!(create_status, StatusCode::CREATED, "{create_body}");
+    assert_eq!(
+        create_body["pull_request"]["head_repository_id"],
+        fork_repository.id.to_string()
+    );
+    assert_eq!(
+        create_body["pull_request"]["base_repository_id"],
+        repository.id.to_string()
+    );
+
+    let pull_id: Uuid = serde_json::from_value(create_body["pull_request"]["id"].clone()).unwrap();
+    let snapshot_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM pull_request_files WHERE pull_request_id = $1",
+    )
+    .bind(pull_id)
+    .fetch_one(&pool)
+    .await
+    .expect("file snapshot count");
+    assert_eq!(snapshot_count, 1);
+
+    let duplicate_status = post_json(
+        app,
+        &uri,
+        Some(&fork_cookie),
+        json!({
+            "title": "Duplicate fork PR",
+            "headRef": "feature/fork",
+            "baseRef": "main",
+            "headRepositoryId": fork_repository.id
+        }),
+    )
+    .await
+    .0;
+    assert_eq!(duplicate_status, StatusCode::UNPROCESSABLE_ENTITY);
 }

@@ -7,6 +7,7 @@ type SeededSession = {
   cookieName: string;
   cookieValue: string;
   treeRepositoryHref?: string;
+  forkCompareHref?: string;
 };
 
 function seedSession(env: Record<string, string> = {}): SeededSession {
@@ -150,9 +151,11 @@ test("signed-in repository compare page creates a draft pull request", async ({
   const seeded = seedSession({
     DASHBOARD_E2E_EMPTY: "0",
     DASHBOARD_E2E_TREE_REFS: "1",
+    DASHBOARD_E2E_FORK_REFS: "1",
   });
   await signIn(page, seeded);
   expect(seeded.treeRepositoryHref).toBeTruthy();
+  expect(seeded.forkCompareHref).toBeTruthy();
 
   await page.goto(
     `${seeded.treeRepositoryHref}/compare/main...feature%2Ftree-nav`,
@@ -167,6 +170,12 @@ test("signed-in repository compare page creates a draft pull request", async ({
   await page.getByLabel("Title").fill("Draft compare flow smoke");
   await expect(page.getByLabel("Markdown source")).toHaveValue(/Summary/);
   await page.getByLabel("Mark as draft").check();
+  await page.getByRole("button", { name: "Compare across forks" }).click();
+  await expect(
+    page.getByRole("link", { name: /Base repository/ }),
+  ).toBeVisible();
+  await expect(page.getByText("Selected")).toBeVisible();
+  await page.getByRole("button", { name: "Compare across forks" }).click();
 
   const labelCheckbox = page.getByLabel(/bug/).first();
   if (await labelCheckbox.isVisible()) {
@@ -188,6 +197,40 @@ test("signed-in repository compare page creates a draft pull request", async ({
   await expectNoDeadControls(page);
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/prs-003-phase4-create-form.jpg",
+    path: "../ralph/screenshots/build/prs-003-phase5-final-desktop.jpg",
   });
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(
+    page.getByRole("heading", { name: /Pull request #/ }),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/prs-003-phase5-final-mobile.jpg",
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const forkCompareHref = seeded.forkCompareHref;
+  if (!forkCompareHref) {
+    throw new Error("forkCompareHref should be seeded");
+  }
+  await page.goto(forkCompareHref);
+  await expect(
+    page.getByRole("heading", { name: "Comparing changes" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Compare across forks" }).click();
+  await expect(page.getByRole("link", { name: /fork-head-/ })).toBeVisible();
+  await expect(page.getByText("Selected")).toBeVisible();
+  await page.getByRole("button", { name: "Compare across forks" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Create pull request" }),
+  ).toBeVisible();
+  await expect(page.getByLabel(/bug/)).toHaveCount(0);
+  await page.getByLabel("Title").fill("Fork contribution smoke");
+  await page.getByRole("button", { name: "Create pull request" }).click();
+  await expect(page).toHaveURL(/\/pull\/\d+$/);
+  await expect(
+    page.getByRole("heading", { name: /Pull request #/ }),
+  ).toBeVisible();
+  await expectNoDeadControls(page);
 });

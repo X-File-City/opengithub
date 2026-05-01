@@ -857,6 +857,7 @@ export type PullRequestCompareStatus =
   | "diverged";
 
 export type PullRequestCompareRef = {
+  repository: PullRequestListView["repository"];
   name: string;
   shortName: string;
   kind: string;
@@ -892,10 +893,24 @@ export type PullRequestTemplateOption = {
 };
 
 export type PullRequestCreateOptions = {
+  canCreate: boolean;
   templates: PullRequestTemplateOption[];
   labels: IssueListLabel[];
   users: IssueListUser[];
   milestones: IssueListMilestone[];
+  forkRepositories: PullRequestCompareRepositoryOption[];
+};
+
+export type PullRequestCompareRepositoryOption = {
+  id: string;
+  ownerLogin: string;
+  name: string;
+  visibility: RepositoryVisibility;
+  defaultBranch: string;
+  href: string;
+  compareHref: string;
+  isBase: boolean;
+  isSelectedHead: boolean;
 };
 
 export type PullRequestCompareView = {
@@ -925,6 +940,8 @@ export type CreatePullRequestRequest = {
   headRef: string;
   baseRef: string;
   headRepositoryId?: string | null;
+  headOwner?: string | null;
+  headRepo?: string | null;
   isDraft?: boolean;
   labelIds?: string[];
   milestoneId?: string | null;
@@ -1603,7 +1620,12 @@ export function repositoryPullRequestComparePath(
   repo: string,
   base: string,
   head: string,
-  options: { commits?: number; files?: number } = {},
+  options: {
+    commits?: number;
+    files?: number;
+    headOwner?: string;
+    headRepo?: string;
+  } = {},
 ): string {
   const params = new URLSearchParams();
   if (options.commits) {
@@ -1611,6 +1633,10 @@ export function repositoryPullRequestComparePath(
   }
   if (options.files) {
     params.set("files", String(options.files));
+  }
+  if (options.headOwner && options.headRepo) {
+    params.set("headOwner", options.headOwner);
+    params.set("headRepo", options.headRepo);
   }
   const suffix = params.size ? `?${params.toString()}` : "";
   return `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
@@ -1624,7 +1650,12 @@ export async function getPullRequestCompareFromCookie(
   repo: string,
   base: string,
   head: string,
-  options: { commits?: number; files?: number } = {},
+  options: {
+    commits?: number;
+    files?: number;
+    headOwner?: string;
+    headRepo?: string;
+  } = {},
 ): Promise<PullRequestCompareView | ApiErrorEnvelope> {
   let response: Response;
   try {
