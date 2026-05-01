@@ -903,6 +903,14 @@
       "exit_code": 0,
       "category": "unknown",
       "attempt": 44
+    },
+    {
+      "timestamp": "2026-05-01T04:59:44.550577",
+      "phase": "build",
+      "feature": "build_cycle_1",
+      "exit_code": 0,
+      "category": "test_failure",
+      "attempt": 45
     }
   ]
 }
