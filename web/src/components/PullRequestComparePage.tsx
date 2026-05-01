@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { PullRequestCreateForm } from "@/components/PullRequestCreateForm";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
   ApiErrorEnvelope,
@@ -346,6 +347,12 @@ export function PullRequestComparePage({
     }
     return "Ready for review";
   }, [compare]);
+  const viewerCanCreate =
+    compare?.viewerPermission === "write" ||
+    compare?.viewerPermission === "admin" ||
+    compare?.viewerPermission === "owner";
+  const refsDiffer =
+    compare?.status === "ahead" || compare?.status === "diverged";
 
   return (
     <RepositoryShell
@@ -477,133 +484,165 @@ export function PullRequestComparePage({
         </section>
 
         {compare ? (
-          <section className="card overflow-hidden">
-            <div
-              className="flex flex-wrap items-center gap-3 border-b p-4"
-              style={{ borderColor: "var(--line)" }}
-            >
-              <span
-                className={`chip ${compare.status === "ahead" ? "ok" : "soft"}`}
+          <>
+            <section className="card overflow-hidden">
+              <div
+                className="flex flex-wrap items-center gap-3 border-b p-4"
+                style={{ borderColor: "var(--line)" }}
               >
-                {statusCopy}
-              </span>
-              <span className="t-sm" style={{ color: "var(--ink-3)" }}>
-                <span className="t-num">{compare.aheadBy}</span> ahead ·{" "}
-                <span className="t-num">{compare.behindBy}</span> behind
-              </span>
-              <span className="ml-auto t-sm" style={{ color: "var(--ink-3)" }}>
-                <span className="t-num" style={{ color: "var(--ok)" }}>
-                  +{compare.additions}
-                </span>{" "}
-                <span className="t-num" style={{ color: "var(--err)" }}>
-                  -{compare.deletions}
-                </span>
-              </span>
-            </div>
-            {compare.status === "same_ref" || compare.status === "no_diff" ? (
-              <div className="p-8 text-center">
-                <p className="t-h3" style={{ color: "var(--ink-1)" }}>
+                <span
+                  className={`chip ${compare.status === "ahead" ? "ok" : "soft"}`}
+                >
                   {statusCopy}
-                </p>
-                <p className="t-sm mt-2" style={{ color: "var(--ink-3)" }}>
-                  Choose a different compare ref or return to the pull request
-                  list.
-                </p>
-                <div className="mt-5 flex justify-center gap-3">
-                  <Link
-                    className="btn primary"
-                    href={`/${owner}/${repo}/pulls`}
-                  >
-                    Back to pull requests
-                  </Link>
-                  <Link
-                    className="btn ghost"
-                    href={repositoryCompareRangeHref(
-                      owner,
-                      repo,
-                      repository.default_branch,
-                      repository.default_branch,
-                    )}
-                  >
-                    Sample comparison
-                  </Link>
-                </div>
+                </span>
+                <span className="t-sm" style={{ color: "var(--ink-3)" }}>
+                  <span className="t-num">{compare.aheadBy}</span> ahead ·{" "}
+                  <span className="t-num">{compare.behindBy}</span> behind
+                </span>
+                <span
+                  className="ml-auto t-sm"
+                  style={{ color: "var(--ink-3)" }}
+                >
+                  <span className="t-num" style={{ color: "var(--ok)" }}>
+                    +{compare.additions}
+                  </span>{" "}
+                  <span className="t-num" style={{ color: "var(--err)" }}>
+                    -{compare.deletions}
+                  </span>
+                </span>
               </div>
-            ) : (
-              <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-0 max-lg:grid-cols-1">
-                <div className="min-w-0">
-                  <div
-                    className="border-b p-4"
+              {compare.status === "same_ref" || compare.status === "no_diff" ? (
+                <div className="p-8 text-center">
+                  <p className="t-h3" style={{ color: "var(--ink-1)" }}>
+                    {statusCopy}
+                  </p>
+                  <p className="t-sm mt-2" style={{ color: "var(--ink-3)" }}>
+                    Choose a different compare ref or return to the pull request
+                    list.
+                  </p>
+                  <div className="mt-5 flex justify-center gap-3">
+                    <Link
+                      className="btn primary"
+                      href={`/${owner}/${repo}/pulls`}
+                    >
+                      Back to pull requests
+                    </Link>
+                    <Link
+                      className="btn ghost"
+                      href={repositoryCompareRangeHref(
+                        owner,
+                        repo,
+                        repository.default_branch,
+                        repository.default_branch,
+                      )}
+                    >
+                      Sample comparison
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-0 max-lg:grid-cols-1">
+                  <div className="min-w-0">
+                    <div
+                      className="border-b p-4"
+                      style={{ borderColor: "var(--line)" }}
+                    >
+                      <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
+                        Changed files
+                      </h2>
+                      <p
+                        className="t-sm mt-1"
+                        style={{ color: "var(--ink-3)" }}
+                      >
+                        {formatCount(compare.totalFiles, "files")} changed
+                        across {formatCount(compare.totalCommits, "commits")}.
+                      </p>
+                    </div>
+                    <div>
+                      {compare.files.map((file) => (
+                        <Link
+                          className="list-row flex items-center gap-3 px-4 py-3"
+                          href={file.href}
+                          key={file.path}
+                        >
+                          <span className="chip soft">
+                            {fileStatusLabel(file)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate t-mono-sm">
+                            {file.path}
+                          </span>
+                          <span
+                            className="t-num"
+                            style={{ color: "var(--ok)" }}
+                          >
+                            +{file.additions}
+                          </span>
+                          <span
+                            className="t-num"
+                            style={{ color: "var(--err)" }}
+                          >
+                            -{file.deletions}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                  <aside
+                    className="border-l p-4 max-lg:border-l-0 max-lg:border-t"
                     style={{ borderColor: "var(--line)" }}
                   >
                     <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
-                      Changed files
+                      Commits
                     </h2>
-                    <p className="t-sm mt-1" style={{ color: "var(--ink-3)" }}>
-                      {formatCount(compare.totalFiles, "files")} changed across{" "}
-                      {formatCount(compare.totalCommits, "commits")}.
-                    </p>
-                  </div>
-                  <div>
-                    {compare.files.map((file) => (
-                      <Link
-                        className="list-row flex items-center gap-3 px-4 py-3"
-                        href={file.href}
-                        key={file.path}
-                      >
-                        <span className="chip soft">
-                          {fileStatusLabel(file)}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate t-mono-sm">
-                          {file.path}
-                        </span>
-                        <span className="t-num" style={{ color: "var(--ok)" }}>
-                          +{file.additions}
-                        </span>
-                        <span className="t-num" style={{ color: "var(--err)" }}>
-                          -{file.deletions}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
+                    <div className="mt-3 space-y-3">
+                      {compare.commits.map((commit) => (
+                        <Link
+                          className="block rounded-md p-3 hover:bg-[var(--surface-2)]"
+                          href={commit.href}
+                          key={commit.id}
+                        >
+                          <p
+                            className="truncate t-sm"
+                            style={{ color: "var(--ink-1)" }}
+                          >
+                            {commit.message}
+                          </p>
+                          <p
+                            className="t-xs mt-1"
+                            style={{ color: "var(--ink-3)" }}
+                          >
+                            <span className="t-mono-sm">{commit.shortOid}</span>
+                            {" · "}
+                            {commit.authorLogin ?? "unknown"}
+                            {" · "}
+                            {formatDate(commit.committedAt)}
+                          </p>
+                        </Link>
+                      ))}
+                    </div>
+                  </aside>
                 </div>
-                <aside
-                  className="border-l p-4 max-lg:border-l-0 max-lg:border-t"
-                  style={{ borderColor: "var(--line)" }}
-                >
-                  <h2 className="t-h3" style={{ color: "var(--ink-1)" }}>
-                    Commits
-                  </h2>
-                  <div className="mt-3 space-y-3">
-                    {compare.commits.map((commit) => (
-                      <Link
-                        className="block rounded-md p-3 hover:bg-[var(--surface-2)]"
-                        href={commit.href}
-                        key={commit.id}
-                      >
-                        <p
-                          className="truncate t-sm"
-                          style={{ color: "var(--ink-1)" }}
-                        >
-                          {commit.message}
-                        </p>
-                        <p
-                          className="t-xs mt-1"
-                          style={{ color: "var(--ink-3)" }}
-                        >
-                          <span className="t-mono-sm">{commit.shortOid}</span>
-                          {" · "}
-                          {commit.authorLogin ?? "unknown"}
-                          {" · "}
-                          {formatDate(commit.committedAt)}
-                        </p>
-                      </Link>
-                    ))}
-                  </div>
-                </aside>
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+            {refsDiffer && viewerCanCreate ? (
+              <PullRequestCreateForm
+                compare={compare}
+                owner={owner}
+                repo={repo}
+              />
+            ) : refsDiffer ? (
+              <section className="card p-5">
+                <h2 className="t-h3">Sign in to open a pull request</h2>
+                <p className="t-sm mt-2" style={{ color: "var(--ink-3)" }}>
+                  You can review this comparison, but creating a pull request
+                  requires write access.
+                </p>
+                <Link className="btn primary mt-4" href="/login">
+                  Sign in
+                </Link>
+              </section>
+            ) : null}
+          </>
         ) : (
           <CompareErrorState
             error={error}

@@ -6,9 +6,10 @@ const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 type SeededSession = {
   cookieName: string;
   cookieValue: string;
+  treeRepositoryHref?: string;
 };
 
-function seedSession(): SeededSession {
+function seedSession(env: Record<string, string> = {}): SeededSession {
   if (!databaseUrl) {
     throw new Error("TEST_DATABASE_URL or DATABASE_URL is required");
   }
@@ -29,6 +30,7 @@ function seedSession(): SeededSession {
         ...process.env,
         DASHBOARD_E2E_EMPTY: "1",
         SESSION_COOKIE_NAME: "og_session",
+        ...env,
       },
     },
   ).toString();
@@ -139,5 +141,53 @@ test("signed-in repository compare page redirects, renders selectors, and recove
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/prs-003-phase2-compare-page.jpg",
+  });
+});
+
+test("signed-in repository compare page creates a draft pull request", async ({
+  page,
+}) => {
+  const seeded = seedSession({
+    DASHBOARD_E2E_EMPTY: "0",
+    DASHBOARD_E2E_TREE_REFS: "1",
+  });
+  await signIn(page, seeded);
+  expect(seeded.treeRepositoryHref).toBeTruthy();
+
+  await page.goto(
+    `${seeded.treeRepositoryHref}/compare/main...feature%2Ftree-nav`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Comparing changes" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Create pull request" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Template")).toHaveValue("default");
+  await page.getByLabel("Title").fill("Draft compare flow smoke");
+  await expect(page.getByLabel("Markdown source")).toHaveValue(/Summary/);
+  await page.getByLabel("Mark as draft").check();
+
+  const labelCheckbox = page.getByLabel(/bug/).first();
+  if (await labelCheckbox.isVisible()) {
+    await labelCheckbox.check();
+  }
+  const userCheckboxes = await page.getByLabel(/dash-/).all();
+  if (userCheckboxes[0]) {
+    await userCheckboxes[0].check();
+  }
+  if (userCheckboxes[1]) {
+    await userCheckboxes[1].check();
+  }
+
+  await page.getByRole("button", { name: "Create pull request" }).click();
+  await expect(page).toHaveURL(/\/pull\/\d+$/);
+  await expect(
+    page.getByRole("heading", { name: /Pull request #/ }),
+  ).toBeVisible();
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/prs-003-phase4-create-form.jpg",
   });
 });

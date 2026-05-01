@@ -60,7 +60,7 @@
 
 ## Phase 4: Create Pull Request UI - form submits and redirects to detail
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Render the create form when refs differ and the viewer can write. The form includes title input, Markdown body editor prefilled from the selected template, draft checkbox, reviewers/assignees/labels/milestone selectors, duplicate/no-diff warnings, Create pull request button, success/error feedback, and redirect to `/{owner}/{repo}/pull/{number}` after creation.
 

@@ -749,6 +749,21 @@ async fn seed_tree_refs(pool: &PgPool, user_id: Uuid, repository_id: Uuid) -> an
         Some(default_commit_id),
     )
     .await?;
+    ensure_default_labels(pool, repository_id).await?;
+    sqlx::query(
+        r#"
+        INSERT INTO pull_request_templates (repository_id, slug, name, body)
+        VALUES ($1, 'default', 'Default', '## Summary
+
+Describe the change.
+')
+        ON CONFLICT (repository_id, lower(slug))
+        DO UPDATE SET name = EXCLUDED.name, body = EXCLUDED.body
+        "#,
+    )
+    .bind(repository_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

@@ -885,6 +885,19 @@ export type PullRequestCompareFile = {
   href: string;
 };
 
+export type PullRequestTemplateOption = {
+  slug: string;
+  name: string;
+  body: string;
+};
+
+export type PullRequestCreateOptions = {
+  templates: PullRequestTemplateOption[];
+  labels: IssueListLabel[];
+  users: IssueListUser[];
+  milestones: IssueListMilestone[];
+};
+
 export type PullRequestCompareView = {
   repository: PullRequestListView["repository"];
   viewerPermission: string | null;
@@ -903,6 +916,36 @@ export type PullRequestCompareView = {
   pullListHref: string;
   compareHref: string;
   swapHref: string;
+  createOptions: PullRequestCreateOptions;
+};
+
+export type CreatePullRequestRequest = {
+  title: string;
+  body?: string | null;
+  headRef: string;
+  baseRef: string;
+  headRepositoryId?: string | null;
+  isDraft?: boolean;
+  labelIds?: string[];
+  milestoneId?: string | null;
+  assigneeUserIds?: string[];
+  reviewerUserIds?: string[];
+  templateSlug?: string | null;
+};
+
+export type CreatedPullRequest = {
+  pull_request: {
+    id: string;
+    number: number;
+    title: string;
+    body: string | null;
+    state: "open" | "closed" | "merged";
+    is_draft: boolean;
+    head_ref: string;
+    base_ref: string;
+  };
+  issue: CreatedIssue;
+  href: string;
 };
 
 export type CreatedIssue = {
@@ -1622,6 +1665,39 @@ export async function getPullRequestCompareFromCookie(
   }
 
   return body as PullRequestCompareView;
+}
+
+export async function createPullRequestFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  request: CreatePullRequestRequest,
+): Promise<CreatedPullRequest> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+      repo,
+    )}/pulls`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(request),
+      cache: "no-store",
+    },
+  );
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const envelope = payload as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ?? "Pull request could not be created.",
+      { cause: envelope },
+    );
+  }
+
+  return payload as CreatedPullRequest;
 }
 
 export async function saveRepositoryPullPreferences(

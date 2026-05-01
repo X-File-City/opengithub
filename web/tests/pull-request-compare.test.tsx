@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PullRequestComparePage } from "@/components/PullRequestComparePage";
 import type {
@@ -12,6 +18,12 @@ import {
   repositoryCompareSwapHref,
   repositoryCompareViewHref,
 } from "@/lib/navigation";
+
+const pushMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
+}));
 
 function repositoryOverview(
   overrides: Partial<RepositoryOverview> = {},
@@ -151,6 +163,38 @@ function compareView(
     pullListHref: "/mona/octo-app/pulls",
     compareHref: "/mona/octo-app/compare/main...feature%2Fcompare",
     swapHref: "/mona/octo-app/compare/feature%2Fcompare...main",
+    createOptions: {
+      templates: [
+        {
+          slug: "default",
+          name: "Default",
+          body: "## Summary\n\nCloses #1",
+        },
+      ],
+      labels: [
+        {
+          id: "label-1",
+          name: "bug",
+          color: "b60205",
+          description: "Something is broken",
+        },
+      ],
+      users: [
+        {
+          id: "user-2",
+          login: "reviewer",
+          displayName: "Reviewer",
+          avatarUrl: null,
+        },
+      ],
+      milestones: [
+        {
+          id: "milestone-1",
+          title: "MVP",
+          state: "open",
+        },
+      ],
+    },
   };
   return { ...base, ...overrides };
 }
@@ -284,6 +328,88 @@ describe("PullRequestComparePage", () => {
     expect(
       screen.getByRole("link", { name: "Open default comparison" }),
     ).toHaveAttribute("href", "/mona/octo-app/compare/main...main");
+  });
+
+  it("submits the create form with template body, draft state, and metadata", async () => {
+    pushMock.mockClear();
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (url === "/mona/octo-app/pulls/create") {
+        return {
+          ok: true,
+          json: async () => ({ href: "/mona/octo-app/pull/42" }),
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          contentSha: "preview",
+          html: "<p>preview</p>",
+          cached: false,
+        }),
+      } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <PullRequestComparePage
+        compare={compareView()}
+        refs={[refSummary("main"), refSummary("feature/compare")]}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Create pull request" }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Template")).toHaveValue("default");
+    expect(screen.getByLabelText("Markdown source")).toHaveValue(
+      "## Summary\n\nCloses #1",
+    );
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Open compare form" },
+    });
+    fireEvent.click(screen.getByLabelText("Mark as draft"));
+    const reviewerCheckboxes = screen.getAllByLabelText(/reviewer/);
+    fireEvent.click(reviewerCheckboxes[0]);
+    fireEvent.click(reviewerCheckboxes[1]);
+    fireEvent.click(screen.getByLabelText(/bug/));
+    fireEvent.change(screen.getByLabelText("Milestone"), {
+      target: { value: "milestone-1" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create pull request" }),
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/pulls/create",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.stringContaining('"title":"Open compare form"'),
+        }),
+      ),
+    );
+    const [, init] = fetchMock.mock.calls.find(
+      ([url]) => url === "/mona/octo-app/pulls/create",
+    ) as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      title: "Open compare form",
+      body: "## Summary\n\nCloses #1",
+      baseRef: "main",
+      headRef: "feature/compare",
+      isDraft: true,
+      templateSlug: "default",
+      labelIds: ["label-1"],
+      assigneeUserIds: ["user-2"],
+      reviewerUserIds: ["user-2"],
+      milestoneId: "milestone-1",
+    });
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/mona/octo-app/pull/42"),
+    );
+
+    vi.unstubAllGlobals();
   });
 });
 

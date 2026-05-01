@@ -321,6 +321,24 @@ pub struct PullRequestCompareView {
     pub pull_list_href: String,
     pub compare_href: String,
     pub swap_href: String,
+    pub create_options: PullRequestCreateOptions,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestTemplateOption {
+    pub slug: String,
+    pub name: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestCreateOptions {
+    pub templates: Vec<PullRequestTemplateOption>,
+    pub labels: Vec<IssueListLabel>,
+    pub users: Vec<IssueListUser>,
+    pub milestones: Vec<IssueListMilestone>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -434,6 +452,15 @@ pub async fn compare_pull_request_refs_for_viewer(
         encode_path_component(&head.short_name),
         encode_path_component(&base.short_name)
     );
+    let create_options = if actor_user_id.is_some()
+        && viewer_permission
+            .as_deref()
+            .is_some_and(|role| matches!(role, "write" | "admin" | "owner"))
+    {
+        pull_request_create_options(pool, repository.id).await?
+    } else {
+        PullRequestCreateOptions::default()
+    };
 
     Ok(PullRequestCompareView {
         repository: PullRequestListRepository {
@@ -465,6 +492,7 @@ pub async fn compare_pull_request_refs_for_viewer(
         pull_list_href: format!("/{}/{}/pulls", repository.owner_login, repository.name),
         compare_href,
         swap_href,
+        create_options,
     })
 }
 
@@ -2411,6 +2439,71 @@ async fn pull_list_milestone_options(
             })
         })
         .collect()
+}
+
+async fn pull_request_template_options(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<Vec<PullRequestTemplateOption>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT slug, name, body
+        FROM pull_request_templates
+        WHERE repository_id = $1
+        ORDER BY display_order ASC, lower(name)
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| PullRequestTemplateOption {
+            slug: row.get("slug"),
+            name: row.get("name"),
+            body: row.get("body"),
+        })
+        .collect())
+}
+
+async fn pull_request_label_options(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<Vec<IssueListLabel>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT id, name, color, description
+        FROM labels
+        WHERE repository_id = $1
+        ORDER BY is_default DESC, lower(name)
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| IssueListLabel {
+            id: row.get("id"),
+            name: row.get("name"),
+            color: row.get("color"),
+            description: row.get("description"),
+        })
+        .collect())
+}
+
+async fn pull_request_create_options(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<PullRequestCreateOptions, CollaborationError> {
+    Ok(PullRequestCreateOptions {
+        templates: pull_request_template_options(pool, repository_id).await?,
+        labels: pull_request_label_options(pool, repository_id).await?,
+        users: pull_list_user_options(pool, repository_id).await?,
+        milestones: pull_list_milestone_options(pool, repository_id).await?,
+    })
 }
 
 async fn pull_list_project_options() -> Result<Vec<IssueListMetadataOption>, CollaborationError> {

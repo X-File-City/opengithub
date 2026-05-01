@@ -11,6 +11,7 @@ type MarkdownEditorProps = {
   repo?: string;
   refName?: string;
   previewMarkdown?: (markdown: string) => Promise<RenderedMarkdown>;
+  onMarkdownChange?: (markdown: string) => void;
 };
 
 type ToolbarAction = {
@@ -41,6 +42,7 @@ export function MarkdownEditor({
   repo,
   refName,
   previewMarkdown,
+  onMarkdownChange,
 }: MarkdownEditorProps) {
   const [markdown, setMarkdown] = useState(initialMarkdown);
   const [rendered, setRendered] = useState(initialRendered);
@@ -51,10 +53,9 @@ export function MarkdownEditor({
   const lineCount = useMemo(() => markdown.split("\n").length, [markdown]);
 
   function applyToolbarAction(action: ToolbarAction) {
-    setMarkdown(
-      (current) =>
-        `${current}\n${action.prefix}${action.placeholder}${action.suffix}`,
-    );
+    const next = `${markdown}\n${action.prefix}${action.placeholder}${action.suffix}`;
+    setMarkdown(next);
+    onMarkdownChange?.(next);
     setTab("write");
   }
 
@@ -160,7 +161,10 @@ export function MarkdownEditor({
               className="input min-h-72 w-full resize-y p-3 t-mono leading-6"
               style={{ color: "var(--ink-1)" }}
               id="markdown-source"
-              onChange={(event) => setMarkdown(event.target.value)}
+              onChange={(event) => {
+                setMarkdown(event.target.value);
+                onMarkdownChange?.(event.target.value);
+              }}
               value={markdown}
             />
             <p className="mt-2 t-xs" style={{ color: "var(--ink-3)" }}>

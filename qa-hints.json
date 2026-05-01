@@ -1881,5 +1881,22 @@
       "Fork-aware head repository creation remains Phase 5; this phase validates same-repository create metadata and duplicate detection.",
       "The PR detail page is still a skeleton, so the returned href is contract-tested but a full post-create detail experience waits for later PR detail phases."
     ]
+  },
+  {
+    "feature_id": "prs-003",
+    "tests_written": [
+      "Implemented Phase 4 create UI on /{owner}/{repo}/compare/{base}...{head}: writable changed comparisons now render a real Editorial create form with title, template-prefilled Markdown body, draft checkbox, reviewers, assignees, labels, milestone, submit feedback, and redirect to the returned PR detail href.",
+      "Extended the compare API contract with createOptions for PR templates, repository labels, readable users, and milestones; anonymous/read-only users receive a concrete sign-in/write-access callout instead of an inert form.",
+      "Added a same-origin Next.js POST route at /{owner}/{repo}/pulls/create that forwards signed cookies to the Rust POST /api/repos/{owner}/{repo}/pulls endpoint and preserves standard validation/error envelopes.",
+      "Vitest covers template body prefill, draft/metadata payload submission, redirect href handling, accessible controls, and no dead hrefs.",
+      "Playwright signed-session smoke uses a real seeded repository with main...feature/tree-nav refs, fills the create form, creates a draft PR through the Rust API, verifies redirect to /pull/{number}, asserts no dead controls, and saves ralph/screenshots/build/prs-003-phase4-create-form.jpg.",
+      "Verification passed: focused api_pull_request_create_contract, focused pull-request-compare Vitest, focused pull-request-compare Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 156 frontend tests, make test-e2e with 63 Playwright tests, and Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "Fork-aware compare/create remains Phase 5; this phase validates same-repository changed refs only.",
+      "The post-create detail route is still a skeleton, so browser smoke verifies redirect reachability rather than a complete PR detail conversation/files experience.",
+      "The form uses checkbox/select metadata controls for the initial create UI; QA should recheck keyboard ergonomics after richer popover selectors or PR detail metadata editing ships.",
+      "Real Google OAuth sessions were not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database."
+    ]
   }
 ]
