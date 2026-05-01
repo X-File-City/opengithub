@@ -259,6 +259,14 @@
 
 - Determined `dashboard-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/dashboard-001/structure.md` did not exist.
 
+2026-05-01 - prs-001 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `web/AGENTS.md`, `build-progress.txt`, the first incomplete `prd.json` entry, relevant existing QRSPI outlines, current pull request backend routes/domain code, current placeholder pull-list pages, issue-list UI patterns, and Editorial PR list references in `design/project/og-screens-3.jsx`.
+- Determined `prs-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/prs-001/structure.md` did not exist.
+- Added `.qrspi/prs-001/structure.md` with five independently verifiable vertical phases: pull-list API contract, repository pulls page, URL filters/toolbar menus, contributor banner preference persistence, and final QA/visual guardrails.
+- Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
+
 2026-05-01 - issues-004 phase 2 timeline comments
 
 - Implemented Phase 2 from `.qrspi/issues-004/structure.md`: issue detail pages now load a screen-ready conversation timeline, render opened/state events and Markdown comment cards, and show a signed-in Write/Preview comment composer or anonymous sign-in CTA.
