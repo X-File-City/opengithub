@@ -721,6 +721,118 @@ export type IssueListView = ListEnvelope<IssueListItem> & {
   preferences: IssueListPreferences;
 };
 
+export type PullRequestState = "open" | "closed" | "merged";
+
+export type PullRequestSort =
+  | "updated-desc"
+  | "updated-asc"
+  | "created-desc"
+  | "created-asc"
+  | "comments-desc"
+  | "comments-asc";
+
+export type LinkedIssueHint = {
+  number: number;
+  state: string;
+  title: string;
+  href: string;
+};
+
+export type PullRequestReviewSummary = {
+  state: string;
+  required: boolean;
+  requestedReviewers: IssueListUser[];
+  reviewerCount: number;
+};
+
+export type PullRequestChecksSummary = {
+  status: string;
+  conclusion: string | null;
+  totalCount: number;
+  completedCount: number;
+  failedCount: number;
+};
+
+export type PullRequestTaskProgress = {
+  completed: number;
+  total: number;
+};
+
+export type PullRequestListItem = {
+  id: string;
+  repositoryId: string;
+  repositoryOwner: string;
+  repositoryName: string;
+  number: number;
+  title: string;
+  body: string | null;
+  state: PullRequestState;
+  isDraft: boolean;
+  author: IssueListUser;
+  authorRole: string;
+  labels: IssueListLabel[];
+  milestone: IssueListMilestone | null;
+  commentCount: number;
+  linkedIssues: LinkedIssueHint[];
+  review: PullRequestReviewSummary;
+  checks: PullRequestChecksSummary;
+  taskProgress: PullRequestTaskProgress;
+  headRef: string;
+  baseRef: string;
+  href: string;
+  checksHref: string;
+  reviewsHref: string;
+  commentsHref: string;
+  linkedIssuesHref: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  mergedAt: string | null;
+};
+
+export type PullRequestListFilters = {
+  query: string;
+  state: PullRequestState;
+  labels: string[];
+  milestone: string | null;
+  review: string | null;
+  checks: string | null;
+  sort: PullRequestSort;
+};
+
+export type PullRequestListPreferences = {
+  dismissedContributorBanner: boolean;
+  dismissedContributorBannerAt: string | null;
+};
+
+export type PullRequestListView = ListEnvelope<PullRequestListItem> & {
+  openCount: number;
+  closedCount: number;
+  mergedCount: number;
+  counts: {
+    open: number;
+    closed: number;
+    merged: number;
+  };
+  filters: PullRequestListFilters;
+  filterOptions: {
+    labels: IssueListLabel[];
+    milestones: IssueListMilestone[];
+    reviewStates: string[];
+    checkStates: string[];
+    sortOptions: PullRequestSort[];
+  };
+  viewerPermission: string | null;
+  repository: {
+    id: string;
+    ownerLogin: string;
+    name: string;
+    visibility: RepositoryVisibility;
+    defaultBranch: string;
+  };
+  preferences: PullRequestListPreferences;
+};
+
 export type CreatedIssue = {
   id: string;
   repository_id: string;
@@ -806,6 +918,19 @@ export type RepositoryIssueListQuery = {
   project?: string;
   issueType?: string;
   sort?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type RepositoryPullRequestListQuery = {
+  q?: string;
+  state?: PullRequestState;
+  labels?: string[];
+  milestone?: string;
+  review?: string;
+  checks?: string;
+  sort?: string;
+  order?: "asc" | "desc";
   page?: number;
   pageSize?: number;
 };
@@ -1255,6 +1380,87 @@ export async function getRepositoryIssuesFromCookie(
   }
 
   return body as IssueListView;
+}
+
+export function repositoryPullRequestsPath(
+  owner: string,
+  repo: string,
+  query: RepositoryPullRequestListQuery = {},
+): string {
+  const params = new URLSearchParams();
+  if (query.q?.trim()) {
+    params.set("q", query.q.trim());
+  }
+  if (query.state) {
+    params.set("state", query.state);
+  }
+  if (query.labels?.length) {
+    params.set("labels", query.labels.join(","));
+  }
+  if (query.milestone?.trim()) {
+    params.set("milestone", query.milestone.trim());
+  }
+  if (query.review?.trim()) {
+    params.set("review", query.review.trim());
+  }
+  if (query.checks?.trim()) {
+    params.set("checks", query.checks.trim());
+  }
+  if (query.sort?.trim()) {
+    params.set("sort", query.sort.trim());
+  }
+  if (query.order) {
+    params.set("order", query.order);
+  }
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+  if (query.pageSize) {
+    params.set("pageSize", String(query.pageSize));
+  }
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls${suffix}`;
+}
+
+export async function getRepositoryPullRequestsFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  query: RepositoryPullRequestListQuery = {},
+): Promise<PullRequestListView | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryPullRequestsPath(owner, repo, query)}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Pull requests are temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "pulls_failed",
+          message: "Pull requests could not be loaded.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as PullRequestListView;
 }
 
 export function repositoryIssuePath(

@@ -1665,5 +1665,21 @@
       "Subscription is subscribe/unsubscribe only; notification customization routing remains future notification-settings work.",
       "QA should stress concurrent metadata edits from two sessions because current metadata writes are full-replacement updates."
     ]
+  },
+  {
+    "feature_id": "prs-001",
+    "tests_written": [
+      "Implemented Phase 1 pull-list API contract: GET /api/repos/{owner}/{repo}/pulls now returns a screen-ready PullRequestListView with default is:pr is:open query, open/closed/merged counts, repository context, viewer permission, filter metadata, labels, milestones, linked issues, comments, review summaries, check summaries, task progress, branch refs, and detail-section hrefs.",
+      "Added pull request list metadata migrations for reviews, review requests, check summaries, task progress, and per-viewer pull-list preferences.",
+      "Added typed Next.js pull-list DTOs and getRepositoryPullRequestsFromCookie/repositoryPullRequestsPath helpers that preserve cookies and standard error envelopes.",
+      "Added Rust API contract coverage seeding real repositories, users, PRs, labels, comments, linked issues, review/check/task metadata, public anonymous read access, private repository denial, private owner access, pagination clamps, filters, and row shape.",
+      "Verification passed: focused api_repository_pulls_list_contract, .scratch/prs-001-list-contract-scenario.sh, TEST_DATABASE_URL-backed make check, and TEST_DATABASE_URL-backed make test with Cargo tests plus 142 frontend tests."
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 is backend/API-only; repository pull-list UI, toolbar menus, browser smoke, and screenshots are intentionally deferred to later prs-001 phases.",
+      "Review/check metadata is a list projection contract; full PR detail review threads, file diffs, checks pages, and mergeability are still future PR features.",
+      "Contributor banner dismissal is included as a read-model preference default only; the PATCH persistence route is Phase 4.",
+      "No E2E was run for this phase because the structure outline marks browser smoke as not required until the UI phase."
+    ]
   }
 ]

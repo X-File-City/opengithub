@@ -6,7 +6,7 @@
 
 ## Phase 1: Pull List Contract - API returns screen-ready PR rows
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Extend the existing authenticated pull request list from a raw `PullRequest` envelope into a repository pull-list contract that includes open/closed/merged counts, author, labels, comment count, linked issue hints, review/check/task metadata, role badges, branch refs, permissions, URL-backed filters, and repository context. Public repositories remain readable; private repositories require permission.
 
