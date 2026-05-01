@@ -450,10 +450,14 @@ async fn create(
             .await
             .map_err(map_collaboration_error)?;
     if request.title.trim().is_empty() {
-        return Err(error_response(
+        return Err(error_response_with_details(
             StatusCode::UNPROCESSABLE_ENTITY,
             "validation_failed",
             "issue title is required",
+            json!({
+                "field": "title",
+                "reason": "issue title is required",
+            }),
         ));
     }
     let issue = create_issue(

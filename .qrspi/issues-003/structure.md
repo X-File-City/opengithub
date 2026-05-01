@@ -6,7 +6,7 @@
 
 ## Phase 1: Generic Issue Composer - create a plain issue end-to-end
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder `/{owner}/{repo}/issues/new` route with an authenticated Editorial issue creation page that supports title/body entry, Write/Preview Markdown tabs, validation, Cancel, Create, and Create more for the generic no-template path. This phase proves the create API, page form, Markdown preview, redirect, and issue-list return path work without introducing templates yet.
 

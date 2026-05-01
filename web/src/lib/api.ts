@@ -627,6 +627,31 @@ export type IssueListView = ListEnvelope<IssueListItem> & {
   preferences: IssueListPreferences;
 };
 
+export type CreatedIssue = {
+  id: string;
+  repository_id: string;
+  number: number;
+  title: string;
+  body: string | null;
+  state: IssueState;
+  author_user_id: string;
+  milestone_id: string | null;
+  locked: boolean;
+  closed_by_user_id: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  href?: string;
+};
+
+export type CreateIssueRequest = {
+  title: string;
+  body?: string | null;
+  milestoneId?: string | null;
+  labelIds?: string[];
+  assigneeUserIds?: string[];
+};
+
 export type RepositoryIssueListQuery = {
   q?: string;
   state?: IssueState;
@@ -1119,6 +1144,37 @@ export async function saveRepositoryIssuePreferences(
   }
 
   return (await response.json()) as IssueListPreferences;
+}
+
+export async function createRepositoryIssueFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  request: CreateIssueRequest,
+): Promise<CreatedIssue> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(request),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const body = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(body?.error.message ?? "Issue could not be created", {
+      cause: body,
+    });
+  }
+
+  return (await response.json()) as CreatedIssue;
 }
 
 export async function getRepositoryFromCookie(

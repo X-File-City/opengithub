@@ -1038,3 +1038,14 @@
 - Added `.qrspi/issues-003/structure.md` with five independently verifiable vertical phases: generic issue composer, template chooser, issue form fields, metadata/attachments/notifications side effects, and final guardrails/QA handoff.
 - Did not change `prd.json`; `issues-003.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact; verified the outline exists and `qa-hints.json` remains valid JSON.
+
+2026-05-01 - issues-003 phase 1 generic issue composer
+
+- Implemented Phase 1 from `.qrspi/issues-003/structure.md`: `/{owner}/{repo}/issues/new` now renders a signed-in Editorial issue composer instead of a placeholder route.
+- Added `IssueCreateForm` with required title validation, Markdown Write/Preview tabs, toolbar actions, Command+Enter submit, Cancel links, query-parameter title/body prefill, Create more behavior, and no inert controls.
+- Added a same-origin create route at `/{owner}/{repo}/issues/new/create` and typed `createRepositoryIssueFromCookie` helper so the browser forwards signed cookies to the Rust `POST /api/repos/{owner}/{repo}/issues` endpoint.
+- Tightened Rust issue-create validation to return field-level `422 validation_failed` details for missing titles while preserving the existing issue creation contract.
+- Added focused Vitest coverage for form validation, preview, prefill, Create more, Command+Enter errors, normal create callback behavior, and API helper error propagation.
+- Added Playwright signed-session coverage for the generic issue-create flow and saved `ralph/screenshots/build/issues-003-phase1-generic-create.jpg`.
+- Verification: focused `web/tests/issue-create.test.tsx` passed with 8 tests; focused `web/tests/e2e/repository-issue-create.spec.ts` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 132 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 58 Playwright tests.
+- Marked Phase 1 as done in `.qrspi/issues-003/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

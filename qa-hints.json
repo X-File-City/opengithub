@@ -1487,5 +1487,24 @@
       "No runtime tests were run because this invocation was required to stop after structure planning.",
       "QA should focus future phases on real signed-session issue creation, required-field validation, Markdown preview, Create more reset behavior, template metadata side effects, attachment honesty, and redirect to issue detail."
     ]
+  },
+  {
+    "feature_id": "issues-003",
+    "tests_written": [
+      "Issue create form renders query-parameter title/body prefill and has no inert links or unnamed buttons",
+      "Required title validation blocks create before calling the API",
+      "Markdown Write/Preview tabs render body preview and Nothing to preview for empty content",
+      "Create more persists an issue through the same-origin route, resets the form, and links to the created issue",
+      "Command+Enter submits and displays API validation errors",
+      "createRepositoryIssueFromCookie posts to the Rust issue endpoint with the signed session cookie and preserves API error envelopes",
+      "Playwright signed-session flow creates a generic repository issue and saves ralph/screenshots/build/issues-003-phase1-generic-create.jpg",
+      "make check, make test, and make test-e2e passed against TEST_DATABASE_URL-backed Postgres"
+    ],
+    "needs_deeper_qa": [
+      "Template chooser and issue form fields are not implemented until later issues-003 phases",
+      "Attachments are intentionally deferred; Phase 1 only exposes honest Markdown/body creation without upload controls",
+      "Create without Create more redirects to the placeholder issue detail route; full timeline/detail behavior remains a later issue detail feature",
+      "Issue body versions, initial body comments, notification fanout, labels, assignees, milestones, and projects are deferred to the side-effects phase"
+    ]
   }
 ]
