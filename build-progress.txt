@@ -1,3 +1,11 @@
+2026-05-01 - prs-004 structure planning
+
+- Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, `web/AGENTS.md`, the first incomplete `prd.json` entry, adjacent `.qrspi` outlines for pull requests and issue detail, `design/project/og-screens-3.jsx`, current pull request backend routes/domain code, and the current placeholder PR detail route.
+- Determined `prs-004` requires structure planning before implementation because `needs_structure: true` and `.qrspi/prs-004/structure.md` did not exist.
+- Added `.qrspi/prs-004/structure.md` with five independently verifiable vertical phases: PR detail read model, conversation timeline/comments, review/sidebar/notification actions, mergeability/state actions, and final QA guardrails.
+- Did not change `prd.json`; `build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
+
 2026-05-01 - prs-002 structure planning
 
 - Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, `web/AGENTS.md`, `design/project/og-screens-3.jsx`, current `prd.json`, existing `.qrspi/prs-001/structure.md` and `.qrspi/issues-002/structure.md`, and the current pull request list API/UI/navigation code.
