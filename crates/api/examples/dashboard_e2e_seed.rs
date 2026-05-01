@@ -55,6 +55,13 @@ fn seed_blob_edge_files() -> bool {
     )
 }
 
+fn seed_issue_templates_enabled() -> bool {
+    matches!(
+        std::env::var("ISSUE_TEMPLATE_E2E").as_deref(),
+        Ok("1" | "true" | "yes")
+    )
+}
+
 fn search_e2e_marker() -> Option<String> {
     std::env::var("SEARCH_E2E_MARKER")
         .ok()
@@ -227,6 +234,9 @@ async fn main() -> anyhow::Result<()> {
         .bind(RepositoryRole::Write.as_str())
         .execute(&pool)
         .await?;
+        if seed_issue_templates_enabled() {
+            seed_issue_templates(&pool, first_repository.id, user.id).await?;
+        }
         sqlx::query(
             r#"
             INSERT INTO commits (repository_id, oid, author_user_id, committer_user_id, message, committed_at)
@@ -522,6 +532,74 @@ async fn seed_search_documents(
     )
     .await?;
 
+    Ok(())
+}
+
+async fn seed_issue_templates(
+    pool: &PgPool,
+    repository_id: Uuid,
+    user_id: Uuid,
+) -> anyhow::Result<()> {
+    let labels = ensure_default_labels(pool, repository_id).await?;
+    let bug_label_id = labels
+        .iter()
+        .find(|label| label.name == "bug")
+        .map(|label| label.id);
+    let template_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO issue_templates (
+            repository_id, slug, name, description, title_prefill, body, issue_type, display_order
+        )
+        VALUES (
+            $1,
+            'bug-report',
+            'Bug report',
+            'Report a reproducible defect.',
+            '[Bug]: ',
+            '### Expected behavior
+
+### Actual behavior
+',
+            'bug',
+            1
+        )
+        ON CONFLICT (repository_id, lower(slug))
+        DO UPDATE SET
+            name = EXCLUDED.name,
+            description = EXCLUDED.description,
+            title_prefill = EXCLUDED.title_prefill,
+            body = EXCLUDED.body,
+            issue_type = EXCLUDED.issue_type
+        RETURNING id
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_one(pool)
+    .await?;
+    if let Some(label_id) = bug_label_id {
+        sqlx::query(
+            r#"
+            INSERT INTO issue_template_default_labels (template_id, label_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(template_id)
+        .bind(label_id)
+        .execute(pool)
+        .await?;
+    }
+    sqlx::query(
+        r#"
+        INSERT INTO issue_template_default_assignees (template_id, user_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(template_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

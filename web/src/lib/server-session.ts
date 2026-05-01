@@ -12,6 +12,7 @@ import {
   getRepositoryFromCookie,
   getRepositoryImportFromCookie,
   getRepositoryIssuesFromCookie,
+  getRepositoryIssueTemplatesFromCookie,
   getRepositoryPathFromCookie,
   getRepositoryRefsFromCookie,
   getSessionFromHeaders,
@@ -52,6 +53,15 @@ export async function getDashboardSummary(query: DashboardSummaryQuery = {}) {
 export async function getRepository(owner: string, repo: string) {
   const requestHeaders = await headers();
   return getRepositoryFromCookie(requestHeaders.get("cookie"), owner, repo);
+}
+
+export async function getRepositoryIssueTemplates(owner: string, repo: string) {
+  const requestHeaders = await headers();
+  return getRepositoryIssueTemplatesFromCookie(
+    requestHeaders.get("cookie"),
+    owner,
+    repo,
+  );
 }
 
 export async function getRepositoryPath(

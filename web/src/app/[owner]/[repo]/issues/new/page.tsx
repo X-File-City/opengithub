@@ -1,13 +1,18 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { IssueCreateForm } from "@/components/IssueCreateForm";
+import { IssueTemplateChooser } from "@/components/IssueTemplateChooser";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import { RepositoryUnavailablePage } from "@/components/RepositoryUnavailablePage";
-import { getRepository, getSessionAndShellContext } from "@/lib/server-session";
+import {
+  getRepository,
+  getRepositoryIssueTemplates,
+  getSessionAndShellContext,
+} from "@/lib/server-session";
 
 type NewRepositoryIssuePageProps = {
   params: Promise<{ owner: string; repo: string }>;
-  searchParams: Promise<{ title?: string; body?: string }>;
+  searchParams: Promise<{ body?: string; template?: string; title?: string }>;
 };
 
 export default async function NewRepositoryIssuePage({
@@ -25,7 +30,15 @@ export default async function NewRepositoryIssuePage({
     redirect(`/login?next=${encodeURIComponent(`${base}/issues/new`)}`);
   }
 
-  const repository = await getRepository(ownerLogin, repositoryName);
+  const [repository, templates] = await Promise.all([
+    getRepository(ownerLogin, repositoryName),
+    getRepositoryIssueTemplates(ownerLogin, repositoryName),
+  ]);
+  const selectedTemplate =
+    query.template && query.template !== "blank"
+      ? templates.find((template) => template.slug === query.template)
+      : null;
+  const shouldChooseTemplate = templates.length > 0 && !query.template;
 
   return (
     <AppShell session={session} shellContext={shellContext}>
@@ -35,13 +48,28 @@ export default async function NewRepositoryIssuePage({
           frameClassName="mx-auto max-w-5xl px-6 py-8"
           repository={repository}
         >
-          <IssueCreateForm
-            cancelHref={`${base}/issues`}
-            initialBody={query.body ?? ""}
-            initialTitle={query.title ?? ""}
-            owner={ownerLogin}
-            repo={repositoryName}
-          />
+          {shouldChooseTemplate ? (
+            <IssueTemplateChooser
+              cancelHref={`${base}/issues`}
+              newIssueHref={`${base}/issues/new`}
+              owner={ownerLogin}
+              repo={repositoryName}
+              templates={templates}
+            />
+          ) : (
+            <IssueCreateForm
+              cancelHref={`${base}/issues`}
+              defaultAssigneeUserIds={
+                selectedTemplate?.defaultAssigneeUserIds ?? []
+              }
+              defaultLabelIds={selectedTemplate?.defaultLabelIds ?? []}
+              initialBody={query.body ?? selectedTemplate?.body ?? ""}
+              initialTitle={query.title ?? selectedTemplate?.titlePrefill ?? ""}
+              owner={ownerLogin}
+              repo={repositoryName}
+              templateName={selectedTemplate?.name ?? null}
+            />
+          )}
         </RepositoryShell>
       ) : (
         <RepositoryUnavailablePage owner={ownerLogin} repo={repositoryName} />

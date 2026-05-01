@@ -227,6 +227,23 @@ pub struct IssueListPreferences {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueTemplate {
+    pub id: Uuid,
+    pub repository_id: Uuid,
+    pub slug: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub title_prefill: Option<String>,
+    pub body: String,
+    pub issue_type: Option<String>,
+    pub default_label_ids: Vec<Uuid>,
+    pub default_assignee_user_ids: Vec<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IssueListQuery {
     pub query: Option<String>,
     pub state: IssueState,
@@ -442,6 +459,47 @@ pub async fn list_labels(
     .await?;
 
     Ok(rows.into_iter().map(label_from_row).collect())
+}
+
+pub async fn list_issue_templates_for_viewer(
+    pool: &PgPool,
+    repository_id: Uuid,
+    actor_user_id: Option<Uuid>,
+) -> Result<Vec<IssueTemplate>, CollaborationError> {
+    let repository = get_repository(pool, repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+
+    match actor_user_id {
+        Some(user_id) => {
+            repository_viewer_permission(pool, &repository, user_id, RepositoryRole::Read).await?;
+        }
+        None if repository.visibility == RepositoryVisibility::Public => {}
+        None => return Err(CollaborationError::RepositoryAccessDenied),
+    }
+
+    let rows = sqlx::query(
+        r#"
+        SELECT id, repository_id, slug, name, description, title_prefill, body, issue_type,
+               created_at, updated_at
+        FROM issue_templates
+        WHERE repository_id = $1
+        ORDER BY display_order ASC, lower(name) ASC
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+    let mut templates = rows
+        .into_iter()
+        .map(issue_template_from_row)
+        .collect::<Vec<_>>();
+    hydrate_issue_template_defaults(pool, &mut templates).await?;
+    Ok(templates)
 }
 
 pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, CollaborationError> {
@@ -1811,6 +1869,82 @@ fn label_from_row(row: sqlx::postgres::PgRow) -> Label {
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     }
+}
+
+fn issue_template_from_row(row: sqlx::postgres::PgRow) -> IssueTemplate {
+    IssueTemplate {
+        id: row.get("id"),
+        repository_id: row.get("repository_id"),
+        slug: row.get("slug"),
+        name: row.get("name"),
+        description: row.get("description"),
+        title_prefill: row.get("title_prefill"),
+        body: row.get("body"),
+        issue_type: row.get("issue_type"),
+        default_label_ids: Vec::new(),
+        default_assignee_user_ids: Vec::new(),
+        created_at: row.get("created_at"),
+        updated_at: row.get("updated_at"),
+    }
+}
+
+async fn hydrate_issue_template_defaults(
+    pool: &PgPool,
+    templates: &mut [IssueTemplate],
+) -> Result<(), CollaborationError> {
+    if templates.is_empty() {
+        return Ok(());
+    }
+
+    let template_ids = templates
+        .iter()
+        .map(|template| template.id)
+        .collect::<Vec<_>>();
+    let index = templates
+        .iter()
+        .enumerate()
+        .map(|(position, template)| (template.id, position))
+        .collect::<HashMap<_, _>>();
+
+    let label_rows = sqlx::query(
+        r#"
+        SELECT template_id, label_id
+        FROM issue_template_default_labels
+        WHERE template_id = ANY($1)
+        ORDER BY created_at ASC
+        "#,
+    )
+    .bind(&template_ids)
+    .fetch_all(pool)
+    .await?;
+    for row in label_rows {
+        let template_id: Uuid = row.get("template_id");
+        let label_id: Uuid = row.get("label_id");
+        if let Some(position) = index.get(&template_id).copied() {
+            templates[position].default_label_ids.push(label_id);
+        }
+    }
+
+    let assignee_rows = sqlx::query(
+        r#"
+        SELECT template_id, user_id
+        FROM issue_template_default_assignees
+        WHERE template_id = ANY($1)
+        ORDER BY created_at ASC
+        "#,
+    )
+    .bind(&template_ids)
+    .fetch_all(pool)
+    .await?;
+    for row in assignee_rows {
+        let template_id: Uuid = row.get("template_id");
+        let user_id: Uuid = row.get("user_id");
+        if let Some(position) = index.get(&template_id).copied() {
+            templates[position].default_assignee_user_ids.push(user_id);
+        }
+    }
+
+    Ok(())
 }
 
 pub(crate) async fn index_issue_search_document(

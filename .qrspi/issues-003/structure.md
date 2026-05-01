@@ -24,7 +24,7 @@
 
 ## Phase 2: Template Chooser - configured templates drive the route
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add repository issue-template metadata and a chooser screen. Repositories with templates show `Create new issue` template cards first; choosing a template loads the configured title/body/default labels/type/assignees into the composer. Repositories without templates go directly to Phase 1's generic composer.
 

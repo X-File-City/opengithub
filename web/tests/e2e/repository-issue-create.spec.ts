@@ -29,6 +29,7 @@ function seedRepository(): SeededDashboard {
       env: {
         ...process.env,
         DASHBOARD_E2E_EMPTY: "0",
+        ISSUE_TEMPLATE_E2E: "1",
         SESSION_COOKIE_NAME: "og_session",
       },
     },
@@ -67,7 +68,7 @@ test("signed-in user creates a generic repository issue", async ({ page }) => {
   await signIn(page, seeded);
 
   await page.goto(
-    `${seeded.firstRepositoryHref}/issues/new?title=Prefilled%20issue&body=Initial%20body`,
+    `${seeded.firstRepositoryHref}/issues/new?template=blank&title=Prefilled%20issue&body=Initial%20body`,
   );
 
   await expect(
@@ -102,5 +103,42 @@ test("signed-in user creates a generic repository issue", async ({ page }) => {
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/issues-003-phase1-generic-create.jpg",
+  });
+});
+
+test("signed-in user chooses an issue template before composing", async ({
+  page,
+}) => {
+  const seeded = seedRepository();
+  await signIn(page, seeded);
+
+  await page.goto(`${seeded.firstRepositoryHref}/issues/new`);
+
+  await expect(
+    page.getByRole("heading", { name: "Create new issue" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bug report" })).toBeVisible();
+  await expect(page.getByText("1 default label")).toBeVisible();
+  await expect(page.getByText("1 assignee")).toBeVisible();
+  await expectNoDeadControls(page);
+
+  await page.getByRole("link", { name: "Get started" }).click();
+  await expect(page).toHaveURL(/template=bug-report/);
+  await expect(page.getByLabel("Title")).toHaveValue("[Bug]: ");
+  await expect(page.getByRole("textbox", { name: "Issue body" })).toHaveValue(
+    /Expected behavior/,
+  );
+
+  await page.getByLabel("Title").fill("[Bug]: template chooser works");
+  await page
+    .getByRole("textbox", { name: "Issue body" })
+    .fill("### Expected behavior\n\nThe selected template preloads.");
+  await page.getByLabel("Create more").check();
+  await page.getByRole("button", { name: "Create issue" }).click();
+  await expect(page.getByRole("status")).toContainText("Created issue #");
+
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-003-phase2-template-chooser.jpg",
   });
 });

@@ -652,6 +652,25 @@ export type CreateIssueRequest = {
   assigneeUserIds?: string[];
 };
 
+export type IssueTemplate = {
+  id: string;
+  repositoryId: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  titlePrefill: string | null;
+  body: string;
+  issueType: string | null;
+  defaultLabelIds: string[];
+  defaultAssigneeUserIds: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type IssueTemplateList = {
+  items: IssueTemplate[];
+};
+
 export type RepositoryIssueListQuery = {
   q?: string;
   state?: IssueState;
@@ -1175,6 +1194,27 @@ export async function createRepositoryIssueFromCookie(
   }
 
   return (await response.json()) as CreatedIssue;
+}
+
+export async function getRepositoryIssueTemplatesFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+): Promise<IssueTemplate[]> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/templates`,
+    {
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const body = (await response.json()) as IssueTemplateList;
+  return body.items;
 }
 
 export async function getRepositoryFromCookie(

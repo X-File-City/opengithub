@@ -1506,5 +1506,23 @@
       "Create without Create more redirects to the placeholder issue detail route; full timeline/detail behavior remains a later issue detail feature",
       "Issue body versions, initial body comments, notification fanout, labels, assignees, milestones, and projects are deferred to the side-effects phase"
     ]
+  },
+  {
+    "feature_id": "issues-003",
+    "tests_written": [
+      "Added issue_templates, issue_form_fields, issue_template_default_labels, and issue_template_default_assignees migrations for repository issue templates",
+      "Added Rust template list/read contract with repository read permission checks and default label/assignee hydration",
+      "Added GET /api/repos/{owner}/{repo}/issues/templates and frontend signed-cookie helper coverage",
+      "Added Editorial IssueTemplateChooser with template cards, Blank issue path, no inert links, and query-state handoff to the composer",
+      "Template selection preloads title/body/default label IDs/default assignee IDs into the existing issue composer and submits those defaults through the create route",
+      "Playwright signed-session flow chooses the Bug report template, verifies prefill, creates an issue, and saves ralph/screenshots/build/issues-003-phase2-template-chooser.jpg",
+      "Verification passed: focused Rust template contract, focused issue-create Vitest, focused repository-issue-create Playwright, TEST_DATABASE_URL-backed make check, make test with 135 frontend tests plus cargo tests, make test-e2e with 59 Playwright tests, and mandatory Editorial banned-value scan with zero matches"
+    ],
+    "needs_deeper_qa": [
+      "Phase 2 returns configured templates and applies default labels/assignees supplied by those templates; server-side required issue-form field validation remains Phase 3 work",
+      "Template metadata is seeded in E2E through the dashboard_e2e_seed helper; QA should later verify author-created template management when settings surfaces exist",
+      "Attachment upload controls and body-version/notification side effects are still intentionally deferred to Phase 4",
+      "Browser proof is Chromium Playwright; QA should later spot-check keyboard focus order and screen-reader announcement flow on the template chooser"
+    ]
   }
 ]

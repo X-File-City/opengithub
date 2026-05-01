@@ -18,9 +18,10 @@ use crate::{
         identity::User,
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
-            repository_issue_list_view_for_viewer, save_repository_issue_preferences,
-            update_issue_state, CollaborationError, CreateComment, CreateIssue, IssueListQuery,
-            IssueState, ReactionContent, UpdateIssueState,
+            list_issue_templates_for_viewer, repository_issue_list_view_for_viewer,
+            save_repository_issue_preferences, update_issue_state, CollaborationError,
+            CreateComment, CreateIssue, IssueListQuery, IssueState, ReactionContent,
+            UpdateIssueState,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
@@ -32,6 +33,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/repos/:owner/:repo/issues", get(list).post(create))
+        .route("/api/repos/:owner/:repo/issues/templates", get(templates))
         .route(
             "/api/repos/:owner/:repo/issues/preferences",
             patch(update_preferences),
@@ -205,7 +207,8 @@ fn issue_list_query(
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
         .or_else(|| qualifier_from_query(q, "milestone:"));
-    filters.no_milestone = query.no_milestone.unwrap_or(false) || no_filter_from_query(q, "milestone");
+    filters.no_milestone =
+        query.no_milestone.unwrap_or(false) || no_filter_from_query(q, "milestone");
     filters.assignee = query
         .assignee
         .as_deref()
@@ -251,10 +254,7 @@ fn issue_list_query(
     Ok(filters)
 }
 
-fn normalize_issue_sort(
-    sort: &str,
-    order: Option<&str>,
-) -> Result<String, CollaborationError> {
+fn normalize_issue_sort(sort: &str, order: Option<&str>) -> Result<String, CollaborationError> {
     let order = order.unwrap_or("desc").to_lowercase();
     if !matches!(order.as_str(), "asc" | "desc") {
         return Err(CollaborationError::InvalidIssueFilter(
@@ -314,9 +314,10 @@ fn validate_issue_query(query: &str) -> Result<(), CollaborationError> {
             if let Some(value) = term.strip_prefix(prefix) {
                 let normalized = value.trim().trim_matches('"');
                 if normalized.is_empty() {
-                    return Err(CollaborationError::InvalidIssueFilter(
-                        format!("{} filters require a value", prefix.trim_end_matches(':')),
-                    ));
+                    return Err(CollaborationError::InvalidIssueFilter(format!(
+                        "{} filters require a value",
+                        prefix.trim_end_matches(':')
+                    )));
                 }
             }
         }
@@ -476,6 +477,25 @@ async fn create(
     .map_err(map_collaboration_error)?;
 
     Ok((StatusCode::CREATED, Json(json!(issue))))
+}
+
+async fn templates(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let actor = AuthenticatedUser::optional_from_headers(&state, &headers).await?;
+    let repository = get_repository_by_owner_name(pool, &owner, &repo)
+        .await
+        .map_err(repository_lookup_error)?
+        .ok_or_else(|| map_collaboration_error(CollaborationError::RepositoryNotFound))?;
+    let templates =
+        list_issue_templates_for_viewer(pool, repository.id, actor.as_ref().map(|user| user.id))
+            .await
+            .map_err(map_collaboration_error)?;
+
+    Ok(Json(json!({ "items": templates })))
 }
 
 async fn update_preferences(

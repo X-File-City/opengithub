@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IssueCreateForm } from "@/components/IssueCreateForm";
+import { IssueTemplateChooser } from "@/components/IssueTemplateChooser";
 import {
   type CreatedIssue,
   createRepositoryIssueFromCookie,
+  getRepositoryIssueTemplatesFromCookie,
+  type IssueTemplate,
   type RenderedMarkdown,
 } from "@/lib/api";
 
@@ -31,6 +34,21 @@ function renderedMarkdown(html: string): RenderedMarkdown {
     cached: false,
   };
 }
+
+const bugTemplate: IssueTemplate = {
+  id: "template-1",
+  repositoryId: "repo-1",
+  slug: "bug-report",
+  name: "Bug report",
+  description: "Report a reproducible defect.",
+  titlePrefill: "[Bug]: ",
+  body: "### Expected behavior\n\n### Actual behavior\n",
+  issueType: "bug",
+  defaultLabelIds: ["label-1"],
+  defaultAssigneeUserIds: ["user-2"],
+  createdAt: "2026-05-01T00:00:00Z",
+  updatedAt: "2026-05-01T00:00:00Z",
+};
 
 describe("IssueCreateForm", () => {
   afterEach(() => {
@@ -135,6 +153,8 @@ describe("IssueCreateForm", () => {
           body: JSON.stringify({
             title: "Ship the issue composer",
             body: "Body",
+            labelIds: [],
+            assigneeUserIds: [],
           }),
         }),
       ),
@@ -203,6 +223,76 @@ describe("IssueCreateForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create issue" }));
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(createdIssue));
   });
+
+  it("submits template defaults with the created issue", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(createdIssue), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    render(
+      <IssueCreateForm
+        cancelHref="/mona/octo-app/issues"
+        defaultAssigneeUserIds={["user-2"]}
+        defaultLabelIds={["label-1"]}
+        initialBody="Template body"
+        initialTitle="[Bug]: "
+        owner="mona"
+        repo="octo-app"
+        templateName="Bug report"
+      />,
+    );
+
+    expect(screen.getByText(/Using the Bug report template/)).toBeVisible();
+    fireEvent.change(screen.getByLabelText(/Title/), {
+      target: { value: "[Bug]: broken preview" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create issue" }));
+
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/mona/octo-app/issues/new/create",
+        expect.objectContaining({
+          body: JSON.stringify({
+            title: "[Bug]: broken preview",
+            body: "Template body",
+            labelIds: ["label-1"],
+            assigneeUserIds: ["user-2"],
+          }),
+        }),
+      ),
+    );
+  });
+});
+
+describe("IssueTemplateChooser", () => {
+  it("renders template cards, blank issue, and no inert controls", () => {
+    render(
+      <IssueTemplateChooser
+        cancelHref="/mona/octo-app/issues"
+        newIssueHref="/mona/octo-app/issues/new"
+        owner="mona"
+        repo="octo-app"
+        templates={[bugTemplate]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Create new issue" }),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Bug report" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Get started" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues/new?template=bug-report",
+    );
+    expect(
+      screen.getByRole("link", { name: "Open blank issue" }),
+    ).toHaveAttribute("href", "/mona/octo-app/issues/new?template=blank");
+    for (const link of screen.getAllByRole("link")) {
+      expect(link).not.toHaveAttribute("href", "#");
+    }
+  });
 });
 
 describe("createRepositoryIssueFromCookie", () => {
@@ -265,5 +355,31 @@ describe("createRepositoryIssueFromCookie", () => {
       message: "issue title is required",
       cause: envelope,
     });
+  });
+
+  it("fetches repository issue templates with the signed session cookie", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ items: [bugTemplate] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await expect(
+      getRepositoryIssueTemplatesFromCookie(
+        "og_session=value",
+        "mona",
+        "octo-app",
+      ),
+    ).resolves.toEqual([bugTemplate]);
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://localhost:3016/api/repos/mona/octo-app/issues/templates",
+      expect.objectContaining({
+        headers: {
+          cookie: "og_session=value",
+        },
+      }),
+    );
   });
 });

@@ -15,6 +15,9 @@ type IssueCreateFormProps = {
   repo: string;
   initialTitle?: string;
   initialBody?: string;
+  defaultLabelIds?: string[];
+  defaultAssigneeUserIds?: string[];
+  templateName?: string | null;
   cancelHref: string;
   onCreated?: (issue: CreatedIssue) => void;
   previewMarkdown?: (markdown: string) => Promise<RenderedMarkdown>;
@@ -67,6 +70,9 @@ export function IssueCreateForm({
   repo,
   initialTitle = "",
   initialBody = "",
+  defaultLabelIds = [],
+  defaultAssigneeUserIds = [],
+  templateName = null,
   cancelHref,
   onCreated,
   previewMarkdown,
@@ -152,6 +158,8 @@ export function IssueCreateForm({
         body: JSON.stringify({
           title: title.trim(),
           body: body.trim() ? body : null,
+          labelIds: defaultLabelIds,
+          assigneeUserIds: defaultAssigneeUserIds,
         }),
       });
       const payload = (await response.json().catch(() => null)) as
@@ -207,9 +215,9 @@ export function IssueCreateForm({
             Create new issue
           </h1>
           <p className="t-sm mt-2 max-w-2xl" style={{ color: "var(--ink-3)" }}>
-            Start with a focused title and a Markdown body. Templates, fields,
-            attachments, labels, and assignees arrive in later issue-creation
-            phases.
+            {templateName
+              ? `Using the ${templateName} template. Review the defaults, then create the issue.`
+              : "Start with a focused title and a Markdown body."}
           </p>
         </div>
         <Link className="btn" href={cancelHref}>
