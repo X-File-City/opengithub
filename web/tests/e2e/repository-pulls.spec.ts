@@ -64,6 +64,10 @@ async function expectNoDeadControls(page: Page) {
   }
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test.skip(
   !databaseUrl,
   "repository pulls E2E needs TEST_DATABASE_URL or DATABASE_URL",
@@ -154,6 +158,34 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   await expect(page.getByText(`#${pullNumber}`)).toBeVisible();
   await expect(page.getByText("feature/pull-list-smoke")).toBeVisible();
   await expect(page.getByText("main")).toBeVisible();
+  await page.getByRole("button", { name: "Author" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter authors" }),
+  ).toBeFocused();
+  await page
+    .getByRole("option", { name: new RegExp(escapeRegExp(ownerLogin)) })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/author=/);
+  await expect(page.getByRole("link", { name: pullTitle })).toBeVisible();
+  await expect(
+    page.getByTitle(new RegExp(`Remove author:${escapeRegExp(ownerLogin)}`)),
+  ).toBeVisible();
+  await page
+    .getByRole("link", {
+      name: new RegExp(`author:${escapeRegExp(ownerLogin)}`),
+    })
+    .click();
+  await expect(page).not.toHaveURL(/author=/);
+  await page.getByRole("button", { name: "Assignee" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter assignees" }),
+  ).toBeFocused();
+  await page.getByRole("option", { name: /No assignee/ }).click();
+  await expect(page).toHaveURL(/noAssignee=true/);
+  await expect(page.getByRole("link", { name: pullTitle })).toBeVisible();
+  await page.getByRole("link", { name: "no:assignee" }).click();
+  await expect(page).not.toHaveURL(/noAssignee=true/);
   await expect(page.getByRole("button", { name: "Labels" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "New pull request" }).first(),
@@ -219,7 +251,7 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   );
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/prs-001-phase3-filtered-empty.jpg",
+    path: "../ralph/screenshots/build/prs-002-phase1-people-filters.jpg",
   });
   await page.screenshot({
     fullPage: true,

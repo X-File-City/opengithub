@@ -57,8 +57,12 @@ pub fn router() -> Router<AppState> {
 struct ListQuery {
     state: Option<PullRequestState>,
     q: Option<String>,
+    author: Option<String>,
     labels: Option<String>,
     milestone: Option<String>,
+    assignee: Option<String>,
+    #[serde(alias = "no_assignee", alias = "noAssignee")]
+    no_assignee: Option<bool>,
     review: Option<String>,
     checks: Option<String>,
     sort: Option<String>,
@@ -184,6 +188,17 @@ fn pull_list_query(
             .state
             .clone()
             .unwrap_or_else(|| pull_state_from_query(q)),
+        author: query
+            .author
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| normalize_user_filter(value, actor))
+            .or_else(|| {
+                qualifier_from_query(q, "author:")
+                    .as_deref()
+                    .map(|value| normalize_user_filter(value, actor))
+            }),
         labels: labels_from_query(q, query.labels.as_deref()),
         milestone: query
             .milestone
@@ -192,6 +207,18 @@ fn pull_list_query(
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned)
             .or_else(|| qualifier_from_query(q, "milestone:")),
+        assignee: query
+            .assignee
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|value| normalize_user_filter(value, actor))
+            .or_else(|| {
+                qualifier_from_query(q, "assignee:")
+                    .as_deref()
+                    .map(|value| normalize_user_filter(value, actor))
+            }),
+        no_assignee: query.no_assignee.unwrap_or(false) || no_filter_from_query(q, "assignee"),
         review: query
             .review
             .as_deref()
@@ -247,8 +274,10 @@ fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::Collabo
             }
         }
         for prefix in [
+            "author:",
             "label:",
             "milestone:",
+            "assignee:",
             "review:",
             "checks:",
             "sort:",
@@ -263,6 +292,15 @@ fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::Collabo
                         )),
                     );
                 }
+            }
+        }
+        if let Some(value) = term.strip_prefix("no:") {
+            if value != "assignee" {
+                return Err(
+                    crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                        "no filter must be assignee".to_owned(),
+                    ),
+                );
             }
         }
     }
@@ -297,6 +335,28 @@ fn labels_from_query(query: &str, explicit_labels: Option<&str>) -> Vec<String> 
     labels.sort_by_key(|value| value.to_lowercase());
     labels.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
     labels
+}
+
+fn no_filter_from_query(query: &str, value: &str) -> bool {
+    pull_query_terms(query)
+        .into_iter()
+        .any(|term| term.strip_prefix("no:").is_some_and(|term| term == value))
+}
+
+fn normalize_user_filter(value: &str, actor: Option<&User>) -> String {
+    let normalized = value.trim().trim_start_matches('@');
+    if normalized.eq_ignore_ascii_case("me") {
+        actor
+            .map(|user| {
+                user.username
+                    .as_deref()
+                    .unwrap_or(user.email.as_str())
+                    .to_owned()
+            })
+            .unwrap_or_else(|| "@me".to_owned())
+    } else {
+        normalized.to_owned()
+    }
 }
 
 fn normalize_pull_sort(

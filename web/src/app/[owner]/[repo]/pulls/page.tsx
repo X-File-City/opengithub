@@ -17,8 +17,11 @@ type RepositoryPullsPageProps = {
   searchParams: Promise<{
     q?: string;
     state?: "open" | "closed" | "merged";
+    author?: string;
     labels?: string;
     milestone?: string;
+    assignee?: string;
+    noAssignee?: string;
     review?: string;
     checks?: string;
     sort?: string;
@@ -68,8 +71,11 @@ function validationFallbackPulls(
   query: {
     q?: string;
     state?: "open" | "closed" | "merged";
+    author?: string;
     labels?: string[];
     milestone?: string;
+    assignee?: string;
+    noAssignee?: boolean;
     review?: string;
     checks?: string;
     sort?: string;
@@ -89,14 +95,18 @@ function validationFallbackPulls(
     filters: {
       query: query.q?.trim() || "is:pr is:open",
       state,
+      author: query.author ?? null,
       labels: query.labels ?? [],
       milestone: query.milestone ?? null,
+      assignee: query.assignee ?? null,
+      noAssignee: query.noAssignee ?? false,
       review: query.review ?? null,
       checks: query.checks ?? null,
       sort: fallbackSort(query.sort),
     },
     filterOptions: {
       labels: [],
+      users: [],
       milestones: [],
       reviewStates: [],
       checkStates: [],
@@ -139,11 +149,14 @@ export default async function RepositoryPullsPage({
   const pullQuery = {
     q: query.q,
     state: query.state,
+    author: query.author,
     labels: query.labels
       ?.split(",")
       .map((label) => label.trim())
       .filter(Boolean),
     milestone: query.milestone,
+    assignee: query.assignee,
+    noAssignee: query.noAssignee === "true",
     review: query.review,
     checks: query.checks,
     sort: query.sort,

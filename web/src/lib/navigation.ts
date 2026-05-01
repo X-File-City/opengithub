@@ -700,8 +700,11 @@ export function repositoryIssueDetailHref(
 export type RepositoryPullRequestHrefQuery = {
   q?: string | null;
   state?: "open" | "closed" | "merged" | null;
+  author?: string | null;
   labels?: string[] | null;
   milestone?: string | null;
+  assignee?: string | null;
+  noAssignee?: boolean | null;
   review?: string | null;
   checks?: string | null;
   sort?: string | null;
@@ -720,11 +723,20 @@ export function repositoryPullRequestsHref(
   if (query.state) {
     params.set("state", query.state);
   }
+  if (query.author?.trim()) {
+    params.set("author", query.author.trim());
+  }
   if (query.labels?.length) {
     params.set("labels", query.labels.join(","));
   }
   if (query.milestone?.trim()) {
     params.set("milestone", query.milestone.trim());
+  }
+  if (query.assignee?.trim()) {
+    params.set("assignee", query.assignee.trim());
+  }
+  if (query.noAssignee) {
+    params.set("noAssignee", "true");
   }
   if (query.review?.trim()) {
     params.set("review", query.review.trim());
@@ -816,6 +828,52 @@ export function repositoryPullRequestSetLabelHref(
   });
 }
 
+export function repositoryPullRequestSetUserFilterHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  filter: "author" | "assignee",
+  login: string,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    [filter]: login,
+    ...(filter === "assignee" ? { noAssignee: false } : {}),
+    q: addPullRequestQualifier(
+      filter === "assignee"
+        ? removeNoIssueFilterFromQuery(
+            removePullRequestFilterFromQuery(current.q, "assignee"),
+            "assignee",
+          )
+        : removePullRequestFilterFromQuery(current.q, "author"),
+      filter,
+      login,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestNoAssigneeHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    assignee: null,
+    noAssignee: true,
+    q: addPullRequestQualifier(
+      removePullRequestFilterFromQuery(
+        removeNoIssueFilterFromQuery(current.q, "assignee"),
+        "assignee",
+      ),
+      "no",
+      "assignee",
+    ),
+    page: null,
+  });
+}
+
 export function repositoryPullRequestSetMilestoneHref(
   owner: string,
   repo: string,
@@ -874,15 +932,31 @@ export function repositoryPullRequestClearFilterHref(
   owner: string,
   repo: string,
   current: RepositoryPullRequestHrefQuery,
-  filter: "labels" | "milestone" | "review" | "checks",
+  filter:
+    | "author"
+    | "labels"
+    | "milestone"
+    | "assignee"
+    | "noAssignee"
+    | "review"
+    | "checks",
   value?: string,
 ) {
   const next = { ...current, page: null };
-  if (filter === "labels") {
+  if (filter === "author") {
+    next.author = null;
+    next.q = removePullRequestFilterFromQuery(current.q, "author");
+  } else if (filter === "labels") {
     next.labels = (current.labels ?? []).filter(
       (label) => label.toLowerCase() !== value?.toLowerCase(),
     );
     next.q = removePullRequestFilterFromQuery(current.q, "label", value);
+  } else if (filter === "assignee") {
+    next.assignee = null;
+    next.q = removePullRequestFilterFromQuery(current.q, "assignee");
+  } else if (filter === "noAssignee") {
+    next.noAssignee = false;
+    next.q = removeNoIssueFilterFromQuery(current.q, "assignee");
   } else {
     next[filter] = null;
     next.q = removePullRequestFilterFromQuery(current.q, filter);
@@ -1206,7 +1280,15 @@ function pullRequestQueryWithState(
 
 function removePullRequestFilterFromQuery(
   query: string | null | undefined,
-  filter: "label" | "milestone" | "review" | "checks" | "sort" | "order",
+  filter:
+    | "author"
+    | "label"
+    | "milestone"
+    | "assignee"
+    | "review"
+    | "checks"
+    | "sort"
+    | "order",
   value?: string,
 ) {
   const normalizedValue = value?.toLowerCase();
@@ -1229,7 +1311,14 @@ function removePullRequestFilterFromQuery(
 
 function addPullRequestQualifier(
   query: string | null | undefined,
-  filter: "label" | "milestone" | "review" | "checks",
+  filter:
+    | "author"
+    | "label"
+    | "milestone"
+    | "assignee"
+    | "review"
+    | "checks"
+    | "no",
   value: string,
 ) {
   return addIssueQualifier(query, filter, value);

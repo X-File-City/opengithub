@@ -16,11 +16,13 @@ import {
   repositoryPullRequestClearFilterHref,
   repositoryPullRequestCompareHref,
   repositoryPullRequestDetailHref,
+  repositoryPullRequestNoAssigneeHref,
   repositoryPullRequestPageHref,
   repositoryPullRequestSetChecksHref,
   repositoryPullRequestSetLabelHref,
   repositoryPullRequestSetMilestoneHref,
   repositoryPullRequestSetReviewHref,
+  repositoryPullRequestSetUserFilterHref,
   repositoryPullRequestSortHref,
   repositoryPullRequestStateHref,
   repositoryPullRequestsHref,
@@ -166,13 +168,30 @@ function pullRequestListView(
     filters: {
       query: "is:pr is:open",
       state: "open",
+      author: null,
       labels: [],
       milestone: null,
+      assignee: null,
+      noAssignee: false,
       review: null,
       checks: null,
       sort: "updated-desc",
     },
     filterOptions: {
+      users: [
+        {
+          id: "user-2",
+          login: "hubot",
+          displayName: "Hubot",
+          avatarUrl: null,
+        },
+        {
+          id: "user-3",
+          login: "mona",
+          displayName: "Mona",
+          avatarUrl: null,
+        },
+      ],
       labels: [
         {
           id: "label-1",
@@ -289,20 +308,25 @@ describe("RepositoryPullsPage", () => {
         pulls={pullRequestListView({
           filters: {
             query:
-              'is:pr state:open label:review milestone:"Review queue" review:approved checks:success',
+              'is:pr state:open author:hubot label:review milestone:"Review queue" assignee:mona review:approved checks:success',
             state: "open",
+            author: "hubot",
             labels: ["review"],
             milestone: "Review queue",
+            assignee: "mona",
+            noAssignee: false,
             review: "approved",
             checks: "success",
             sort: "comments-desc",
           },
         })}
         query={{
-          q: 'is:pr state:open label:review milestone:"Review queue" review:approved checks:success',
+          q: 'is:pr state:open author:hubot label:review milestone:"Review queue" assignee:mona review:approved checks:success',
           state: "open",
+          author: "hubot",
           labels: ["review"],
           milestone: "Review queue",
+          assignee: "mona",
           review: "approved",
           checks: "success",
           sort: "comments-desc",
@@ -311,6 +335,19 @@ describe("RepositoryPullsPage", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: /Author/ }));
+    expect(
+      screen.getByRole("dialog", { name: "Pull request author filter" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("combobox", { name: "Filter authors" }),
+    ).toHaveFocus();
+    expect(screen.getByRole("option", { name: /hubot/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("author%3Ahubot"),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+
     fireEvent.click(screen.getByRole("button", { name: /Labels/ }));
     expect(
       screen.getByRole("dialog", { name: "Pull request labels filter" }),
@@ -318,6 +355,17 @@ describe("RepositoryPullsPage", () => {
     expect(screen.getByRole("option", { name: /review/ })).toHaveAttribute(
       "href",
       expect.stringContaining("label%3Areview"),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Assignee/ }));
+    expect(screen.getByRole("option", { name: /mona/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("assignee%3Amona"),
+    );
+    expect(screen.getByRole("option", { name: /No assignee/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("no%3Aassignee"),
     );
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -352,9 +400,17 @@ describe("RepositoryPullsPage", () => {
       "href",
       expect.not.stringContaining("labels=review"),
     );
+    expect(screen.getByRole("link", { name: "author:hubot" })).toHaveAttribute(
+      "href",
+      expect.not.stringContaining("author=hubot"),
+    );
     expect(
       screen.getByRole("link", { name: "milestone:Review queue" }),
     ).toHaveAttribute("href", expect.not.stringContaining("milestone="));
+    expect(screen.getByRole("link", { name: "assignee:mona" })).toHaveAttribute(
+      "href",
+      expect.not.stringContaining("assignee=mona"),
+    );
     expect(
       screen.getByRole("link", { name: "review:approved" }),
     ).toHaveAttribute("href", expect.not.stringContaining("review="));
@@ -485,6 +541,37 @@ describe("RepositoryPullsPage", () => {
       ),
     ).toBe(
       "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+label%3A%22needs+review%22&state=open&labels=needs+review",
+    );
+    expect(
+      repositoryPullRequestSetUserFilterHref(
+        "mona",
+        "octo-app",
+        { q: "is:pr state:open", state: "open" },
+        "author",
+        "hubot",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+author%3Ahubot&state=open&author=hubot",
+    );
+    expect(
+      repositoryPullRequestSetUserFilterHref(
+        "mona",
+        "octo-app",
+        { q: "is:pr state:open no:assignee", state: "open", noAssignee: true },
+        "assignee",
+        "hubot",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+assignee%3Ahubot&state=open&assignee=hubot",
+    );
+    expect(
+      repositoryPullRequestNoAssigneeHref("mona", "octo-app", {
+        q: "is:pr state:open assignee:hubot",
+        state: "open",
+        assignee: "hubot",
+      }),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+no%3Aassignee&state=open&noAssignee=true",
     );
     expect(
       repositoryPullRequestSetMilestoneHref(

@@ -337,10 +337,19 @@ export function IssuePickerMenu({
             id={listboxId}
             role="listbox"
           >
-            {noValueOption ? <PickerOption option={noValueOption} /> : null}
+            {noValueOption ? (
+              <PickerOption
+                onSelect={() => setOpen(false)}
+                option={noValueOption}
+              />
+            ) : null}
             {filtered.length ? (
               filtered.map((option) => (
-                <PickerOption key={option.id} option={option} />
+                <PickerOption
+                  key={option.id}
+                  onSelect={() => setOpen(false)}
+                  option={option}
+                />
               ))
             ) : (
               <p className="t-sm px-2 py-4" style={{ color: "var(--ink-3)" }}>
@@ -354,7 +363,13 @@ export function IssuePickerMenu({
   );
 }
 
-function PickerOption({ option }: { option: IssuePickerOption }) {
+function PickerOption({
+  onSelect,
+  option,
+}: {
+  onSelect: () => void;
+  option: IssuePickerOption;
+}) {
   const content = (
     <span className="flex items-start justify-between gap-3">
       <span className="min-w-0">
@@ -401,7 +416,10 @@ function PickerOption({ option }: { option: IssuePickerOption }) {
         if (event.altKey && option.excludeHref) {
           event.preventDefault();
           window.location.assign(option.excludeHref);
+          onSelect();
+          return;
         }
+        onSelect();
       }}
       role="option"
       title={option.excludeHref ? "Alt-click to exclude this value" : undefined}

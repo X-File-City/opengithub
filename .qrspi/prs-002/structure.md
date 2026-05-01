@@ -6,7 +6,7 @@
 
 ## Phase 1: People Filters - author and assignee menus update the PR query
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add Author and Assignee dropdowns to the repository pull request toolbar. Opening each menu focuses its combobox, options come from real PR authors and issue assignees, selections update `author:` / `assignee:` qualifiers and URL params without dropping existing labels, milestones, reviews, checks, state, or sort filters, and clear chips remove only the selected people filter.
 

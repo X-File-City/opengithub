@@ -181,8 +181,11 @@ pub struct PullRequestListCounts {
 pub struct PullRequestListFilters {
     pub query: String,
     pub state: PullRequestState,
+    pub author: Option<String>,
     pub labels: Vec<String>,
     pub milestone: Option<String>,
+    pub assignee: Option<String>,
+    pub no_assignee: bool,
     pub review: Option<String>,
     pub checks: Option<String>,
     pub sort: String,
@@ -192,6 +195,7 @@ pub struct PullRequestListFilters {
 #[serde(rename_all = "camelCase")]
 pub struct PullRequestFilterOptions {
     pub labels: Vec<IssueListLabel>,
+    pub users: Vec<IssueListUser>,
     pub milestones: Vec<IssueListMilestone>,
     pub review_states: Vec<String>,
     pub check_states: Vec<String>,
@@ -237,8 +241,11 @@ pub struct PullRequestListView {
 pub struct PullRequestListQuery {
     pub query: Option<String>,
     pub state: PullRequestState,
+    pub author: Option<String>,
     pub labels: Vec<String>,
     pub milestone: Option<String>,
+    pub assignee: Option<String>,
+    pub no_assignee: bool,
     pub review: Option<String>,
     pub checks: Option<String>,
     pub sort: String,
@@ -249,8 +256,11 @@ impl Default for PullRequestListQuery {
         Self {
             query: Some("is:pr is:open".to_owned()),
             state: PullRequestState::Open,
+            author: None,
             labels: Vec::new(),
             milestone: None,
+            assignee: None,
+            no_assignee: false,
             review: None,
             checks: None,
             sort: "updated-desc".to_owned(),
@@ -479,10 +489,19 @@ pub async fn repository_pull_request_list_view_for_viewer(
               OR pull_requests.base_ref ILIKE '%' || $3 || '%'
           )
           AND (
-              cardinality($4::text[]) = 0
+              $4::text IS NULL
+              OR EXISTS (
+                  SELECT 1
+                  FROM users
+                  WHERE users.id = pull_requests.author_user_id
+                    AND lower(COALESCE(users.username, users.email)) = lower($4)
+              )
+          )
+          AND (
+              cardinality($5::text[]) = 0
               OR NOT EXISTS (
                   SELECT 1
-                  FROM unnest($4::text[]) wanted_label(name)
+                  FROM unnest($5::text[]) wanted_label(name)
                   WHERE NOT EXISTS (
                       SELECT 1
                       FROM issue_labels
@@ -493,61 +512,80 @@ pub async fn repository_pull_request_list_view_for_viewer(
               )
           )
           AND (
-              $5::text IS NULL
+              $6::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM milestones
                   WHERE milestones.id = issues.milestone_id
-                    AND lower(milestones.title) = lower($5)
+                    AND lower(milestones.title) = lower($6)
               )
           )
           AND (
-              $6::text IS NULL
+              $7::text IS NULL
+              OR EXISTS (
+                  SELECT 1
+                  FROM issue_assignees
+                  JOIN users ON users.id = issue_assignees.user_id
+                  WHERE issue_assignees.issue_id = issues.id
+                    AND lower(COALESCE(users.username, users.email)) = lower($7)
+              )
+          )
+          AND (
+              $8::bool = false
+              OR NOT EXISTS (
+                  SELECT 1 FROM issue_assignees WHERE issue_assignees.issue_id = issues.id
+              )
+          )
+          AND (
+              $9::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_reviews
                   WHERE pull_request_reviews.pull_request_id = pull_requests.id
-                    AND pull_request_reviews.state = $6
+                    AND pull_request_reviews.state = $9
               )
-              OR ($6 = 'required' AND EXISTS (
+              OR ($9 = 'required' AND EXISTS (
                   SELECT 1
                   FROM pull_request_review_requests
                   WHERE pull_request_review_requests.pull_request_id = pull_requests.id
               ))
           )
           AND (
-              $7::text IS NULL
+              $10::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_checks_summary
                   WHERE pull_request_checks_summary.pull_request_id = pull_requests.id
                     AND (
-                        pull_request_checks_summary.status = $7
-                        OR pull_request_checks_summary.conclusion = $7
+                        pull_request_checks_summary.status = $10
+                        OR pull_request_checks_summary.conclusion = $10
                     )
               )
           )
         ORDER BY
-          CASE WHEN $8 = 'created-asc' THEN pull_requests.created_at END ASC,
-          CASE WHEN $8 = 'created-desc' THEN pull_requests.created_at END DESC,
-          CASE WHEN $8 = 'updated-asc' THEN pull_requests.updated_at END ASC,
-          CASE WHEN $8 = 'updated-desc' THEN pull_requests.updated_at END DESC,
-          CASE WHEN $8 = 'comments-desc' THEN (
+          CASE WHEN $11 = 'created-asc' THEN pull_requests.created_at END ASC,
+          CASE WHEN $11 = 'created-desc' THEN pull_requests.created_at END DESC,
+          CASE WHEN $11 = 'updated-asc' THEN pull_requests.updated_at END ASC,
+          CASE WHEN $11 = 'updated-desc' THEN pull_requests.updated_at END DESC,
+          CASE WHEN $11 = 'comments-desc' THEN (
               SELECT count(*) FROM comments WHERE comments.pull_request_id = pull_requests.id
           ) END DESC,
-          CASE WHEN $8 = 'comments-asc' THEN (
+          CASE WHEN $11 = 'comments-asc' THEN (
               SELECT count(*) FROM comments WHERE comments.pull_request_id = pull_requests.id
           ) END ASC,
           pull_requests.updated_at DESC,
           pull_requests.number DESC
-        LIMIT $9 OFFSET $10
+        LIMIT $12 OFFSET $13
         "#,
     )
     .bind(repository_id)
     .bind(state_filter)
     .bind(text_filter.as_deref())
+    .bind(filters.author.as_deref())
     .bind(&filters.labels)
     .bind(filters.milestone.as_deref())
+    .bind(filters.assignee.as_deref())
+    .bind(filters.no_assignee)
     .bind(filters.review.as_deref())
     .bind(filters.checks.as_deref())
     .bind(&filters.sort)
@@ -585,14 +623,18 @@ pub async fn repository_pull_request_list_view_for_viewer(
         filters: PullRequestListFilters {
             query: filters.query.unwrap_or_else(|| "is:pr is:open".to_owned()),
             state: filters.state,
+            author: filters.author,
             labels: filters.labels,
             milestone: filters.milestone,
+            assignee: filters.assignee,
+            no_assignee: filters.no_assignee,
             review: filters.review,
             checks: filters.checks,
             sort: filters.sort,
         },
         filter_options: PullRequestFilterOptions {
             labels: pull_list_label_options(pool, repository_id).await?,
+            users: pull_list_user_options(pool, repository_id).await?,
             milestones: pull_list_milestone_options(pool, repository_id).await?,
             review_states: vec![
                 "required".to_owned(),
@@ -938,10 +980,19 @@ async fn count_pull_request_list_items(
               OR pull_requests.base_ref ILIKE '%' || $3 || '%'
           )
           AND (
-              cardinality($4::text[]) = 0
+              $4::text IS NULL
+              OR EXISTS (
+                  SELECT 1
+                  FROM users
+                  WHERE users.id = pull_requests.author_user_id
+                    AND lower(COALESCE(users.username, users.email)) = lower($4)
+              )
+          )
+          AND (
+              cardinality($5::text[]) = 0
               OR NOT EXISTS (
                   SELECT 1
-                  FROM unnest($4::text[]) wanted_label(name)
+                  FROM unnest($5::text[]) wanted_label(name)
                   WHERE NOT EXISTS (
                       SELECT 1
                       FROM issue_labels
@@ -952,37 +1003,53 @@ async fn count_pull_request_list_items(
               )
           )
           AND (
-              $5::text IS NULL
+              $6::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM milestones
                   WHERE milestones.id = issues.milestone_id
-                    AND lower(milestones.title) = lower($5)
+                    AND lower(milestones.title) = lower($6)
               )
           )
           AND (
-              $6::text IS NULL
+              $7::text IS NULL
+              OR EXISTS (
+                  SELECT 1
+                  FROM issue_assignees
+                  JOIN users ON users.id = issue_assignees.user_id
+                  WHERE issue_assignees.issue_id = issues.id
+                    AND lower(COALESCE(users.username, users.email)) = lower($7)
+              )
+          )
+          AND (
+              $8::bool = false
+              OR NOT EXISTS (
+                  SELECT 1 FROM issue_assignees WHERE issue_assignees.issue_id = issues.id
+              )
+          )
+          AND (
+              $9::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_reviews
                   WHERE pull_request_reviews.pull_request_id = pull_requests.id
-                    AND pull_request_reviews.state = $6
+                    AND pull_request_reviews.state = $9
               )
-              OR ($6 = 'required' AND EXISTS (
+              OR ($9 = 'required' AND EXISTS (
                   SELECT 1
                   FROM pull_request_review_requests
                   WHERE pull_request_review_requests.pull_request_id = pull_requests.id
               ))
           )
           AND (
-              $7::text IS NULL
+              $10::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_checks_summary
                   WHERE pull_request_checks_summary.pull_request_id = pull_requests.id
                     AND (
-                        pull_request_checks_summary.status = $7
-                        OR pull_request_checks_summary.conclusion = $7
+                        pull_request_checks_summary.status = $10
+                        OR pull_request_checks_summary.conclusion = $10
                     )
               )
           )
@@ -991,8 +1058,11 @@ async fn count_pull_request_list_items(
     .bind(repository_id)
     .bind(state)
     .bind(text_filter)
+    .bind(filters.author.as_deref())
     .bind(&filters.labels)
     .bind(filters.milestone.as_deref())
+    .bind(filters.assignee.as_deref())
+    .bind(filters.no_assignee)
     .bind(filters.review.as_deref())
     .bind(filters.checks.as_deref())
     .fetch_one(pool)
@@ -1180,6 +1250,52 @@ async fn pull_list_label_options(
             name: row.get("name"),
             color: row.get("color"),
             description: row.get("description"),
+        })
+        .collect())
+}
+
+async fn pull_list_user_options(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<Vec<IssueListUser>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT users.id, COALESCE(users.username, users.email) AS login,
+               users.display_name, users.avatar_url
+        FROM users
+        WHERE users.id IN (
+            SELECT repositories.created_by_user_id
+            FROM repositories
+            WHERE repositories.id = $1
+            UNION
+            SELECT repository_permissions.user_id
+            FROM repository_permissions
+            WHERE repository_permissions.repository_id = $1
+            UNION
+            SELECT pull_requests.author_user_id
+            FROM pull_requests
+            WHERE pull_requests.repository_id = $1
+            UNION
+            SELECT issue_assignees.user_id
+            FROM issue_assignees
+            JOIN issues ON issues.id = issue_assignees.issue_id
+            JOIN pull_requests ON pull_requests.issue_id = issues.id
+            WHERE pull_requests.repository_id = $1
+        )
+        ORDER BY lower(COALESCE(users.username, users.email))
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| IssueListUser {
+            id: row.get("id"),
+            login: row.get("login"),
+            display_name: row.get("display_name"),
+            avatar_url: row.get("avatar_url"),
         })
         .collect())
 }
@@ -1578,8 +1694,11 @@ fn search_text_from_pull_query(query: &str) -> String {
                 term.as_str(),
                 "is:pr" | "is:pull-request" | "is:open" | "is:closed" | "is:merged"
             ) && !term.starts_with("state:")
+                && !term.starts_with("author:")
                 && !term.starts_with("label:")
                 && !term.starts_with("milestone:")
+                && !term.starts_with("assignee:")
+                && term != "no:assignee"
                 && !term.starts_with("review:")
                 && !term.starts_with("checks:")
                 && !term.starts_with("sort:")

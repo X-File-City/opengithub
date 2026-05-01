@@ -1746,5 +1746,23 @@
       "Filter toolbar does not yet include author, assignee, projects, or reaction filters; those are scoped to prs-002.",
       "Dismissal preference was verified with deterministic Rust sessions; repeat with real Google OAuth once the consent/test-user configuration is complete."
     ]
+  },
+  {
+    "feature_id": "prs-002",
+    "tests_written": [
+      "Implemented Phase 1 people filters for the repository pull request list: API supports author, assignee, and no:assignee filters from explicit params and typed qualifiers while preserving existing label, milestone, review, checks, state, and sort filters.",
+      "Pull list filter options now include repository users from owners, permissions, PR authors, and PR issue assignees; frontend Author and Assignee menus focus their comboboxes, update URL-backed qualifiers, and render selected chips.",
+      "Fixed the shared picker interaction so selecting an option closes the menu instead of leaving it over the selected-chip controls.",
+      "Rust contract coverage seeds real PR authors and assignees, verifies author/assignee/no-assignee filters, private access redaction, typed qualifier aliasing, option payloads, and validation envelopes.",
+      "Vitest coverage verifies menu focus, URL href preservation, selected chips, no-assignee hrefs, navigation helper output, and no inert controls.",
+      "Playwright smoke creates a real repository and PR, opens Author and Assignee menus, applies/clears author and no-assignee filters, verifies concrete navigation, and saves ralph/screenshots/build/prs-002-phase1-people-filters.jpg.",
+      "Verification passed: focused Rust api_repository_pulls_list_contract, focused repository-pulls Vitest, focused repository-pulls Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 150 frontend tests, make test-e2e with 61 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "People filters were verified with deterministic Rust sessions and seeded users; repeat with a real Google OAuth-created session once OAuth consent/test-user setup is complete.",
+      "Assignee filtering currently relies on backing issue_assignees for PR issues; PR create metadata assignment is still future prs-003 work.",
+      "Projects, no-milestone parity, expanded review semantics, reaction sorts, and best-match behavior remain later prs-002 phases.",
+      "The full pull request detail/review/check surfaces are still future prs-004 through prs-006 work, so selected filter rows can navigate only as far as the existing PR skeleton/detail anchors."
+    ]
   }
 ]

@@ -223,6 +223,18 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
         .expect("pull issue should get label");
     sqlx::query(
         r#"
+        INSERT INTO issue_assignees (issue_id, user_id, assigned_by_user_id)
+        VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(open_pr.issue.id)
+    .bind(reviewer.id)
+    .bind(owner.id)
+    .execute(&pool)
+    .await
+    .expect("pull issue should get assignee");
+    sqlx::query(
+        r#"
         INSERT INTO issue_cross_references (source_issue_id, target_issue_id, created_by_user_id)
         VALUES ($1, $2, $3)
         "#,
@@ -386,8 +398,8 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(default_body["filters"]["query"], "is:pr is:open");
 
     let uri = format!(
-        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20filters&labels=bug&milestone=Review%20queue&review=approved&checks=success&page=0&pageSize=1000",
-        owner.email, repo_name
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20filters&author={}&labels=bug&milestone=Review%20queue&assignee={}&review=approved&checks=success&page=0&pageSize=1000",
+        owner.email, repo_name, owner.email, reviewer.email
     );
 
     let (status, body) = send_json(app.clone(), &uri, None).await;
@@ -403,8 +415,11 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["counts"]["closed"], 0);
     assert_eq!(body["counts"]["merged"], 0);
     assert_eq!(body["filters"]["state"], "open");
+    assert_eq!(body["filters"]["author"], owner.email);
     assert_eq!(body["filters"]["labels"][0], "bug");
     assert_eq!(body["filters"]["milestone"], "Review queue");
+    assert_eq!(body["filters"]["assignee"], reviewer.email);
+    assert_eq!(body["filters"]["noAssignee"], false);
     assert_eq!(body["filters"]["review"], "approved");
     assert_eq!(body["filters"]["checks"], "success");
     assert_eq!(body["filters"]["sort"], "updated-desc");
@@ -413,6 +428,11 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
         .expect("label options should be an array")
         .iter()
         .any(|label| label["name"] == "bug"));
+    assert!(body["filterOptions"]["users"]
+        .as_array()
+        .expect("user options should be an array")
+        .iter()
+        .any(|user| user["login"] == reviewer.email));
     assert!(body["filterOptions"]["milestones"]
         .as_array()
         .expect("milestone options should be an array")
@@ -422,6 +442,16 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["repository"]["defaultBranch"], "main");
     assert_eq!(body["viewerPermission"], "read");
     assert_eq!(body["preferences"]["dismissedContributorBanner"], false);
+
+    let no_assignee_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20no%3Aassignee&noAssignee=true",
+        owner.email, repo_name
+    );
+    let (no_assignee_status, no_assignee_body) =
+        send_json(app.clone(), &no_assignee_uri, None).await;
+    assert_eq!(no_assignee_status, StatusCode::OK);
+    assert_eq!(no_assignee_body["filters"]["noAssignee"], true);
+    assert_eq!(no_assignee_body["total"], 0);
 
     let preference_uri = format!("/api/repos/{}/{}/pulls/preferences", owner.email, repo_name);
     let (anonymous_preference_status, anonymous_preference_body) = patch_json(
@@ -528,15 +558,17 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     );
 
     let typed_filter_uri = format!(
-        "/api/repos/{}/{}/pulls?q=is%3Apr%20state%3Aopen%20label%3Abug%20milestone%3A%22Review%20queue%22%20review%3Aapproved%20checks%3Asuccess%20filters&sort=comments-desc",
-        owner.email, repo_name
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20state%3Aopen%20author%3A{}%20label%3Abug%20milestone%3A%22Review%20queue%22%20assignee%3A{}%20review%3Aapproved%20checks%3Asuccess%20filters&sort=comments-desc",
+        owner.email, repo_name, owner.email, reviewer.email
     );
     let (typed_filter_status, typed_filter_body) =
         send_json(app.clone(), &typed_filter_uri, None).await;
     assert_eq!(typed_filter_status, StatusCode::OK);
     assert_eq!(typed_filter_body["total"], 1);
+    assert_eq!(typed_filter_body["filters"]["author"], owner.email);
     assert_eq!(typed_filter_body["filters"]["labels"][0], "bug");
     assert_eq!(typed_filter_body["filters"]["milestone"], "Review queue");
+    assert_eq!(typed_filter_body["filters"]["assignee"], reviewer.email);
     assert_eq!(typed_filter_body["filters"]["review"], "approved");
     assert_eq!(typed_filter_body["filters"]["checks"], "success");
     assert_eq!(typed_filter_body["filters"]["sort"], "comments-desc");

@@ -20,11 +20,13 @@ import {
   repositoryPullRequestClearFilterHref,
   repositoryPullRequestCompareHref,
   repositoryPullRequestDetailHref,
+  repositoryPullRequestNoAssigneeHref,
   repositoryPullRequestPageHref,
   repositoryPullRequestSetChecksHref,
   repositoryPullRequestSetLabelHref,
   repositoryPullRequestSetMilestoneHref,
   repositoryPullRequestSetReviewHref,
+  repositoryPullRequestSetUserFilterHref,
   repositoryPullRequestSortHref,
   repositoryPullRequestStateHref,
   repositoryPullRequestsHref,
@@ -309,8 +311,11 @@ export function RepositoryPullsPage({
     ...query,
     q: pulls.filters.query,
     state: activeState,
+    author: pulls.filters.author,
     labels: pulls.filters.labels,
     milestone: pulls.filters.milestone,
+    assignee: pulls.filters.assignee,
+    noAssignee: pulls.filters.noAssignee,
     review: pulls.filters.review,
     checks: pulls.filters.checks,
     sort: pulls.filters.sort,
@@ -346,6 +351,36 @@ export function RepositoryPullsPage({
       badge: null,
     }),
   );
+  const userOptions = pulls.filterOptions.users.map((user) => ({
+    id: user.id,
+    label: user.login,
+    description: user.displayName ?? user.avatarUrl ?? null,
+  }));
+  const authorOptions: IssuePickerOption[] = userOptions.map((user) => ({
+    ...user,
+    href: repositoryPullRequestSetUserFilterHref(
+      owner,
+      repo,
+      baseQuery,
+      "author",
+      user.label,
+    ),
+    selected: pulls.filters.author?.toLowerCase() === user.label.toLowerCase(),
+    badge: null,
+  }));
+  const assigneeOptions: IssuePickerOption[] = userOptions.map((user) => ({
+    ...user,
+    href: repositoryPullRequestSetUserFilterHref(
+      owner,
+      repo,
+      baseQuery,
+      "assignee",
+      user.label,
+    ),
+    selected:
+      pulls.filters.assignee?.toLowerCase() === user.label.toLowerCase(),
+    badge: null,
+  }));
   const milestoneOptions: IssuePickerOption[] =
     pulls.filterOptions.milestones.map((milestone) => ({
       id: milestone.id,
@@ -467,6 +502,9 @@ export function RepositoryPullsPage({
           </label>
           <input name="state" type="hidden" value={activeState} />
           <input name="sort" type="hidden" value={pulls.filters.sort} />
+          {pulls.filters.author ? (
+            <input name="author" type="hidden" value={pulls.filters.author} />
+          ) : null}
           {pulls.filters.labels.length ? (
             <input
               name="labels"
@@ -481,6 +519,16 @@ export function RepositoryPullsPage({
               value={pulls.filters.milestone}
             />
           ) : null}
+          {pulls.filters.assignee ? (
+            <input
+              name="assignee"
+              type="hidden"
+              value={pulls.filters.assignee}
+            />
+          ) : null}
+          {pulls.filters.noAssignee ? (
+            <input name="noAssignee" type="hidden" value="true" />
+          ) : null}
           {pulls.filters.review ? (
             <input name="review" type="hidden" value={pulls.filters.review} />
           ) : null}
@@ -490,6 +538,14 @@ export function RepositoryPullsPage({
           <button className="btn" type="submit">
             Search
           </button>
+          <IssuePickerMenu
+            buttonLabel="Author"
+            dialogLabel="Pull request author filter"
+            emptyMessage="No authors match this search."
+            options={authorOptions}
+            searchLabel="Filter authors"
+            searchPlaceholder="Filter authors"
+          />
           <IssuePickerMenu
             buttonLabel="Labels"
             dialogLabel="Pull request labels filter"
@@ -505,6 +561,21 @@ export function RepositoryPullsPage({
             options={milestoneOptions}
             searchLabel="Filter pull request milestones"
             searchPlaceholder="Filter milestones"
+          />
+          <IssuePickerMenu
+            buttonLabel="Assignee"
+            dialogLabel="Pull request assignee filter"
+            emptyMessage="No assignees match this search."
+            noValueOption={{
+              id: "no-assignee",
+              label: "No assignee",
+              description: "Show pull requests without an assignee.",
+              href: repositoryPullRequestNoAssigneeHref(owner, repo, baseQuery),
+              selected: pulls.filters.noAssignee,
+            }}
+            options={assigneeOptions}
+            searchLabel="Filter assignees"
+            searchPlaceholder="Filter assignees"
           />
           <IssuePickerMenu
             buttonLabel="Reviews"
@@ -560,6 +631,20 @@ export function RepositoryPullsPage({
                 activeLabel={activeSort.label}
                 options={sortOptions}
               />
+              {pulls.filters.author ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "author",
+                  )}
+                  title={`Remove author:${pulls.filters.author}`}
+                >
+                  author:{pulls.filters.author}
+                </Link>
+              ) : null}
               {pulls.filters.labels.map((label) => (
                 <Link
                   className="chip soft"
@@ -588,6 +673,34 @@ export function RepositoryPullsPage({
                   title={`Remove milestone:${pulls.filters.milestone}`}
                 >
                   milestone:{pulls.filters.milestone}
+                </Link>
+              ) : null}
+              {pulls.filters.assignee ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "assignee",
+                  )}
+                  title={`Remove assignee:${pulls.filters.assignee}`}
+                >
+                  assignee:{pulls.filters.assignee}
+                </Link>
+              ) : null}
+              {pulls.filters.noAssignee ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "noAssignee",
+                  )}
+                  title="Remove no:assignee"
+                >
+                  no:assignee
                 </Link>
               ) : null}
               {pulls.filters.review ? (
