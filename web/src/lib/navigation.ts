@@ -774,6 +774,63 @@ export function repositoryPullRequestCompareHref(owner: string, repo: string) {
   return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare`;
 }
 
+export type RepositoryCompareRange = {
+  base: string;
+  head: string;
+};
+
+export function parseRepositoryCompareRange(
+  range: string | string[] | null | undefined,
+): RepositoryCompareRange | null {
+  const raw = Array.isArray(range) ? range.join("/") : range;
+  const decoded = decodeURIComponent(raw ?? "").trim();
+  const separator = decoded.indexOf("...");
+  if (separator <= 0 || separator === decoded.length - 3) {
+    return null;
+  }
+  const base = decoded.slice(0, separator).trim();
+  const head = decoded.slice(separator + 3).trim();
+  if (!base || !head) {
+    return null;
+  }
+  return { base, head };
+}
+
+export function repositoryCompareRangeHref(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  query: { view?: "split" | "unified" } = {},
+) {
+  const params = new URLSearchParams();
+  if (query.view && query.view !== "split") {
+    params.set("view", query.view);
+  }
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}${suffix}`;
+}
+
+export function repositoryCompareSwapHref(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  query: { view?: "split" | "unified" } = {},
+) {
+  return repositoryCompareRangeHref(owner, repo, head, base, query);
+}
+
+export function repositoryCompareViewHref(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  view: "split" | "unified",
+) {
+  return repositoryCompareRangeHref(owner, repo, base, head, { view });
+}
+
 export function repositoryPullRequestStateHref(
   owner: string,
   repo: string,

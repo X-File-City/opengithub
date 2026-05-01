@@ -1849,5 +1849,22 @@
       "Fork comparison is not included in Phase 1 and remains scoped to Phase 5.",
       "The compare route supports readable same-repository refs first; create form persistence and duplicate PR detection wait for Phases 3-4."
     ]
+  },
+  {
+    "feature_id": "prs-003",
+    "tests_written": [
+      "Implemented Phase 2 Editorial compare UI for /{owner}/{repo}/compare and /{owner}/{repo}/compare/{base}...{head}: the landing route now redirects to a concrete default comparison, and the range route fetches the Phase 1 compare contract server-side.",
+      "Added PullRequestComparePage with Editorial repository shell, base/head ref selector buttons, compare-across-forks affordance, swap link, split/unified links, same-ref/no-diff callouts, invalid-ref recovery, commit list, changed-file summary, and no dead hrefs.",
+      "Added compare navigation helpers for slash-containing refs, swap URLs, and view-mode URLs.",
+      "Vitest covers compare rendering, selector hrefs, no-diff and invalid-ref recovery, and compare URL helpers.",
+      "Playwright smoke creates a real signed-session repository with a README-backed default ref, verifies /compare redirect, selector focus, split/unified controls, invalid-ref recovery, no dead controls, mobile layout, and saves ralph/screenshots/build/prs-003-phase2-compare-page.jpg.",
+      "Verification passed: focused pull-request-compare Vitest, focused pull-request-compare Playwright, focused repository-pulls Playwright regression, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 155 frontend tests, make test-e2e with 62 Playwright tests, and Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "The create pull request form is not wired in Phase 2; QA should validate form submit and redirect in Phase 4 after the create contract lands.",
+      "Browser smoke covers same-repository default-ref and invalid-ref flows; changed-file rendering is covered by Vitest fixture data and should be rechecked against real branch diffs once browser tests seed pushed refs/files.",
+      "Compare across forks is currently an affordance that links to fork browsing; fork-aware compare/create behavior remains Phase 5.",
+      "The ref selector uses the existing authenticated refs proxy, so anonymous public compare can render the current refs from compare data but may not populate selector options until public refs access is explicitly supported."
+    ]
   }
 ]

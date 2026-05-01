@@ -384,7 +384,10 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   ).toBeVisible();
 
   await page.goto(`/${ownerLogin}/${repoName}/compare`);
+  await expect(page).toHaveURL(
+    new RegExp(`/${repoName}/compare/main\\.\\.\\.main$`),
+  );
   await expect(
-    page.getByRole("heading", { name: "Compare changes" }),
+    page.getByRole("heading", { name: "Comparing changes" }),
   ).toBeVisible();
 });

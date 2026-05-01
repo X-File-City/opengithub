@@ -24,7 +24,7 @@
 
 ## Phase 2: Editorial Compare Page - branch selectors and diff summary are live
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Implement the Next.js compare page for `/{owner}/{repo}/compare/{base}...{head}` and make the existing `/{owner}/{repo}/compare` entry route redirect or default to `default_branch...<candidate>`. The page renders the Editorial `Comparing changes` layout with base/head selectors, compare-across-forks affordance, swap direction link, split/unified controls, commits/files summary, no-diff callout, sample comparison links, and no dead controls.
 
