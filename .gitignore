@@ -16,6 +16,7 @@ tsconfig.tsbuildinfo
 .ralph-setup-done
 node_modules/
 .scratch/
+ralph/screenshots/
 
 # Doc scraper venv (Phase 1 only, not part of the generated clone)
 .venv-scrape/
