@@ -278,6 +278,8 @@ describe("IssueCreateForm", () => {
     );
 
     expect(screen.getByText(/Using the Bug report template/)).toBeVisible();
+    expect(screen.getByText("1 default label")).toBeVisible();
+    expect(screen.getByText("1 default assignee")).toBeVisible();
     fireEvent.change(screen.getByPlaceholderText("1. Open..."), {
       target: { value: "1. Open the issue form" },
     });
@@ -304,6 +306,64 @@ describe("IssueCreateForm", () => {
             },
             labelIds: ["label-1"],
             assigneeUserIds: ["user-2"],
+          }),
+        }),
+      ),
+    );
+  });
+
+  it("records attachment metadata in the create payload and allows removal", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(createdIssue), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const { container } = render(
+      <IssueCreateForm
+        cancelHref="/mona/octo-app/issues"
+        initialBody="Body"
+        initialTitle="Issue with attachment metadata"
+        owner="mona"
+        repo="octo-app"
+      />,
+    );
+
+    const input = container.querySelector(
+      "#issue-attachments",
+    ) as HTMLInputElement;
+    const firstFile = new File(["log"], "console.log", {
+      type: "text/plain",
+    });
+    const secondFile = new File(["shot"], "screenshot.png", {
+      type: "image/png",
+    });
+    fireEvent.change(input, {
+      target: { files: [firstFile, secondFile] },
+    });
+
+    expect(screen.getByText("console.log")).toBeVisible();
+    expect(screen.getByText("screenshot.png")).toBeVisible();
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[1]);
+    expect(screen.queryByText("screenshot.png")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create issue" }));
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/mona/octo-app/issues/new/create",
+        expect.objectContaining({
+          body: JSON.stringify({
+            title: "Issue with attachment metadata",
+            body: "Body",
+            labelIds: [],
+            assigneeUserIds: [],
+            attachments: [
+              {
+                fileName: "console.log",
+                byteSize: 3,
+                contentType: "text/plain",
+              },
+            ],
           }),
         }),
       ),

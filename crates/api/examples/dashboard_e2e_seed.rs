@@ -262,6 +262,7 @@ async fn main() -> anyhow::Result<()> {
                 milestone_id: None,
                 label_ids: vec![],
                 assignee_user_ids: vec![user.id],
+                attachments: Vec::new(),
             },
         )
         .await?;
@@ -466,6 +467,7 @@ async fn seed_search_documents(
                 .map(|label| vec![label.id])
                 .unwrap_or_default(),
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await?;

@@ -20,8 +20,8 @@ use crate::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
             list_issue_templates_for_viewer, repository_issue_list_view_for_viewer,
             save_repository_issue_preferences, update_issue_state, CollaborationError,
-            CreateComment, CreateIssue, IssueListQuery, IssueState, ReactionContent,
-            UpdateIssueState,
+            CreateComment, CreateIssue, CreateIssueAttachment, IssueListQuery, IssueState,
+            ReactionContent, UpdateIssueState,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
@@ -100,6 +100,15 @@ struct CreateIssueRequest {
     milestone_id: Option<Uuid>,
     label_ids: Option<Vec<Uuid>>,
     assignee_user_ids: Option<Vec<Uuid>>,
+    attachments: Option<Vec<CreateIssueAttachmentRequest>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateIssueAttachmentRequest {
+    file_name: String,
+    byte_size: i64,
+    content_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -477,6 +486,16 @@ async fn create(
             milestone_id: request.milestone_id,
             label_ids: request.label_ids.unwrap_or_default(),
             assignee_user_ids: request.assignee_user_ids.unwrap_or_default(),
+            attachments: request
+                .attachments
+                .unwrap_or_default()
+                .into_iter()
+                .map(|attachment| CreateIssueAttachment {
+                    file_name: attachment.file_name,
+                    byte_size: attachment.byte_size,
+                    content_type: attachment.content_type,
+                })
+                .collect(),
         },
     )
     .await
@@ -670,7 +689,8 @@ pub(crate) fn map_collaboration_error(
         }
         CollaborationError::InvalidState(_)
         | CollaborationError::InvalidReaction(_)
-        | CollaborationError::InvalidIssueFilter(_) => {
+        | CollaborationError::InvalidIssueFilter(_)
+        | CollaborationError::InvalidIssueAttachment(_) => {
             let message = error.to_string();
             error_response_with_details(
                 StatusCode::UNPROCESSABLE_ENTITY,

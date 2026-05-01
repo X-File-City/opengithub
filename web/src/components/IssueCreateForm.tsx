@@ -7,6 +7,7 @@ import { MarkdownBody } from "@/components/MarkdownBody";
 import type {
   ApiErrorEnvelope,
   CreatedIssue,
+  IssueAttachmentInput,
   IssueFormField,
   RenderedMarkdown,
 } from "@/lib/api";
@@ -32,6 +33,10 @@ type ToolbarAction = {
   prefix: string;
   suffix: string;
   placeholder: string;
+};
+
+type LocalIssueAttachment = IssueAttachmentInput & {
+  clientId: string;
 };
 
 const TOOLBAR_ACTIONS: ToolbarAction[] = [
@@ -73,6 +78,28 @@ function initialFieldValue(field: IssueFormField) {
   return field.value ?? "";
 }
 
+function attachmentInputFromFile(file: File): LocalIssueAttachment {
+  const randomId =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return {
+    clientId: `${file.name}-${file.size}-${file.lastModified}-${randomId}`,
+    fileName: file.name,
+    byteSize: file.size,
+    contentType: file.type || null,
+  };
+}
+
+function attachmentPayload(
+  attachment: LocalIssueAttachment,
+): IssueAttachmentInput {
+  return {
+    fileName: attachment.fileName,
+    byteSize: attachment.byteSize,
+    contentType: attachment.contentType,
+  };
+}
+
 export function IssueCreateForm({
   owner,
   repo,
@@ -112,6 +139,7 @@ export function IssueCreateForm({
     ),
   );
   const [fieldTouched, setFieldTouched] = useState<Record<string, boolean>>({});
+  const [attachments, setAttachments] = useState<LocalIssueAttachment[]>([]);
   const [pendingPreviewKey, setPendingPreviewKey] = useState<string | null>(
     null,
   );
@@ -256,6 +284,9 @@ export function IssueCreateForm({
         ...(formFields.length ? { fieldValues } : {}),
         labelIds: defaultLabelIds,
         assigneeUserIds: defaultAssigneeUserIds,
+        ...(attachments.length
+          ? { attachments: attachments.map(attachmentPayload) }
+          : {}),
       };
       const response = await fetch(createEndpoint, {
         method: "POST",
@@ -292,6 +323,7 @@ export function IssueCreateForm({
         );
         setFieldTouched({});
         setRendered(defaultRendered(""));
+        setAttachments([]);
         setTab("write");
         setTitleTouched(false);
         return;
@@ -512,6 +544,23 @@ export function IssueCreateForm({
         </div>
       ) : null}
 
+      {defaultLabelIds.length || defaultAssigneeUserIds.length ? (
+        <div className="flex flex-wrap gap-2">
+          {defaultLabelIds.length ? (
+            <span className="chip soft">
+              {defaultLabelIds.length} default{" "}
+              {defaultLabelIds.length === 1 ? "label" : "labels"}
+            </span>
+          ) : null}
+          {defaultAssigneeUserIds.length ? (
+            <span className="chip soft">
+              {defaultAssigneeUserIds.length} default{" "}
+              {defaultAssigneeUserIds.length === 1 ? "assignee" : "assignees"}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="card overflow-hidden">
         <div className="border-b p-4" style={{ borderColor: "var(--line)" }}>
           <label className="t-label" htmlFor="issue-title">
@@ -607,8 +656,8 @@ export function IssueCreateForm({
                   value={body}
                 />
                 <p className="mt-2 t-xs" style={{ color: "var(--ink-3)" }}>
-                  Markdown is supported. Attachments are planned for a later
-                  phase.
+                  Markdown is supported. Selected attachments are recorded as
+                  metadata until binary upload storage is connected.
                 </p>
               </div>
             ) : (
@@ -627,6 +676,74 @@ export function IssueCreateForm({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <label className="t-label" htmlFor="issue-attachments">
+              Attachments
+            </label>
+            <p className="mt-2 t-sm" style={{ color: "var(--ink-3)" }}>
+              Add screenshots or logs. Files are not uploaded yet; opengithub
+              stores filename, size, and type with this issue.
+            </p>
+          </div>
+          <label className="btn sm" htmlFor="issue-attachments">
+            Add files
+          </label>
+          <input
+            className="sr-only"
+            id="issue-attachments"
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              setAttachments((current) => [
+                ...current,
+                ...files.map(attachmentInputFromFile),
+              ]);
+              event.currentTarget.value = "";
+            }}
+            type="file"
+          />
+        </div>
+        {attachments.length ? (
+          <ul className="mt-4 divide-y" style={{ borderColor: "var(--line)" }}>
+            {attachments.map((attachment) => (
+              <li
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+                key={attachment.clientId}
+              >
+                <div>
+                  <p className="t-sm">{attachment.fileName}</p>
+                  <p className="t-xs">
+                    {Math.max(0, attachment.byteSize).toLocaleString()} bytes
+                    {attachment.contentType
+                      ? ` · ${attachment.contentType}`
+                      : ""}
+                  </p>
+                </div>
+                <button
+                  className="btn ghost sm"
+                  onClick={() =>
+                    setAttachments((current) =>
+                      current.filter(
+                        (item) => item.clientId !== attachment.clientId,
+                      ),
+                    )
+                  }
+                  type="button"
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 t-xs" style={{ color: "var(--ink-3)" }}>
+            No attachments selected.
+          </p>
+        )}
       </div>
 
       {error ? (

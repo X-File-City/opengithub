@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::api_types::ListEnvelope;
 
 use super::{
+    notifications::{create_notification, CreateNotification},
     permissions::RepositoryRole,
     repositories::{
         get_repository, get_repository_by_owner_name, repository_permission_for_user, Repository,
@@ -349,6 +350,14 @@ pub struct CreateIssue {
     pub milestone_id: Option<Uuid>,
     pub label_ids: Vec<Uuid>,
     pub assignee_user_ids: Vec<Uuid>,
+    pub attachments: Vec<CreateIssueAttachment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateIssueAttachment {
+    pub file_name: String,
+    pub byte_size: i64,
+    pub content_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -425,6 +434,8 @@ pub enum CollaborationError {
     InvalidReaction(String),
     #[error("invalid issue filter: {0}")]
     InvalidIssueFilter(String),
+    #[error("invalid issue attachment: {0}")]
+    InvalidIssueAttachment(String),
     #[error("{message}")]
     InvalidIssueField { field_key: String, message: String },
     #[error(transparent)]
@@ -536,8 +547,13 @@ pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, Co
     )
     .await?;
     let input = prepare_issue_create_body(pool, input).await?;
+    validate_issue_create_metadata(pool, &input).await?;
     let number = next_issue_number(pool, input.repository_id).await?;
+    let assignee_user_ids = input.assignee_user_ids.clone();
+    let attachments = input.attachments.clone();
     let issue = insert_issue_with_number(pool, input, number).await?;
+    insert_issue_body_version(pool, &issue).await?;
+    insert_issue_attachments(pool, &issue, &attachments).await?;
     append_timeline_event(
         pool,
         issue.repository_id,
@@ -545,9 +561,13 @@ pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, Co
         None,
         Some(issue.author_user_id),
         "opened",
-        json!({ "number": issue.number }),
+        json!({
+            "number": issue.number,
+            "attachments": attachments.len(),
+        }),
     )
     .await?;
+    notify_issue_assignees(pool, &issue, &assignee_user_ids).await?;
     index_issue_search_document(pool, &issue, actor_user_id).await?;
     Ok(issue)
 }
@@ -575,12 +595,85 @@ async fn prepare_issue_create_body(
     )
     .await?;
     validate_required_issue_fields(&template, &input.field_values)?;
+    merge_uuid_defaults(&mut input.label_ids, &template.default_label_ids);
+    merge_uuid_defaults(
+        &mut input.assignee_user_ids,
+        &template.default_assignee_user_ids,
+    );
     input.body = Some(compose_issue_body_from_fields(
         input.body.as_deref(),
         &template.form_fields,
         &input.field_values,
     ));
     Ok(input)
+}
+
+fn merge_uuid_defaults(target: &mut Vec<Uuid>, defaults: &[Uuid]) {
+    for id in defaults {
+        if !target.contains(id) {
+            target.push(*id);
+        }
+    }
+}
+
+async fn validate_issue_create_metadata(
+    pool: &PgPool,
+    input: &CreateIssue,
+) -> Result<(), CollaborationError> {
+    for label_id in &input.label_ids {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM labels WHERE id = $1 AND repository_id = $2)",
+        )
+        .bind(label_id)
+        .bind(input.repository_id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "labelIds".to_owned(),
+                message: "label is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    let repository = get_repository(pool, input.repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    for assignee_user_id in &input.assignee_user_ids {
+        if let Err(error) =
+            repository_viewer_permission(pool, &repository, *assignee_user_id, RepositoryRole::Read)
+                .await
+        {
+            return Err(match error {
+                CollaborationError::RepositoryAccessDenied => {
+                    CollaborationError::InvalidIssueField {
+                        field_key: "assigneeUserIds".to_owned(),
+                        message: "assignee is not available for this repository".to_owned(),
+                    }
+                }
+                other => other,
+            });
+        }
+    }
+
+    for attachment in &input.attachments {
+        if attachment.file_name.trim().is_empty() {
+            return Err(CollaborationError::InvalidIssueAttachment(
+                "attachment filename is required".to_owned(),
+            ));
+        }
+        if attachment.byte_size < 0 {
+            return Err(CollaborationError::InvalidIssueAttachment(
+                "attachment size must be non-negative".to_owned(),
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 pub async fn list_issues(
@@ -1223,6 +1316,75 @@ pub(crate) async fn insert_issue_with_number(
     }
 
     Ok(issue)
+}
+
+async fn insert_issue_body_version(pool: &PgPool, issue: &Issue) -> Result<(), CollaborationError> {
+    sqlx::query(
+        r#"
+        INSERT INTO issue_body_versions (issue_id, editor_user_id, body, version)
+        VALUES ($1, $2, $3, 1)
+        "#,
+    )
+    .bind(issue.id)
+    .bind(issue.author_user_id)
+    .bind(issue.body.as_deref().unwrap_or(""))
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+async fn insert_issue_attachments(
+    pool: &PgPool,
+    issue: &Issue,
+    attachments: &[CreateIssueAttachment],
+) -> Result<(), CollaborationError> {
+    for attachment in attachments {
+        sqlx::query(
+            r#"
+            INSERT INTO issue_attachments (
+                issue_id, uploader_user_id, file_name, byte_size, content_type, storage_status
+            )
+            VALUES ($1, $2, $3, $4, $5, 'metadata_only')
+            "#,
+        )
+        .bind(issue.id)
+        .bind(issue.author_user_id)
+        .bind(attachment.file_name.trim())
+        .bind(attachment.byte_size)
+        .bind(attachment.content_type.as_deref())
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+async fn notify_issue_assignees(
+    pool: &PgPool,
+    issue: &Issue,
+    assignee_user_ids: &[Uuid],
+) -> Result<(), CollaborationError> {
+    for assignee_user_id in assignee_user_ids {
+        if *assignee_user_id == issue.author_user_id {
+            continue;
+        }
+        create_notification(
+            pool,
+            CreateNotification {
+                user_id: *assignee_user_id,
+                repository_id: Some(issue.repository_id),
+                subject_type: "issue".to_owned(),
+                subject_id: Some(issue.id),
+                title: format!("Assigned to issue #{}: {}", issue.number, issue.title),
+                reason: "assigned".to_owned(),
+            },
+        )
+        .await
+        .map_err(|error| match error {
+            super::notifications::NotificationError::Sqlx(error) => CollaborationError::Sqlx(error),
+            super::notifications::NotificationError::NotFound => CollaborationError::IssueNotFound,
+        })?;
+    }
+    Ok(())
 }
 
 pub(crate) async fn next_issue_number(
@@ -1994,6 +2156,7 @@ async fn issue_template_for_create(
                 field_key: "template".to_owned(),
                 message: "issue template was not found".to_owned(),
             })?;
+    hydrate_issue_template_defaults(pool, std::slice::from_mut(&mut template)).await?;
     hydrate_issue_template_fields(pool, std::slice::from_mut(&mut template)).await?;
     Ok(template)
 }

@@ -519,6 +519,7 @@ async fn dashboard_summary_populates_activity_assignments_and_review_requests() 
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![user.id],
+            attachments: Vec::new(),
         },
     )
     .await

@@ -637,6 +637,7 @@ async fn search_rest_route_indexes_issue_pull_request_and_discussion_tabs() {
             milestone_id: None,
             label_ids: vec![labels[0].id],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await

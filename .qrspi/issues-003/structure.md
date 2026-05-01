@@ -59,7 +59,7 @@
 
 ## Phase 4: Metadata, Attachments, and Notifications - submit applies authorized side effects
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Complete create side effects: template-provided labels/type/assignees when authorized, optional milestone/project hooks where the current data model supports them, attachment metadata affordances, initial body/comment/body-version records, timeline events, search indexing, and notifications for assignees/watchers. Attachment uploads may remain metadata-only until the S3 upload feature lands, but the UI must be honest and non-dead.
 

@@ -114,6 +114,7 @@ pub async fn create_pull_request(
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
         number,
     )

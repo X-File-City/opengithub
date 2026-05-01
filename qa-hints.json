@@ -1540,5 +1540,21 @@
       "Template default labels/assignees are passed through the form payload, but authorization and side-effect persistence hardening are deferred to Phase 4.",
       "Final mobile/accessibility/dead-control sweeps remain Phase 5 before issues-003 can be marked build_pass true."
     ]
+  },
+  {
+    "feature_id": "issues-003",
+    "tests_written": [
+      "Implemented Phase 4 issue creation side effects: server-side template default labels/assignees are merged and validated, issue body version rows are written, attachment metadata rows are recorded with metadata_only storage status, opened timeline metadata includes attachment count, and assignees receive notifications.",
+      "Added issue_body_versions and issue_attachments migrations plus a Rust contract proving label, assignee, body-version, attachment, notification, and timeline side effects in real Postgres.",
+      "IssueCreateForm now shows template metadata chips and an honest attachment picker that records filename, size, and MIME type without pretending binary upload exists.",
+      "Vitest coverage verifies attachment add/remove behavior and create payload metadata; Playwright signed-session flow creates a templated issue with an attachment and saves ralph/screenshots/build/issues-003-phase4-side-effects.jpg.",
+      "Verification passed: focused Rust side-effect contract, focused issue-create Vitest, focused repository-issue-create Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 137 frontend tests, make test-e2e with 59 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Attachment binary upload remains deferred until S3 upload storage lands; Phase 4 records metadata only and says so in the UI.",
+      "Notifications currently fan out to assignees; watcher/subscription fanout needs deeper QA when repository watch preferences exist.",
+      "Issue type from templates is not yet a first-class issue column, so type is limited to template context until issue types are modeled.",
+      "Final accessibility, mobile no-overflow, redirect, Cancel, Create more, and privacy/redaction sweeps remain Phase 5 before issues-003 can be marked build_pass true."
+    ]
   }
 ]

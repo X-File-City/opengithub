@@ -9,8 +9,10 @@ use opengithub_api::{
     domain::{
         identity::{upsert_session, upsert_user_by_email, User},
         issues::{ensure_default_labels, list_issue_templates_for_viewer},
+        permissions::RepositoryRole,
         repositories::{
-            create_repository, CreateRepository, RepositoryOwner, RepositoryVisibility,
+            create_repository, grant_repository_permission, CreateRepository, RepositoryOwner,
+            RepositoryVisibility,
         },
     },
 };
@@ -341,4 +343,142 @@ async fn issue_template_required_fields_validate_and_compose_body() {
     assert!(issue_body.contains("1. Open the issue form"));
     assert!(issue_body.contains("### Environment"));
     assert!(issue_body.contains("Chrome on macOS"));
+}
+
+#[tokio::test]
+async fn issue_create_applies_template_side_effects_and_attachment_metadata() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping issue side-effect scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-side-effect-owner").await;
+    let assignee = create_user(&pool, "issue-side-effect-assignee").await;
+    let repo_name = format!("issue-side-effects-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("repository should create");
+    grant_repository_permission(
+        &pool,
+        repository.id,
+        assignee.id,
+        RepositoryRole::Read,
+        "direct",
+    )
+    .await
+    .expect("assignee should receive read access");
+
+    let template_id = seed_template(&pool, repository.id, assignee.id).await;
+    let labels = ensure_default_labels(&pool, repository.id)
+        .await
+        .expect("labels should exist");
+    let bug = labels
+        .iter()
+        .find(|label| label.name == "bug")
+        .expect("bug label should exist");
+
+    let cookie = cookie_header(&pool, &config, &owner).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let uri = format!(
+        "/api/repos/{}/{}/issues",
+        owner.username.as_deref().unwrap(),
+        repo_name
+    );
+
+    let (status, body) = post_json(
+        app,
+        &uri,
+        Some(&cookie),
+        json!({
+            "title": "[Bug]: side effects",
+            "body": "### Expected behavior\n\nMetadata is applied.",
+            "templateId": template_id,
+            "fieldValues": {
+                "steps": "1. Attach a screenshot",
+                "environment": "Chrome on macOS"
+            },
+            "attachments": [
+                {
+                    "fileName": "console.log",
+                    "byteSize": 42,
+                    "contentType": "text/plain"
+                }
+            ]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let issue_id = Uuid::parse_str(body["id"].as_str().unwrap()).expect("issue id should parse");
+
+    let label_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM issue_labels WHERE issue_id = $1 AND label_id = $2",
+    )
+    .bind(issue_id)
+    .bind(bug.id)
+    .fetch_one(&pool)
+    .await
+    .expect("label side effect should query");
+    assert_eq!(label_count, 1);
+
+    let assignee_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM issue_assignees WHERE issue_id = $1 AND user_id = $2",
+    )
+    .bind(issue_id)
+    .bind(assignee.id)
+    .fetch_one(&pool)
+    .await
+    .expect("assignee side effect should query");
+    assert_eq!(assignee_count, 1);
+
+    let body_version = sqlx::query_as::<_, (i32, String)>(
+        "SELECT version, body FROM issue_body_versions WHERE issue_id = $1",
+    )
+    .bind(issue_id)
+    .fetch_one(&pool)
+    .await
+    .expect("body version should persist");
+    assert_eq!(body_version.0, 1);
+    assert!(body_version.1.contains("### Reproduction steps"));
+
+    let attachment = sqlx::query_as::<_, (String, i64, String)>(
+        "SELECT file_name, byte_size, storage_status FROM issue_attachments WHERE issue_id = $1",
+    )
+    .bind(issue_id)
+    .fetch_one(&pool)
+    .await
+    .expect("attachment metadata should persist");
+    assert_eq!(attachment.0, "console.log");
+    assert_eq!(attachment.1, 42);
+    assert_eq!(attachment.2, "metadata_only");
+
+    let notification = sqlx::query_as::<_, (String, String)>(
+        "SELECT subject_type, reason FROM notifications WHERE user_id = $1 AND subject_id = $2",
+    )
+    .bind(assignee.id)
+    .bind(issue_id)
+    .fetch_one(&pool)
+    .await
+    .expect("assignee notification should persist");
+    assert_eq!(notification.0, "issue");
+    assert_eq!(notification.1, "assigned");
+
+    let opened_event = sqlx::query_scalar::<_, serde_json::Value>(
+        "SELECT metadata FROM timeline_events WHERE issue_id = $1 AND event_type = 'opened'",
+    )
+    .bind(issue_id)
+    .fetch_one(&pool)
+    .await
+    .expect("opened timeline event should persist");
+    assert_eq!(opened_event["attachments"], 1);
 }

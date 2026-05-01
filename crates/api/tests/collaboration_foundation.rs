@@ -111,6 +111,7 @@ async fn issues_comments_reactions_filters_and_permissions_round_trip() {
             milestone_id: None,
             label_ids: vec![defaults[0].id],
             assignee_user_ids: vec![owner.id],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -131,6 +132,7 @@ async fn issues_comments_reactions_filters_and_permissions_round_trip() {
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await;
@@ -264,6 +266,7 @@ async fn pull_requests_share_issue_numbers_and_timeline_state() {
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await

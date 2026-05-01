@@ -125,6 +125,8 @@ test("signed-in user chooses an issue template before composing", async ({
   await page.getByRole("link", { name: "Get started" }).click();
   await expect(page).toHaveURL(/template=bug-report/);
   await expect(page.getByLabel("Title")).toHaveValue("[Bug]: ");
+  await expect(page.getByText("1 default label")).toBeVisible();
+  await expect(page.getByText("1 default assignee")).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Issue body" })).toHaveValue(
     /Expected behavior/,
   );
@@ -146,12 +148,18 @@ test("signed-in user chooses an issue template before composing", async ({
   await page
     .getByRole("textbox", { name: "Issue body" })
     .fill("### Expected behavior\n\nThe selected template preloads.");
+  await page.locator("#issue-attachments").setInputFiles({
+    name: "console.log",
+    mimeType: "text/plain",
+    buffer: Buffer.from("browser smoke log"),
+  });
+  await expect(page.getByText("console.log")).toBeVisible();
   await page.getByLabel("Create more").check();
   await page.getByRole("button", { name: "Create issue" }).click();
   await expect(page.getByRole("status")).toContainText("Created issue #");
 
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/issues-003-phase3-form-fields.jpg",
+    path: "../ralph/screenshots/build/issues-003-phase4-side-effects.jpg",
   });
 });

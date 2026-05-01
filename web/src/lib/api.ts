@@ -653,6 +653,13 @@ export type CreateIssueRequest = {
   milestoneId?: string | null;
   labelIds?: string[];
   assigneeUserIds?: string[];
+  attachments?: IssueAttachmentInput[];
+};
+
+export type IssueAttachmentInput = {
+  fileName: string;
+  byteSize: number;
+  contentType?: string | null;
 };
 
 export type IssueFormField = {

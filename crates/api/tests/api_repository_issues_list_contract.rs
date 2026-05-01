@@ -189,6 +189,7 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             milestone_id: Some(milestone_id),
             label_ids: vec![bug.id],
             assignee_user_ids: vec![owner.id],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -227,6 +228,7 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -389,6 +391,7 @@ async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
             milestone_id: None,
             label_ids: vec![bug.id],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -406,6 +409,7 @@ async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
             milestone_id: None,
             label_ids: vec![docs.id],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -423,6 +427,7 @@ async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -522,6 +527,7 @@ async fn issue_preferences_persist_contributor_banner_dismissal_per_viewer_repos
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -619,6 +625,7 @@ async fn private_issue_lists_require_repository_permission_and_redact_errors() {
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -691,6 +698,7 @@ async fn anonymous_issue_lists_read_public_repositories_but_not_private_reposito
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -708,6 +716,7 @@ async fn anonymous_issue_lists_read_public_repositories_but_not_private_reposito
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -806,6 +815,7 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             milestone_id: Some(milestone_id),
             label_ids: vec![bug.id],
             assignee_user_ids: vec![owner.id],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -823,6 +833,7 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             milestone_id: None,
             label_ids: vec![enhancement.id],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -850,6 +861,7 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
@@ -867,6 +879,7 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
+            attachments: Vec::new(),
         },
     )
     .await
