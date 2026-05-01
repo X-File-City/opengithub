@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { IssueContributorBanner } from "@/components/IssueContributorBanner";
-import { IssueFilterMenu } from "@/components/IssueFilterMenu";
+import {
+  IssueFilterMenu,
+  IssuePickerMenu,
+  type IssuePickerOption,
+} from "@/components/IssueFilterMenu";
+import {
+  IssueSortMenu,
+  type IssueSortOption,
+} from "@/components/IssueSortMenu";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
   IssueListItem,
@@ -12,8 +20,12 @@ import {
   repositoryIssueAddLabelHref,
   repositoryIssueClearFilterHref,
   repositoryIssueDetailHref,
+  repositoryIssueExcludeAuthorHref,
   repositoryIssueExcludeLabelHref,
   repositoryIssueNoLabelsHref,
+  repositoryIssueNoMetadataHref,
+  repositoryIssueSetMilestoneHref,
+  repositoryIssueSetUserFilterHref,
   repositoryIssueSortHref,
   repositoryIssueStateHref,
   repositoryIssuesHref,
@@ -91,11 +103,56 @@ function InlineCodeTitle({ title }: { title: string }) {
 }
 
 const ISSUE_SORT_OPTIONS = [
-  ["updated-desc", "Recently updated"],
-  ["updated-asc", "Least recently updated"],
-  ["created-desc", "Newest"],
-  ["created-asc", "Oldest"],
-] as const;
+  {
+    value: "updated-desc",
+    label: "Recently updated",
+    group: "Sort by",
+    description: "Issues with the latest activity first.",
+    shortcut: "u",
+  },
+  {
+    value: "created-desc",
+    label: "Newest",
+    group: "Sort by",
+    description: "Newly opened issues first.",
+    shortcut: "n",
+  },
+  {
+    value: "comments-desc",
+    label: "Most commented",
+    group: "Sort by",
+    description: "Issues with the busiest conversations first.",
+    shortcut: "c",
+  },
+  {
+    value: "best-match",
+    label: "Best match",
+    group: "Sort by",
+    description: "Prioritize title and body matches for the typed query.",
+    shortcut: "b",
+  },
+  {
+    value: "updated-asc",
+    label: "Least recently updated",
+    group: "Order",
+    description: "Issues with the oldest activity first.",
+    shortcut: "U",
+  },
+  {
+    value: "created-asc",
+    label: "Oldest",
+    group: "Order",
+    description: "Oldest opened issues first.",
+    shortcut: "N",
+  },
+  {
+    value: "comments-asc",
+    label: "Least commented",
+    group: "Order",
+    description: "Issues with the quietest conversations first.",
+    shortcut: "C",
+  },
+] as const satisfies readonly Omit<IssueSortOption, "href" | "active">[];
 
 function IssueRow({
   issue,
@@ -186,15 +243,129 @@ export function RepositoryIssuesPage({
     ...query,
     q: issues.filters.query,
     state: activeState,
+    author: issues.filters.author,
+    excludedAuthor: issues.filters.excludedAuthor,
     labels: issues.filters.labels,
     excludedLabels: issues.filters.excludedLabels,
     noLabels: issues.filters.noLabels,
     milestone: issues.filters.milestone,
+    noMilestone: issues.filters.noMilestone,
     assignee: issues.filters.assignee,
+    noAssignee: issues.filters.noAssignee,
+    project: issues.filters.project,
+    issueType: issues.filters.issueType,
     sort: issues.filters.sort,
   };
+  const userOptions = issues.filterOptions.users.map((user) => ({
+    id: user.id,
+    label: user.login,
+    description: user.displayName,
+  }));
+  const authorOptions: IssuePickerOption[] = userOptions.map((user) => ({
+    ...user,
+    href: repositoryIssueSetUserFilterHref(
+      owner,
+      repo,
+      baseQuery,
+      "author",
+      user.label,
+    ),
+    excludeHref: repositoryIssueExcludeAuthorHref(
+      owner,
+      repo,
+      baseQuery,
+      user.label,
+    ),
+    selected: issues.filters.author?.toLowerCase() === user.label.toLowerCase(),
+  }));
+  const assigneeOptions: IssuePickerOption[] = userOptions.map((user) => ({
+    ...user,
+    href: repositoryIssueSetUserFilterHref(
+      owner,
+      repo,
+      baseQuery,
+      "assignee",
+      user.label,
+    ),
+    selected:
+      issues.filters.assignee?.toLowerCase() === user.label.toLowerCase(),
+  }));
+  const milestoneOptions: IssuePickerOption[] =
+    issues.filterOptions.milestones.map((milestone) => ({
+      id: milestone.id,
+      label: milestone.title,
+      description: `${milestone.state} milestone`,
+      href: repositoryIssueSetMilestoneHref(
+        owner,
+        repo,
+        baseQuery,
+        milestone.title,
+      ),
+      selected:
+        issues.filters.milestone?.toLowerCase() ===
+        milestone.title.toLowerCase(),
+    }));
+  const projectOptions: IssuePickerOption[] = issues.filterOptions.projects
+    .length
+    ? issues.filterOptions.projects.map((project) => ({
+        id: project.id,
+        label: project.name,
+        description: project.description,
+        href: repositoryIssuesHref(owner, repo, {
+          ...baseQuery,
+          project: project.name,
+          page: null,
+        }),
+        selected:
+          issues.filters.project?.toLowerCase() === project.name.toLowerCase(),
+        disabledReason: project.disabledReason,
+      }))
+    : [
+        {
+          id: "projects-empty",
+          label: "No repository projects",
+          description: "Project metadata is not attached to issues yet.",
+          href: repositoryIssuesHref(owner, repo, baseQuery),
+          disabledReason:
+            "Project filters will activate when project links exist.",
+        },
+      ];
+  const typeOptions: IssuePickerOption[] = issues.filterOptions.issueTypes
+    .length
+    ? issues.filterOptions.issueTypes.map((issueType) => ({
+        id: issueType.id,
+        label: issueType.name,
+        description: issueType.description,
+        href: repositoryIssuesHref(owner, repo, {
+          ...baseQuery,
+          issueType: issueType.name,
+          page: null,
+        }),
+        selected:
+          issues.filters.issueType?.toLowerCase() ===
+          issueType.name.toLowerCase(),
+        disabledReason: issueType.disabledReason,
+      }))
+    : [
+        {
+          id: "types-empty",
+          label: "No issue types",
+          description:
+            "Typed issues are not configured for this repository yet.",
+          href: repositoryIssuesHref(owner, repo, baseQuery),
+          disabledReason: "Type filters will activate when issue types exist.",
+        },
+      ];
   const firstItem = (issues.page - 1) * issues.pageSize + 1;
   const lastItem = Math.min(issues.total, issues.page * issues.pageSize);
+  const activeSort =
+    ISSUE_SORT_OPTIONS.find((option) => option.value === issues.filters.sort) ??
+    ISSUE_SORT_OPTIONS[0];
+  const sortOptions: IssueSortOption[] = ISSUE_SORT_OPTIONS.map((option) => ({
+    ...option,
+    href: repositoryIssueSortHref(owner, repo, baseQuery, option.value),
+    active: option.value === issues.filters.sort,
+  }));
 
   return (
     <RepositoryShell
@@ -263,12 +434,25 @@ export function RepositoryIssuesPage({
           {issues.filters.noLabels ? (
             <input name="noLabels" type="hidden" value="true" />
           ) : null}
+          {issues.filters.author ? (
+            <input name="author" type="hidden" value={issues.filters.author} />
+          ) : null}
+          {issues.filters.excludedAuthor ? (
+            <input
+              name="excludedAuthor"
+              type="hidden"
+              value={issues.filters.excludedAuthor}
+            />
+          ) : null}
           {issues.filters.milestone ? (
             <input
               name="milestone"
               type="hidden"
               value={issues.filters.milestone}
             />
+          ) : null}
+          {issues.filters.noMilestone ? (
+            <input name="noMilestone" type="hidden" value="true" />
           ) : null}
           {issues.filters.assignee ? (
             <input
@@ -277,9 +461,34 @@ export function RepositoryIssuesPage({
               value={issues.filters.assignee}
             />
           ) : null}
+          {issues.filters.noAssignee ? (
+            <input name="noAssignee" type="hidden" value="true" />
+          ) : null}
+          {issues.filters.project ? (
+            <input
+              name="project"
+              type="hidden"
+              value={issues.filters.project}
+            />
+          ) : null}
+          {issues.filters.issueType ? (
+            <input
+              name="issueType"
+              type="hidden"
+              value={issues.filters.issueType}
+            />
+          ) : null}
           <button className="btn" type="submit">
             Search
           </button>
+          <IssuePickerMenu
+            buttonLabel="Author"
+            dialogLabel="Author filter"
+            emptyMessage="No authors match this search."
+            options={authorOptions}
+            searchLabel="Filter authors"
+            searchPlaceholder="Filter authors"
+          />
           <IssueFilterMenu
             buttonLabel="Labels"
             labelOptions={issues.filterOptions.labels.map((label) => ({
@@ -306,9 +515,62 @@ export function RepositoryIssuesPage({
             noLabelsHref={repositoryIssueNoLabelsHref(owner, repo, baseQuery)}
             noLabelsSelected={issues.filters.noLabels}
           />
-          <Link className="btn ghost" href={`/${owner}/${repo}/milestones`}>
-            Milestones
-          </Link>
+          <IssuePickerMenu
+            buttonLabel="Projects"
+            dialogLabel="Projects filter"
+            emptyMessage="No projects match this search."
+            options={projectOptions}
+            searchLabel="Filter projects"
+            searchPlaceholder="Filter projects"
+          />
+          <IssuePickerMenu
+            buttonLabel="Milestones"
+            dialogLabel="Milestones filter"
+            emptyMessage="No milestones match this search."
+            noValueOption={{
+              id: "no-milestone",
+              label: "No milestone",
+              description: "Show issues without a milestone.",
+              href: repositoryIssueNoMetadataHref(
+                owner,
+                repo,
+                baseQuery,
+                "milestone",
+              ),
+              selected: issues.filters.noMilestone,
+            }}
+            options={milestoneOptions}
+            searchLabel="Filter milestones"
+            searchPlaceholder="Filter milestones"
+          />
+          <IssuePickerMenu
+            buttonLabel="Assignees"
+            dialogLabel="Assignees filter"
+            emptyMessage="No assignees match this search."
+            noValueOption={{
+              id: "no-assignee",
+              label: "No assignee",
+              description: "Show issues without an assignee.",
+              href: repositoryIssueNoMetadataHref(
+                owner,
+                repo,
+                baseQuery,
+                "assignee",
+              ),
+              selected: issues.filters.noAssignee,
+            }}
+            options={assigneeOptions}
+            searchLabel="Filter assignees"
+            searchPlaceholder="Filter assignees"
+          />
+          <IssuePickerMenu
+            buttonLabel="Types"
+            dialogLabel="Types filter"
+            emptyMessage="No issue types match this search."
+            options={typeOptions}
+            searchLabel="Filter types"
+            searchPlaceholder="Filter types"
+          />
         </form>
 
         <div className="card overflow-hidden">
@@ -338,20 +600,38 @@ export function RepositoryIssuesPage({
               </Link>
             </nav>
             <div className="flex flex-wrap gap-2 py-3">
-              {ISSUE_SORT_OPTIONS.map(([value, label]) => (
+              <IssueSortMenu
+                activeLabel={activeSort.label}
+                options={sortOptions}
+              />
+              {issues.filters.author ? (
                 <Link
-                  aria-current={
-                    issues.filters.sort === value ? "page" : undefined
-                  }
-                  className={`chip ${
-                    issues.filters.sort === value ? "active" : "soft"
-                  }`}
-                  href={repositoryIssueSortHref(owner, repo, baseQuery, value)}
-                  key={value}
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "author",
+                  )}
+                  title={`Remove author:${issues.filters.author}`}
                 >
-                  {label}
+                  author:{issues.filters.author}
                 </Link>
-              ))}
+              ) : null}
+              {issues.filters.excludedAuthor ? (
+                <Link
+                  className="chip err"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "excludedAuthor",
+                  )}
+                  title={`Remove -author:${issues.filters.excludedAuthor}`}
+                >
+                  -author:{issues.filters.excludedAuthor}
+                </Link>
+              ) : null}
               {issues.filters.labels.map((label) => (
                 <Link
                   className="chip soft"
@@ -412,6 +692,20 @@ export function RepositoryIssuesPage({
                   milestone:{issues.filters.milestone}
                 </Link>
               ) : null}
+              {issues.filters.noMilestone ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "noMilestone",
+                  )}
+                  title="Remove no:milestone"
+                >
+                  no:milestone
+                </Link>
+              ) : null}
               {issues.filters.assignee ? (
                 <Link
                   className="chip soft"
@@ -424,6 +718,48 @@ export function RepositoryIssuesPage({
                   title={`Remove assignee:${issues.filters.assignee}`}
                 >
                   assignee:{issues.filters.assignee}
+                </Link>
+              ) : null}
+              {issues.filters.noAssignee ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "noAssignee",
+                  )}
+                  title="Remove no:assignee"
+                >
+                  no:assignee
+                </Link>
+              ) : null}
+              {issues.filters.project ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "project",
+                  )}
+                  title={`Remove project:${issues.filters.project}`}
+                >
+                  project:{issues.filters.project}
+                </Link>
+              ) : null}
+              {issues.filters.issueType ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "issueType",
+                  )}
+                  title={`Remove type:${issues.filters.issueType}`}
+                >
+                  type:{issues.filters.issueType}
                 </Link>
               ) : null}
             </div>

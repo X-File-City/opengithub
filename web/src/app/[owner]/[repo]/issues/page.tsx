@@ -12,11 +12,17 @@ type RepositoryIssuesPageProps = {
   searchParams: Promise<{
     q?: string;
     state?: "open" | "closed";
+    author?: string;
+    excludedAuthor?: string;
     labels?: string;
     excludedLabels?: string;
     noLabels?: string;
     milestone?: string;
+    noMilestone?: string;
     assignee?: string;
+    noAssignee?: string;
+    project?: string;
+    issueType?: string;
     sort?: string;
     page?: string;
   }>;
@@ -35,6 +41,8 @@ export default async function RepositoryIssuesPage({
   const issueQuery = {
     q: query.q,
     state: query.state,
+    author: query.author,
+    excludedAuthor: query.excludedAuthor,
     labels: query.labels
       ?.split(",")
       .map((label) => label.trim())
@@ -45,7 +53,11 @@ export default async function RepositoryIssuesPage({
       .filter(Boolean),
     noLabels: query.noLabels === "true",
     milestone: query.milestone,
+    noMilestone: query.noMilestone === "true",
     assignee: query.assignee,
+    noAssignee: query.noAssignee === "true",
+    project: query.project,
+    issueType: query.issueType,
     sort: query.sort,
     page: Number.isFinite(page) ? page : 1,
   };

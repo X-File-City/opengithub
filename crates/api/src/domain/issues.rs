@@ -159,11 +159,17 @@ pub struct IssueListCounts {
 pub struct IssueListFilters {
     pub query: String,
     pub state: IssueState,
+    pub author: Option<String>,
+    pub excluded_author: Option<String>,
     pub labels: Vec<String>,
     pub excluded_labels: Vec<String>,
     pub no_labels: bool,
     pub milestone: Option<String>,
+    pub no_milestone: bool,
     pub assignee: Option<String>,
+    pub no_assignee: bool,
+    pub project: Option<String>,
+    pub issue_type: Option<String>,
     pub sort: String,
 }
 
@@ -171,6 +177,20 @@ pub struct IssueListFilters {
 #[serde(rename_all = "camelCase")]
 pub struct IssueListFilterOptions {
     pub labels: Vec<IssueListLabel>,
+    pub users: Vec<IssueListUser>,
+    pub milestones: Vec<IssueListMilestone>,
+    pub projects: Vec<IssueListMetadataOption>,
+    pub issue_types: Vec<IssueListMetadataOption>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueListMetadataOption {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub count: i64,
+    pub disabled_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -210,11 +230,17 @@ pub struct IssueListPreferences {
 pub struct IssueListQuery {
     pub query: Option<String>,
     pub state: IssueState,
+    pub author: Option<String>,
+    pub excluded_author: Option<String>,
     pub labels: Vec<String>,
     pub excluded_labels: Vec<String>,
     pub no_labels: bool,
     pub milestone: Option<String>,
+    pub no_milestone: bool,
     pub assignee: Option<String>,
+    pub no_assignee: bool,
+    pub project: Option<String>,
+    pub issue_type: Option<String>,
     pub sort: String,
 }
 
@@ -223,11 +249,17 @@ impl Default for IssueListQuery {
         Self {
             query: Some("is:issue state:open".to_owned()),
             state: IssueState::Open,
+            author: None,
+            excluded_author: None,
             labels: Vec::new(),
             excluded_labels: Vec::new(),
             no_labels: false,
             milestone: None,
+            no_milestone: false,
             assignee: None,
+            no_assignee: false,
+            project: None,
+            issue_type: None,
             sort: "updated-desc".to_owned(),
         }
     }
@@ -553,15 +585,25 @@ pub async fn repository_issue_list_view_for_viewer(
         .filter(|value| !value.is_empty());
     let label_filters = filters.labels.clone();
     let excluded_label_filters = filters.excluded_labels.clone();
+    let author_filter = filters.author.clone();
+    let excluded_author_filter = filters.excluded_author.clone();
     let milestone_filter = filters.milestone.clone();
     let assignee_filter = filters.assignee.clone();
+    let project_filter = filters.project.clone();
+    let issue_type_filter = filters.issue_type.clone();
     let count_filters = IssueListCountFilters {
         text_filter: text_filter.as_deref(),
+        author_filter: author_filter.as_deref(),
+        excluded_author_filter: excluded_author_filter.as_deref(),
         label_filters: &label_filters,
         excluded_label_filters: &excluded_label_filters,
         no_labels: filters.no_labels,
         milestone_filter: milestone_filter.as_deref(),
+        no_milestone: filters.no_milestone,
         assignee_filter: assignee_filter.as_deref(),
+        no_assignee: filters.no_assignee,
+        project_filter: project_filter.as_deref(),
+        issue_type_filter: issue_type_filter.as_deref(),
     };
 
     let open_count = count_issue_list_items(
@@ -601,10 +643,28 @@ pub async fn repository_issue_list_view_for_viewer(
               OR COALESCE(issues.body, '') ILIKE '%' || $3 || '%'
           )
           AND (
-              cardinality($4::text[]) = 0
+              $4::text IS NULL
+              OR EXISTS (
+                  SELECT 1
+                  FROM users
+                  WHERE users.id = issues.author_user_id
+                    AND lower(COALESCE(users.username, users.email)) = lower($4)
+              )
+          )
+          AND (
+              $5::text IS NULL
               OR NOT EXISTS (
                   SELECT 1
-                  FROM unnest($4::text[]) wanted_label(name)
+                  FROM users
+                  WHERE users.id = issues.author_user_id
+                    AND lower(COALESCE(users.username, users.email)) = lower($5)
+              )
+          )
+          AND (
+              cardinality($6::text[]) = 0
+              OR NOT EXISTS (
+                  SELECT 1
+                  FROM unnest($6::text[]) wanted_label(name)
                   WHERE NOT EXISTS (
                       SELECT 1
                       FROM issue_labels
@@ -615,58 +675,89 @@ pub async fn repository_issue_list_view_for_viewer(
               )
           )
           AND (
-              cardinality($5::text[]) = 0
+              cardinality($7::text[]) = 0
               OR NOT EXISTS (
                   SELECT 1
                   FROM issue_labels
                   JOIN labels ON labels.id = issue_labels.label_id
-                  JOIN unnest($5::text[]) blocked_label(name)
+                  JOIN unnest($7::text[]) blocked_label(name)
                     ON lower(labels.name) = lower(blocked_label.name)
                   WHERE issue_labels.issue_id = issues.id
               )
           )
           AND (
-              $6::boolean = false
+              $8::boolean = false
               OR NOT EXISTS (
                   SELECT 1 FROM issue_labels WHERE issue_labels.issue_id = issues.id
               )
           )
           AND (
-              $7::text IS NULL
+              $9::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM milestones
                   WHERE milestones.id = issues.milestone_id
-                    AND lower(milestones.title) = lower($7)
+                    AND lower(milestones.title) = lower($9)
               )
           )
           AND (
-              $8::text IS NULL
+              $10::boolean = false
+              OR issues.milestone_id IS NULL
+          )
+          AND (
+              $11::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM issue_assignees
                   JOIN users ON users.id = issue_assignees.user_id
                   WHERE issue_assignees.issue_id = issues.id
-                    AND lower(COALESCE(users.username, users.email)) = lower($8)
+                    AND lower(COALESCE(users.username, users.email)) = lower($11)
               )
           )
+          AND (
+              $12::boolean = false
+              OR NOT EXISTS (
+                  SELECT 1 FROM issue_assignees WHERE issue_assignees.issue_id = issues.id
+              )
+          )
+          AND $13::text IS NULL
+          AND (
+              $14::text IS NULL
+              OR lower($14) IN ('issue', 'issues')
+          )
         ORDER BY
-          CASE WHEN $9 = 'created-asc' THEN issues.created_at END ASC,
-          CASE WHEN $9 = 'created-desc' THEN issues.created_at END DESC,
-          CASE WHEN $9 = 'updated-asc' THEN issues.updated_at END ASC,
+          CASE WHEN $15 = 'best-match' AND $3::text IS NOT NULL AND issues.title ILIKE '%' || $3 || '%' THEN 0 END ASC,
+          CASE WHEN $15 = 'best-match' AND $3::text IS NOT NULL AND COALESCE(issues.body, '') ILIKE '%' || $3 || '%' THEN 1 END ASC,
+          CASE WHEN $15 = 'best-match' THEN issues.updated_at END DESC,
+          CASE WHEN $15 = 'comments-desc' THEN (
+              SELECT count(*) FROM comments WHERE comments.issue_id = issues.id
+          ) END DESC,
+          CASE WHEN $15 = 'comments-asc' THEN (
+              SELECT count(*) FROM comments WHERE comments.issue_id = issues.id
+          ) END ASC,
+          CASE WHEN $15 = 'created-asc' THEN issues.created_at END ASC,
+          CASE WHEN $15 = 'created-desc' THEN issues.created_at END DESC,
+          CASE WHEN $15 = 'updated-desc' THEN issues.updated_at END DESC,
+          CASE WHEN $15 = 'updated-asc' THEN issues.updated_at END ASC,
           issues.updated_at DESC,
           issues.number DESC
-        LIMIT $10 OFFSET $11
+        LIMIT $16 OFFSET $17
         "#,
     )
     .bind(repository_id)
     .bind(state_filter)
     .bind(text_filter.as_deref())
+    .bind(author_filter.as_deref())
+    .bind(excluded_author_filter.as_deref())
     .bind(&label_filters)
     .bind(&excluded_label_filters)
     .bind(filters.no_labels)
     .bind(milestone_filter.as_deref())
+    .bind(filters.no_milestone)
     .bind(assignee_filter.as_deref())
+    .bind(filters.no_assignee)
+    .bind(project_filter.as_deref())
+    .bind(issue_type_filter.as_deref())
     .bind(&filters.sort)
     .bind(page_size)
     .bind(offset)
@@ -679,6 +770,8 @@ pub async fn repository_issue_list_view_for_viewer(
         .collect::<Result<Vec<_>, _>>()?;
     let items = issue_list_items_for_issues(pool, &repository, issues).await?;
     let label_options = issue_list_label_options(pool, repository_id).await?;
+    let user_options = issue_list_user_options(pool, repository_id).await?;
+    let milestone_options = issue_list_milestone_options(pool, repository_id).await?;
     let preferences = match actor_user_id {
         Some(user_id) => get_repository_issue_preferences(pool, repository_id, user_id).await?,
         None => IssueListPreferences {
@@ -703,15 +796,25 @@ pub async fn repository_issue_list_view_for_viewer(
                 .query
                 .unwrap_or_else(|| "is:issue state:open".to_owned()),
             state: filters.state,
+            author: filters.author,
+            excluded_author: filters.excluded_author,
             labels: filters.labels,
             excluded_labels: filters.excluded_labels,
             no_labels: filters.no_labels,
             milestone: filters.milestone,
+            no_milestone: filters.no_milestone,
             assignee: filters.assignee,
+            no_assignee: filters.no_assignee,
+            project: filters.project,
+            issue_type: filters.issue_type,
             sort: filters.sort,
         },
         filter_options: IssueListFilterOptions {
             labels: label_options,
+            users: user_options,
+            milestones: milestone_options,
+            projects: Vec::new(),
+            issue_types: Vec::new(),
         },
         viewer_permission,
         repository: IssueListRepository {
@@ -1146,11 +1249,17 @@ async fn repository_issue_preferences_row(
 
 struct IssueListCountFilters<'a> {
     text_filter: Option<&'a str>,
+    author_filter: Option<&'a str>,
+    excluded_author_filter: Option<&'a str>,
     label_filters: &'a [String],
     excluded_label_filters: &'a [String],
     no_labels: bool,
     milestone_filter: Option<&'a str>,
+    no_milestone: bool,
     assignee_filter: Option<&'a str>,
+    no_assignee: bool,
+    project_filter: Option<&'a str>,
+    issue_type_filter: Option<&'a str>,
 }
 
 async fn count_issue_list_items(
@@ -1174,10 +1283,28 @@ async fn count_issue_list_items(
               OR COALESCE(issues.body, '') ILIKE '%' || $3 || '%'
           )
           AND (
-              cardinality($4::text[]) = 0
+              $4::text IS NULL
+              OR EXISTS (
+                  SELECT 1
+                  FROM users
+                  WHERE users.id = issues.author_user_id
+                    AND lower(COALESCE(users.username, users.email)) = lower($4)
+              )
+          )
+          AND (
+              $5::text IS NULL
               OR NOT EXISTS (
                   SELECT 1
-                  FROM unnest($4::text[]) wanted_label(name)
+                  FROM users
+                  WHERE users.id = issues.author_user_id
+                    AND lower(COALESCE(users.username, users.email)) = lower($5)
+              )
+          )
+          AND (
+              cardinality($6::text[]) = 0
+              OR NOT EXISTS (
+                  SELECT 1
+                  FROM unnest($6::text[]) wanted_label(name)
                   WHERE NOT EXISTS (
                       SELECT 1
                       FROM issue_labels
@@ -1188,51 +1315,72 @@ async fn count_issue_list_items(
               )
           )
           AND (
-              cardinality($5::text[]) = 0
+              cardinality($7::text[]) = 0
               OR NOT EXISTS (
                   SELECT 1
                   FROM issue_labels
                   JOIN labels ON labels.id = issue_labels.label_id
-                  JOIN unnest($5::text[]) blocked_label(name)
+                  JOIN unnest($7::text[]) blocked_label(name)
                     ON lower(labels.name) = lower(blocked_label.name)
                   WHERE issue_labels.issue_id = issues.id
               )
           )
           AND (
-              $6::boolean = false
+              $8::boolean = false
               OR NOT EXISTS (
                   SELECT 1 FROM issue_labels WHERE issue_labels.issue_id = issues.id
               )
           )
           AND (
-              $7::text IS NULL
+              $9::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM milestones
                   WHERE milestones.id = issues.milestone_id
-                    AND lower(milestones.title) = lower($7)
+                    AND lower(milestones.title) = lower($9)
               )
           )
           AND (
-              $8::text IS NULL
+              $10::boolean = false
+              OR issues.milestone_id IS NULL
+          )
+          AND (
+              $11::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM issue_assignees
                   JOIN users ON users.id = issue_assignees.user_id
                   WHERE issue_assignees.issue_id = issues.id
-                    AND lower(COALESCE(users.username, users.email)) = lower($8)
+                    AND lower(COALESCE(users.username, users.email)) = lower($11)
               )
+          )
+          AND (
+              $12::boolean = false
+              OR NOT EXISTS (
+                  SELECT 1 FROM issue_assignees WHERE issue_assignees.issue_id = issues.id
+              )
+          )
+          AND $13::text IS NULL
+          AND (
+              $14::text IS NULL
+              OR lower($14) IN ('issue', 'issues')
           )
         "#,
     )
     .bind(repository_id)
     .bind(state)
     .bind(filters.text_filter)
+    .bind(filters.author_filter)
+    .bind(filters.excluded_author_filter)
     .bind(filters.label_filters)
     .bind(filters.excluded_label_filters)
     .bind(filters.no_labels)
     .bind(filters.milestone_filter)
+    .bind(filters.no_milestone)
     .bind(filters.assignee_filter)
+    .bind(filters.no_assignee)
+    .bind(filters.project_filter)
+    .bind(filters.issue_type_filter)
     .fetch_one(pool)
     .await
     .map_err(CollaborationError::from)
@@ -1383,6 +1531,79 @@ async fn issue_list_label_options(
         .collect())
 }
 
+async fn issue_list_user_options(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<Vec<IssueListUser>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT users.id, COALESCE(users.username, users.email) AS login,
+               users.display_name, users.avatar_url
+        FROM users
+        WHERE users.id IN (
+            SELECT repositories.created_by_user_id
+            FROM repositories
+            WHERE repositories.id = $1
+            UNION
+            SELECT repository_permissions.user_id
+            FROM repository_permissions
+            WHERE repository_permissions.repository_id = $1
+            UNION
+            SELECT issues.author_user_id
+            FROM issues
+            WHERE issues.repository_id = $1
+            UNION
+            SELECT issue_assignees.user_id
+            FROM issue_assignees
+            JOIN issues ON issues.id = issue_assignees.issue_id
+            WHERE issues.repository_id = $1
+        )
+        ORDER BY lower(COALESCE(users.username, users.email))
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| IssueListUser {
+            id: row.get("id"),
+            login: row.get("login"),
+            display_name: row.get("display_name"),
+            avatar_url: row.get("avatar_url"),
+        })
+        .collect())
+}
+
+async fn issue_list_milestone_options(
+    pool: &PgPool,
+    repository_id: Uuid,
+) -> Result<Vec<IssueListMilestone>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT id, title, state
+        FROM milestones
+        WHERE repository_id = $1
+        ORDER BY state ASC, lower(title)
+        "#,
+    )
+    .bind(repository_id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter()
+        .map(|row| {
+            let state: String = row.get("state");
+            Ok(IssueListMilestone {
+                id: row.get("id"),
+                title: row.get("title"),
+                state: IssueState::try_from(state.as_str())?,
+            })
+        })
+        .collect()
+}
+
 async fn issue_list_milestones(
     pool: &PgPool,
     issue_ids: &[Uuid],
@@ -1524,9 +1745,17 @@ fn search_text_from_issue_query(query: &str) -> String {
             ) && !term.starts_with("label:")
                 && !term.starts_with("-label:")
                 && term != "no:label"
+                && term != "no:labels"
+                && term != "no:assignee"
+                && term != "no:milestone"
+                && !term.starts_with("author:")
+                && !term.starts_with("-author:")
                 && !term.starts_with("milestone:")
                 && !term.starts_with("assignee:")
+                && !term.starts_with("project:")
+                && !term.starts_with("type:")
                 && !term.starts_with("sort:")
+                && !term.starts_with("order:")
         })
         .collect::<Vec<_>>()
         .join(" ")

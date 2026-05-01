@@ -356,6 +356,105 @@ test("signed-in repository Issues label menu filters, excludes, and finds unlabe
   });
 });
 
+test("signed-in repository Issues people and metadata menus update filters", async ({
+  page,
+}) => {
+  const seeded = seedSession();
+  await signIn(page, seeded);
+  const repositoryName = `issues people ${Date.now().toString(36)}`;
+  const cookie = `${seeded.cookieName}=${seeded.cookieValue}`;
+  const currentUserResponse = await page.request.get(
+    "http://localhost:3016/api/auth/current-user",
+    { headers: { cookie } },
+  );
+  expect(currentUserResponse.status()).toBe(200);
+  const currentUser = (await currentUserResponse.json()) as CurrentUser;
+  const repositoryResponse = await page.request.post(
+    "http://localhost:3016/api/repos",
+    {
+      headers: { cookie },
+      data: {
+        ownerType: "user",
+        ownerId: currentUser.id,
+        name: repositoryName,
+        visibility: "public",
+        initializeReadme: false,
+      },
+    },
+  );
+  expect(repositoryResponse.status()).toBe(201);
+  const repository = (await repositoryResponse.json()) as CreatedRepository;
+  const issueTitle = `People menu issue ${Date.now().toString(36)}`;
+  const issueResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${repository.owner_login}/${repository.name}/issues`,
+    {
+      headers: { cookie },
+      data: {
+        title: issueTitle,
+        body: "This issue should remain reachable through metadata filters.",
+      },
+    },
+  );
+  expect(issueResponse.status()).toBe(201);
+
+  const issuesUrl = `/${repository.owner_login}/${repository.name}/issues`;
+  await page.goto(issuesUrl);
+  await page.getByRole("button", { name: /Author/ }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter authors" }),
+  ).toBeFocused();
+  const currentLogin = currentUser.username ?? currentUser.email;
+  await page.getByRole("option", { name: new RegExp(currentLogin) }).click();
+  await expect(page).toHaveURL(/author=/);
+  await expect(page.getByRole("link", { name: issueTitle })).toBeVisible();
+
+  await page.goto(issuesUrl);
+  await page.getByRole("button", { name: /Assignees/ }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter assignees" }),
+  ).toBeFocused();
+  await page.getByRole("option", { name: /No assignee/ }).click();
+  await expect(page).toHaveURL(/noAssignee=true/);
+  await expect(page.getByRole("link", { name: issueTitle })).toBeVisible();
+
+  await page.goto(issuesUrl);
+  await page.getByRole("button", { name: /Milestones/ }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter milestones" }),
+  ).toBeFocused();
+  await page.getByRole("option", { name: /No milestone/ }).click();
+  await expect(page).toHaveURL(/noMilestone=true/);
+  await expect(page.getByRole("link", { name: issueTitle })).toBeVisible();
+
+  await page.getByRole("button", { name: /Projects/ }).click();
+  await expect(
+    page.getByRole("option", { name: /No repository projects/ }),
+  ).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: /Types/ }).click();
+  await expect(
+    page.getByRole("option", { name: /No issue types/ }),
+  ).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: /Sort by/ }).click();
+  await expect(page.getByRole("menu", { name: "Sort issues" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitemradio", { name: /Recently updated/ }),
+  ).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("menuitemradio", { name: /Most commented/ }).click();
+  await expect(page).toHaveURL(/sort=comments-desc/);
+  await expect(
+    page.getByRole("button", { name: /Sort by: Most commented/ }),
+  ).toBeVisible();
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-002-phase3-sort-menu.jpg",
+  });
+});
+
 test("signed-in repository Issues contributor banner dismissal persists on reload", async ({
   page,
 }) => {

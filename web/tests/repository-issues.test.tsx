@@ -16,8 +16,12 @@ import {
   repositoryIssueAddLabelHref,
   repositoryIssueClearFilterHref,
   repositoryIssueDetailHref,
+  repositoryIssueExcludeAuthorHref,
   repositoryIssueExcludeLabelHref,
   repositoryIssueNoLabelsHref,
+  repositoryIssueNoMetadataHref,
+  repositoryIssueSetMilestoneHref,
+  repositoryIssueSetUserFilterHref,
   repositoryIssueSortHref,
   repositoryIssueStateHref,
   repositoryIssuesHref,
@@ -137,11 +141,17 @@ function issueListView(overrides: Partial<IssueListView> = {}): IssueListView {
     filters: {
       query: "is:issue state:open",
       state: "open",
+      author: null,
+      excludedAuthor: null,
       labels: [],
       excludedLabels: [],
       noLabels: false,
       milestone: null,
+      noMilestone: false,
       assignee: null,
+      noAssignee: false,
+      project: null,
+      issueType: null,
       sort: "updated-desc",
     },
     filterOptions: {
@@ -159,6 +169,29 @@ function issueListView(overrides: Partial<IssueListView> = {}): IssueListView {
           description: "Improvements or additions to documentation",
         },
       ],
+      users: [
+        {
+          id: "user-1",
+          login: "mona",
+          displayName: "Mona",
+          avatarUrl: null,
+        },
+        {
+          id: "user-2",
+          login: "hubot",
+          displayName: "Hubot",
+          avatarUrl: null,
+        },
+      ],
+      milestones: [
+        {
+          id: "milestone-1",
+          title: "MVP",
+          state: "open",
+        },
+      ],
+      projects: [],
+      issueTypes: [],
     },
     viewerPermission: "owner",
     repository: {
@@ -201,10 +234,11 @@ describe("RepositoryIssuesPage", () => {
       "/mona/octo-app/issues/new",
     );
     expect(screen.getByRole("button", { name: /Labels/ })).toBeVisible();
-    expect(screen.getByRole("link", { name: /Milestones/ })).toHaveAttribute(
-      "href",
-      "/mona/octo-app/milestones",
-    );
+    expect(screen.getByRole("button", { name: /Milestones/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Author/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Projects/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Assignees/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Types/ })).toBeVisible();
 
     const row = screen.getByRole("article");
     expect(within(row).getByRole("link", { name: /Fix/ })).toHaveAttribute(
@@ -331,7 +365,7 @@ describe("RepositoryIssuesPage", () => {
       repositoryIssueSortHref(
         "mona",
         "octo-app",
-        { q: "is:issue state:open", state: "open" },
+        { q: "is:issue state:open sort:updated-desc", state: "open" },
         "created-asc",
       ),
     ).toBe(
@@ -386,6 +420,47 @@ describe("RepositoryIssuesPage", () => {
     ).toBe(
       "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+no%3Alabel&state=open&noLabels=true",
     );
+    expect(
+      repositoryIssueSetUserFilterHref(
+        "mona",
+        "octo-app",
+        { q: "is:issue state:open", state: "open", page: 2 },
+        "author",
+        "mona",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+author%3Amona&state=open&author=mona",
+    );
+    expect(
+      repositoryIssueExcludeAuthorHref(
+        "mona",
+        "octo-app",
+        { q: "is:issue state:open author:mona", author: "mona" },
+        "hubot",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+-author%3Ahubot&excludedAuthor=hubot",
+    );
+    expect(
+      repositoryIssueSetMilestoneHref(
+        "mona",
+        "octo-app",
+        { q: "is:issue state:open no:milestone", noMilestone: true },
+        "Phase 3",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+milestone%3A%22Phase+3%22&milestone=Phase+3",
+    );
+    expect(
+      repositoryIssueNoMetadataHref(
+        "mona",
+        "octo-app",
+        { q: "is:issue state:open assignee:hubot", assignee: "hubot" },
+        "assignee",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+no%3Aassignee&noAssignee=true",
+    );
   });
 
   it("opens the label filter menu, focuses search, narrows options, and exposes label actions", async () => {
@@ -418,6 +493,125 @@ describe("RepositoryIssuesPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("opens people and metadata menus with URL-backed options and honest empty states", async () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView()}
+        query={{ q: "is:issue state:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Author/ }));
+    const authorSearch = screen.getByRole("combobox", {
+      name: "Filter authors",
+    });
+    await waitFor(() => expect(authorSearch).toHaveFocus());
+    expect(screen.getByRole("dialog", { name: "Author filter" })).toBeVisible();
+    expect(screen.getByRole("option", { name: /mona/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+author%3Amona&state=open&author=mona&sort=updated-desc",
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Author filter" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Milestones/ }));
+    const milestoneSearch = screen.getByRole("combobox", {
+      name: "Filter milestones",
+    });
+    await waitFor(() => expect(milestoneSearch).toHaveFocus());
+    expect(
+      screen.getByRole("option", { name: /No milestone/ }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+no%3Amilestone&state=open&noMilestone=true&sort=updated-desc",
+    );
+    expect(screen.getByRole("option", { name: /MVP/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+milestone%3AMVP&state=open&milestone=MVP&sort=updated-desc",
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Milestones filter" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Assignees/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Filter assignees" }),
+      ).toHaveFocus(),
+    );
+    expect(screen.getByRole("option", { name: /No assignee/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+no%3Aassignee&state=open&noAssignee=true&sort=updated-desc",
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Assignees filter" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Projects/ }));
+    expect(
+      screen.getByRole("option", { name: /No repository projects/ }),
+    ).toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Projects filter" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Types/ }));
+    expect(
+      screen.getByRole("option", { name: /No issue types/ }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("opens the sort menu with checked radio choices that preserve filters", async () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView({
+          filters: {
+            ...issueListView().filters,
+            labels: ["bug"],
+            sort: "comments-desc",
+          },
+        })}
+        query={{ labels: ["bug"], q: "is:issue state:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Sort by/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("menu", { name: "Sort issues" })).toBeVisible(),
+    );
+
+    expect(
+      screen.getByRole("menuitemradio", { name: /Most commented/ }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("menuitemradio", { name: /Least commented/ }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open&labels=bug&sort=comments-asc",
+    );
+    expect(
+      screen.getByRole("menuitemradio", { name: /Best match/ }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open&labels=bug&sort=best-match",
+    );
+  });
+
   it("renders filtered controls, closed state, and clear-query affordance", () => {
     render(
       <RepositoryIssuesPage
@@ -430,11 +624,17 @@ describe("RepositoryIssuesPage", () => {
           filters: {
             query: "is:issue state:closed label:missing",
             state: "closed",
+            author: null,
+            excludedAuthor: null,
             labels: ["missing"],
             excludedLabels: ["wontfix"],
             noLabels: false,
             milestone: null,
+            noMilestone: false,
             assignee: "hubot",
+            noAssignee: false,
+            project: null,
+            issueType: null,
             sort: "created-asc",
           },
         })}
@@ -448,10 +648,9 @@ describe("RepositoryIssuesPage", () => {
       "page",
     );
     expect(screen.getByText("No issues matched this query")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Oldest" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(
+      screen.getByRole("button", { name: /Sort by: Oldest/ }),
+    ).toBeVisible();
     expect(screen.getByTitle("Remove label:missing")).toHaveAttribute(
       "href",
       "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed&state=closed&excludedLabels=wontfix&assignee=hubot&sort=created-asc",

@@ -62,14 +62,25 @@ fn post_reaction_route() -> axum::routing::MethodRouter<AppState> {
 struct ListQuery {
     state: Option<IssueState>,
     q: Option<String>,
+    author: Option<String>,
+    #[serde(alias = "excluded_author", alias = "excludedAuthor")]
+    excluded_author: Option<String>,
     labels: Option<String>,
     #[serde(alias = "excluded_labels")]
     excluded_labels: Option<String>,
     #[serde(alias = "no_labels", alias = "noLabels")]
     no_labels: Option<bool>,
     milestone: Option<String>,
+    #[serde(alias = "no_milestone", alias = "noMilestone")]
+    no_milestone: Option<bool>,
     assignee: Option<String>,
+    #[serde(alias = "no_assignee", alias = "noAssignee")]
+    no_assignee: Option<bool>,
+    project: Option<String>,
+    #[serde(alias = "type")]
+    issue_type: Option<String>,
     sort: Option<String>,
+    order: Option<String>,
     page: Option<i64>,
     #[serde(alias = "page_size")]
     page_size: Option<i64>,
@@ -136,7 +147,15 @@ async fn list(
     Ok(Json(json!(envelope)))
 }
 
-const ISSUE_SORTS: &[&str] = &["updated-desc", "updated-asc", "created-desc", "created-asc"];
+const ISSUE_SORTS: &[&str] = &[
+    "updated-desc",
+    "updated-asc",
+    "created-desc",
+    "created-asc",
+    "comments-desc",
+    "comments-asc",
+    "best-match",
+];
 
 fn issue_list_query(
     query: &ListQuery,
@@ -153,6 +172,28 @@ fn issue_list_query(
     validate_issue_query(q)?;
     filters.query = Some(q.chars().take(240).collect());
     filters.state = query.state.clone().unwrap_or_else(|| state_from_query(q));
+    filters.author = query
+        .author
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| normalize_user_filter(value, actor))
+        .or_else(|| {
+            qualifier_from_query(q, "author:")
+                .as_deref()
+                .map(|value| normalize_user_filter(value, actor))
+        });
+    filters.excluded_author = query
+        .excluded_author
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| normalize_user_filter(value, actor))
+        .or_else(|| {
+            qualifier_from_query(q, "-author:")
+                .as_deref()
+                .map(|value| normalize_user_filter(value, actor))
+        });
     filters.labels = labels_from_query(q, query.labels.as_deref());
     filters.excluded_labels = excluded_labels_from_query(q, query.excluded_labels.as_deref());
     filters.no_labels = query.no_labels.unwrap_or(false) || no_labels_from_query(q);
@@ -163,18 +204,34 @@ fn issue_list_query(
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
         .or_else(|| qualifier_from_query(q, "milestone:"));
+    filters.no_milestone = query.no_milestone.unwrap_or(false) || no_filter_from_query(q, "milestone");
     filters.assignee = query
         .assignee
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .map(|value| normalize_assignee_filter(value, actor))
+        .map(|value| normalize_user_filter(value, actor))
         .or_else(|| {
             qualifier_from_query(q, "assignee:")
                 .as_deref()
-                .map(|value| normalize_assignee_filter(value, actor))
+                .map(|value| normalize_user_filter(value, actor))
         });
-    filters.sort = query
+    filters.no_assignee = query.no_assignee.unwrap_or(false) || no_filter_from_query(q, "assignee");
+    filters.project = query
+        .project
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| qualifier_from_query(q, "project:"));
+    filters.issue_type = query
+        .issue_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| qualifier_from_query(q, "type:"));
+    let raw_sort = query
         .sort
         .as_deref()
         .map(str::trim)
@@ -182,12 +239,46 @@ fn issue_list_query(
         .map(ToOwned::to_owned)
         .or_else(|| qualifier_from_query(q, "sort:"))
         .unwrap_or_else(|| "updated-desc".to_owned());
-    if !ISSUE_SORTS.contains(&filters.sort.as_str()) {
+    let raw_order = query
+        .order
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| qualifier_from_query(q, "order:"));
+    filters.sort = normalize_issue_sort(&raw_sort, raw_order.as_deref())?;
+    Ok(filters)
+}
+
+fn normalize_issue_sort(
+    sort: &str,
+    order: Option<&str>,
+) -> Result<String, CollaborationError> {
+    let order = order.unwrap_or("desc").to_lowercase();
+    if !matches!(order.as_str(), "asc" | "desc") {
         return Err(CollaborationError::InvalidIssueFilter(
-            "sort must be one of updated-desc, updated-asc, created-desc, created-asc".to_owned(),
+            "order must be asc or desc".to_owned(),
         ));
     }
-    Ok(filters)
+
+    let normalized = match sort.to_lowercase().as_str() {
+        "updated" | "recently-updated" => format!("updated-{order}"),
+        "created" | "newest" => format!("created-{order}"),
+        "comments" | "commented" | "most-commented" => format!("comments-{order}"),
+        "least-commented" => "comments-asc".to_owned(),
+        "oldest" => "created-asc".to_owned(),
+        "least-recently-updated" => "updated-asc".to_owned(),
+        "best" | "best-match" => "best-match".to_owned(),
+        value => value.to_owned(),
+    };
+
+    if !ISSUE_SORTS.contains(&normalized.as_str()) {
+        return Err(CollaborationError::InvalidIssueFilter(
+            "sort must be one of updated-desc, updated-asc, created-desc, created-asc, comments-desc, comments-asc, best-match".to_owned(),
+        ));
+    }
+
+    Ok(normalized)
 }
 
 fn validate_issue_query(query: &str) -> Result<(), CollaborationError> {
@@ -209,20 +300,29 @@ fn validate_issue_query(query: &str) -> Result<(), CollaborationError> {
         if matches!(term, "no:labels" | "no:label") {
             continue;
         }
-        for prefix in ["label:", "-label:"] {
+        for prefix in [
+            "label:",
+            "-label:",
+            "author:",
+            "-author:",
+            "assignee:",
+            "milestone:",
+            "project:",
+            "type:",
+        ] {
             if let Some(value) = term.strip_prefix(prefix) {
                 let normalized = value.trim().trim_matches('"');
                 if normalized.is_empty() {
                     return Err(CollaborationError::InvalidIssueFilter(
-                        "label filters require a label name".to_owned(),
+                        format!("{} filters require a value", prefix.trim_end_matches(':')),
                     ));
                 }
             }
         }
         if let Some(value) = term.strip_prefix("no:") {
-            if value != "label" && value != "labels" {
+            if !matches!(value, "label" | "labels" | "assignee" | "milestone") {
                 return Err(CollaborationError::InvalidIssueFilter(
-                    "no filter must be label".to_owned(),
+                    "no filter must be label, assignee, or milestone".to_owned(),
                 ));
             }
         }
@@ -278,9 +378,13 @@ fn excluded_labels_from_query(query: &str, explicit_labels: Option<&str>) -> Vec
 }
 
 fn no_labels_from_query(query: &str) -> bool {
+    no_filter_from_query(query, "label") || no_filter_from_query(query, "labels")
+}
+
+fn no_filter_from_query(query: &str, value: &str) -> bool {
     query
         .split_whitespace()
-        .any(|term| matches!(term, "no:label" | "no:labels"))
+        .any(|term| term.strip_prefix("no:").is_some_and(|term| term == value))
 }
 
 fn qualifier_from_query(query: &str, prefix: &str) -> Option<String> {
@@ -316,7 +420,7 @@ fn qualifier_values_from_query(query: &str, prefix: &str) -> Vec<String> {
     values
 }
 
-fn normalize_assignee_filter(value: &str, actor: Option<&User>) -> String {
+fn normalize_user_filter(value: &str, actor: Option<&User>) -> String {
     let normalized = value.trim().trim_start_matches('@');
     if normalized.eq_ignore_ascii_case("me") {
         actor

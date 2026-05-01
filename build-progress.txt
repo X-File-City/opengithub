@@ -996,3 +996,19 @@
 - Verification: focused Rust label-filter contract passed; focused `repository-issues.test.tsx` passed; focused Playwright label-menu test passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 120 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 56 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
 - Marked Phase 1 as done in `.qrspi/issues-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
 - Tests not run because this iteration only created the required planning artifact.
+
+2026-05-01 - issues-002 phase 2 people and metadata menus
+
+- Found Phase 2 changes already present in the worktree and preserved them while implementing Phase 3: Author, Projects, Milestones, Assignees, and Types menus are URL-backed and use the shared Editorial picker menu.
+- Phase 2 extends issue-list filters and options for author, excluded author, assignee/no-assignee, milestone/no-milestone, project, and issue type placeholders with explicit disabled empty states for unsupported dimensions.
+- Verification is covered by the current Phase 3 full run: focused `repository-issues.test.tsx` passed, focused repository Issues Playwright passed, `make check` passed, `make test` passed with cargo tests and 122 frontend tests, and `make test-e2e` passed with 57 Playwright tests.
+- Marked Phase 2 as done in `.qrspi/issues-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 3-5 remain.
+
+2026-05-01 - issues-002 phase 3 sort menu
+
+- Implemented Phase 3 from `.qrspi/issues-002/structure.md`: repository issue lists now use a compact Editorial `Sort by` dropdown instead of static sort chips.
+- Added `web/src/components/IssueSortMenu.tsx` with grouped radio-menu choices, checked state, shortcut metadata, Escape/outside-close behavior, and URL-backed links that preserve filters while resetting pagination.
+- Extended issue-list sort normalization and SQL ordering for recently/least recently updated, newest/oldest, most/least commented, best match, and `sort` + `order` aliases.
+- Added Rust contract coverage for comment-count sorting, sort/order aliases, best-match ordering, and invalid sort validation; added Vitest and Playwright coverage for menu state, filter preservation, selection, dead controls, and screenshot `ralph/screenshots/build/issues-002-phase3-sort-menu.jpg`.
+- Verification: focused Rust issue-list sort contract passed; focused `repository-issues.test.tsx` passed; focused repository Issues Playwright passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `make test` passed with cargo tests and 122 frontend tests; `make test-e2e` passed with 57 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
+- Marked Phase 3 as done in `.qrspi/issues-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.

@@ -25,7 +25,7 @@
 
 ## Phase 2: People and Metadata Menus - author, assignee, milestone, project, and type controls
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Complete the compact filter toolbar with Author, Projects, Milestones, Assignees, and Types menus. Each menu opens with focus in its combobox when searchable, narrows options, updates the search-builder query and URL without dropping existing qualifiers, and renders honest empty states for dimensions not fully modeled yet.
 
@@ -43,7 +43,7 @@
 
 ## Phase 3: Sort Menu - grouped radio choices update sort and order safely
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the current row of static sort chips with a compact Sort by dropdown menu. The menu is a grouped radio menu with checked state, accessible metadata for shortcuts/order, and choices that update `sort:`/`order:` or the existing `sort` param while preserving all other filters.
 

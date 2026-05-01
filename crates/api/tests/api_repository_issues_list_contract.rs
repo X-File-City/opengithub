@@ -282,9 +282,15 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["closedCount"], 0);
     assert_eq!(body["counts"]["open"], 1);
     assert_eq!(body["filters"]["state"], "open");
+    assert_eq!(body["filters"]["author"], Value::Null);
+    assert_eq!(body["filters"]["excludedAuthor"], Value::Null);
     assert_eq!(body["filters"]["labels"][0], "bug");
     assert_eq!(body["filters"]["excludedLabels"], json!([]));
     assert_eq!(body["filters"]["noLabels"], false);
+    assert_eq!(body["filters"]["noMilestone"], false);
+    assert_eq!(body["filters"]["noAssignee"], false);
+    assert_eq!(body["filters"]["project"], Value::Null);
+    assert_eq!(body["filters"]["issueType"], Value::Null);
     assert!(
         body["filterOptions"]["labels"]
             .as_array()
@@ -292,6 +298,22 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             .iter()
             .any(|label| label["name"] == "bug")
     );
+    assert!(
+        body["filterOptions"]["users"]
+            .as_array()
+            .expect("user options should be an array")
+            .iter()
+            .any(|user| user["login"] == owner.email)
+    );
+    assert!(
+        body["filterOptions"]["milestones"]
+            .as_array()
+            .expect("milestone options should be an array")
+            .iter()
+            .any(|milestone| milestone["title"] == "MVP")
+    );
+    assert_eq!(body["filterOptions"]["projects"], json!([]));
+    assert_eq!(body["filterOptions"]["issueTypes"], json!([]));
     assert_eq!(body["repository"]["name"], repo_name);
     assert_eq!(body["viewerPermission"], "read");
     assert_eq!(body["preferences"]["dismissedContributorBanner"], false);
@@ -788,6 +810,54 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     )
     .await
     .expect("other issue should close");
+    let quiet_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Quiet ordering target".to_owned(),
+            body: Some("Sorting coverage without comments".to_owned()),
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("quiet issue should create");
+    let busy_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Busy ordering target".to_owned(),
+            body: Some("Sorting coverage with discussion".to_owned()),
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("busy issue should create");
+    add_issue_comment(
+        &pool,
+        busy_issue.id,
+        CreateComment {
+            actor_user_id: owner.id,
+            body: "First sort comment".to_owned(),
+        },
+    )
+    .await
+    .expect("first sort comment should create");
+    add_issue_comment(
+        &pool,
+        busy_issue.id,
+        CreateComment {
+            actor_user_id: owner.id,
+            body: "Second sort comment".to_owned(),
+        },
+    )
+    .await
+    .expect("second sort comment should create");
 
     let cookie = cookie_header(&pool, &config, &owner).await;
     let app = opengithub_api::build_app_with_config(Some(pool), config);
@@ -805,6 +875,92 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     assert_eq!(body["filters"]["milestone"], "Phase 3");
     assert_eq!(body["filters"]["assignee"], owner.email);
     assert_eq!(body["filters"]["sort"], "created-asc");
+
+    let (author_status, author_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20author%3A%40me"
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(author_status, StatusCode::OK);
+    assert_eq!(author_body["total"], 3);
+    assert_eq!(author_body["filters"]["author"], owner.email);
+
+    let (exclude_author_status, exclude_author_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20-author%3A%40me"
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(exclude_author_status, StatusCode::OK);
+    assert_eq!(exclude_author_body["total"], 0);
+    assert_eq!(exclude_author_body["filters"]["excludedAuthor"], owner.email);
+
+    let (no_assignee_status, no_assignee_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(no_assignee_status, StatusCode::OK);
+    assert_eq!(no_assignee_body["total"], 2);
+    assert_eq!(no_assignee_body["filters"]["noAssignee"], true);
+
+    let (no_milestone_status, no_milestone_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20no%3Amilestone"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(no_milestone_status, StatusCode::OK);
+    assert_eq!(no_milestone_body["total"], 2);
+    assert_eq!(no_milestone_body["filters"]["noMilestone"], true);
+
+    let (project_status, project_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20project%3ARoadmap"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(project_status, StatusCode::OK);
+    assert_eq!(project_body["total"], 0);
+    assert_eq!(project_body["filters"]["project"], "Roadmap");
+
+    let (comments_desc_status, comments_desc_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{owner_path}/{repo_name}/issues?sort=comments-desc"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(comments_desc_status, StatusCode::OK);
+    assert_eq!(comments_desc_body["filters"]["sort"], "comments-desc");
+    assert_eq!(comments_desc_body["items"][0]["number"], busy_issue.number);
+
+    let (comments_asc_status, comments_asc_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{owner_path}/{repo_name}/issues?sort=comments&order=asc"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(comments_asc_status, StatusCode::OK);
+    assert_eq!(comments_asc_body["filters"]["sort"], "comments-asc");
+    assert_eq!(comments_asc_body["items"][0]["number"], quiet_issue.number);
+
+    let (best_match_status, best_match_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20Busy&sort=best-match"
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(best_match_status, StatusCode::OK);
+    assert_eq!(best_match_body["filters"]["sort"], "best-match");
+    assert_eq!(best_match_body["items"][0]["number"], busy_issue.number);
 
     let (bad_sort_status, bad_sort_body) = send_json(
         app.clone(),

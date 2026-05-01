@@ -1411,5 +1411,36 @@
       "No-label filtering uses no:label/noLabels URL state; richer GitHub-compatible query grammar remains bounded until the final invalid-query phase.",
       "Label option colors currently reflect stored repository label colors; QA should verify contrast for custom label colors once label management ships."
     ]
+  },
+  {
+    "feature_id": "issues-002",
+    "tests_written": [
+      "Preserved Phase 2 people and metadata menus already present in the worktree: Author, Projects, Milestones, Assignees, and Types dropdowns use the shared picker menu and URL-backed qualifiers.",
+      "Issue-list API filters now round-trip author, excluded author, assignee, no-assignee, milestone, no-milestone, project, and issue type metadata.",
+      "The toolbar renders disabled explained empty states for Projects and Types until those dimensions have backed issue metadata.",
+      "Current verification covers the Phase 2 surface through focused repository-issues Vitest, focused repository Issues Playwright, full make check, make test, make test-e2e, and the Editorial banned-value scan."
+    ],
+    "needs_deeper_qa": [
+      "Projects and Types are intentionally disabled placeholders; QA should revisit them once project links and issue types are modeled.",
+      "Author exclusion is supported through Alt-click/title metadata and URL helpers; cross-browser modifier behavior should be spot-checked.",
+      "This phase relies on repository users and milestones available from current metadata; richer counts and grouped option sections can wait for final guardrails."
+    ]
+  },
+  {
+    "feature_id": "issues-002",
+    "tests_written": [
+      "Implemented Phase 3 Sort by menu: compact Editorial dropdown with grouped radio choices, checked state, shortcut metadata, Escape/outside-close behavior, and URL-backed sort mutations.",
+      "Extended issue-list API sort normalization for newest, oldest, recently updated, least recently updated, most commented, least commented, best match, and sort/order alias parsing.",
+      "Added SQL ordering for comment counts and best-match title/body relevance while preserving existing permission and filter behavior.",
+      "Added Vitest coverage for sort href preservation, active menuitemradio state, best-match and comment sort URLs, and no inert controls.",
+      "Added Playwright coverage for opening the sort menu, selecting Most commented, preserving the selected sort summary, dead-control checks, and screenshot ralph/screenshots/build/issues-002-phase3-sort-menu.jpg.",
+      "Verification passed: focused Rust issue-list sort contract, focused repository-issues Vitest, focused repository-issues Playwright, TEST_DATABASE_URL-backed make check, make test with 122 frontend tests plus cargo tests, make test-e2e with 57 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Reaction-based issue sorting is intentionally not exposed until reactions are aggregated into the issue list contract.",
+      "Best-match is bounded to title/body text relevance for this phase; richer search-index ranking should be revisited when advanced query feedback and issue search indexing are expanded.",
+      "The Playwright smoke validates Chromium interaction and selected summary after navigation; QA should spot-check keyboard arrow semantics in other browsers.",
+      "Invalid advanced-query inline warnings remain Phase 4 work."
+    ]
   }
 ]

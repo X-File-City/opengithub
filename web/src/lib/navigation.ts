@@ -618,11 +618,17 @@ export function repositoryTabHref(
 export type RepositoryIssueHrefQuery = {
   q?: string | null;
   state?: string | null;
+  author?: string | null;
+  excludedAuthor?: string | null;
   labels?: string[] | null;
   excludedLabels?: string[] | null;
   noLabels?: boolean | null;
   milestone?: string | null;
+  noMilestone?: boolean | null;
   assignee?: string | null;
+  noAssignee?: boolean | null;
+  project?: string | null;
+  issueType?: string | null;
   sort?: string | null;
   page?: number | null;
 };
@@ -639,6 +645,12 @@ export function repositoryIssuesHref(
   if (query.state?.trim()) {
     params.set("state", query.state.trim());
   }
+  if (query.author?.trim()) {
+    params.set("author", query.author.trim());
+  }
+  if (query.excludedAuthor?.trim()) {
+    params.set("excludedAuthor", query.excludedAuthor.trim());
+  }
   if (query.labels?.length) {
     params.set("labels", query.labels.join(","));
   }
@@ -651,8 +663,20 @@ export function repositoryIssuesHref(
   if (query.milestone?.trim()) {
     params.set("milestone", query.milestone.trim());
   }
+  if (query.noMilestone) {
+    params.set("noMilestone", "true");
+  }
   if (query.assignee?.trim()) {
     params.set("assignee", query.assignee.trim());
+  }
+  if (query.noAssignee) {
+    params.set("noAssignee", "true");
+  }
+  if (query.project?.trim()) {
+    params.set("project", query.project.trim());
+  }
+  if (query.issueType?.trim()) {
+    params.set("issueType", query.issueType.trim());
   }
   if (query.sort?.trim()) {
     params.set("sort", query.sort.trim());
@@ -696,6 +720,10 @@ export function repositoryIssueSortHref(
   return repositoryIssuesHref(owner, repo, {
     ...current,
     sort,
+    q: removeIssueFilterFromQuery(
+      removeIssueFilterFromQuery(current.q, "sort"),
+      "order",
+    ),
     page: null,
   });
 }
@@ -704,11 +732,28 @@ export function repositoryIssueClearFilterHref(
   owner: string,
   repo: string,
   current: RepositoryIssueHrefQuery,
-  filter: "labels" | "excludedLabels" | "noLabels" | "milestone" | "assignee",
+  filter:
+    | "author"
+    | "excludedAuthor"
+    | "labels"
+    | "excludedLabels"
+    | "noLabels"
+    | "milestone"
+    | "noMilestone"
+    | "assignee"
+    | "noAssignee"
+    | "project"
+    | "issueType",
   value?: string,
 ) {
   const next = { ...current, page: null };
-  if (filter === "labels") {
+  if (filter === "author") {
+    next.author = null;
+    next.q = removeIssueFilterFromQuery(current.q, "author");
+  } else if (filter === "excludedAuthor") {
+    next.excludedAuthor = null;
+    next.q = removeIssueFilterFromQuery(current.q, "-author");
+  } else if (filter === "labels") {
     next.labels = value
       ? current.labels?.filter(
           (label) => label.toLowerCase() !== value.toLowerCase(),
@@ -728,11 +773,118 @@ export function repositoryIssueClearFilterHref(
   } else if (filter === "milestone") {
     next.milestone = null;
     next.q = removeIssueFilterFromQuery(current.q, "milestone");
-  } else {
+  } else if (filter === "noMilestone") {
+    next.noMilestone = false;
+    next.q = removeNoIssueFilterFromQuery(current.q, "milestone");
+  } else if (filter === "assignee") {
     next.assignee = null;
     next.q = removeIssueFilterFromQuery(current.q, "assignee");
+  } else if (filter === "noAssignee") {
+    next.noAssignee = false;
+    next.q = removeNoIssueFilterFromQuery(current.q, "assignee");
+  } else if (filter === "project") {
+    next.project = null;
+    next.q = removeIssueFilterFromQuery(current.q, "project");
+  } else {
+    next.issueType = null;
+    next.q = removeIssueFilterFromQuery(current.q, "type");
   }
   return repositoryIssuesHref(owner, repo, next);
+}
+
+export function repositoryIssueSetUserFilterHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  filter: "author" | "assignee",
+  login: string,
+) {
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    [filter]: login,
+    ...(filter === "author" ? { excludedAuthor: null } : { noAssignee: false }),
+    q: addIssueQualifier(
+      filter === "author"
+        ? removeIssueFilterFromQuery(
+            removeIssueFilterFromQuery(current.q, "-author"),
+            "author",
+          )
+        : removeNoIssueFilterFromQuery(
+            removeIssueFilterFromQuery(current.q, "assignee"),
+            "assignee",
+          ),
+      filter,
+      login,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryIssueExcludeAuthorHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  login: string,
+) {
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    author: null,
+    excludedAuthor: login,
+    q: addIssueQualifier(
+      removeIssueFilterFromQuery(
+        removeIssueFilterFromQuery(current.q, "author"),
+        "-author",
+      ),
+      "-author",
+      login,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryIssueSetMilestoneHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  milestone: string,
+) {
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    milestone,
+    noMilestone: false,
+    q: addIssueQualifier(
+      removeNoIssueFilterFromQuery(
+        removeIssueFilterFromQuery(current.q, "milestone"),
+        "milestone",
+      ),
+      "milestone",
+      milestone,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryIssueNoMetadataHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  filter: "assignee" | "milestone",
+) {
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    ...(filter === "assignee"
+      ? { assignee: null, noAssignee: true }
+      : { milestone: null, noMilestone: true }),
+    q: addIssueQualifier(
+      removeIssueFilterFromQuery(
+        removeNoIssueFilterFromQuery(current.q, filter),
+        filter,
+      ),
+      "no",
+      filter,
+    ),
+    page: null,
+  });
 }
 
 export function repositoryIssueAddLabelHref(
@@ -840,7 +992,17 @@ function issueQueryWithState(
 
 function removeIssueFilterFromQuery(
   query: string | null | undefined,
-  filter: "label" | "-label" | "milestone" | "assignee",
+  filter:
+    | "author"
+    | "-author"
+    | "label"
+    | "-label"
+    | "milestone"
+    | "assignee"
+    | "project"
+    | "type"
+    | "sort"
+    | "order",
   value?: string,
 ) {
   const normalizedValue = value?.toLowerCase();
@@ -862,14 +1024,36 @@ function removeIssueFilterFromQuery(
 }
 
 function removeNoLabelFilterFromQuery(query: string | null | undefined) {
+  return removeNoIssueFilterFromQuery(
+    removeNoIssueFilterFromQuery(query, "labels"),
+    "label",
+  );
+}
+
+function removeNoIssueFilterFromQuery(
+  query: string | null | undefined,
+  value: "label" | "labels" | "assignee" | "milestone",
+) {
+  const target = `no:${value}`;
   return issueQueryTerms(query?.trim() || "")
-    .filter((term) => term !== "no:label" && term !== "no:labels")
+    .filter((term) => term !== target)
     .join(" ");
 }
 
 function addIssueQualifier(
   query: string | null | undefined,
-  filter: "label" | "-label" | "no",
+  filter:
+    | "author"
+    | "-author"
+    | "label"
+    | "-label"
+    | "milestone"
+    | "assignee"
+    | "project"
+    | "type"
+    | "sort"
+    | "order"
+    | "no",
   value: string,
 ) {
   const terms = issueQueryTerms(query?.trim() || "");

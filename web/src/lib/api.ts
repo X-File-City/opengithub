@@ -530,6 +530,23 @@ export type IssueListMilestone = {
   state: IssueState;
 };
 
+export type IssueSort =
+  | "updated-desc"
+  | "updated-asc"
+  | "created-desc"
+  | "created-asc"
+  | "comments-desc"
+  | "comments-asc"
+  | "best-match";
+
+export type IssueListMetadataOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  count: number;
+  disabledReason: string | null;
+};
+
 export type LinkedPullRequestHint = {
   number: number;
   state: string;
@@ -561,12 +578,18 @@ export type IssueListItem = {
 export type IssueListFilters = {
   query: string;
   state: IssueState;
+  author: string | null;
+  excludedAuthor: string | null;
   labels: string[];
   excludedLabels: string[];
   noLabels: boolean;
   milestone: string | null;
+  noMilestone: boolean;
   assignee: string | null;
-  sort: string;
+  noAssignee: boolean;
+  project: string | null;
+  issueType: string | null;
+  sort: IssueSort;
 };
 
 export type IssueListPreferences = {
@@ -584,6 +607,10 @@ export type IssueListView = ListEnvelope<IssueListItem> & {
   filters: IssueListFilters;
   filterOptions: {
     labels: IssueListLabel[];
+    users: IssueListUser[];
+    milestones: IssueListMilestone[];
+    projects: IssueListMetadataOption[];
+    issueTypes: IssueListMetadataOption[];
   };
   viewerPermission: string | null;
   repository: {
@@ -598,11 +625,17 @@ export type IssueListView = ListEnvelope<IssueListItem> & {
 export type RepositoryIssueListQuery = {
   q?: string;
   state?: IssueState;
+  author?: string;
+  excludedAuthor?: string;
   labels?: string[];
   excludedLabels?: string[];
   noLabels?: boolean;
   milestone?: string;
+  noMilestone?: boolean;
   assignee?: string;
+  noAssignee?: boolean;
+  project?: string;
+  issueType?: string;
   sort?: string;
   page?: number;
   pageSize?: number;
@@ -968,6 +1001,12 @@ export function repositoryIssuesPath(
   if (query.state) {
     params.set("state", query.state);
   }
+  if (query.author?.trim()) {
+    params.set("author", query.author.trim());
+  }
+  if (query.excludedAuthor?.trim()) {
+    params.set("excludedAuthor", query.excludedAuthor.trim());
+  }
   if (query.labels?.length) {
     params.set("labels", query.labels.join(","));
   }
@@ -980,8 +1019,20 @@ export function repositoryIssuesPath(
   if (query.milestone?.trim()) {
     params.set("milestone", query.milestone.trim());
   }
+  if (query.noMilestone) {
+    params.set("noMilestone", "true");
+  }
   if (query.assignee?.trim()) {
     params.set("assignee", query.assignee.trim());
+  }
+  if (query.noAssignee) {
+    params.set("noAssignee", "true");
+  }
+  if (query.project?.trim()) {
+    params.set("project", query.project.trim());
+  }
+  if (query.issueType?.trim()) {
+    params.set("issueType", query.issueType.trim());
   }
   if (query.sort?.trim()) {
     params.set("sort", query.sort.trim());
