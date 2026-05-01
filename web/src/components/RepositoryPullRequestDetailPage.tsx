@@ -1,10 +1,18 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { MarkdownBody } from "@/components/MarkdownBody";
 import { PullRequestTimeline } from "@/components/PullRequestTimeline";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
+  ApiErrorEnvelope,
+  IssueListLabel,
+  IssueListMilestone,
+  IssueListUser,
   PullRequestDetailView,
+  PullRequestSubscriptionState,
   PullRequestTimelineItem,
   RepositoryOverview,
 } from "@/lib/api";
@@ -45,6 +53,10 @@ function avatarLabel(login: string) {
   return login.slice(0, 1).toUpperCase();
 }
 
+function optionSelected(id: string, selectedIds: string[]) {
+  return selectedIds.includes(id);
+}
+
 function stateLabel(pullRequest: PullRequestDetailView) {
   if (pullRequest.state === "merged") {
     return "Merged";
@@ -82,35 +94,177 @@ function SidebarSection({
 
 export function RepositoryPullRequestDetailPage({
   repository,
-  pullRequest,
+  pullRequest: initialPullRequest,
   timeline,
   viewerAuthenticated,
 }: RepositoryPullRequestDetailPageProps) {
+  const [currentPullRequest, setCurrentPullRequest] =
+    useState(initialPullRequest);
+  const [subscription, setSubscription] = useState(
+    initialPullRequest.subscription,
+  );
+  const [message, setMessage] = useState<string | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
+  const [openMetadataMenu, setOpenMetadataMenu] = useState<
+    "reviewers" | "assignees" | "labels" | "milestone" | null
+  >(null);
+  const pullRequest = currentPullRequest;
   const bodyLabelId = `pull-request-${pullRequest.number}-body`;
   const basePath = `/${repository.owner_login}/${repository.name}`;
   const activePath = `${basePath}/pull/${pullRequest.number}`;
+  const canEditMetadata =
+    viewerAuthenticated && currentPullRequest.viewerPermission !== null;
   const tabItems = [
     {
       href: activePath,
       label: "Conversation",
-      count: pullRequest.stats.comments,
+      count: currentPullRequest.stats.comments,
     },
     {
       href: `${activePath}/commits`,
       label: "Commits",
-      count: pullRequest.stats.commits,
+      count: currentPullRequest.stats.commits,
     },
     {
       href: `${activePath}/checks`,
       label: "Checks",
-      count: pullRequest.checks.totalCount || null,
+      count: currentPullRequest.checks.totalCount || null,
     },
     {
-      href: pullRequest.filesHref,
+      href: currentPullRequest.filesHref,
       label: "Files changed",
-      count: pullRequest.stats.files,
+      count: currentPullRequest.stats.files,
     },
   ];
+
+  async function savePullRequest(
+    path: "metadata" | "review-requests" | "draft",
+    body: Record<string, unknown>,
+    success: string,
+  ) {
+    setMessage(null);
+    setIsMutating(true);
+    try {
+      const response = await fetch(`${activePath}/${path}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const envelope = payload as ApiErrorEnvelope | null;
+        throw new Error(
+          envelope?.error.message ?? "Pull request could not be updated.",
+        );
+      }
+      const updated = payload as PullRequestDetailView;
+      setCurrentPullRequest(updated);
+      setSubscription(updated.subscription);
+      setOpenMetadataMenu(null);
+      setMessage(success);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Pull request could not be updated.",
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
+  function saveMetadata(next: {
+    labels?: IssueListLabel[];
+    assignees?: IssueListUser[];
+    milestone?: IssueListMilestone | null;
+  }) {
+    const labels = next.labels ?? currentPullRequest.labels;
+    const assignees = next.assignees ?? currentPullRequest.assignees;
+    const milestone =
+      "milestone" in next ? next.milestone : currentPullRequest.milestone;
+    void savePullRequest(
+      "metadata",
+      {
+        labelIds: labels.map((label) => label.id),
+        assigneeUserIds: assignees.map((assignee) => assignee.id),
+        milestoneId: milestone?.id ?? null,
+      },
+      "Pull request metadata updated.",
+    );
+  }
+
+  function toggleReviewer(reviewer: IssueListUser) {
+    const selectedIds = currentPullRequest.requestedReviewers.map(
+      (item) => item.id,
+    );
+    const reviewerUserIds = optionSelected(reviewer.id, selectedIds)
+      ? selectedIds.filter((id) => id !== reviewer.id)
+      : [...selectedIds, reviewer.id];
+    void savePullRequest(
+      "review-requests",
+      { reviewerUserIds },
+      "Review requests updated.",
+    );
+  }
+
+  function toggleAssignee(assignee: IssueListUser) {
+    const selectedIds = currentPullRequest.assignees.map((item) => item.id);
+    const assignees = optionSelected(assignee.id, selectedIds)
+      ? currentPullRequest.assignees.filter((item) => item.id !== assignee.id)
+      : [...currentPullRequest.assignees, assignee];
+    saveMetadata({ assignees });
+  }
+
+  function toggleLabel(label: IssueListLabel) {
+    const selectedIds = currentPullRequest.labels.map((item) => item.id);
+    const labels = optionSelected(label.id, selectedIds)
+      ? currentPullRequest.labels.filter((item) => item.id !== label.id)
+      : [...currentPullRequest.labels, label];
+    saveMetadata({ labels });
+  }
+
+  function toggleDraft() {
+    void savePullRequest(
+      "draft",
+      { isDraft: !currentPullRequest.isDraft },
+      currentPullRequest.isDraft
+        ? "Pull request marked ready for review."
+        : "Pull request converted to draft.",
+    );
+  }
+
+  async function toggleSubscription() {
+    setMessage(null);
+    setIsMutating(true);
+    try {
+      const response = await fetch(`${activePath}/subscription`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subscribed: !subscription.subscribed }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const envelope = payload as ApiErrorEnvelope | null;
+        throw new Error(
+          envelope?.error.message ??
+            "Notification subscription could not be updated.",
+        );
+      }
+      const next = payload as PullRequestSubscriptionState;
+      setSubscription(next);
+      setMessage(
+        next.subscribed ? "Subscribed to notifications." : "Unsubscribed.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Notification subscription could not be updated.",
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  }
 
   return (
     <RepositoryShell
@@ -157,10 +311,28 @@ export function RepositoryPullRequestDetailPage({
               </p>
             </div>
           </div>
-          <Link className="btn" href={pullRequest.filesHref}>
-            View changes
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {canEditMetadata ? (
+              <button
+                className="btn"
+                disabled={isMutating}
+                onClick={() => toggleDraft()}
+                type="button"
+              >
+                {pullRequest.isDraft ? "Mark ready" : "Convert to draft"}
+              </button>
+            ) : null}
+            <Link className="btn" href={pullRequest.filesHref}>
+              View changes
+            </Link>
+          </div>
         </div>
+
+        {message ? (
+          <div aria-live="polite" className="card mb-4 p-3">
+            <p className="t-sm">{message}</p>
+          </div>
+        ) : null}
 
         <nav aria-label="Pull request sections" className="tabs mb-6">
           {tabItems.map((item) => (
@@ -281,6 +453,51 @@ export function RepositoryPullRequestDetailPage({
 
           <aside className="min-w-0">
             <SidebarSection title="Reviewers">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="t-xs">People asked to review changes.</span>
+                {canEditMetadata ? (
+                  <button
+                    aria-expanded={openMetadataMenu === "reviewers"}
+                    className="btn sm"
+                    disabled={isMutating}
+                    onClick={() =>
+                      setOpenMetadataMenu(
+                        openMetadataMenu === "reviewers" ? null : "reviewers",
+                      )
+                    }
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              {openMetadataMenu === "reviewers" ? (
+                <div className="card mb-3 p-2" role="menu">
+                  {pullRequest.metadataOptions.assignees.length ? (
+                    pullRequest.metadataOptions.assignees.map((reviewer) => {
+                      const selected = pullRequest.requestedReviewers.some(
+                        (item) => item.id === reviewer.id,
+                      );
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className="btn ghost sm w-full justify-start"
+                          key={reviewer.id}
+                          onClick={() => toggleReviewer(reviewer)}
+                          type="button"
+                        >
+                          <span className="av sm" aria-hidden="true">
+                            {avatarLabel(reviewer.login)}
+                          </span>
+                          {selected ? "Remove" : "Request"} {reviewer.login}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="t-xs p-2">No reviewers available.</p>
+                  )}
+                </div>
+              ) : null}
               {pullRequest.latestReviews.length ? (
                 <div className="flex flex-col gap-2">
                   {pullRequest.latestReviews.map((review) => (
@@ -318,6 +535,51 @@ export function RepositoryPullRequestDetailPage({
             </SidebarSection>
 
             <SidebarSection title="Assignees">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="t-xs">People responsible for this PR.</span>
+                {canEditMetadata ? (
+                  <button
+                    aria-expanded={openMetadataMenu === "assignees"}
+                    className="btn sm"
+                    disabled={isMutating}
+                    onClick={() =>
+                      setOpenMetadataMenu(
+                        openMetadataMenu === "assignees" ? null : "assignees",
+                      )
+                    }
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              {openMetadataMenu === "assignees" ? (
+                <div className="card mb-3 p-2" role="menu">
+                  {pullRequest.metadataOptions.assignees.length ? (
+                    pullRequest.metadataOptions.assignees.map((assignee) => {
+                      const selected = pullRequest.assignees.some(
+                        (item) => item.id === assignee.id,
+                      );
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className="btn ghost sm w-full justify-start"
+                          key={assignee.id}
+                          onClick={() => toggleAssignee(assignee)}
+                          type="button"
+                        >
+                          <span className="av sm" aria-hidden="true">
+                            {avatarLabel(assignee.login)}
+                          </span>
+                          {selected ? "Remove" : "Assign"} {assignee.login}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="t-xs p-2">No assignable collaborators.</p>
+                  )}
+                </div>
+              ) : null}
               {pullRequest.assignees.length ? (
                 <div className="flex flex-col gap-2">
                   {pullRequest.assignees.map((assignee) => (
@@ -335,10 +597,66 @@ export function RepositoryPullRequestDetailPage({
             </SidebarSection>
 
             <SidebarSection title="Labels">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="t-xs">Classify the pull request.</span>
+                {canEditMetadata ? (
+                  <button
+                    aria-expanded={openMetadataMenu === "labels"}
+                    className="btn sm"
+                    disabled={isMutating}
+                    onClick={() =>
+                      setOpenMetadataMenu(
+                        openMetadataMenu === "labels" ? null : "labels",
+                      )
+                    }
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              {openMetadataMenu === "labels" ? (
+                <div className="card mb-3 p-2" role="menu">
+                  {pullRequest.metadataOptions.labels.length ? (
+                    pullRequest.metadataOptions.labels.map((label) => {
+                      const selected = pullRequest.labels.some(
+                        (item) => item.id === label.id,
+                      );
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className="btn ghost sm w-full justify-start"
+                          key={label.id}
+                          onClick={() => toggleLabel(label)}
+                          type="button"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="inline-block h-2 w-2 rounded-full"
+                            style={{ background: label.color }}
+                          />
+                          {selected ? "Remove" : "Add"} {label.name}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="t-xs p-2">No labels configured.</p>
+                  )}
+                </div>
+              ) : null}
               {pullRequest.labels.length ? (
                 <div className="flex flex-wrap gap-2">
                   {pullRequest.labels.map((label) => (
-                    <span className="chip soft" key={label.id}>
+                    <span
+                      className="chip soft"
+                      key={label.id}
+                      title={label.description ?? label.name}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: label.color }}
+                      />
                       {label.name}
                     </span>
                   ))}
@@ -349,6 +667,47 @@ export function RepositoryPullRequestDetailPage({
             </SidebarSection>
 
             <SidebarSection title="Milestone">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="t-xs">Track against a release.</span>
+                {canEditMetadata ? (
+                  <button
+                    aria-expanded={openMetadataMenu === "milestone"}
+                    className="btn sm"
+                    disabled={isMutating}
+                    onClick={() =>
+                      setOpenMetadataMenu(
+                        openMetadataMenu === "milestone" ? null : "milestone",
+                      )
+                    }
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              {openMetadataMenu === "milestone" ? (
+                <div className="card mb-3 p-2" role="menu">
+                  <button
+                    aria-pressed={pullRequest.milestone === null}
+                    className="btn ghost sm w-full justify-start"
+                    onClick={() => saveMetadata({ milestone: null })}
+                    type="button"
+                  >
+                    No milestone
+                  </button>
+                  {pullRequest.metadataOptions.milestones.map((milestone) => (
+                    <button
+                      aria-pressed={pullRequest.milestone?.id === milestone.id}
+                      className="btn ghost sm w-full justify-start"
+                      key={milestone.id}
+                      onClick={() => saveMetadata({ milestone })}
+                      type="button"
+                    >
+                      {milestone.title}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               {pullRequest.milestone ? (
                 <span className="chip soft">{pullRequest.milestone.title}</span>
               ) : (
@@ -374,12 +733,33 @@ export function RepositoryPullRequestDetailPage({
               )}
             </SidebarSection>
 
+            <SidebarSection title="Projects">
+              <p className="t-xs">No project fields are connected.</p>
+            </SidebarSection>
+
             <SidebarSection title="Notifications">
               <p className="t-xs">
-                {pullRequest.subscription.subscribed
-                  ? `Subscribed because you are ${pullRequest.subscription.reason}.`
-                  : "Sign in to subscribe to this pull request."}
+                {subscription.subscribed
+                  ? `Subscribed: ${subscription.reason}`
+                  : "Not subscribed"}
               </p>
+              {viewerAuthenticated ? (
+                <button
+                  className="btn sm mt-3"
+                  disabled={isMutating}
+                  onClick={() => void toggleSubscription()}
+                  type="button"
+                >
+                  {subscription.subscribed ? "Unsubscribe" : "Subscribe"}
+                </button>
+              ) : (
+                <Link
+                  className="btn sm mt-3"
+                  href={`/login?next=${encodeURIComponent(activePath)}`}
+                >
+                  Sign in to subscribe
+                </Link>
+              )}
             </SidebarSection>
 
             <SidebarSection title="Participants">

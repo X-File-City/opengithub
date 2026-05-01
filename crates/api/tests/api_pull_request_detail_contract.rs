@@ -129,6 +129,35 @@ async fn post_json(
     (status, value)
 }
 
+async fn patch_json(
+    app: axum::Router,
+    uri: &str,
+    cookie: Option<&str>,
+    body: Value,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method(Method::PATCH)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    let request = builder
+        .body(Body::from(body.to_string()))
+        .expect("request should build");
+    let response = app.oneshot(request).await.expect("request should run");
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body should read");
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("response should be json")
+    };
+    (status, value)
+}
+
 #[tokio::test]
 async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     let Some(pool) = database_pool().await else {
@@ -338,9 +367,15 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     assert_eq!(anonymous_body["labels"][0]["name"], "bug");
     assert_eq!(anonymous_body["milestone"]["title"], "Review queue");
     assert_eq!(anonymous_body["assignees"][0]["login"], reviewer.email);
-    assert_eq!(anonymous_body["requestedReviewers"][0]["login"], reviewer.email);
+    assert_eq!(
+        anonymous_body["requestedReviewers"][0]["login"],
+        reviewer.email
+    );
     assert_eq!(anonymous_body["latestReviews"][0]["state"], "approved");
-    assert_eq!(anonymous_body["linkedIssues"][0]["number"], linked_issue.number);
+    assert_eq!(
+        anonymous_body["linkedIssues"][0]["number"],
+        linked_issue.number
+    );
     assert_eq!(anonymous_body["checks"]["totalCount"], 4);
     assert_eq!(anonymous_body["stats"]["files"], 2);
     assert_eq!(anonymous_body["stats"]["additions"], 120);
@@ -387,7 +422,8 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     assert_eq!(owner_body["viewerPermission"], "owner");
     assert_eq!(owner_body["subscription"]["subscribed"], true);
 
-    let (outsider_status, outsider_body) = get_json(app.clone(), &uri, Some(&outsider_cookie)).await;
+    let (outsider_status, outsider_body) =
+        get_json(app.clone(), &uri, Some(&outsider_cookie)).await;
     assert_eq!(outsider_status, StatusCode::OK);
     assert_eq!(outsider_body["viewerPermission"], "read");
 
@@ -416,6 +452,69 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
         .expect("created comment html should be a string")
         .contains("<strong>comment</strong>"));
 
+    let (review_request_status, review_request_body) = patch_json(
+        app.clone(),
+        &format!("{uri}/review-requests"),
+        Some(&owner_cookie),
+        json!({ "reviewerUserIds": [outsider.id] }),
+    )
+    .await;
+    assert_eq!(review_request_status, StatusCode::OK);
+    assert_eq!(
+        review_request_body["requestedReviewers"][0]["login"],
+        outsider.email
+    );
+    assert!(review_request_body["requestedReviewers"]
+        .as_array()
+        .expect("reviewers should be an array")
+        .iter()
+        .all(|item| item["login"] != reviewer.email));
+
+    let (metadata_status, metadata_body) = patch_json(
+        app.clone(),
+        &format!("{uri}/metadata"),
+        Some(&owner_cookie),
+        json!({
+            "labelIds": [bug.id],
+            "assigneeUserIds": [outsider.id],
+            "milestoneId": null
+        }),
+    )
+    .await;
+    assert_eq!(metadata_status, StatusCode::OK);
+    assert_eq!(metadata_body["labels"][0]["name"], "bug");
+    assert_eq!(metadata_body["assignees"][0]["login"], outsider.email);
+    assert_eq!(metadata_body["milestone"], Value::Null);
+
+    let (draft_status, draft_body) = patch_json(
+        app.clone(),
+        &format!("{uri}/draft"),
+        Some(&owner_cookie),
+        json!({ "isDraft": false }),
+    )
+    .await;
+    assert_eq!(draft_status, StatusCode::OK);
+    assert_eq!(draft_body["isDraft"], false);
+
+    let (unsubscribe_status, unsubscribe_body) = patch_json(
+        app.clone(),
+        &format!("{uri}/subscription"),
+        Some(&owner_cookie),
+        json!({ "subscribed": false }),
+    )
+    .await;
+    assert_eq!(unsubscribe_status, StatusCode::OK);
+    assert_eq!(unsubscribe_body["subscribed"], false);
+    assert_eq!(unsubscribe_body["reason"], "ignored");
+
+    let (owner_after_unsubscribe_status, owner_after_unsubscribe_body) =
+        get_json(app.clone(), &uri, Some(&owner_cookie)).await;
+    assert_eq!(owner_after_unsubscribe_status, StatusCode::OK);
+    assert_eq!(
+        owner_after_unsubscribe_body["subscription"]["subscribed"],
+        false
+    );
+
     let (timeline_after_status, timeline_after_body) =
         get_json(app.clone(), &timeline_uri, Some(&owner_cookie)).await;
     assert_eq!(timeline_after_status, StatusCode::OK);
@@ -426,6 +525,14 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
             .iter()
             .any(|item| item["comment"]["body"] == "Phase 2 **comment** persists."),
         "created comment should reload through the timeline"
+    );
+    assert!(
+        timeline_after_body
+            .as_array()
+            .expect("timeline after interactions should be an array")
+            .iter()
+            .any(|item| item["eventType"] == "review_requested"),
+        "review request changes should append a timeline event"
     );
 
     let private_repo_name = format!("private-detail-{}", Uuid::new_v4().simple());
@@ -469,10 +576,7 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     let (anonymous_private_status, anonymous_private_body) =
         get_json(app.clone(), &private_uri, None).await;
     assert_eq!(anonymous_private_status, StatusCode::FORBIDDEN);
-    assert_eq!(
-        anonymous_private_body["error"]["code"],
-        "forbidden"
-    );
+    assert_eq!(anonymous_private_body["error"]["code"], "forbidden");
 
     let (anonymous_private_timeline_status, anonymous_private_timeline_body) =
         get_json(app.clone(), &format!("{private_uri}/timeline"), None).await;

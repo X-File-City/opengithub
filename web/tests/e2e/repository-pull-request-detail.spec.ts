@@ -6,6 +6,7 @@ const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
 type SeededSession = {
   cookieName: string;
   cookieValue: string;
+  firstRepositoryHref?: string;
 };
 
 type CreatedPullRequest = {
@@ -15,7 +16,11 @@ type CreatedPullRequest = {
   };
 };
 
-function seedSession(): SeededSession {
+function seedSession({
+  empty = true,
+}: {
+  empty?: boolean;
+} = {}): SeededSession {
   if (!databaseUrl) {
     throw new Error("TEST_DATABASE_URL or DATABASE_URL is required");
   }
@@ -34,7 +39,7 @@ function seedSession(): SeededSession {
       cwd: "..",
       env: {
         ...process.env,
-        DASHBOARD_E2E_EMPTY: "1",
+        DASHBOARD_E2E_EMPTY: empty ? "1" : "0",
         SESSION_COOKIE_NAME: "og_session",
       },
     },
@@ -138,5 +143,82 @@ test("signed-in user opens the pull request detail conversation shell", async ({
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/prs-004-phase2-comment.jpg",
+  });
+});
+
+test("signed-in user updates pull request sidebar metadata and notifications", async ({
+  page,
+}) => {
+  const seeded = seedSession({ empty: false });
+  await signIn(page, seeded);
+  const repositoryHref = seeded.firstRepositoryHref;
+  if (!repositoryHref) {
+    throw new Error("dashboard seed did not return a repository href");
+  }
+  const [, ownerLogin, repoName] = repositoryHref.split("/");
+  const pullTitle = `Phase 3 sidebar smoke ${Date.now().toString(36)}`;
+  const createResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/pulls`,
+    {
+      headers: {
+        cookie: `${seeded.cookieName}=${seeded.cookieValue}`,
+      },
+      data: {
+        title: pullTitle,
+        body: "Exercises review requests, labels, draft state, and notifications.",
+        headRef: "feature/sidebar-actions",
+        baseRef: "main",
+        isDraft: false,
+      },
+    },
+  );
+  expect(createResponse.status()).toBe(201);
+  const created = (await createResponse.json()) as CreatedPullRequest;
+  const pullNumber = created.number ?? created.pull_request?.number;
+  expect(pullNumber).toBeTruthy();
+
+  await page.goto(`${repositoryHref}/pull/${pullNumber}`);
+  await expect(
+    page.getByRole("heading", { name: new RegExp(pullTitle) }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit" }).first().click();
+  await page.getByRole("button", { name: /^Request reviewer-/ }).click();
+  await expect(page.getByText("Review requests updated.")).toBeVisible();
+  await expect(page.getByText("requested")).toBeVisible();
+
+  await page.getByRole("button", { name: "Edit" }).nth(2).click();
+  await page.getByRole("button", { name: /Add bug/ }).click();
+  await expect(page.getByText("Pull request metadata updated.")).toBeVisible();
+  await expect(page.getByText("bug")).toBeVisible();
+
+  await page.getByRole("button", { name: "Convert to draft" }).click();
+  await expect(
+    page.getByText("Pull request converted to draft."),
+  ).toBeVisible();
+  await expect(page.getByText("Draft", { exact: true })).toBeVisible();
+
+  const unsubscribeButton = page.getByRole("button", {
+    exact: true,
+    name: "Unsubscribe",
+  });
+  if (await unsubscribeButton.isVisible()) {
+    await unsubscribeButton.click();
+    await expect(page.getByText("Unsubscribed.")).toBeVisible();
+    await expect(page.getByText("Not subscribed")).toBeVisible();
+  }
+  await page.getByRole("button", { exact: true, name: "Subscribe" }).click();
+  await expect(page.getByText("Subscribed to notifications.")).toBeVisible();
+  await expect(page.getByText("Subscribed: subscribed")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("Draft", { exact: true })).toBeVisible();
+  await expect(page.getByText("bug")).toBeVisible();
+  await expect(page.getByText("Subscribed: subscribed")).toBeVisible();
+  await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
+
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/prs-004-phase3-sidebar-actions.jpg",
   });
 });

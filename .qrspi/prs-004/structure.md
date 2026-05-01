@@ -42,7 +42,7 @@
 
 ## Phase 3: Reviews, Review Requests, Sidebar Metadata, and Notifications
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Wire the non-merge conversation actions that reviewers expect. Authorized users can request/remove reviewers, mark draft/ready when permitted, edit supported labels/assignees/milestone metadata, and subscribe/unsubscribe from notifications. Review status summaries and requested-reviewer rows update the header/sidebar/timeline and persist through reload. Unsupported Projects/stacked-PR fields must show honest empty/disabled states instead of inert controls.
 

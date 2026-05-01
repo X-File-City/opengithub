@@ -156,7 +156,40 @@ function pullRequestDetail(
       comments: 3,
     },
     subscription: { subscribed: true, reason: "participating" },
-    metadataOptions: { labels: [], assignees: [], milestones: [] },
+    metadataOptions: {
+      labels: [
+        {
+          id: "label-1",
+          name: "review",
+          color: "var(--accent)",
+          description: "Needs review",
+        },
+        {
+          id: "label-2",
+          name: "docs",
+          color: "var(--ok)",
+          description: "Documentation",
+        },
+      ],
+      assignees: [
+        {
+          id: "user-3",
+          login: "mira",
+          displayName: "Mira",
+          avatarUrl: null,
+        },
+        {
+          id: "user-5",
+          login: "jaeyun",
+          displayName: "Jaeyun",
+          avatarUrl: null,
+        },
+      ],
+      milestones: [
+        { id: "mile-1", title: "Review queue", state: "open" },
+        { id: "mile-2", title: "Release train", state: "open" },
+      ],
+    },
     href: "/mona/octo-app/pull/42",
     commitsHref: "/mona/octo-app/pull/42/commits",
     checksHref: "/mona/octo-app/pull/42/checks",
@@ -340,5 +373,128 @@ describe("RepositoryPullRequestDetailPage", () => {
     expect(
       (await screen.findAllByText("review")).length,
     ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("updates reviewers, metadata, draft state, and notification subscription", async () => {
+    const updatedWithReviewer = pullRequestDetail({
+      requestedReviewers: [
+        {
+          id: "user-5",
+          login: "jaeyun",
+          displayName: "Jaeyun",
+          avatarUrl: null,
+        },
+      ],
+    });
+    const updatedMetadata = pullRequestDetail({
+      labels: [
+        {
+          id: "label-2",
+          name: "docs",
+          color: "var(--ok)",
+          description: "Documentation",
+        },
+      ],
+      assignees: [
+        {
+          id: "user-5",
+          login: "jaeyun",
+          displayName: "Jaeyun",
+          avatarUrl: null,
+        },
+      ],
+      milestone: { id: "mile-2", title: "Release train", state: "open" },
+    });
+    const updatedDraft = pullRequestDetail({ isDraft: true });
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith("/review-requests")) {
+          return { ok: true, json: async () => updatedWithReviewer };
+        }
+        if (url.endsWith("/metadata")) {
+          return { ok: true, json: async () => updatedMetadata };
+        }
+        if (url.endsWith("/draft")) {
+          return { ok: true, json: async () => updatedDraft };
+        }
+        if (url.endsWith("/subscription")) {
+          return {
+            ok: true,
+            json: async () => ({ subscribed: false, reason: "ignored" }),
+          };
+        }
+        throw new Error(`unexpected fetch ${url} ${init?.method ?? "GET"}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RepositoryPullRequestDetailPage
+        pullRequest={pullRequestDetail()}
+        repository={repositoryOverview()}
+        timeline={pullRequestTimeline()}
+        viewerAuthenticated={true}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Request jaeyun" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/pull/42/review-requests",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ reviewerUserIds: ["user-5"] }),
+        }),
+      );
+    });
+    expect(await screen.findByText("Review requests updated.")).toBeVisible();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Assign jaeyun" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/pull/42/metadata",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            labelIds: ["label-1"],
+            assigneeUserIds: ["user-3", "user-5"],
+            milestoneId: "mile-1",
+          }),
+        }),
+      );
+    });
+    expect(
+      await screen.findByText("Pull request metadata updated."),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Convert to draft" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/pull/42/draft",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ isDraft: true }),
+        }),
+      );
+    });
+    expect(
+      await screen.findByText("Pull request converted to draft."),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Unsubscribe" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/pull/42/subscription",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ subscribed: false }),
+        }),
+      );
+    });
+    expect(await screen.findByText("Unsubscribed.")).toBeVisible();
+    expect(screen.getByText("Not subscribed")).toBeVisible();
   });
 });

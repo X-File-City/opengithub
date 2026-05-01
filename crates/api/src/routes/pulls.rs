@@ -23,9 +23,12 @@ use crate::{
             create_pull_request, get_pull_request, pull_request_comment_timeline_item,
             pull_request_detail_view_for_viewer, pull_request_timeline_view, pull_sort_options,
             repository_for_actor_by_name, repository_pull_request_list_view_for_viewer,
-            save_repository_pull_preferences, update_pull_request_state,
+            save_repository_pull_preferences, update_pull_request_draft_state,
+            update_pull_request_metadata, update_pull_request_review_requests,
+            update_pull_request_state, update_pull_request_subscription,
             ComparePullRequestRefsInput, CreatePullRequest, PullRequestListQuery, PullRequestState,
-            UpdatePullRequestState,
+            UpdatePullRequestDraftState, UpdatePullRequestMetadata,
+            UpdatePullRequestReviewRequests, UpdatePullRequestState, UpdatePullRequestSubscription,
         },
         repositories::{get_repository_by_owner_name, RepositoryError},
     },
@@ -52,6 +55,22 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/repos/:owner/:repo/pulls/:number/timeline",
             get(timeline),
+        )
+        .route(
+            "/api/repos/:owner/:repo/pulls/:number/review-requests",
+            patch(update_review_requests),
+        )
+        .route(
+            "/api/repos/:owner/:repo/pulls/:number/draft",
+            patch(update_draft),
+        )
+        .route(
+            "/api/repos/:owner/:repo/pulls/:number/metadata",
+            patch(update_metadata),
+        )
+        .route(
+            "/api/repos/:owner/:repo/pulls/:number/subscription",
+            patch(update_subscription),
         )
 }
 
@@ -126,6 +145,32 @@ struct CreateCommentRequest {
 #[serde(rename_all = "camelCase")]
 struct UpdatePullPreferencesRequest {
     dismissed_contributor_banner: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdatePullReviewRequestsRequest {
+    reviewer_user_ids: Option<Vec<Uuid>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdatePullDraftRequest {
+    is_draft: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdatePullMetadataRequest {
+    label_ids: Option<Vec<Uuid>>,
+    assignee_user_ids: Option<Vec<Uuid>>,
+    milestone_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdatePullSubscriptionRequest {
+    subscribed: bool,
 }
 
 async fn list(
@@ -816,7 +861,7 @@ async fn read(
         actor.as_ref().map(|user| user.id),
     )
     .await
-        .map_err(map_collaboration_error)?;
+    .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(detail)))
 }
@@ -849,6 +894,132 @@ async fn update_state(
     .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(updated)))
+}
+
+async fn update_review_requests(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, number)): Path<(String, String, i64)>,
+    RestJson(request): RestJson<UpdatePullReviewRequestsRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_collaboration_error)?;
+    let detail = get_pull_request(pool, repository_id, number, actor.0.id)
+        .await
+        .map_err(map_collaboration_error)?;
+    update_pull_request_review_requests(
+        pool,
+        detail.pull_request.id,
+        UpdatePullRequestReviewRequests {
+            actor_user_id: actor.0.id,
+            reviewer_user_ids: request.reviewer_user_ids.unwrap_or_default(),
+        },
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+    let updated =
+        pull_request_detail_view_for_viewer(pool, repository_id, number, Some(actor.0.id))
+            .await
+            .map_err(map_collaboration_error)?;
+    Ok(Json(json!(updated)))
+}
+
+async fn update_draft(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, number)): Path<(String, String, i64)>,
+    RestJson(request): RestJson<UpdatePullDraftRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_collaboration_error)?;
+    let detail = get_pull_request(pool, repository_id, number, actor.0.id)
+        .await
+        .map_err(map_collaboration_error)?;
+    update_pull_request_draft_state(
+        pool,
+        detail.pull_request.id,
+        UpdatePullRequestDraftState {
+            actor_user_id: actor.0.id,
+            is_draft: request.is_draft,
+        },
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+    let updated =
+        pull_request_detail_view_for_viewer(pool, repository_id, number, Some(actor.0.id))
+            .await
+            .map_err(map_collaboration_error)?;
+    Ok(Json(json!(updated)))
+}
+
+async fn update_metadata(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, number)): Path<(String, String, i64)>,
+    RestJson(request): RestJson<UpdatePullMetadataRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Write)
+            .await
+            .map_err(map_collaboration_error)?;
+    let detail = get_pull_request(pool, repository_id, number, actor.0.id)
+        .await
+        .map_err(map_collaboration_error)?;
+    update_pull_request_metadata(
+        pool,
+        detail.pull_request.id,
+        UpdatePullRequestMetadata {
+            actor_user_id: actor.0.id,
+            label_ids: request.label_ids.unwrap_or_default(),
+            assignee_user_ids: request.assignee_user_ids.unwrap_or_default(),
+            milestone_id: request.milestone_id,
+        },
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+    let updated =
+        pull_request_detail_view_for_viewer(pool, repository_id, number, Some(actor.0.id))
+            .await
+            .map_err(map_collaboration_error)?;
+    Ok(Json(json!(updated)))
+}
+
+async fn update_subscription(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, number)): Path<(String, String, i64)>,
+    RestJson(request): RestJson<UpdatePullSubscriptionRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_collaboration_error)?;
+    let detail = get_pull_request(pool, repository_id, number, actor.0.id)
+        .await
+        .map_err(map_collaboration_error)?;
+    let subscription = update_pull_request_subscription(
+        pool,
+        detail.pull_request.id,
+        UpdatePullRequestSubscription {
+            actor_user_id: actor.0.id,
+            subscribed: request.subscribed,
+        },
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+    Ok(Json(json!(subscription)))
 }
 
 async fn comment(
@@ -916,13 +1087,10 @@ async fn timeline(
     .ok_or_else(|| {
         map_collaboration_error(crate::domain::issues::CollaborationError::PullRequestNotFound)
     })?;
-    let events = pull_request_timeline_view(
-        pool,
-        pull_request_id,
-        actor.as_ref().map(|user| user.id),
-    )
-    .await
-    .map_err(map_collaboration_error)?;
+    let events =
+        pull_request_timeline_view(pool, pull_request_id, actor.as_ref().map(|user| user.id))
+            .await
+            .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(events)))
 }

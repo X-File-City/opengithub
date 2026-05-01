@@ -11,9 +11,9 @@ use super::{
     issues::{
         append_timeline_event, insert_issue_with_number, issue_from_row, next_issue_number,
         reaction_summaries, repository_for_actor, search_error_to_collaboration, user_login,
-        CollaborationError,
-        CreateComment, CreateIssue, Issue, IssueListLabel, IssueListMetadataOption,
-        IssueListMilestone, IssueListUser, IssueState, ReactionSummary, TimelineEvent,
+        CollaborationError, CreateComment, CreateIssue, Issue, IssueListLabel,
+        IssueListMetadataOption, IssueListMilestone, IssueListUser, IssueState, ReactionSummary,
+        TimelineEvent,
     },
     markdown::{render_markdown, RenderMarkdownInput},
     notifications::{create_notification, CreateNotification},
@@ -101,6 +101,32 @@ pub struct UpdatePullRequestState {
     pub actor_user_id: Uuid,
     pub state: PullRequestState,
     pub merge_commit_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePullRequestDraftState {
+    pub actor_user_id: Uuid,
+    pub is_draft: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePullRequestMetadata {
+    pub actor_user_id: Uuid,
+    pub label_ids: Vec<Uuid>,
+    pub assignee_user_ids: Vec<Uuid>,
+    pub milestone_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePullRequestReviewRequests {
+    pub actor_user_id: Uuid,
+    pub reviewer_user_ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePullRequestSubscription {
+    pub actor_user_id: Uuid,
+    pub subscribed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1398,7 +1424,12 @@ pub async fn pull_request_detail_view_for_viewer(
     let tasks = pull_task_progress(pool, &pull_ids).await?;
     let roles = pull_author_roles(pool, repository_id, &pull_ids).await?;
     let comments = pull_comment_counts(pool, &pull_ids).await?;
-    let stats = pull_request_detail_stats(pool, pull_request.id, *comments.get(&pull_request.id).unwrap_or(&0)).await?;
+    let stats = pull_request_detail_stats(
+        pool,
+        pull_request.id,
+        *comments.get(&pull_request.id).unwrap_or(&0),
+    )
+    .await?;
     let participants = pull_request_detail_participants(pool, pull_request.id).await?;
     let latest_reviews = pull_request_latest_reviews(pool, pull_request.id).await?;
     let rendered = render_markdown(
@@ -1426,6 +1457,7 @@ pub async fn pull_request_detail_view_for_viewer(
         "/{}/{}/pull/{}",
         repository.owner_login, repository.name, pull_request.number
     );
+    let subscription = pull_request_subscription_state(pool, &pull_request, actor_user_id).await?;
 
     Ok(PullRequestDetailView {
         id: pull_request.id,
@@ -1483,16 +1515,12 @@ pub async fn pull_request_detail_view_for_viewer(
         task_progress: tasks
             .get(&pull_request.id)
             .cloned()
-            .unwrap_or(PullRequestTaskProgress { completed: 0, total: 0 }),
+            .unwrap_or(PullRequestTaskProgress {
+                completed: 0,
+                total: 0,
+            }),
         stats,
-        subscription: PullRequestSubscriptionState {
-            subscribed: actor_user_id.is_some(),
-            reason: if actor_user_id.is_some() {
-                "participating".to_owned()
-            } else {
-                "anonymous".to_owned()
-            },
-        },
+        subscription,
         metadata_options: PullRequestDetailMetadataOptions {
             labels: pull_list_label_options(pool, repository_id).await?,
             assignees: pull_list_user_options(pool, repository_id).await?,
@@ -1577,6 +1605,295 @@ pub async fn update_pull_request_state(
     .await?;
     index_pull_request_search_document(pool, &pull_request, input.actor_user_id).await?;
     Ok(pull_request)
+}
+
+pub async fn update_pull_request_draft_state(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+    input: UpdatePullRequestDraftState,
+) -> Result<PullRequest, CollaborationError> {
+    let current = pull_request_by_id(pool, pull_request_id).await?;
+    require_repository_write(pool, current.repository_id, input.actor_user_id).await?;
+    let row = sqlx::query(
+        r#"
+        UPDATE pull_requests
+        SET is_draft = $2
+        WHERE id = $1
+        RETURNING id, repository_id, issue_id, number, title, body, state, author_user_id,
+                  head_ref, base_ref, head_repository_id, base_repository_id, merge_commit_id,
+                  merged_by_user_id, merged_at, closed_at, created_at, updated_at, is_draft
+        "#,
+    )
+    .bind(pull_request_id)
+    .bind(input.is_draft)
+    .fetch_one(pool)
+    .await?;
+    let pull_request = pull_request_from_row(row)?;
+    append_timeline_event(
+        pool,
+        pull_request.repository_id,
+        None,
+        Some(pull_request.id),
+        Some(input.actor_user_id),
+        if input.is_draft {
+            "converted_to_draft"
+        } else {
+            "ready_for_review"
+        },
+        json!({ "number": pull_request.number, "draft": pull_request.is_draft }),
+    )
+    .await?;
+    insert_pull_request_action_audit_event(
+        pool,
+        &pull_request,
+        input.actor_user_id,
+        if input.is_draft {
+            "pull_request.converted_to_draft"
+        } else {
+            "pull_request.ready_for_review"
+        },
+        json!({ "draft": pull_request.is_draft }),
+    )
+    .await?;
+    index_pull_request_search_document(pool, &pull_request, input.actor_user_id).await?;
+    Ok(pull_request)
+}
+
+pub async fn update_pull_request_metadata(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+    input: UpdatePullRequestMetadata,
+) -> Result<(), CollaborationError> {
+    let pull_request = pull_request_by_id(pool, pull_request_id).await?;
+    let repository = get_repository(pool, pull_request.repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    require_repository_write(pool, repository.id, input.actor_user_id).await?;
+
+    for label_id in &input.label_ids {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM labels WHERE id = $1 AND repository_id = $2)",
+        )
+        .bind(label_id)
+        .bind(repository.id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "labelIds".to_owned(),
+                message: "label is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    if let Some(milestone_id) = input.milestone_id {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM milestones WHERE id = $1 AND repository_id = $2)",
+        )
+        .bind(milestone_id)
+        .bind(repository.id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "milestoneId".to_owned(),
+                message: "milestone is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    for assignee_user_id in &input.assignee_user_ids {
+        if repository_viewer_permission(pool, &repository, *assignee_user_id, RepositoryRole::Read)
+            .await?
+            .is_none()
+        {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "assigneeUserIds".to_owned(),
+                message: "assignee is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    sqlx::query("UPDATE issues SET milestone_id = $2 WHERE id = $1")
+        .bind(pull_request.issue_id)
+        .bind(input.milestone_id)
+        .execute(pool)
+        .await?;
+    sqlx::query("DELETE FROM issue_labels WHERE issue_id = $1")
+        .bind(pull_request.issue_id)
+        .execute(pool)
+        .await?;
+    for label_id in &input.label_ids {
+        sqlx::query(
+            "INSERT INTO issue_labels (issue_id, label_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        )
+        .bind(pull_request.issue_id)
+        .bind(label_id)
+        .execute(pool)
+        .await?;
+    }
+    sqlx::query("DELETE FROM issue_assignees WHERE issue_id = $1")
+        .bind(pull_request.issue_id)
+        .execute(pool)
+        .await?;
+    for assignee_user_id in &input.assignee_user_ids {
+        sqlx::query(
+            r#"
+            INSERT INTO issue_assignees (issue_id, user_id, assigned_by_user_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(pull_request.issue_id)
+        .bind(assignee_user_id)
+        .bind(input.actor_user_id)
+        .execute(pool)
+        .await?;
+    }
+
+    append_timeline_event(
+        pool,
+        pull_request.repository_id,
+        None,
+        Some(pull_request.id),
+        Some(input.actor_user_id),
+        "metadata_changed",
+        json!({
+            "labelIds": input.label_ids,
+            "assigneeUserIds": input.assignee_user_ids,
+            "milestoneId": input.milestone_id,
+        }),
+    )
+    .await?;
+    notify_pull_request_participants(pool, &pull_request, &input.assignee_user_ids, &[]).await?;
+    insert_pull_request_action_audit_event(
+        pool,
+        &pull_request,
+        input.actor_user_id,
+        "pull_request.metadata_updated",
+        json!({
+            "labelIds": input.label_ids,
+            "assigneeUserIds": input.assignee_user_ids,
+            "milestoneId": input.milestone_id,
+        }),
+    )
+    .await?;
+    index_pull_request_search_document(pool, &pull_request, input.actor_user_id).await?;
+    Ok(())
+}
+
+pub async fn update_pull_request_review_requests(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+    input: UpdatePullRequestReviewRequests,
+) -> Result<(), CollaborationError> {
+    let pull_request = pull_request_by_id(pool, pull_request_id).await?;
+    let repository = get_repository(pool, pull_request.repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    require_repository_write(pool, repository.id, input.actor_user_id).await?;
+
+    let mut reviewer_ids = input.reviewer_user_ids;
+    reviewer_ids.sort();
+    reviewer_ids.dedup();
+    reviewer_ids.retain(|id| *id != input.actor_user_id);
+    for reviewer_user_id in &reviewer_ids {
+        if repository_viewer_permission(pool, &repository, *reviewer_user_id, RepositoryRole::Read)
+            .await?
+            .is_none()
+        {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "reviewerUserIds".to_owned(),
+                message: "reviewer is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    let previous_rows = sqlx::query(
+        "SELECT requested_user_id FROM pull_request_review_requests WHERE pull_request_id = $1",
+    )
+    .bind(pull_request.id)
+    .fetch_all(pool)
+    .await?;
+    let previous: HashSet<Uuid> = previous_rows
+        .into_iter()
+        .map(|row| row.get("requested_user_id"))
+        .collect();
+    let requested: HashSet<Uuid> = reviewer_ids.iter().copied().collect();
+
+    sqlx::query("DELETE FROM pull_request_review_requests WHERE pull_request_id = $1 AND NOT (requested_user_id = ANY($2))")
+        .bind(pull_request.id)
+        .bind(&reviewer_ids)
+        .execute(pool)
+        .await?;
+    insert_review_requests(pool, &pull_request, input.actor_user_id, &reviewer_ids).await?;
+
+    let added: Vec<Uuid> = requested.difference(&previous).copied().collect();
+    let removed: Vec<Uuid> = previous.difference(&requested).copied().collect();
+    if !added.is_empty() || !removed.is_empty() {
+        append_timeline_event(
+            pool,
+            pull_request.repository_id,
+            None,
+            Some(pull_request.id),
+            Some(input.actor_user_id),
+            "review_requested",
+            json!({ "addedReviewerUserIds": added, "removedReviewerUserIds": removed }),
+        )
+        .await?;
+        notify_pull_request_participants(pool, &pull_request, &[], &added).await?;
+        insert_pull_request_action_audit_event(
+            pool,
+            &pull_request,
+            input.actor_user_id,
+            "pull_request.review_requests_updated",
+            json!({ "addedReviewerUserIds": added, "removedReviewerUserIds": removed }),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+pub async fn update_pull_request_subscription(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+    input: UpdatePullRequestSubscription,
+) -> Result<PullRequestSubscriptionState, CollaborationError> {
+    let pull_request = pull_request_by_id(pool, pull_request_id).await?;
+    require_role(
+        pool,
+        pull_request.repository_id,
+        input.actor_user_id,
+        RepositoryRole::Read,
+    )
+    .await?;
+    sqlx::query(
+        r#"
+        INSERT INTO pull_request_subscriptions (pull_request_id, user_id, subscribed, reason)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (pull_request_id, user_id)
+        DO UPDATE SET subscribed = EXCLUDED.subscribed, reason = EXCLUDED.reason
+        "#,
+    )
+    .bind(pull_request.id)
+    .bind(input.actor_user_id)
+    .bind(input.subscribed)
+    .bind(if input.subscribed {
+        "subscribed"
+    } else {
+        "ignored"
+    })
+    .execute(pool)
+    .await?;
+    pull_request_subscription_state(pool, &pull_request, Some(input.actor_user_id)).await
 }
 
 pub async fn add_pull_request_comment(
@@ -2059,6 +2376,26 @@ fn pull_request_from_row(row: sqlx::postgres::PgRow) -> Result<PullRequest, Coll
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     })
+}
+
+async fn pull_request_by_id(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+) -> Result<PullRequest, CollaborationError> {
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, issue_id, number, title, body, state, author_user_id,
+               head_ref, base_ref, head_repository_id, base_repository_id, merge_commit_id,
+               merged_by_user_id, merged_at, closed_at, created_at, updated_at, is_draft
+        FROM pull_requests
+        WHERE id = $1
+        "#,
+    )
+    .bind(pull_request_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(CollaborationError::PullRequestNotFound)?;
+    pull_request_from_row(row)
 }
 
 fn repository_from_row(row: sqlx::postgres::PgRow) -> Result<Repository, CollaborationError> {
@@ -2709,6 +3046,32 @@ async fn insert_pull_request_audit_event(
         "draft": pull_request.is_draft,
         "headRef": pull_request.head_ref,
         "baseRef": pull_request.base_ref
+    }))
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+async fn insert_pull_request_action_audit_event(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    actor_user_id: Uuid,
+    event_type: &str,
+    metadata: serde_json::Value,
+) -> Result<(), CollaborationError> {
+    sqlx::query(
+        r#"
+        INSERT INTO audit_events (actor_user_id, event_type, target_type, target_id, metadata)
+        VALUES ($1, $2, 'pull_request', $3, $4)
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(event_type)
+    .bind(pull_request.id.to_string())
+    .bind(json!({
+        "repositoryId": pull_request.repository_id,
+        "number": pull_request.number,
+        "data": metadata,
     }))
     .execute(pool)
     .await?;
@@ -3492,6 +3855,70 @@ async fn pull_request_detail_stats(
         additions: row.get("additions"),
         deletions: row.get("deletions"),
         comments,
+    })
+}
+
+async fn pull_request_subscription_state(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    actor_user_id: Option<Uuid>,
+) -> Result<PullRequestSubscriptionState, CollaborationError> {
+    let Some(actor_user_id) = actor_user_id else {
+        return Ok(PullRequestSubscriptionState {
+            subscribed: false,
+            reason: "anonymous".to_owned(),
+        });
+    };
+    let explicit = sqlx::query(
+        r#"
+        SELECT subscribed, reason
+        FROM pull_request_subscriptions
+        WHERE pull_request_id = $1 AND user_id = $2
+        "#,
+    )
+    .bind(pull_request.id)
+    .bind(actor_user_id)
+    .fetch_optional(pool)
+    .await?;
+    if let Some(row) = explicit {
+        return Ok(PullRequestSubscriptionState {
+            subscribed: row.get("subscribed"),
+            reason: row.get("reason"),
+        });
+    }
+    let participating = pull_request.author_user_id == actor_user_id
+        || sqlx::query_scalar::<_, bool>(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM issue_assignees
+                WHERE issue_id = $1 AND user_id = $2
+            )
+            OR EXISTS (
+                SELECT 1 FROM pull_request_review_requests
+                WHERE pull_request_id = $3 AND requested_user_id = $2
+            )
+            OR EXISTS (
+                SELECT 1 FROM pull_request_reviews
+                WHERE pull_request_id = $3 AND reviewer_user_id = $2
+            )
+            OR EXISTS (
+                SELECT 1 FROM comments
+                WHERE pull_request_id = $3 AND author_user_id = $2
+            )
+            "#,
+        )
+        .bind(pull_request.issue_id)
+        .bind(actor_user_id)
+        .bind(pull_request.id)
+        .fetch_one(pool)
+        .await?;
+    Ok(PullRequestSubscriptionState {
+        subscribed: participating,
+        reason: if participating {
+            "participating".to_owned()
+        } else {
+            "not_subscribed".to_owned()
+        },
     })
 }
 

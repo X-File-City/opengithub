@@ -1949,5 +1949,22 @@
       "Timeline currently covers opened/commented and generic event rendering; richer review-request/base-change/force-push/commit event copy should be rechecked as those events are added in later phases.",
       "Real Google OAuth was not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database."
     ]
+  },
+  {
+    "feature_id": "prs-004",
+    "tests_written": [
+      "Implemented Phase 3 pull request sidebar interactions: reviewer request updates, draft/ready transition, label/assignee/milestone metadata updates, and notification subscription toggles.",
+      "Added Rust API support for PATCH /review-requests, /draft, /metadata, and /subscription with signed-session authorization, repository permission checks, validation envelopes, timeline events, notifications, audit/search side effects, and a narrow pull_request_subscriptions migration.",
+      "Added same-origin Next.js mutation routes and upgraded the Editorial PR detail sidebar from read-only metadata to accessible popover-style Edit controls with live success/error feedback and no inert controls.",
+      "Vitest covers reviewer, metadata, draft, and notification mutation payloads and optimistic rerender states.",
+      "Playwright signed-session smoke uses real seeded Postgres data, creates a PR through the Rust API, requests a reviewer, adds a label, converts the PR to draft, toggles notifications, reloads to verify persistence, checks no dead links, and saves ralph/screenshots/build/prs-004-phase3-sidebar-actions.jpg.",
+      "Verification passed: .scratch/prs-004-phase3-scenario.sh, focused api_pull_request_detail_contract, focused repository-pull-request-detail Vitest, focused PR detail Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 161 frontend tests, make test-e2e with 65 Playwright tests, and Editorial banned-value scan with zero matches using rg -n -e."
+    ],
+    "needs_deeper_qa": [
+      "Merge readiness remains summary-only; close/reopen/ready/merge rule enforcement remains Phase 4.",
+      "Projects and stacked PR fields intentionally show honest empty states because those models are not connected yet.",
+      "Review request UI currently lists repository-readable users through the same metadata option pool as assignees; QA should revisit richer reviewer search/team semantics in later reviewer phases.",
+      "Real Google OAuth was not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database."
+    ]
   }
 ]

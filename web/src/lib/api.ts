@@ -1000,6 +1000,15 @@ export type PullRequestDetailView = {
   viewerPermission: string | null;
 };
 
+export type UpdatePullRequestMetadataRequest = {
+  labelIds: string[];
+  assigneeUserIds: string[];
+  milestoneId: string | null;
+};
+
+export type PullRequestSubscriptionState =
+  PullRequestDetailView["subscription"];
+
 export type CreatePullRequestRequest = {
   title: string;
   body?: string | null;
@@ -1917,6 +1926,131 @@ export async function createRepositoryPullRequestCommentFromCookie(
   }
 
   return (await response.json()) as PullRequestTimelineItem;
+}
+
+export async function updateRepositoryPullRequestReviewRequestsFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  number: number | string,
+  reviewerUserIds: string[],
+): Promise<PullRequestDetailView> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryPullRequestPath(owner, repo, number)}/review-requests`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ reviewerUserIds }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ?? "Review requests could not be updated",
+      { cause: envelope },
+    );
+  }
+  return (await response.json()) as PullRequestDetailView;
+}
+
+export async function updateRepositoryPullRequestDraftFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  number: number | string,
+  isDraft: boolean,
+): Promise<PullRequestDetailView> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryPullRequestPath(owner, repo, number)}/draft`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ isDraft }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ?? "Draft state could not be updated",
+      { cause: envelope },
+    );
+  }
+  return (await response.json()) as PullRequestDetailView;
+}
+
+export async function updateRepositoryPullRequestMetadataFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  number: number | string,
+  request: UpdatePullRequestMetadataRequest,
+): Promise<PullRequestDetailView> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryPullRequestPath(owner, repo, number)}/metadata`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(request),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ?? "Pull request metadata could not be updated",
+      { cause: envelope },
+    );
+  }
+  return (await response.json()) as PullRequestDetailView;
+}
+
+export async function updateRepositoryPullRequestSubscriptionFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  number: number | string,
+  subscribed: boolean,
+): Promise<PullRequestSubscriptionState> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryPullRequestPath(owner, repo, number)}/subscription`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ subscribed }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ??
+        "Notification subscription could not be updated",
+      { cause: envelope },
+    );
+  }
+  return (await response.json()) as PullRequestSubscriptionState;
 }
 
 export async function saveRepositoryPullPreferences(
