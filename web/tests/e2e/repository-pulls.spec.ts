@@ -11,6 +11,9 @@ type SeededSession = {
 type CreatedPullRequest = {
   number?: number;
   title: string;
+  pull_request?: {
+    number?: number;
+  };
 };
 
 function seedSession(): SeededSession {
@@ -84,6 +87,7 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
 
   const [, ownerLogin, repoName] = new URL(page.url()).pathname.split("/");
   const pullTitle = `Default pull list smoke ${Date.now().toString(36)}`;
+  const closedPullTitle = `Closed pull list smoke ${Date.now().toString(36)}`;
   const createResponse = await page.request.post(
     `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/pulls`,
     {
@@ -100,6 +104,36 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   );
   expect(createResponse.status()).toBe(201);
   const pull = (await createResponse.json()) as CreatedPullRequest;
+  const closedCreateResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/pulls`,
+    {
+      headers: {
+        cookie: `${seeded.cookieName}=${seeded.cookieValue}`,
+      },
+      data: {
+        title: closedPullTitle,
+        body: "Closed through the real Rust API for the pull list filters.",
+        headRef: "feature/pull-list-closed",
+        baseRef: "main",
+      },
+    },
+  );
+  expect(closedCreateResponse.status()).toBe(201);
+  const closedPull = (await closedCreateResponse.json()) as CreatedPullRequest;
+  const closedNumber = closedPull.number ?? closedPull.pull_request?.number;
+  expect(closedNumber).toBeTruthy();
+  const closeResponse = await page.request.patch(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/pulls/${closedNumber}`,
+    {
+      headers: {
+        cookie: `${seeded.cookieName}=${seeded.cookieValue}`,
+      },
+      data: {
+        state: "closed",
+      },
+    },
+  );
+  expect(closeResponse.status()).toBe(200);
 
   await page.goto(`/${ownerLogin}/${repoName}/pulls`);
   await expect(
@@ -120,17 +154,40 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   await expect(page.getByText(`#${pullNumber}`)).toBeVisible();
   await expect(page.getByText("feature/pull-list-smoke")).toBeVisible();
   await expect(page.getByText("main")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Labels" })).toHaveAttribute(
-    "href",
-    `/${ownerLogin}/${repoName}/labels`,
-  );
+  await expect(page.getByRole("button", { name: "Labels" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "New pull request" }).first(),
   ).toHaveAttribute("href", `/${ownerLogin}/${repoName}/compare`);
+
+  await page.getByLabel("pull-query").fill(`is:pr is:open ${pullTitle}`);
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page).toHaveURL(/q=is%3Apr\+is%3Aopen/);
+  await expect(page.getByRole("link", { name: pullTitle })).toBeVisible();
+
+  await page.goto(
+    `/${ownerLogin}/${repoName}/pulls?q=is%3Apr%20state%3Aclosed&state=closed`,
+  );
+  await expect(page).toHaveURL(/state=closed/);
+  await expect(page.getByRole("link", { name: closedPullTitle })).toBeVisible();
+  await expect(page.getByText(pullTitle)).toHaveCount(0);
+
+  await page.getByRole("button", { name: /Sort by/ }).click();
+  await page.getByRole("menuitemradio", { name: /Newest/ }).click();
+  await expect(page).toHaveURL(/sort=created-desc/);
+
+  await page.getByRole("button", { name: "Labels" }).click();
+  await page.getByRole("option", { name: /bug/ }).click();
+  await expect(page).toHaveURL(/labels=bug/);
+  await expect(
+    page.getByText("No pull requests matched this query"),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Clear query" }).click();
+  await expect(page.getByLabel("pull-query")).toHaveValue("is:pr is:open");
+
   await expectNoDeadControls(page);
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/prs-001-phase2-open-list.jpg",
+    path: "../ralph/screenshots/build/prs-001-phase3-filtered-empty.jpg",
   });
 
   await pullLink.click();

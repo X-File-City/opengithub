@@ -1698,5 +1698,22 @@
       "The compare page is a concrete landing route only; full branch comparison and PR creation flow remain later PR creation work.",
       "PR detail, review threads, checks pages, file diffs, and mergeability remain future PR phases/features."
     ]
+  },
+  {
+    "feature_id": "prs-001",
+    "tests_written": [
+      "Implemented Phase 3 URL filters and toolbar menus for /{owner}/{repo}/pulls: search form, Open/Merged/Closed state URLs, label/milestone/review/check picker menus, sort menu, selected filter chips, clear/reset links, pagination-state preservation, and detail-section anchors remain concrete.",
+      "Tightened Rust pull-list query parsing so quoted qualifiers such as milestone:\"Review queue\" round-trip through GET /api/repos/{owner}/{repo}/pulls without leaking into plain-text search.",
+      "Extended Rust API contract coverage for typed label/milestone/review/check filters, comments-desc sort, and invalid review filter 422 validation_failed envelopes.",
+      "Extended RepositoryPullsPage Vitest coverage for menu hrefs, selected chip removal links, quoted query helper URLs, and concrete no-placeholder controls.",
+      "Extended signed-session Playwright coverage to create real open/closed PRs, submit a text search, switch to the closed filter URL, use sort and label menus, verify no-results reset, assert no dead controls, and save ralph/screenshots/build/prs-001-phase3-filtered-empty.jpg.",
+      "Verification passed: focused Rust api_repository_pulls_list_contract, focused repository-pulls Vitest, focused repository-pulls Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 146 frontend tests, make test-e2e with 61 Playwright tests, and mandatory Editorial banned-value scan with zero matches using rg -e."
+    ],
+    "needs_deeper_qa": [
+      "Phase 3 filter menus cover label, milestone, review, checks, and sort; author/assignee/project/reaction filters are scoped to prs-002 and later PR filter feature work.",
+      "Contributor banner dismissal still renders from the read-model preference default only; persistence remains Phase 4.",
+      "The compare page is still a concrete landing route only; full branch comparison and PR creation flow remain later PR creation work.",
+      "Review/check chips link to concrete PR detail anchors/routes, but those detail pages are still skeletons until PR detail/checks features ship."
+    ]
   }
 ]

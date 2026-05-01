@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { RepositoryPullsPage } from "@/components/RepositoryPullsPage";
 import type {
@@ -10,6 +10,11 @@ import {
   repositoryPullRequestCompareHref,
   repositoryPullRequestDetailHref,
   repositoryPullRequestPageHref,
+  repositoryPullRequestSetChecksHref,
+  repositoryPullRequestSetLabelHref,
+  repositoryPullRequestSetMilestoneHref,
+  repositoryPullRequestSetReviewHref,
+  repositoryPullRequestSortHref,
   repositoryPullRequestStateHref,
   repositoryPullRequestsHref,
 } from "@/lib/navigation";
@@ -161,11 +166,24 @@ function pullRequestListView(
       sort: "updated-desc",
     },
     filterOptions: {
-      labels: [],
-      milestones: [],
-      reviewStates: [],
-      checkStates: [],
-      sortOptions: [],
+      labels: [
+        {
+          id: "label-1",
+          name: "review",
+          color: "var(--accent)",
+          description: "Needs review",
+        },
+      ],
+      milestones: [
+        {
+          id: "milestone-1",
+          title: "Review queue",
+          state: "open",
+        },
+      ],
+      reviewStates: ["required", "approved", "changes_requested"],
+      checkStates: ["success", "failure", "pending", "running"],
+      sortOptions: ["updated-desc", "created-desc", "comments-desc"],
     },
     viewerPermission: "owner",
     repository: {
@@ -255,6 +273,86 @@ describe("RepositoryPullsPage", () => {
     ).toHaveLength(0);
   });
 
+  it("renders URL-backed filter menus, selected chips, and reset links", () => {
+    render(
+      <RepositoryPullsPage
+        pulls={pullRequestListView({
+          filters: {
+            query:
+              'is:pr state:open label:review milestone:"Review queue" review:approved checks:success',
+            state: "open",
+            labels: ["review"],
+            milestone: "Review queue",
+            review: "approved",
+            checks: "success",
+            sort: "comments-desc",
+          },
+        })}
+        query={{
+          q: 'is:pr state:open label:review milestone:"Review queue" review:approved checks:success',
+          state: "open",
+          labels: ["review"],
+          milestone: "Review queue",
+          review: "approved",
+          checks: "success",
+          sort: "comments-desc",
+        }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Labels/ }));
+    expect(
+      screen.getByRole("dialog", { name: "Pull request labels filter" }),
+    ).toBeVisible();
+    expect(screen.getByRole("option", { name: /review/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("label%3Areview"),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Milestones/ }));
+    expect(
+      screen.getByRole("option", { name: /Review queue/ }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("milestone%3A%22Review+queue%22"),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Reviews/ }));
+    expect(screen.getByRole("option", { name: /Approved/ })).toHaveAttribute(
+      "href",
+      expect.stringContaining("review%3Aapproved"),
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Checks/ }));
+    expect(
+      screen.getByRole("option", { name: /Checks passing/ }),
+    ).toHaveAttribute("href", expect.stringContaining("checks%3Asuccess"));
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Sort by/ }));
+    expect(
+      screen.getByRole("menuitemradio", { name: /Most commented/ }),
+    ).toHaveAttribute("href", expect.stringContaining("sort=comments-desc"));
+
+    expect(screen.getByRole("link", { name: "label:review" })).toHaveAttribute(
+      "href",
+      expect.not.stringContaining("labels=review"),
+    );
+    expect(
+      screen.getByRole("link", { name: "milestone:Review queue" }),
+    ).toHaveAttribute("href", expect.not.stringContaining("milestone="));
+    expect(
+      screen.getByRole("link", { name: "review:approved" }),
+    ).toHaveAttribute("href", expect.not.stringContaining("review="));
+    expect(
+      screen.getByRole("link", { name: "checks:success" }),
+    ).toHaveAttribute("href", expect.not.stringContaining("checks="));
+  });
+
   it("builds pull request list navigation hrefs", () => {
     expect(repositoryPullRequestsHref("mona", "octo-app")).toBe(
       "/mona/octo-app/pulls",
@@ -282,6 +380,56 @@ describe("RepositoryPullsPage", () => {
     );
     expect(repositoryPullRequestCompareHref("mona", "octo-app")).toBe(
       "/mona/octo-app/compare",
+    );
+    expect(
+      repositoryPullRequestSetLabelHref(
+        "mona",
+        "octo-app",
+        { q: "is:pr state:open", state: "open" },
+        "needs review",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+label%3A%22needs+review%22&state=open&labels=needs+review",
+    );
+    expect(
+      repositoryPullRequestSetMilestoneHref(
+        "mona",
+        "octo-app",
+        { q: "is:pr state:open", state: "open" },
+        "Review queue",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+milestone%3A%22Review+queue%22&state=open&milestone=Review+queue",
+    );
+    expect(
+      repositoryPullRequestSetReviewHref(
+        "mona",
+        "octo-app",
+        { q: "is:pr state:open", state: "open" },
+        "approved",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+review%3Aapproved&state=open&review=approved",
+    );
+    expect(
+      repositoryPullRequestSetChecksHref(
+        "mona",
+        "octo-app",
+        { q: "is:pr state:open", state: "open" },
+        "success",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+checks%3Asuccess&state=open&checks=success",
+    );
+    expect(
+      repositoryPullRequestSortHref(
+        "mona",
+        "octo-app",
+        { q: "is:pr state:open sort:updated-desc", state: "open" },
+        "comments-desc",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen&state=open&sort=comments-desc",
     );
   });
 });

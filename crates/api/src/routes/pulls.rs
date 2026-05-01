@@ -188,7 +188,7 @@ fn normalize_actor_alias(value: &str, actor: Option<&User>) -> String {
 }
 
 fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::CollaborationError> {
-    for term in query.split_whitespace() {
+    for term in pull_query_terms(query) {
         if let Some(value) = term.strip_prefix("state:") {
             if !matches!(value, "open" | "closed" | "merged") {
                 return Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
@@ -217,14 +217,14 @@ fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::Collabo
 }
 
 fn pull_state_from_query(query: &str) -> PullRequestState {
-    if query
-        .split_whitespace()
-        .any(|term| matches!(term, "state:merged" | "is:merged"))
+    if pull_query_terms(query)
+        .into_iter()
+        .any(|term| matches!(term.as_str(), "state:merged" | "is:merged"))
     {
         PullRequestState::Merged
-    } else if query
-        .split_whitespace()
-        .any(|term| matches!(term, "state:closed" | "is:closed"))
+    } else if pull_query_terms(query)
+        .into_iter()
+        .any(|term| matches!(term.as_str(), "state:closed" | "is:closed"))
     {
         PullRequestState::Closed
     } else {
@@ -305,12 +305,42 @@ fn qualifier_from_query(query: &str, prefix: &str) -> Option<String> {
 }
 
 fn qualifier_values_from_query(query: &str, prefix: &str) -> Vec<String> {
-    query
-        .split_whitespace()
-        .filter_map(|term| term.strip_prefix(prefix))
-        .map(|value| value.trim().trim_matches('"').to_owned())
+    pull_query_terms(query)
+        .into_iter()
+        .filter_map(|term| {
+            term.strip_prefix(prefix)
+                .map(|value| value.trim().trim_matches('"').to_owned())
+        })
         .filter(|value| !value.is_empty())
         .collect()
+}
+
+fn pull_query_terms(query: &str) -> Vec<String> {
+    let mut terms = Vec::new();
+    let mut rest = query.trim();
+    while !rest.is_empty() {
+        let token_end = rest.find(char::is_whitespace).unwrap_or(rest.len());
+        let token = &rest[..token_end];
+        if let Some(quote_index) = token.find(":\"") {
+            let prefix_length = quote_index + 2;
+            let quoted_rest = &rest[prefix_length..];
+            if let Some(end_quote) = quoted_rest.find('"') {
+                terms.push(format!(
+                    "{}{}",
+                    &token[..prefix_length],
+                    &quoted_rest[..=end_quote]
+                ));
+                rest = quoted_rest[end_quote + 1..].trim_start();
+            } else {
+                terms.push(rest.to_owned());
+                rest = "";
+            }
+        } else {
+            terms.push(token.to_owned());
+            rest = rest[token_end..].trim_start();
+        }
+    }
+    terms
 }
 
 fn repository_lookup_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelope>) {

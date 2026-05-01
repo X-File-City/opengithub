@@ -428,6 +428,36 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
         )
     );
 
+    let typed_filter_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20state%3Aopen%20label%3Abug%20milestone%3A%22Review%20queue%22%20review%3Aapproved%20checks%3Asuccess%20filters&sort=comments-desc",
+        owner.email, repo_name
+    );
+    let (typed_filter_status, typed_filter_body) =
+        send_json(app.clone(), &typed_filter_uri, None).await;
+    assert_eq!(typed_filter_status, StatusCode::OK);
+    assert_eq!(typed_filter_body["total"], 1);
+    assert_eq!(typed_filter_body["filters"]["labels"][0], "bug");
+    assert_eq!(typed_filter_body["filters"]["milestone"], "Review queue");
+    assert_eq!(typed_filter_body["filters"]["review"], "approved");
+    assert_eq!(typed_filter_body["filters"]["checks"], "success");
+    assert_eq!(typed_filter_body["filters"]["sort"], "comments-desc");
+    assert_eq!(
+        typed_filter_body["items"][0]["number"],
+        open_pr.pull_request.number
+    );
+
+    let (invalid_filter_status, invalid_filter_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen&review=stale",
+            owner.email, repo_name
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(invalid_filter_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(invalid_filter_body["error"]["code"], "validation_failed");
+
     let private_uri = format!("/api/repos/{owner}/{private_repo_name}/pulls", owner = owner.email);
     let (anonymous_private_status, anonymous_private_body) =
         send_json(app.clone(), &private_uri, None).await;

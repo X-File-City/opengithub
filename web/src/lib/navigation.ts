@@ -780,6 +780,116 @@ export function repositoryPullRequestPageHref(
   });
 }
 
+export function repositoryPullRequestSortHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  sort: string,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    sort,
+    q: removePullRequestFilterFromQuery(
+      removePullRequestFilterFromQuery(current.q, "sort"),
+      "order",
+    ),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestSetLabelHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  label: string,
+) {
+  const labels = uniqueIssueValues([...(current.labels ?? []), label]);
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    labels,
+    q: addPullRequestQualifier(
+      removePullRequestFilterFromQuery(current.q, "label", label),
+      "label",
+      label,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestSetMilestoneHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  milestone: string,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    milestone,
+    q: addPullRequestQualifier(
+      removePullRequestFilterFromQuery(current.q, "milestone"),
+      "milestone",
+      milestone,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestSetReviewHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  review: string,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    review,
+    q: addPullRequestQualifier(
+      removePullRequestFilterFromQuery(current.q, "review"),
+      "review",
+      review,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestSetChecksHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  checks: string,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    checks,
+    q: addPullRequestQualifier(
+      removePullRequestFilterFromQuery(current.q, "checks"),
+      "checks",
+      checks,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestClearFilterHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+  filter: "labels" | "milestone" | "review" | "checks",
+  value?: string,
+) {
+  const next = { ...current, page: null };
+  if (filter === "labels") {
+    next.labels = (current.labels ?? []).filter(
+      (label) => label.toLowerCase() !== value?.toLowerCase(),
+    );
+    next.q = removePullRequestFilterFromQuery(current.q, "label", value);
+  } else {
+    next[filter] = null;
+    next.q = removePullRequestFilterFromQuery(current.q, filter);
+  }
+  return repositoryPullRequestsHref(owner, repo, next);
+}
+
 export function repositoryIssueStateHref(
   owner: string,
   repo: string,
@@ -1094,6 +1204,37 @@ function pullRequestQueryWithState(
   return terms.join(" ");
 }
 
+function removePullRequestFilterFromQuery(
+  query: string | null | undefined,
+  filter: "label" | "milestone" | "review" | "checks" | "sort" | "order",
+  value?: string,
+) {
+  const normalizedValue = value?.toLowerCase();
+  return issueQueryTerms(query?.trim() || "")
+    .filter((term) => {
+      const prefix = `${filter}:`;
+      if (!term.startsWith(prefix)) {
+        return true;
+      }
+      if (!normalizedValue) {
+        return false;
+      }
+      return (
+        term.slice(prefix.length).replaceAll('"', "").toLowerCase() !==
+        normalizedValue
+      );
+    })
+    .join(" ");
+}
+
+function addPullRequestQualifier(
+  query: string | null | undefined,
+  filter: "label" | "milestone" | "review" | "checks",
+  value: string,
+) {
+  return addIssueQualifier(query, filter, value);
+}
+
 function removeIssueFilterFromQuery(
   query: string | null | undefined,
   filter:
@@ -1155,6 +1296,8 @@ function addIssueQualifier(
     | "assignee"
     | "project"
     | "type"
+    | "review"
+    | "checks"
     | "sort"
     | "order"
     | "no",

@@ -1,4 +1,12 @@
 import Link from "next/link";
+import {
+  IssuePickerMenu,
+  type IssuePickerOption,
+} from "@/components/IssueFilterMenu";
+import {
+  IssueSortMenu,
+  type IssueSortOption,
+} from "@/components/IssueSortMenu";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
   ApiErrorEnvelope,
@@ -8,9 +16,15 @@ import type {
 } from "@/lib/api";
 import {
   type RepositoryPullRequestHrefQuery,
+  repositoryPullRequestClearFilterHref,
   repositoryPullRequestCompareHref,
   repositoryPullRequestDetailHref,
   repositoryPullRequestPageHref,
+  repositoryPullRequestSetChecksHref,
+  repositoryPullRequestSetLabelHref,
+  repositoryPullRequestSetMilestoneHref,
+  repositoryPullRequestSetReviewHref,
+  repositoryPullRequestSortHref,
   repositoryPullRequestStateHref,
   repositoryPullRequestsHref,
 } from "@/lib/navigation";
@@ -135,6 +149,65 @@ function reviewLabel(review: PullRequestListItem["review"]) {
   return review.required ? "Review required" : "No review";
 }
 
+const PULL_SORT_OPTIONS = [
+  {
+    value: "updated-desc",
+    label: "Recently updated",
+    group: "Sort by",
+    description: "Pull requests with the latest activity first.",
+    shortcut: "u",
+  },
+  {
+    value: "created-desc",
+    label: "Newest",
+    group: "Sort by",
+    description: "Newly opened pull requests first.",
+    shortcut: "n",
+  },
+  {
+    value: "comments-desc",
+    label: "Most commented",
+    group: "Sort by",
+    description: "Pull requests with the busiest conversations first.",
+    shortcut: "c",
+  },
+  {
+    value: "updated-asc",
+    label: "Least recently updated",
+    group: "Order",
+    description: "Pull requests with the oldest activity first.",
+    shortcut: "U",
+  },
+  {
+    value: "created-asc",
+    label: "Oldest",
+    group: "Order",
+    description: "Oldest opened pull requests first.",
+    shortcut: "N",
+  },
+  {
+    value: "comments-asc",
+    label: "Least commented",
+    group: "Order",
+    description: "Pull requests with the quietest conversations first.",
+    shortcut: "C",
+  },
+] as const satisfies readonly Omit<IssueSortOption, "href" | "active">[];
+
+const REVIEW_FILTER_LABELS: Record<string, string> = {
+  required: "Review required",
+  approved: "Approved",
+  changes_requested: "Changes requested",
+  commented: "Commented",
+};
+
+const CHECK_FILTER_LABELS: Record<string, string> = {
+  success: "Checks passing",
+  failure: "Checks failing",
+  pending: "Checks pending",
+  running: "Checks running",
+};
+
 function ReviewChip({ pull }: { pull: PullRequestListItem }) {
   const approved = pull.review.state === "approved";
   const changesRequested = pull.review.state === "changes_requested";
@@ -243,6 +316,70 @@ export function RepositoryPullsPage({
   };
   const firstItem = (pulls.page - 1) * pulls.pageSize + 1;
   const lastItem = Math.min(pulls.total, pulls.page * pulls.pageSize);
+  const activeSort =
+    PULL_SORT_OPTIONS.find((option) => option.value === pulls.filters.sort) ??
+    PULL_SORT_OPTIONS[0];
+  const sortOptions = PULL_SORT_OPTIONS.filter((option) =>
+    pulls.filterOptions.sortOptions.length
+      ? pulls.filterOptions.sortOptions.includes(option.value)
+      : true,
+  ).map((option) => ({
+    ...option,
+    href: repositoryPullRequestSortHref(owner, repo, baseQuery, option.value),
+    active: option.value === pulls.filters.sort,
+  }));
+  const labelOptions: IssuePickerOption[] = pulls.filterOptions.labels.map(
+    (label) => ({
+      id: label.id,
+      label: label.name,
+      description: label.description,
+      href: repositoryPullRequestSetLabelHref(
+        owner,
+        repo,
+        baseQuery,
+        label.name,
+      ),
+      selected: pulls.filters.labels.some(
+        (value) => value.toLowerCase() === label.name.toLowerCase(),
+      ),
+      badge: null,
+    }),
+  );
+  const milestoneOptions: IssuePickerOption[] =
+    pulls.filterOptions.milestones.map((milestone) => ({
+      id: milestone.id,
+      label: milestone.title,
+      description: `${milestone.state} milestone`,
+      href: repositoryPullRequestSetMilestoneHref(
+        owner,
+        repo,
+        baseQuery,
+        milestone.title,
+      ),
+      selected:
+        pulls.filters.milestone?.toLowerCase() ===
+        milestone.title.toLowerCase(),
+      badge: milestone.state,
+    }));
+  const reviewOptions: IssuePickerOption[] =
+    pulls.filterOptions.reviewStates.map((review) => ({
+      id: review,
+      label: REVIEW_FILTER_LABELS[review] ?? review,
+      description: `Show pull requests with ${review.replaceAll("_", " ")} review state.`,
+      href: repositoryPullRequestSetReviewHref(owner, repo, baseQuery, review),
+      selected: pulls.filters.review === review,
+      badge: null,
+    }));
+  const checkOptions: IssuePickerOption[] = pulls.filterOptions.checkStates.map(
+    (checks) => ({
+      id: checks,
+      label: CHECK_FILTER_LABELS[checks] ?? checks,
+      description: `Show pull requests with ${checks} checks.`,
+      href: repositoryPullRequestSetChecksHref(owner, repo, baseQuery, checks),
+      selected: pulls.filters.checks === checks,
+      badge: null,
+    }),
+  );
 
   return (
     <RepositoryShell
@@ -367,12 +504,38 @@ export function RepositoryPullsPage({
           <button className="btn" type="submit">
             Search
           </button>
-          <Link className="btn" href={`/${owner}/${repo}/labels`}>
-            Labels
-          </Link>
-          <Link className="btn" href={`/${owner}/${repo}/milestones`}>
-            Milestones
-          </Link>
+          <IssuePickerMenu
+            buttonLabel="Labels"
+            dialogLabel="Pull request labels filter"
+            emptyMessage="No labels match this search."
+            options={labelOptions}
+            searchLabel="Filter pull request labels"
+            searchPlaceholder="Filter labels"
+          />
+          <IssuePickerMenu
+            buttonLabel="Milestones"
+            dialogLabel="Pull request milestones filter"
+            emptyMessage="No milestones match this search."
+            options={milestoneOptions}
+            searchLabel="Filter pull request milestones"
+            searchPlaceholder="Filter milestones"
+          />
+          <IssuePickerMenu
+            buttonLabel="Reviews"
+            dialogLabel="Pull request reviews filter"
+            emptyMessage="No review states match this search."
+            options={reviewOptions}
+            searchLabel="Filter review states"
+            searchPlaceholder="Filter reviews"
+          />
+          <IssuePickerMenu
+            buttonLabel="Checks"
+            dialogLabel="Pull request checks filter"
+            emptyMessage="No check states match this search."
+            options={checkOptions}
+            searchLabel="Filter check states"
+            searchPlaceholder="Filter checks"
+          />
         </form>
 
         <div className="card overflow-hidden">
@@ -406,6 +569,70 @@ export function RepositoryPullsPage({
               {pulls.total ? `${firstItem}-${lastItem}` : "0"} of{" "}
               <span className="t-num">{pulls.total}</span>
             </p>
+            <div className="flex flex-wrap gap-2 py-3">
+              <IssueSortMenu
+                activeLabel={activeSort.label}
+                options={sortOptions}
+              />
+              {pulls.filters.labels.map((label) => (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "labels",
+                    label,
+                  )}
+                  key={label}
+                  title={`Remove label:${label}`}
+                >
+                  label:{label}
+                </Link>
+              ))}
+              {pulls.filters.milestone ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "milestone",
+                  )}
+                  title={`Remove milestone:${pulls.filters.milestone}`}
+                >
+                  milestone:{pulls.filters.milestone}
+                </Link>
+              ) : null}
+              {pulls.filters.review ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "review",
+                  )}
+                  title={`Remove review:${pulls.filters.review}`}
+                >
+                  review:{pulls.filters.review}
+                </Link>
+              ) : null}
+              {pulls.filters.checks ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "checks",
+                  )}
+                  title={`Remove checks:${pulls.filters.checks}`}
+                >
+                  checks:{pulls.filters.checks}
+                </Link>
+              ) : null}
+            </div>
           </div>
 
           {pulls.items.length ? (

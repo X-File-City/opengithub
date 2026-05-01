@@ -42,7 +42,7 @@
 
 ## Phase 3: URL Filters and Toolbar Menus - search, tabs, labels, milestones, review, checks, and sort work
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Make the pull request query builder and compact toolbar controls functional. Typing a query or choosing state, label, milestone, review, checks, or sort filters updates the URL and results. Open/Closed tabs switch state filters, empty results show a no-results state, and clear/reset affordances return to the default open PR query.
 

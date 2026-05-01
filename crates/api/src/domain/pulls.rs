@@ -1542,11 +1542,11 @@ fn fallback_user(user_id: Uuid) -> IssueListUser {
 }
 
 fn search_text_from_pull_query(query: &str) -> String {
-    query
-        .split_whitespace()
+    pull_query_terms(query)
+        .into_iter()
         .filter(|term| {
             !matches!(
-                *term,
+                term.as_str(),
                 "is:pr" | "is:pull-request" | "is:open" | "is:closed" | "is:merged"
             ) && !term.starts_with("state:")
                 && !term.starts_with("label:")
@@ -1560,6 +1560,34 @@ fn search_text_from_pull_query(query: &str) -> String {
         .join(" ")
         .trim()
         .to_owned()
+}
+
+fn pull_query_terms(query: &str) -> Vec<String> {
+    let mut terms = Vec::new();
+    let mut rest = query.trim();
+    while !rest.is_empty() {
+        let token_end = rest.find(char::is_whitespace).unwrap_or(rest.len());
+        let token = &rest[..token_end];
+        if let Some(quote_index) = token.find(":\"") {
+            let prefix_length = quote_index + 2;
+            let quoted_rest = &rest[prefix_length..];
+            if let Some(end_quote) = quoted_rest.find('"') {
+                terms.push(format!(
+                    "{}{}",
+                    &token[..prefix_length],
+                    &quoted_rest[..=end_quote]
+                ));
+                rest = quoted_rest[end_quote + 1..].trim_start();
+            } else {
+                terms.push(rest.to_owned());
+                rest = "";
+            }
+        } else {
+            terms.push(token.to_owned());
+            rest = rest[token_end..].trim_start();
+        }
+    }
+    terms
 }
 
 pub fn pull_sort_options() -> Vec<String> {
