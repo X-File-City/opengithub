@@ -568,6 +568,35 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
         .expect("body html should be a string")
         .contains("<strong>metadata</strong>"));
 
+    let (anonymous_comment_status, anonymous_comment_body) = post_json(
+        app.clone(),
+        &format!("{uri}/comments"),
+        None,
+        json!({ "body": "anonymous write should be rejected" }),
+    )
+    .await;
+    assert_eq!(anonymous_comment_status, StatusCode::UNAUTHORIZED);
+    assert_eq!(anonymous_comment_body["error"]["code"], "not_authenticated");
+
+    let (anonymous_state_status, anonymous_state_body) =
+        patch_json(app.clone(), &uri, None, json!({ "state": "closed" })).await;
+    assert_eq!(anonymous_state_status, StatusCode::UNAUTHORIZED);
+    assert_eq!(anonymous_state_body["error"]["code"], "not_authenticated");
+
+    let (anonymous_metadata_status, anonymous_metadata_body) = patch_json(
+        app.clone(),
+        &format!("{uri}/metadata"),
+        None,
+        json!({
+            "labelIds": [documentation.id],
+            "assigneeUserIds": [],
+            "milestoneId": null
+        }),
+    )
+    .await;
+    assert_eq!(anonymous_metadata_status, StatusCode::UNAUTHORIZED);
+    assert_eq!(anonymous_metadata_body["error"]["code"], "not_authenticated");
+
     let (subscribe_status, subscribe_body) = patch_json(
         app.clone(),
         &format!("{uri}/subscription"),
@@ -666,6 +695,30 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
         .as_str()
         .expect("created comment body html should be a string")
         .contains("<strong>timeline</strong>"));
+
+    let (final_timeline_status, final_timeline_body) =
+        send_json(app.clone(), &timeline_uri, Some(&owner_cookie)).await;
+    assert_eq!(final_timeline_status, StatusCode::OK);
+    let final_timeline_items = final_timeline_body
+        .as_array()
+        .expect("final timeline should be an array");
+    let mut previous_timestamp = String::new();
+    for item in final_timeline_items {
+        let created_at = item["createdAt"]
+            .as_str()
+            .expect("timeline item should expose createdAt");
+        assert!(
+            previous_timestamp.is_empty() || previous_timestamp.as_str() <= created_at,
+            "timeline items should be ordered oldest-first: {previous_timestamp} then {created_at}"
+        );
+        previous_timestamp = created_at.to_owned();
+    }
+    assert!(final_timeline_items.iter().any(|item| {
+        item["eventType"] == "commented"
+            && item["comment"]["bodyHtml"]
+                .as_str()
+                .is_some_and(|html| html.contains("<strong>timeline</strong>"))
+    }));
 
     let private_uri = format!(
         "/api/repos/{}/{}/issues/{}",

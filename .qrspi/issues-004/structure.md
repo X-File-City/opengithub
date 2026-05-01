@@ -77,7 +77,7 @@
 
 ## Phase 5: Issue Detail Guardrails and QA Handoff - finish issues-004
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Harden the full issue detail feature: public/private access, auth redirects for writes, mobile layout, keyboard/a11y, Markdown/code/copy behavior, event ordering, validation envelopes, no placeholder controls, screenshot evidence, QA hints, and final bookkeeping. Mark `issues-004` complete only after read, comment, state, reaction, subscription, and supported metadata actions are all verified.
 

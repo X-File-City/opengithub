@@ -409,4 +409,99 @@ describe("RepositoryIssueDetailPage", () => {
     expect(await screen.findByText("Issue metadata updated.")).toBeVisible();
     expect(screen.getByText("enhancement")).toBeVisible();
   });
+
+  it("previews markdown, posts comments, and toggles concrete issue actions", async () => {
+    const createdComment: IssueTimelineItem = {
+      id: "event-comment-2",
+      eventType: "commented",
+      actor: {
+        id: "user-1",
+        login: "mona",
+        displayName: "Mona",
+        avatarUrl: null,
+      },
+      comment: {
+        id: "comment-2",
+        body: "New **guardrail** comment",
+        bodyHtml:
+          '<div class="markdown-body"><p>New <strong>guardrail</strong> comment</p></div>',
+        isMinimized: false,
+        reactions: [],
+        createdAt: "2026-04-30T02:00:00Z",
+        updatedAt: "2026-04-30T02:00:00Z",
+      },
+      metadata: { commentId: "comment-2" },
+      createdAt: "2026-04-30T02:00:00Z",
+    };
+    const closedIssue = issueDetail({ state: "closed" });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/markdown/preview") {
+        return {
+          ok: true,
+          json: async () => ({
+            html: '<div class="markdown-body"><p>Preview <strong>works</strong></p></div>',
+          }),
+        };
+      }
+      if (url.endsWith("/comments")) {
+        return { ok: true, json: async () => createdComment };
+      }
+      if (url.endsWith("/state")) {
+        return { ok: true, json: async () => closedIssue };
+      }
+      if (url.endsWith("/subscription")) {
+        return {
+          ok: true,
+          json: async () => ({ subscribed: true, reason: "subscribed" }),
+        };
+      }
+      if (url.endsWith("/reactions")) {
+        return {
+          ok: true,
+          json: async () => [
+            { content: "thumbs_up", count: 3, viewerReacted: false },
+          ],
+        };
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RepositoryIssueDetailPage
+        issue={issueDetail()}
+        repository={repositoryOverview()}
+        timeline={issueTimeline()}
+        viewerAuthenticated={true}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Comment body" }), {
+      target: { value: "New **guardrail** comment" },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
+    expect(await screen.findByText("Preview")).toBeVisible();
+    expect(await screen.findByText("works")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Write" }));
+    fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+    expect(await screen.findByText("Comment posted.")).toBeVisible();
+    expect(await screen.findByText("guardrail")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Thumbs up 2" }));
+    expect(
+      await screen.findByRole("button", { name: "Thumbs up 3" }),
+    ).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Subscribe" }));
+    expect(
+      await screen.findByText("Subscribed to notifications."),
+    ).toBeVisible();
+    expect(screen.getByText("Subscribed: subscribed")).toBeVisible();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Close issue" })[0]);
+    expect(await screen.findByText("Issue closed.")).toBeVisible();
+    expect(screen.getByText("Closed")).toBeVisible();
+  });
 });

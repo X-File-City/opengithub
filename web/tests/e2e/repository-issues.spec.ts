@@ -97,6 +97,7 @@ test.skip(
 );
 
 test("signed-in repository Issues tab renders real issues and row navigation", async ({
+  browser,
   page,
 }) => {
   const seeded = seedSession();
@@ -170,6 +171,16 @@ test("signed-in repository Issues tab renders real issues and row navigation", a
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Assignees" })).toBeVisible();
   await expect(page.getByText("No milestone")).toBeVisible();
+  await page
+    .getByRole("textbox", { name: "Comment body" })
+    .fill("Browser **guardrail** comment from Phase 5.");
+  await page.getByRole("tab", { name: "Preview" }).click();
+  await expect(page.getByText("Browser")).toBeVisible();
+  await expect(page.getByText("guardrail")).toBeVisible();
+  await page.getByRole("tab", { name: "Write" }).click();
+  await page.getByRole("button", { name: "Comment" }).click();
+  await expect(page.getByText("Comment posted.")).toBeVisible();
+  await expect(page.getByText("guardrail")).toBeVisible();
   await page.getByRole("button", { name: "Subscribe" }).click();
   await expect(page.getByText("Subscribed to notifications.")).toBeVisible();
   await expect(page.getByText("Subscribed: subscribed")).toBeVisible();
@@ -208,6 +219,48 @@ test("signed-in repository Issues tab renders real issues and row navigation", a
     fullPage: true,
     path: "../ralph/screenshots/build/issues-004-phase4-metadata.jpg",
   });
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-004-phase5-final-desktop.jpg",
+  });
+
+  const anonymousPage = await browser.newPage();
+  await anonymousPage.goto(`/${ownerLogin}/${repoName}/issues/${issue.number}`);
+  await expect(
+    anonymousPage.getByRole("heading", { name: new RegExp(issueTitle) }),
+  ).toBeVisible();
+  await expect(
+    anonymousPage.locator(
+      `a[href="/login?next=%2F${ownerLogin}%2F${repoName}%2Fissues%2F${issue.number}"]`,
+    ),
+  ).toHaveCount(1);
+  await expect(
+    anonymousPage.getByRole("link", { name: "Sign in to subscribe" }),
+  ).toHaveAttribute(
+    "href",
+    `/login?next=/${ownerLogin}/${repoName}/issues/${issue.number}`,
+  );
+  await expectNoDeadControls(anonymousPage);
+  await anonymousPage.close();
+
+  const mobilePage = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+  });
+  await signIn(mobilePage, seeded);
+  await mobilePage.goto(`/${ownerLogin}/${repoName}/issues/${issue.number}`);
+  await expect(
+    mobilePage.getByRole("heading", { name: new RegExp(issueTitle) }),
+  ).toBeVisible();
+  await expectNoDeadControls(mobilePage);
+  const overflow = await mobilePage.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(overflow).toBe(false);
+  await mobilePage.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-004-phase5-final-mobile.jpg",
+  });
+  await mobilePage.close();
 });
 
 test("signed-in repository Issues filters update URL, results, and empty states", async ({

@@ -1648,5 +1648,22 @@
       "Attachment binary upload/download remains metadata-only until storage-backed attachments land.",
       "Final Phase 5 still needs mobile no-overflow, keyboard/a11y, auth-gated write CTA, event ordering, and final desktop/mobile screenshots before issues-004 can be marked build_pass true."
     ]
+  },
+  {
+    "feature_id": "issues-004",
+    "tests_written": [
+      "Completed Phase 5 guardrails for issue detail: Rust contract now checks anonymous write denials for comments/state/metadata, validation envelopes, private redaction, and oldest-first timeline ordering after comment/state/metadata events.",
+      "Extended RepositoryIssueDetailPage Vitest coverage for Markdown preview, real comment submission, reaction toggles, subscription toggle, close action, action feedback, and accessible concrete controls.",
+      "Extended signed Playwright issue-detail smoke to preview and submit a real comment, subscribe, react, close/reopen, edit labels/assignees, verify anonymous public read CTAs, assert no dead controls, and check mobile no-overflow.",
+      "Saved final screenshots ralph/screenshots/build/issues-004-phase5-final-desktop.jpg and ralph/screenshots/build/issues-004-phase5-final-mobile.jpg.",
+      "Verification passed: mandatory Editorial banned-value scan had zero matches; focused Rust/Vitest/Playwright checks passed; TEST_DATABASE_URL-backed make check, make test, and make test-e2e passed."
+    ],
+    "needs_deeper_qa": [
+      "Attachment support is metadata-only; binary upload/download remains future storage work.",
+      "Issue relationship editing, Projects, custom Fields, and issue Types render honest unsupported/empty states until those data models ship.",
+      "Comment-level reaction mutation controls are not implemented yet; existing comment reaction summaries render if present.",
+      "Subscription is subscribe/unsubscribe only; notification customization routing remains future notification-settings work.",
+      "QA should stress concurrent metadata edits from two sessions because current metadata writes are full-replacement updates."
+    ]
   }
 ]
