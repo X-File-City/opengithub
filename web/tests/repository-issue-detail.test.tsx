@@ -1,7 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { RepositoryIssueDetailPage } from "@/components/RepositoryIssueDetailPage";
-import type { IssueDetailView, RepositoryOverview } from "@/lib/api";
+import type {
+  IssueDetailView,
+  IssueTimelineItem,
+  RepositoryOverview,
+} from "@/lib/api";
 
 function repositoryOverview(
   overrides: Partial<RepositoryOverview> = {},
@@ -144,12 +148,53 @@ function issueDetail(
   return { ...base, ...overrides };
 }
 
+function issueTimeline(): IssueTimelineItem[] {
+  return [
+    {
+      id: "event-opened",
+      eventType: "opened",
+      actor: {
+        id: "user-1",
+        login: "mona",
+        displayName: "Mona",
+        avatarUrl: null,
+      },
+      comment: null,
+      metadata: { number: 42 },
+      createdAt: "2026-04-30T00:00:00Z",
+    },
+    {
+      id: "event-comment",
+      eventType: "commented",
+      actor: {
+        id: "user-2",
+        login: "hubot",
+        displayName: "Hubot",
+        avatarUrl: null,
+      },
+      comment: {
+        id: "comment-1",
+        body: "I can reproduce this with `cargo test`.",
+        bodyHtml:
+          '<div class="markdown-body"><p>I can reproduce this with <code>cargo test</code>.</p></div>',
+        isMinimized: false,
+        createdAt: "2026-04-30T00:10:00Z",
+        updatedAt: "2026-04-30T00:10:00Z",
+      },
+      metadata: { commentId: "comment-1" },
+      createdAt: "2026-04-30T00:10:00Z",
+    },
+  ];
+}
+
 describe("RepositoryIssueDetailPage", () => {
   it("renders the issue header, body, and sidebar read model", () => {
     render(
       <RepositoryIssueDetailPage
         issue={issueDetail()}
         repository={repositoryOverview()}
+        timeline={issueTimeline()}
+        viewerAuthenticated={true}
       />,
     );
 
@@ -159,7 +204,6 @@ describe("RepositoryIssueDetailPage", () => {
       }),
     ).toBeVisible();
     expect(screen.getByText("Open")).toBeVisible();
-    expect(screen.getByText("opened this issue.")).toBeVisible();
     expect(screen.getByRole("link", { name: "All issues" })).toHaveAttribute(
       "href",
       "/mona/octo-app/issues?state=open",
@@ -169,10 +213,9 @@ describe("RepositoryIssueDetailPage", () => {
       "/mona/octo-app/issues/new",
     );
     expect(screen.getByText("retry")).toBeVisible();
-    expect(screen.getByText("opened this issue.")).toBeVisible();
 
     expect(screen.getByRole("heading", { name: "Assignees" })).toBeVisible();
-    expect(screen.getByText("hubot")).toBeVisible();
+    expect(screen.getAllByText("hubot").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("heading", { name: "Labels" })).toBeVisible();
     expect(screen.getByText("bug")).toHaveAttribute(
       "title",
@@ -186,6 +229,11 @@ describe("RepositoryIssueDetailPage", () => {
     expect(screen.getByText("trace.txt")).toBeVisible();
     expect(screen.getByText(/1.5 KB/)).toBeVisible();
     expect(screen.getByText("Not subscribed")).toBeVisible();
+    expect(screen.getByText(/mona opened this issue/)).toBeVisible();
+    expect(screen.getAllByText("hubot").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/I can reproduce this with/)).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Comment body" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Comment" })).toBeDisabled();
   });
 
   it("keeps controls concrete and shows honest empty sidebar states", () => {
@@ -202,6 +250,8 @@ describe("RepositoryIssueDetailPage", () => {
           closedAt: "2026-04-30T03:00:00Z",
         })}
         repository={repositoryOverview()}
+        timeline={[]}
+        viewerAuthenticated={false}
       />,
     );
 
@@ -212,6 +262,10 @@ describe("RepositoryIssueDetailPage", () => {
     expect(screen.getByText("No linked pull requests")).toBeVisible();
     expect(screen.getByText("No attachments")).toBeVisible();
     expect(screen.getByText("No participants yet")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login?next=%2Fmona%2Focto-app%2Fissues%2F42",
+    );
     for (const link of screen.getAllByRole("link")) {
       expect(link).toHaveAttribute("href");
       expect(link.getAttribute("href")).not.toBe("#");

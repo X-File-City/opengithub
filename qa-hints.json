@@ -1599,5 +1599,21 @@
       "Attachment rows are metadata-only from issues-003; binary download/upload behavior remains future storage work.",
       "Browser proof is Chromium Playwright; QA should later repeat mobile/a11y sweeps once comments and action controls are present."
     ]
+  },
+  {
+    "feature_id": "issues-004",
+    "tests_written": [
+      "Implemented Phase 2 timeline comments: GET /api/repos/{owner}/{repo}/issues/{number}/timeline now returns a screen-ready public-readable timeline with actors, opened/state events, rendered Markdown comment cards, and private-repository redaction.",
+      "POST /api/repos/{owner}/{repo}/issues/{number}/comments now validates empty bodies and returns the created screen-ready timeline item with rendered Markdown, instead of a raw comment row.",
+      "Added the same-origin Next.js comment route, typed timeline/comment helpers, IssueTimeline client component, Write/Preview composer, anonymous sign-in CTA, and issue detail page wiring.",
+      "Focused tests covered the Rust detail/timeline/comment contract and RepositoryIssueDetailPage rendering. Full verification passed: TEST_DATABASE_URL-backed make check, make test with 140 frontend tests plus cargo tests, make test-e2e with 60 Playwright tests, and mandatory Editorial banned-value scan with zero matches.",
+      "Browser smoke used a real Rust signed session, created a real issue/comment through the API, previewed and posted a second comment in Chromium, and saved ralph/screenshots/build/issues-004-phase2-comment.jpg."
+    ],
+    "needs_deeper_qa": [
+      "Close/reopen, reaction toggles, subscribe/customize notification state, and comment-and-close are intentionally deferred to Phase 3.",
+      "Metadata sidebar editing for labels, assignees, milestones, relationships, and unsupported Type/Fields/Projects states remains Phase 4.",
+      "Attachment binary upload/download remains metadata-only until storage-backed attachments land.",
+      "QA should later repeat mobile no-overflow, keyboard focus order, and screen-reader narration once action controls and metadata menus are present."
+    ]
   }
 ]

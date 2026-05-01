@@ -24,7 +24,7 @@
 
 ## Phase 2: Timeline Comments - load, render, and create comments
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Turn the detail body into a real conversation timeline. Existing opened/commented/state events should be normalized into timeline items, comment cards should render Markdown with author/timestamp/action affordances, and the signed-in comment composer should post a new comment through the Rust API and show success/error feedback. Anonymous readers on public repositories can read the timeline but must see a concrete sign-in CTA for commenting.
 

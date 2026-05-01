@@ -210,7 +210,7 @@ async fn issues_comments_reactions_filters_and_permissions_round_trip() {
     .expect("closed issues should list");
     assert_eq!(closed_list.total, 1);
 
-    let events = issue_timeline(&pool, issue.id, owner.id)
+    let events = issue_timeline(&pool, issue.id, Some(owner.id))
         .await
         .expect("timeline should load");
     let event_types = events

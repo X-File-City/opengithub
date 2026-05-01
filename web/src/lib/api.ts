@@ -627,6 +627,24 @@ export type IssueDetailView = {
   subscription: IssueSubscriptionState;
 };
 
+export type IssueTimelineComment = {
+  id: string;
+  body: string;
+  bodyHtml: string;
+  isMinimized: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type IssueTimelineItem = {
+  id: string;
+  eventType: string;
+  actor: IssueListUser | null;
+  comment: IssueTimelineComment | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type IssueListFilters = {
   query: string;
   state: IssueState;
@@ -1257,6 +1275,79 @@ export async function getRepositoryIssueFromCookie(
   }
 
   return body as IssueDetailView;
+}
+
+export async function getRepositoryIssueTimelineFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+): Promise<IssueTimelineItem[] | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryIssuePath(owner, repo, issueNumber)}/timeline`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Issue timeline is temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "timeline_failed",
+          message: "Issue timeline could not be loaded.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as IssueTimelineItem[];
+}
+
+export async function createRepositoryIssueCommentFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+  body: string,
+): Promise<IssueTimelineItem> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryIssuePath(owner, repo, issueNumber)}/comments`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ body }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(envelope?.error.message ?? "Comment could not be posted", {
+      cause: envelope,
+    });
+  }
+
+  return (await response.json()) as IssueTimelineItem;
 }
 
 export async function saveRepositoryIssuePreferences(

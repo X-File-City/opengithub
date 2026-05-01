@@ -199,6 +199,28 @@ pub struct IssueDetailView {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct IssueTimelineItem {
+    pub id: Uuid,
+    pub event_type: String,
+    pub actor: Option<IssueListUser>,
+    pub comment: Option<IssueTimelineComment>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueTimelineComment {
+    pub id: Uuid,
+    pub body: String,
+    pub body_html: String,
+    pub is_minimized: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueListCounts {
     pub open: i64,
     pub closed: i64,
@@ -1347,6 +1369,36 @@ pub async fn add_issue_comment(
     Ok(comment)
 }
 
+pub async fn issue_comment_timeline_item(
+    pool: &PgPool,
+    comment_id: Uuid,
+) -> Result<IssueTimelineItem, CollaborationError> {
+    let row = sqlx::query(
+        r#"
+        SELECT timeline_events.id, timeline_events.event_type, timeline_events.metadata,
+               timeline_events.created_at,
+               comments.id AS comment_id, comments.body, comments.is_minimized,
+               comments.created_at AS comment_created_at, comments.updated_at AS comment_updated_at,
+               users.id AS actor_id, COALESCE(users.username, users.email) AS actor_login,
+               users.display_name AS actor_display_name, users.avatar_url AS actor_avatar_url
+        FROM comments
+        JOIN timeline_events
+          ON timeline_events.issue_id = comments.issue_id
+         AND timeline_events.event_type = 'commented'
+         AND timeline_events.metadata->>'commentId' = comments.id::text
+        JOIN users ON users.id = comments.author_user_id
+        WHERE comments.id = $1
+        ORDER BY timeline_events.created_at DESC, timeline_events.id DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(comment_id)
+    .fetch_one(pool)
+    .await?;
+
+    timeline_item_from_row(pool, row).await
+}
+
 pub async fn add_issue_reaction(
     pool: &PgPool,
     issue_id: Uuid,
@@ -1378,10 +1430,9 @@ pub async fn add_issue_reaction(
 pub async fn issue_timeline(
     pool: &PgPool,
     issue_id: Uuid,
-    actor_user_id: Uuid,
+    actor_user_id: Option<Uuid>,
 ) -> Result<Vec<TimelineEvent>, CollaborationError> {
-    let repository_id = issue_repository_id(pool, issue_id).await?;
-    require_repository_role(pool, repository_id, actor_user_id, RepositoryRole::Read).await?;
+    require_issue_read_access(pool, issue_id, actor_user_id).await?;
     let rows = sqlx::query(
         r#"
         SELECT id, repository_id, issue_id, pull_request_id, actor_user_id, event_type, metadata, created_at
@@ -1395,6 +1446,127 @@ pub async fn issue_timeline(
     .await?;
 
     Ok(rows.into_iter().map(timeline_event_from_row).collect())
+}
+
+pub async fn issue_timeline_view(
+    pool: &PgPool,
+    issue_id: Uuid,
+    actor_user_id: Option<Uuid>,
+) -> Result<Vec<IssueTimelineItem>, CollaborationError> {
+    require_issue_read_access(pool, issue_id, actor_user_id).await?;
+    let rows = sqlx::query(
+        r#"
+        SELECT timeline_events.id, timeline_events.event_type, timeline_events.metadata,
+               timeline_events.created_at,
+               comments.id AS comment_id, comments.body, comments.is_minimized,
+               comments.created_at AS comment_created_at, comments.updated_at AS comment_updated_at,
+               users.id AS actor_id, COALESCE(users.username, users.email) AS actor_login,
+               users.display_name AS actor_display_name, users.avatar_url AS actor_avatar_url
+        FROM timeline_events
+        LEFT JOIN comments
+          ON timeline_events.event_type = 'commented'
+         AND timeline_events.metadata->>'commentId' = comments.id::text
+        LEFT JOIN users
+          ON users.id = COALESCE(comments.author_user_id, timeline_events.actor_user_id)
+        WHERE timeline_events.issue_id = $1
+        ORDER BY timeline_events.created_at ASC, timeline_events.id ASC
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_all(pool)
+    .await?;
+
+    let mut items = Vec::with_capacity(rows.len());
+    for row in rows {
+        items.push(timeline_item_from_row(pool, row).await?);
+    }
+    Ok(items)
+}
+
+async fn require_issue_read_access(
+    pool: &PgPool,
+    issue_id: Uuid,
+    actor_user_id: Option<Uuid>,
+) -> Result<Uuid, CollaborationError> {
+    let repository_id = issue_repository_id(pool, issue_id).await?;
+    match actor_user_id {
+        Some(user_id) => {
+            require_repository_role(pool, repository_id, user_id, RepositoryRole::Read).await?;
+        }
+        None => {
+            let repository = get_repository(pool, repository_id)
+                .await
+                .map_err(|error| match error {
+                    super::repositories::RepositoryError::Sqlx(error) => {
+                        CollaborationError::Sqlx(error)
+                    }
+                    _ => CollaborationError::RepositoryNotFound,
+                })?
+                .ok_or(CollaborationError::RepositoryNotFound)?;
+            if repository.visibility != RepositoryVisibility::Public {
+                return Err(CollaborationError::RepositoryAccessDenied);
+            }
+        }
+    }
+    Ok(repository_id)
+}
+
+async fn timeline_item_from_row(
+    pool: &PgPool,
+    row: sqlx::postgres::PgRow,
+) -> Result<IssueTimelineItem, CollaborationError> {
+    let actor_id: Option<Uuid> = row.get("actor_id");
+    let comment_id: Option<Uuid> = row.get("comment_id");
+    let body: Option<String> = row.get("body");
+    let comment = match (comment_id, body) {
+        (Some(comment_id), Some(body)) => {
+            let rendered = render_markdown(
+                Some(pool),
+                RenderMarkdownInput {
+                    markdown: body.clone(),
+                    repository_id: None,
+                    owner: None,
+                    repo: None,
+                    ref_name: None,
+                    enable_task_toggles: Some(false),
+                },
+            )
+            .await
+            .map_err(|error| match error {
+                super::markdown::MarkdownError::Sqlx(error) => CollaborationError::Sqlx(error),
+                super::markdown::MarkdownError::TooLarge
+                | super::markdown::MarkdownError::TaskNotFound => {
+                    CollaborationError::InvalidIssueField {
+                        field_key: "comment".to_owned(),
+                        message: "comment body could not be rendered".to_owned(),
+                    }
+                }
+            })?;
+            Some(IssueTimelineComment {
+                id: comment_id,
+                body,
+                body_html: rendered.html,
+                is_minimized: row.get("is_minimized"),
+                created_at: row.get("comment_created_at"),
+                updated_at: row.get("comment_updated_at"),
+            })
+        }
+        _ => None,
+    };
+
+    Ok(IssueTimelineItem {
+        id: row.get("id"),
+        event_type: row.get("event_type"),
+        actor: actor_id.map(|id| IssueListUser {
+            id,
+            login: row.get("actor_login"),
+            display_name: row.get("actor_display_name"),
+            avatar_url: row.get("actor_avatar_url"),
+        }),
+        comment,
+        metadata: row.get("metadata"),
+        created_at: row.get("created_at"),
+    })
 }
 
 pub async fn repository_for_actor(

@@ -132,6 +132,35 @@ async fn patch_json(
     (status, value)
 }
 
+async fn post_json(
+    app: axum::Router,
+    uri: &str,
+    cookie: Option<&str>,
+    body: Value,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    let request = builder
+        .body(Body::from(body.to_string()))
+        .expect("request should build");
+    let response = app.oneshot(request).await.expect("request should run");
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body should read");
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("response should be json")
+    };
+    (status, value)
+}
+
 #[tokio::test]
 async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
     let Some(pool) = database_pool().await else {
@@ -487,6 +516,7 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
     .await
     .expect("private issue should create");
 
+    let owner_cookie = cookie_header(&pool, &config, &owner).await;
     let app = opengithub_api::build_app_with_config(Some(pool), config);
     let uri = format!(
         "/api/repos/{}/{}/issues/{}",
@@ -517,6 +547,50 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
         .as_str()
         .expect("body html should be a string")
         .contains("<strong>metadata</strong>"));
+
+    let timeline_uri = format!("{uri}/timeline");
+    let (timeline_status, timeline_body) = send_json(app.clone(), &timeline_uri, None).await;
+    assert_eq!(timeline_status, StatusCode::OK);
+    let timeline_items = timeline_body
+        .as_array()
+        .expect("timeline should be an array");
+    assert!(timeline_items
+        .iter()
+        .any(|item| item["eventType"] == "opened"));
+    let comment_item = timeline_items
+        .iter()
+        .find(|item| item["eventType"] == "commented")
+        .expect("comment timeline item should exist");
+    assert_eq!(comment_item["actor"]["login"], owner.email);
+    assert!(comment_item["comment"]["bodyHtml"]
+        .as_str()
+        .expect("comment body html should be a string")
+        .contains("Participant comment"));
+
+    let (invalid_comment_status, invalid_comment_body) = post_json(
+        app.clone(),
+        &format!("{uri}/comments"),
+        Some(&owner_cookie),
+        json!({ "body": "   " }),
+    )
+    .await;
+    assert_eq!(invalid_comment_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(invalid_comment_body["error"]["code"], "validation_failed");
+
+    let (comment_status, comment_body) = post_json(
+        app.clone(),
+        &format!("{uri}/comments"),
+        Some(&owner_cookie),
+        json!({ "body": "New **timeline** comment" }),
+    )
+    .await;
+    assert_eq!(comment_status, StatusCode::CREATED);
+    assert_eq!(comment_body["eventType"], "commented");
+    assert_eq!(comment_body["actor"]["login"], owner.email);
+    assert!(comment_body["comment"]["bodyHtml"]
+        .as_str()
+        .expect("created comment body html should be a string")
+        .contains("<strong>timeline</strong>"));
 
     let private_uri = format!(
         "/api/repos/{}/{}/issues/{}",

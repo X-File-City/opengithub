@@ -4,6 +4,7 @@ import { RepositoryUnavailablePage } from "@/components/RepositoryUnavailablePag
 import {
   getRepository,
   getRepositoryIssue,
+  getRepositoryIssueTimeline,
   getSessionAndShellContext,
 } from "@/lib/server-session";
 
@@ -20,18 +21,27 @@ export default async function IssuePage({ params }: IssuePageProps) {
   const ownerLogin = decodeURIComponent(owner);
   const repositoryName = decodeURIComponent(repo);
   const issueNumber = Number.parseInt(decodeURIComponent(number), 10);
-  const [{ session, shellContext }, repository, issue] = await Promise.all([
-    getSessionAndShellContext(),
-    getRepository(ownerLogin, repositoryName),
-    Number.isFinite(issueNumber)
-      ? getRepositoryIssue(ownerLogin, repositoryName, issueNumber)
-      : Promise.resolve(null),
-  ]);
+  const [{ session, shellContext }, repository, issue, timeline] =
+    await Promise.all([
+      getSessionAndShellContext(),
+      getRepository(ownerLogin, repositoryName),
+      Number.isFinite(issueNumber)
+        ? getRepositoryIssue(ownerLogin, repositoryName, issueNumber)
+        : Promise.resolve(null),
+      Number.isFinite(issueNumber)
+        ? getRepositoryIssueTimeline(ownerLogin, repositoryName, issueNumber)
+        : Promise.resolve([]),
+    ]);
 
   return (
     <AppShell session={session} shellContext={shellContext}>
-      {repository && issue && !("error" in issue) ? (
-        <RepositoryIssueDetailPage issue={issue} repository={repository} />
+      {repository && issue && !("error" in issue) && !("error" in timeline) ? (
+        <RepositoryIssueDetailPage
+          issue={issue}
+          repository={repository}
+          timeline={timeline}
+          viewerAuthenticated={session.authenticated}
+        />
       ) : (
         <RepositoryUnavailablePage owner={ownerLogin} repo={repositoryName} />
       )}

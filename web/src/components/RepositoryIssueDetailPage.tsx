@@ -1,8 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { IssueTimeline } from "@/components/IssueTimeline";
 import { MarkdownBody } from "@/components/MarkdownBody";
 import { RepositoryShell } from "@/components/RepositoryShell";
-import type { IssueDetailView, RepositoryOverview } from "@/lib/api";
+import type {
+  IssueDetailView,
+  IssueTimelineItem,
+  RepositoryOverview,
+} from "@/lib/api";
 import {
   repositoryIssueDetailHref,
   repositoryIssuesHref,
@@ -11,6 +16,8 @@ import {
 type RepositoryIssueDetailPageProps = {
   repository: RepositoryOverview;
   issue: IssueDetailView;
+  timeline: IssueTimelineItem[];
+  viewerAuthenticated: boolean;
 };
 
 function relativeTime(value: string) {
@@ -74,6 +81,8 @@ function SidebarSection({
 export function RepositoryIssueDetailPage({
   repository,
   issue,
+  timeline,
+  viewerAuthenticated,
 }: RepositoryIssueDetailPageProps) {
   const issueHref = repositoryIssueDetailHref(
     repository.owner_login,
@@ -167,19 +176,15 @@ export function RepositoryIssueDetailPage({
               </div>
             </article>
 
-            <div
-              className="mt-6 border-l pl-6"
-              style={{ borderColor: "var(--line)" }}
-            >
-              <div className="card p-4">
-                <p className="t-sm">
-                  <strong>{issue.author.login}</strong> opened this issue.
-                </p>
-                <p className="t-xs mt-1">
-                  Conversation timeline, comments, reactions, and state changes
-                  are wired in the next issue-detail phases.
-                </p>
-              </div>
+            <div className="mt-6">
+              <IssueTimeline
+                initialItems={timeline}
+                issueNumber={issue.number}
+                loginHref={`/login?next=${encodeURIComponent(issueHref)}`}
+                owner={repository.owner_login}
+                repo={repository.name}
+                viewerAuthenticated={viewerAuthenticated}
+              />
             </div>
           </div>
 

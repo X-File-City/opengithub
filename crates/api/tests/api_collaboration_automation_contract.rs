@@ -223,7 +223,12 @@ async fn collaboration_and_automation_routes_use_session_auth_and_standard_envel
     )
     .await;
     assert_eq!(comment_status, StatusCode::CREATED);
-    assert_eq!(comment_body["issue_id"], issue_body["id"]);
+    assert_eq!(comment_body["eventType"], "commented");
+    assert_eq!(comment_body["actor"]["login"], owner.email);
+    assert_eq!(
+        comment_body["comment"]["body"],
+        "Confirmed through session-auth API."
+    );
 
     let (reaction_status, _reaction_headers, reaction_body) = send_json(
         app.clone(),
