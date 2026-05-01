@@ -1442,5 +1442,22 @@
       "The Playwright smoke validates Chromium interaction and selected summary after navigation; QA should spot-check keyboard arrow semantics in other browsers.",
       "Invalid advanced-query inline warnings remain Phase 4 work."
     ]
+  },
+  {
+    "feature_id": "issues-002",
+    "tests_written": [
+      "Implemented Phase 4 advanced-query feedback: invalid issue qualifiers now return safe field-level validation details from the Rust API instead of only a generic error envelope.",
+      "The Next.js repository Issues route now renders validation failures as an inline Editorial warning while preserving the typed query text, selected URL filters, and usable filter/sort menus.",
+      "Added a Clear invalid query action that returns to the default `is:issue state:open` view without dead links or placeholder controls.",
+      "Extended Rust contract coverage for validation details on bad sort and bad state filters; added Vitest coverage for invalid-query preservation and menu availability.",
+      "Extended Playwright coverage for the signed-in invalid-query flow and saved ralph/screenshots/build/issues-002-phase4-invalid-query.jpg.",
+      "Verification passed: focused Rust api_repository_issues_list_contract, focused repository-issues Vitest, focused repository-issues Playwright, TEST_DATABASE_URL-backed make check, make test with 123 frontend tests plus cargo tests, make test-e2e with 57 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Inline warnings are validated for invalid state and sort filters; QA should probe additional malformed advanced qualifiers such as empty author, no:unknown, and unmatched quoted values.",
+      "The validation fallback intentionally has empty option lists when the API rejects the query, so menu chrome remains usable but option metadata is unavailable until the query is corrected.",
+      "Browser verification is Chromium Playwright; QA should spot-check route-announcer behavior and screen-reader announcement order in Safari/Firefox.",
+      "Final keyboard/accessibility guardrails and build_pass=true remain Phase 5 work."
+    ]
   }
 ]

@@ -10,7 +10,8 @@ use uuid::Uuid;
 
 use crate::{
     api_types::{
-        database_unavailable, error_response, normalize_pagination, ErrorEnvelope, RestJson,
+        database_unavailable, error_response, error_response_with_details, normalize_pagination,
+        ErrorEnvelope, RestJson,
     },
     auth::extractor::AuthenticatedUser,
     domain::{
@@ -639,11 +640,18 @@ pub(crate) fn map_collaboration_error(
         }
         CollaborationError::InvalidState(_)
         | CollaborationError::InvalidReaction(_)
-        | CollaborationError::InvalidIssueFilter(_) => error_response(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "validation_failed",
-            error.to_string(),
-        ),
+        | CollaborationError::InvalidIssueFilter(_) => {
+            let message = error.to_string();
+            error_response_with_details(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "validation_failed",
+                message.clone(),
+                json!({
+                    "field": "q",
+                    "reason": message,
+                }),
+            )
+        }
         CollaborationError::Sqlx(sqlx::Error::Database(database_error))
             if database_error.is_unique_violation() =>
         {

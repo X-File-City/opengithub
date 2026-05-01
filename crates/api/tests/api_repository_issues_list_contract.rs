@@ -970,6 +970,13 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     .await;
     assert_eq!(bad_sort_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(bad_sort_body["error"]["code"], "validation_failed");
+    assert_eq!(bad_sort_body["details"]["field"], "q");
+    assert!(
+        bad_sort_body["details"]["reason"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("sort must be one of")
+    );
 
     let (bad_state_status, bad_state_body) = send_json(
         app,
@@ -979,4 +986,11 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     .await;
     assert_eq!(bad_state_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(bad_state_body["error"]["code"], "validation_failed");
+    assert_eq!(bad_state_body["details"]["field"], "q");
+    assert!(
+        bad_state_body["error"]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("state filter must be open or closed")
+    );
 }

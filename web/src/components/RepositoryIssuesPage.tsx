@@ -11,6 +11,7 @@ import {
 } from "@/components/IssueSortMenu";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
+  ApiErrorEnvelope,
   IssueListItem,
   IssueListView,
   RepositoryOverview,
@@ -35,6 +36,7 @@ type RepositoryIssuesPageProps = {
   repository: RepositoryOverview;
   issues: IssueListView;
   query: RepositoryIssueHrefQuery;
+  validationError?: ApiErrorEnvelope | null;
 };
 
 function relativeTime(value: string) {
@@ -235,6 +237,7 @@ export function RepositoryIssuesPage({
   repository,
   issues,
   query,
+  validationError = null,
 }: RepositoryIssuesPageProps) {
   const owner = repository.owner_login;
   const repo = repository.name;
@@ -393,6 +396,41 @@ export function RepositoryIssuesPage({
             </Link>
           </div>
         </div>
+
+        {validationError ? (
+          <div
+            aria-live="polite"
+            className="card flex flex-wrap items-start justify-between gap-3 p-4"
+            role="alert"
+            style={{
+              background: "var(--warn-soft)",
+              borderColor: "var(--warn)",
+            }}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="t-label" style={{ color: "var(--warn)" }}>
+                Query warning
+              </p>
+              <p className="t-sm mt-1" style={{ color: "var(--ink-2)" }}>
+                {validationError.details?.reason ??
+                  validationError.error.message}
+              </p>
+              <p className="t-xs mt-1" style={{ color: "var(--ink-3)" }}>
+                Your typed search was preserved. Adjust the qualifier or return
+                to the default open issue view.
+              </p>
+            </div>
+            <Link
+              className="btn sm"
+              href={repositoryIssuesHref(owner, repo, {
+                q: "is:issue state:open",
+                state: "open",
+              })}
+            >
+              Clear invalid query
+            </Link>
+          </div>
+        ) : null}
 
         <IssueContributorBanner
           dismissed={issues.preferences.dismissedContributorBanner}

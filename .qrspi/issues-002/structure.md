@@ -62,7 +62,7 @@
 
 ## Phase 4: Advanced Query Feedback - invalid queries preserve text and show inline warnings
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Make the search-builder resilient. Invalid advanced qualifiers preserve the typed text, show inline warnings near the toolbar, keep the page shell usable, and avoid losing previously selected filters. Valid typed qualifiers and menu-selected qualifiers round-trip through the same parser.
 

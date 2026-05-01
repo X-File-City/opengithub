@@ -448,10 +448,27 @@ test("signed-in repository Issues people and metadata menus update filters", asy
   await expect(
     page.getByRole("button", { name: /Sort by: Most commented/ }),
   ).toBeVisible();
+
+  await page.goto(
+    `${issuesUrl}?q=${encodeURIComponent("is:issue state:merged")}`,
+  );
+  await expect(
+    page.locator('div[role="alert"]').filter({ hasText: "Query warning" }),
+  ).toContainText(
+    "state filter must be open or closed",
+  );
+  await expect(page.getByLabel("issue-query")).toHaveValue(
+    "is:issue state:merged",
+  );
+  await expect(page.getByRole("button", { name: /Labels/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sort by/ })).toBeVisible();
+  await page.getByRole("link", { name: "Clear invalid query" }).click();
+  await expect(page).toHaveURL(/q=is%3Aissue\+state%3Aopen/);
+  await expect(page.getByRole("link", { name: issueTitle })).toBeVisible();
   await expectNoDeadControls(page);
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/issues-002-phase3-sort-menu.jpg",
+    path: "../ralph/screenshots/build/issues-002-phase4-invalid-query.jpg",
   });
 });
 

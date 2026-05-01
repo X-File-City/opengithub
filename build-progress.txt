@@ -1012,3 +1012,12 @@
 - Added Rust contract coverage for comment-count sorting, sort/order aliases, best-match ordering, and invalid sort validation; added Vitest and Playwright coverage for menu state, filter preservation, selection, dead controls, and screenshot `ralph/screenshots/build/issues-002-phase3-sort-menu.jpg`.
 - Verification: focused Rust issue-list sort contract passed; focused `repository-issues.test.tsx` passed; focused repository Issues Playwright passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `make test` passed with cargo tests and 122 frontend tests; `make test-e2e` passed with 57 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
 - Marked Phase 3 as done in `.qrspi/issues-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 4-5 remain.
+
+2026-05-01 - issues-002 phase 4 advanced query feedback
+
+- Implemented Phase 4 from `.qrspi/issues-002/structure.md`: invalid advanced issue queries now preserve the typed text, render an inline Editorial warning on the Issues page, and keep the toolbar/filter menus usable instead of falling back to the unavailable page.
+- Updated Rust issue-list validation errors to include safe field-level `details` for inline UI display; bad state/sort filters still return standard `422 validation_failed` envelopes without leaking internals.
+- Added a validation fallback view for `/{owner}/{repo}/issues` so selected URL filters, sort state, the default open/closed shell, and a working `Clear invalid query` action remain available when the API rejects the query.
+- Extended Rust, Vitest, and Playwright coverage for validation details, invalid-query preservation, no dead controls, and the signed-in invalid-query browser flow; browser smoke saved `ralph/screenshots/build/issues-002-phase4-invalid-query.jpg`.
+- Verification: focused `api_repository_issues_list_contract` passed; focused `repository-issues.test.tsx` passed with 10 tests; focused `repository-issues.spec.ts` passed with 7 tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `make test` passed with cargo tests and 123 frontend tests; `make test-e2e` passed with 57 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
+- Marked Phase 4 as done in `.qrspi/issues-002/structure.md`; `prd.json` remains `build_pass: false` because Phase 5 remains.

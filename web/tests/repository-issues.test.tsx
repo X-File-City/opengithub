@@ -672,4 +672,56 @@ describe("RepositoryIssuesPage", () => {
       document.querySelectorAll('a[href="#"], a:not([href])'),
     ).toHaveLength(0);
   });
+
+  it("preserves invalid advanced query text and keeps filter controls usable", () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView({
+          items: [],
+          total: 0,
+          filters: {
+            ...issueListView().filters,
+            query: "is:issue state:merged label:bug",
+            labels: ["bug"],
+          },
+        })}
+        query={{ q: "is:issue state:merged label:bug", labels: ["bug"] }}
+        repository={repositoryOverview()}
+        validationError={{
+          error: {
+            code: "validation_failed",
+            message:
+              "invalid issue filter: state filter must be open or closed",
+          },
+          status: 422,
+          details: {
+            field: "q",
+            reason: "invalid issue filter: state filter must be open or closed",
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "state filter must be open or closed",
+    );
+    expect(screen.getByLabelText("issue-query")).toHaveValue(
+      "is:issue state:merged label:bug",
+    );
+    expect(
+      screen.getByRole("link", { name: "Clear invalid query" }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open",
+    );
+    expect(screen.getByRole("button", { name: /Labels/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Author/ })).toBeVisible();
+    expect(screen.getByTitle("Remove label:bug")).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Amerged&state=open&sort=updated-desc",
+    );
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+  });
 });

@@ -360,6 +360,11 @@ export type ApiErrorEnvelope = {
     message: string;
   };
   status: number;
+  details?: {
+    field?: string;
+    reason?: string;
+    [key: string]: unknown;
+  } | null;
 };
 
 export type DashboardTopRepository = {
