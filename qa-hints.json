@@ -1764,5 +1764,21 @@
       "Projects, no-milestone parity, expanded review semantics, reaction sorts, and best-match behavior remain later prs-002 phases.",
       "The full pull request detail/review/check surfaces are still future prs-004 through prs-006 work, so selected filter rows can navigate only as far as the existing PR skeleton/detail anchors."
     ]
+  },
+  {
+    "feature_id": "prs-002",
+    "tests_written": [
+      "Implemented Phase 2 metadata filters for /{owner}/{repo}/pulls: no:milestone support, Milestones menu no-value option, Projects menu with explicit disabled unsupported state, selected chips, and URL-backed query preservation.",
+      "Rust pull-list API now parses explicit noMilestone and typed no:milestone filters, filters through backing PR issue milestones, exposes disabled project filter metadata, and returns a validation_failed envelope for unsupported project filters.",
+      "Vitest coverage verifies Projects and Milestones popovers focus correctly, disabled project options are not navigable, no:milestone URLs round-trip, selected chips clear without dropping unrelated filters, and no inert controls are present.",
+      "Playwright smoke opens Projects and Milestones menus on a real signed-in repository/PR, applies no:milestone, verifies the PR remains visible, and saves ralph/screenshots/build/prs-002-phase2-metadata-filters.jpg.",
+      "Verification passed: focused Rust api_repository_pulls_list_contract, focused repository-pulls Vitest, focused repository-pulls Playwright, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 150 frontend tests, make test-e2e with 61 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Projects are intentionally disabled until project-link data is modeled; QA should verify typed project: queries show the inline validation warning and preserve the typed query.",
+      "Milestone selection uses seeded/unit coverage for real milestone options; browser smoke covered no:milestone because the current create-flow smoke repository has no milestone creation UI.",
+      "Expanded review semantics, reaction sorts, best-match behavior, and final advanced-query guardrails remain later prs-002 phases.",
+      "Repeat metadata filter checks with a real Google OAuth-created session once OAuth consent/test-user setup is complete."
+    ]
   }
 ]

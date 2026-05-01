@@ -21,6 +21,7 @@ import {
   repositoryPullRequestCompareHref,
   repositoryPullRequestDetailHref,
   repositoryPullRequestNoAssigneeHref,
+  repositoryPullRequestNoMilestoneHref,
   repositoryPullRequestPageHref,
   repositoryPullRequestSetChecksHref,
   repositoryPullRequestSetLabelHref,
@@ -314,8 +315,10 @@ export function RepositoryPullsPage({
     author: pulls.filters.author,
     labels: pulls.filters.labels,
     milestone: pulls.filters.milestone,
+    noMilestone: pulls.filters.noMilestone,
     assignee: pulls.filters.assignee,
     noAssignee: pulls.filters.noAssignee,
+    project: pulls.filters.project,
     review: pulls.filters.review,
     checks: pulls.filters.checks,
     sort: pulls.filters.sort,
@@ -397,6 +400,28 @@ export function RepositoryPullsPage({
         milestone.title.toLowerCase(),
       badge: milestone.state,
     }));
+  const projectOptions: IssuePickerOption[] = pulls.filterOptions.projects
+    .length
+    ? pulls.filterOptions.projects.map((project) => ({
+        id: project.id,
+        label: project.name,
+        description: project.description,
+        href: repositoryPullRequestsHref(owner, repo, baseQuery),
+        selected:
+          pulls.filters.project?.toLowerCase() === project.name.toLowerCase(),
+        badge: project.count ? String(project.count) : null,
+        disabledReason: project.disabledReason,
+      }))
+    : [
+        {
+          id: "projects-empty",
+          label: "No repository projects",
+          description: "Project metadata is not attached to pull requests yet.",
+          href: repositoryPullRequestsHref(owner, repo, baseQuery),
+          disabledReason:
+            "Project filters will activate when project links exist.",
+        },
+      ];
   const reviewOptions: IssuePickerOption[] =
     pulls.filterOptions.reviewStates.map((review) => ({
       id: review,
@@ -519,6 +544,9 @@ export function RepositoryPullsPage({
               value={pulls.filters.milestone}
             />
           ) : null}
+          {pulls.filters.noMilestone ? (
+            <input name="noMilestone" type="hidden" value="true" />
+          ) : null}
           {pulls.filters.assignee ? (
             <input
               name="assignee"
@@ -528,6 +556,9 @@ export function RepositoryPullsPage({
           ) : null}
           {pulls.filters.noAssignee ? (
             <input name="noAssignee" type="hidden" value="true" />
+          ) : null}
+          {pulls.filters.project ? (
+            <input name="project" type="hidden" value={pulls.filters.project} />
           ) : null}
           {pulls.filters.review ? (
             <input name="review" type="hidden" value={pulls.filters.review} />
@@ -555,9 +586,28 @@ export function RepositoryPullsPage({
             searchPlaceholder="Filter labels"
           />
           <IssuePickerMenu
+            buttonLabel="Projects"
+            dialogLabel="Pull request projects filter"
+            emptyMessage="No projects match this search."
+            options={projectOptions}
+            searchLabel="Filter projects"
+            searchPlaceholder="Filter projects"
+          />
+          <IssuePickerMenu
             buttonLabel="Milestones"
             dialogLabel="Pull request milestones filter"
             emptyMessage="No milestones match this search."
+            noValueOption={{
+              id: "no-milestone",
+              label: "No milestone",
+              description: "Show pull requests without a milestone.",
+              href: repositoryPullRequestNoMilestoneHref(
+                owner,
+                repo,
+                baseQuery,
+              ),
+              selected: pulls.filters.noMilestone,
+            }}
             options={milestoneOptions}
             searchLabel="Filter pull request milestones"
             searchPlaceholder="Filter milestones"
@@ -673,6 +723,34 @@ export function RepositoryPullsPage({
                   title={`Remove milestone:${pulls.filters.milestone}`}
                 >
                   milestone:{pulls.filters.milestone}
+                </Link>
+              ) : null}
+              {pulls.filters.noMilestone ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "noMilestone",
+                  )}
+                  title="Remove no:milestone"
+                >
+                  no:milestone
+                </Link>
+              ) : null}
+              {pulls.filters.project ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryPullRequestClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "project",
+                  )}
+                  title={`Remove project:${pulls.filters.project}`}
+                >
+                  project:{pulls.filters.project}
                 </Link>
               ) : null}
               {pulls.filters.assignee ? (

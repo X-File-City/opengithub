@@ -17,6 +17,7 @@ import {
   repositoryPullRequestCompareHref,
   repositoryPullRequestDetailHref,
   repositoryPullRequestNoAssigneeHref,
+  repositoryPullRequestNoMilestoneHref,
   repositoryPullRequestPageHref,
   repositoryPullRequestSetChecksHref,
   repositoryPullRequestSetLabelHref,
@@ -171,8 +172,10 @@ function pullRequestListView(
       author: null,
       labels: [],
       milestone: null,
+      noMilestone: false,
       assignee: null,
       noAssignee: false,
+      project: null,
       review: null,
       checks: null,
       sort: "updated-desc",
@@ -205,6 +208,16 @@ function pullRequestListView(
           id: "milestone-1",
           title: "Review queue",
           state: "open",
+        },
+      ],
+      projects: [
+        {
+          id: "projects-unavailable",
+          name: "No repository projects",
+          description: "Project links are not modeled for pull requests yet.",
+          count: 0,
+          disabledReason:
+            "Project filters will activate when project links exist.",
         },
       ],
       reviewStates: ["required", "approved", "changes_requested"],
@@ -313,8 +326,10 @@ describe("RepositoryPullsPage", () => {
             author: "hubot",
             labels: ["review"],
             milestone: "Review queue",
+            noMilestone: false,
             assignee: "mona",
             noAssignee: false,
+            project: null,
             review: "approved",
             checks: "success",
             sort: "comments-desc",
@@ -326,6 +341,7 @@ describe("RepositoryPullsPage", () => {
           author: "hubot",
           labels: ["review"],
           milestone: "Review queue",
+          noMilestone: false,
           assignee: "mona",
           review: "approved",
           checks: "success",
@@ -376,6 +392,21 @@ describe("RepositoryPullsPage", () => {
       "href",
       expect.stringContaining("milestone%3A%22Review+queue%22"),
     );
+    expect(
+      screen.getByRole("option", { name: /No milestone/ }),
+    ).toHaveAttribute("href", expect.stringContaining("no%3Amilestone"));
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Projects/ }));
+    expect(
+      screen.getByRole("dialog", { name: "Pull request projects filter" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("combobox", { name: "Filter projects" }),
+    ).toHaveFocus();
+    expect(
+      screen.getByRole("option", { name: /No repository projects/ }),
+    ).toHaveAttribute("aria-disabled", "true");
     fireEvent.keyDown(document, { key: "Escape" });
 
     fireEvent.click(screen.getByRole("button", { name: /Reviews/ }));
@@ -582,6 +613,15 @@ describe("RepositoryPullsPage", () => {
       ),
     ).toBe(
       "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+milestone%3A%22Review+queue%22&state=open&milestone=Review+queue",
+    );
+    expect(
+      repositoryPullRequestNoMilestoneHref("mona", "octo-app", {
+        q: 'is:pr state:open milestone:"Review queue"',
+        state: "open",
+        milestone: "Review queue",
+      }),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+no%3Amilestone&state=open&noMilestone=true",
     );
     expect(
       repositoryPullRequestSetReviewHref(

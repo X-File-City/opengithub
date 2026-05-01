@@ -60,9 +60,12 @@ struct ListQuery {
     author: Option<String>,
     labels: Option<String>,
     milestone: Option<String>,
+    #[serde(alias = "no_milestone", alias = "noMilestone")]
+    no_milestone: Option<bool>,
     assignee: Option<String>,
     #[serde(alias = "no_assignee", alias = "noAssignee")]
     no_assignee: Option<bool>,
+    project: Option<String>,
     review: Option<String>,
     checks: Option<String>,
     sort: Option<String>,
@@ -207,6 +210,7 @@ fn pull_list_query(
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned)
             .or_else(|| qualifier_from_query(q, "milestone:")),
+        no_milestone: query.no_milestone.unwrap_or(false) || no_filter_from_query(q, "milestone"),
         assignee: query
             .assignee
             .as_deref()
@@ -219,6 +223,7 @@ fn pull_list_query(
                     .map(|value| normalize_user_filter(value, actor))
             }),
         no_assignee: query.no_assignee.unwrap_or(false) || no_filter_from_query(q, "assignee"),
+        project: project_filter_from_query(query, q)?,
         review: query
             .review
             .as_deref()
@@ -241,6 +246,28 @@ fn pull_list_query(
             .transpose()?,
         sort: normalize_pull_sort(&raw_sort, raw_order.as_deref())?,
     })
+}
+
+fn project_filter_from_query(
+    query: &ListQuery,
+    q: &str,
+) -> Result<Option<String>, crate::domain::issues::CollaborationError> {
+    let project = query
+        .project
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| qualifier_from_query(q, "project:"));
+    if project.is_some() {
+        return Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "project filters are not available until repository project links are modeled"
+                    .to_owned(),
+            ),
+        );
+    }
+    Ok(None)
 }
 
 fn normalize_actor_alias(value: &str, actor: Option<&User>) -> String {
@@ -277,6 +304,7 @@ fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::Collabo
             "author:",
             "label:",
             "milestone:",
+            "project:",
             "assignee:",
             "review:",
             "checks:",
@@ -295,10 +323,10 @@ fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::Collabo
             }
         }
         if let Some(value) = term.strip_prefix("no:") {
-            if value != "assignee" {
+            if !matches!(value, "assignee" | "milestone") {
                 return Err(
                     crate::domain::issues::CollaborationError::InvalidIssueFilter(
-                        "no filter must be assignee".to_owned(),
+                        "no filter must be assignee or milestone".to_owned(),
                     ),
                 );
             }

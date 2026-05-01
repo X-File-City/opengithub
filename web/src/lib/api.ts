@@ -796,8 +796,10 @@ export type PullRequestListFilters = {
   author: string | null;
   labels: string[];
   milestone: string | null;
+  noMilestone: boolean;
   assignee: string | null;
   noAssignee: boolean;
+  project: string | null;
   review: string | null;
   checks: string | null;
   sort: PullRequestSort;
@@ -822,6 +824,7 @@ export type PullRequestListView = ListEnvelope<PullRequestListItem> & {
     labels: IssueListLabel[];
     users: IssueListUser[];
     milestones: IssueListMilestone[];
+    projects: IssueListMetadataOption[];
     reviewStates: string[];
     checkStates: string[];
     sortOptions: PullRequestSort[];
@@ -932,8 +935,10 @@ export type RepositoryPullRequestListQuery = {
   author?: string;
   labels?: string[];
   milestone?: string;
+  noMilestone?: boolean;
   assignee?: string;
   noAssignee?: boolean;
+  project?: string;
   review?: string;
   checks?: string;
   sort?: string;
@@ -1410,11 +1415,17 @@ export function repositoryPullRequestsPath(
   if (query.milestone?.trim()) {
     params.set("milestone", query.milestone.trim());
   }
+  if (query.noMilestone) {
+    params.set("noMilestone", "true");
+  }
   if (query.assignee?.trim()) {
     params.set("assignee", query.assignee.trim());
   }
   if (query.noAssignee) {
     params.set("noAssignee", "true");
+  }
+  if (query.project?.trim()) {
+    params.set("project", query.project.trim());
   }
   if (query.review?.trim()) {
     params.set("review", query.review.trim());

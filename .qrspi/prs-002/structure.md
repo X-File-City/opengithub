@@ -24,7 +24,7 @@
 
 ## Phase 2: Projects and Milestone Parity - metadata menus match the issue toolbar contract
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Complete the metadata filter set with Projects and richer Milestones behavior. Project filters should be honest about unsupported project-link data until modeled, while milestone selection remains fully backed by repository milestones and supports no-milestone filtering.
 

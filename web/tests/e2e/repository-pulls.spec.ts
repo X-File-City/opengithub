@@ -234,6 +234,28 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   await page.getByRole("link", { name: "Clear query" }).click();
   await expect(page.getByLabel("pull-query")).toHaveValue("is:pr is:open");
 
+  await page.getByRole("button", { name: "Projects" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter projects" }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("option", { name: /No repository projects/ }),
+  ).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Milestones" }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter pull request milestones" }),
+  ).toBeFocused();
+  await page.getByRole("option", { name: /No milestone/ }).click();
+  await expect(page).toHaveURL(/noMilestone=true/);
+  await expect(page.getByRole("link", { name: pullTitle })).toBeVisible();
+  await expect(page.getByRole("link", { name: "no:milestone" })).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/prs-002-phase2-metadata-filters.jpg",
+  });
+
   await expectNoDeadControls(page);
   await expect(
     page.getByRole("link", { name: /No checks|passing|failed|checks/ }),

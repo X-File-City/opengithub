@@ -11,8 +11,8 @@ use super::{
     issues::{
         append_timeline_event, insert_issue_with_number, issue_from_row, next_issue_number,
         repository_for_actor, search_error_to_collaboration, user_login, CollaborationError,
-        CreateComment, CreateIssue, Issue, IssueListLabel, IssueListMilestone, IssueListUser,
-        IssueState, TimelineEvent,
+        CreateComment, CreateIssue, Issue, IssueListLabel, IssueListMetadataOption,
+        IssueListMilestone, IssueListUser, IssueState, TimelineEvent,
     },
     permissions::RepositoryRole,
     repositories::{
@@ -184,8 +184,10 @@ pub struct PullRequestListFilters {
     pub author: Option<String>,
     pub labels: Vec<String>,
     pub milestone: Option<String>,
+    pub no_milestone: bool,
     pub assignee: Option<String>,
     pub no_assignee: bool,
+    pub project: Option<String>,
     pub review: Option<String>,
     pub checks: Option<String>,
     pub sort: String,
@@ -197,6 +199,7 @@ pub struct PullRequestFilterOptions {
     pub labels: Vec<IssueListLabel>,
     pub users: Vec<IssueListUser>,
     pub milestones: Vec<IssueListMilestone>,
+    pub projects: Vec<IssueListMetadataOption>,
     pub review_states: Vec<String>,
     pub check_states: Vec<String>,
     pub sort_options: Vec<String>,
@@ -244,8 +247,10 @@ pub struct PullRequestListQuery {
     pub author: Option<String>,
     pub labels: Vec<String>,
     pub milestone: Option<String>,
+    pub no_milestone: bool,
     pub assignee: Option<String>,
     pub no_assignee: bool,
+    pub project: Option<String>,
     pub review: Option<String>,
     pub checks: Option<String>,
     pub sort: String,
@@ -259,8 +264,10 @@ impl Default for PullRequestListQuery {
             author: None,
             labels: Vec::new(),
             milestone: None,
+            no_milestone: false,
             assignee: None,
             no_assignee: false,
+            project: None,
             review: None,
             checks: None,
             sort: "updated-desc".to_owned(),
@@ -521,61 +528,65 @@ pub async fn repository_pull_request_list_view_for_viewer(
               )
           )
           AND (
-              $7::text IS NULL
+              $7::bool = false
+              OR issues.milestone_id IS NULL
+          )
+          AND (
+              $8::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM issue_assignees
                   JOIN users ON users.id = issue_assignees.user_id
                   WHERE issue_assignees.issue_id = issues.id
-                    AND lower(COALESCE(users.username, users.email)) = lower($7)
+                    AND lower(COALESCE(users.username, users.email)) = lower($8)
               )
           )
           AND (
-              $8::bool = false
+              $9::bool = false
               OR NOT EXISTS (
                   SELECT 1 FROM issue_assignees WHERE issue_assignees.issue_id = issues.id
               )
           )
           AND (
-              $9::text IS NULL
+              $10::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_reviews
                   WHERE pull_request_reviews.pull_request_id = pull_requests.id
-                    AND pull_request_reviews.state = $9
+                    AND pull_request_reviews.state = $10
               )
-              OR ($9 = 'required' AND EXISTS (
+              OR ($10 = 'required' AND EXISTS (
                   SELECT 1
                   FROM pull_request_review_requests
                   WHERE pull_request_review_requests.pull_request_id = pull_requests.id
               ))
           )
           AND (
-              $10::text IS NULL
+              $11::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_checks_summary
                   WHERE pull_request_checks_summary.pull_request_id = pull_requests.id
                     AND (
-                        pull_request_checks_summary.status = $10
-                        OR pull_request_checks_summary.conclusion = $10
+                        pull_request_checks_summary.status = $11
+                        OR pull_request_checks_summary.conclusion = $11
                     )
               )
           )
         ORDER BY
-          CASE WHEN $11 = 'created-asc' THEN pull_requests.created_at END ASC,
-          CASE WHEN $11 = 'created-desc' THEN pull_requests.created_at END DESC,
-          CASE WHEN $11 = 'updated-asc' THEN pull_requests.updated_at END ASC,
-          CASE WHEN $11 = 'updated-desc' THEN pull_requests.updated_at END DESC,
-          CASE WHEN $11 = 'comments-desc' THEN (
+          CASE WHEN $12 = 'created-asc' THEN pull_requests.created_at END ASC,
+          CASE WHEN $12 = 'created-desc' THEN pull_requests.created_at END DESC,
+          CASE WHEN $12 = 'updated-asc' THEN pull_requests.updated_at END ASC,
+          CASE WHEN $12 = 'updated-desc' THEN pull_requests.updated_at END DESC,
+          CASE WHEN $12 = 'comments-desc' THEN (
               SELECT count(*) FROM comments WHERE comments.pull_request_id = pull_requests.id
           ) END DESC,
-          CASE WHEN $11 = 'comments-asc' THEN (
+          CASE WHEN $12 = 'comments-asc' THEN (
               SELECT count(*) FROM comments WHERE comments.pull_request_id = pull_requests.id
           ) END ASC,
           pull_requests.updated_at DESC,
           pull_requests.number DESC
-        LIMIT $12 OFFSET $13
+        LIMIT $13 OFFSET $14
         "#,
     )
     .bind(repository_id)
@@ -584,6 +595,7 @@ pub async fn repository_pull_request_list_view_for_viewer(
     .bind(filters.author.as_deref())
     .bind(&filters.labels)
     .bind(filters.milestone.as_deref())
+    .bind(filters.no_milestone)
     .bind(filters.assignee.as_deref())
     .bind(filters.no_assignee)
     .bind(filters.review.as_deref())
@@ -626,8 +638,10 @@ pub async fn repository_pull_request_list_view_for_viewer(
             author: filters.author,
             labels: filters.labels,
             milestone: filters.milestone,
+            no_milestone: filters.no_milestone,
             assignee: filters.assignee,
             no_assignee: filters.no_assignee,
+            project: filters.project,
             review: filters.review,
             checks: filters.checks,
             sort: filters.sort,
@@ -636,6 +650,7 @@ pub async fn repository_pull_request_list_view_for_viewer(
             labels: pull_list_label_options(pool, repository_id).await?,
             users: pull_list_user_options(pool, repository_id).await?,
             milestones: pull_list_milestone_options(pool, repository_id).await?,
+            projects: pull_list_project_options().await?,
             review_states: vec![
                 "required".to_owned(),
                 "approved".to_owned(),
@@ -1012,44 +1027,48 @@ async fn count_pull_request_list_items(
               )
           )
           AND (
-              $7::text IS NULL
+              $7::bool = false
+              OR issues.milestone_id IS NULL
+          )
+          AND (
+              $8::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM issue_assignees
                   JOIN users ON users.id = issue_assignees.user_id
                   WHERE issue_assignees.issue_id = issues.id
-                    AND lower(COALESCE(users.username, users.email)) = lower($7)
+                    AND lower(COALESCE(users.username, users.email)) = lower($8)
               )
           )
           AND (
-              $8::bool = false
+              $9::bool = false
               OR NOT EXISTS (
                   SELECT 1 FROM issue_assignees WHERE issue_assignees.issue_id = issues.id
               )
           )
           AND (
-              $9::text IS NULL
+              $10::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_reviews
                   WHERE pull_request_reviews.pull_request_id = pull_requests.id
-                    AND pull_request_reviews.state = $9
+                    AND pull_request_reviews.state = $10
               )
-              OR ($9 = 'required' AND EXISTS (
+              OR ($10 = 'required' AND EXISTS (
                   SELECT 1
                   FROM pull_request_review_requests
                   WHERE pull_request_review_requests.pull_request_id = pull_requests.id
               ))
           )
           AND (
-              $10::text IS NULL
+              $11::text IS NULL
               OR EXISTS (
                   SELECT 1
                   FROM pull_request_checks_summary
                   WHERE pull_request_checks_summary.pull_request_id = pull_requests.id
                     AND (
-                        pull_request_checks_summary.status = $10
-                        OR pull_request_checks_summary.conclusion = $10
+                        pull_request_checks_summary.status = $11
+                        OR pull_request_checks_summary.conclusion = $11
                     )
               )
           )
@@ -1061,6 +1080,7 @@ async fn count_pull_request_list_items(
     .bind(filters.author.as_deref())
     .bind(&filters.labels)
     .bind(filters.milestone.as_deref())
+    .bind(filters.no_milestone)
     .bind(filters.assignee.as_deref())
     .bind(filters.no_assignee)
     .bind(filters.review.as_deref())
@@ -1358,6 +1378,16 @@ async fn pull_list_milestone_options(
             })
         })
         .collect()
+}
+
+async fn pull_list_project_options() -> Result<Vec<IssueListMetadataOption>, CollaborationError> {
+    Ok(vec![IssueListMetadataOption {
+        id: "projects-unavailable".to_owned(),
+        name: "No repository projects".to_owned(),
+        description: Some("Project links are not modeled for pull requests yet.".to_owned()),
+        count: 0,
+        disabled_reason: Some("Project filters will activate when project links exist.".to_owned()),
+    }])
 }
 
 async fn pull_comment_counts(
@@ -1697,8 +1727,10 @@ fn search_text_from_pull_query(query: &str) -> String {
                 && !term.starts_with("author:")
                 && !term.starts_with("label:")
                 && !term.starts_with("milestone:")
+                && term != "no:milestone"
                 && !term.starts_with("assignee:")
                 && term != "no:assignee"
+                && !term.starts_with("project:")
                 && !term.starts_with("review:")
                 && !term.starts_with("checks:")
                 && !term.starts_with("sort:")

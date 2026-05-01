@@ -703,8 +703,10 @@ export type RepositoryPullRequestHrefQuery = {
   author?: string | null;
   labels?: string[] | null;
   milestone?: string | null;
+  noMilestone?: boolean | null;
   assignee?: string | null;
   noAssignee?: boolean | null;
+  project?: string | null;
   review?: string | null;
   checks?: string | null;
   sort?: string | null;
@@ -732,11 +734,17 @@ export function repositoryPullRequestsHref(
   if (query.milestone?.trim()) {
     params.set("milestone", query.milestone.trim());
   }
+  if (query.noMilestone) {
+    params.set("noMilestone", "true");
+  }
   if (query.assignee?.trim()) {
     params.set("assignee", query.assignee.trim());
   }
   if (query.noAssignee) {
     params.set("noAssignee", "true");
+  }
+  if (query.project?.trim()) {
+    params.set("project", query.project.trim());
   }
   if (query.review?.trim()) {
     params.set("review", query.review.trim());
@@ -883,10 +891,35 @@ export function repositoryPullRequestSetMilestoneHref(
   return repositoryPullRequestsHref(owner, repo, {
     ...current,
     milestone,
+    noMilestone: false,
     q: addPullRequestQualifier(
-      removePullRequestFilterFromQuery(current.q, "milestone"),
+      removeNoIssueFilterFromQuery(
+        removePullRequestFilterFromQuery(current.q, "milestone"),
+        "milestone",
+      ),
       "milestone",
       milestone,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryPullRequestNoMilestoneHref(
+  owner: string,
+  repo: string,
+  current: RepositoryPullRequestHrefQuery,
+) {
+  return repositoryPullRequestsHref(owner, repo, {
+    ...current,
+    milestone: null,
+    noMilestone: true,
+    q: addPullRequestQualifier(
+      removePullRequestFilterFromQuery(
+        removeNoIssueFilterFromQuery(current.q, "milestone"),
+        "milestone",
+      ),
+      "no",
+      "milestone",
     ),
     page: null,
   });
@@ -936,8 +969,10 @@ export function repositoryPullRequestClearFilterHref(
     | "author"
     | "labels"
     | "milestone"
+    | "noMilestone"
     | "assignee"
     | "noAssignee"
+    | "project"
     | "review"
     | "checks",
   value?: string,
@@ -957,6 +992,12 @@ export function repositoryPullRequestClearFilterHref(
   } else if (filter === "noAssignee") {
     next.noAssignee = false;
     next.q = removeNoIssueFilterFromQuery(current.q, "assignee");
+  } else if (filter === "noMilestone") {
+    next.noMilestone = false;
+    next.q = removeNoIssueFilterFromQuery(current.q, "milestone");
+  } else if (filter === "project") {
+    next.project = null;
+    next.q = removePullRequestFilterFromQuery(current.q, "project");
   } else {
     next[filter] = null;
     next.q = removePullRequestFilterFromQuery(current.q, filter);
@@ -1284,6 +1325,7 @@ function removePullRequestFilterFromQuery(
     | "author"
     | "label"
     | "milestone"
+    | "project"
     | "assignee"
     | "review"
     | "checks"

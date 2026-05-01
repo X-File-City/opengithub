@@ -20,8 +20,10 @@ type RepositoryPullsPageProps = {
     author?: string;
     labels?: string;
     milestone?: string;
+    noMilestone?: string;
     assignee?: string;
     noAssignee?: string;
+    project?: string;
     review?: string;
     checks?: string;
     sort?: string;
@@ -74,8 +76,10 @@ function validationFallbackPulls(
     author?: string;
     labels?: string[];
     milestone?: string;
+    noMilestone?: boolean;
     assignee?: string;
     noAssignee?: boolean;
+    project?: string;
     review?: string;
     checks?: string;
     sort?: string;
@@ -98,8 +102,10 @@ function validationFallbackPulls(
       author: query.author ?? null,
       labels: query.labels ?? [],
       milestone: query.milestone ?? null,
+      noMilestone: query.noMilestone ?? false,
       assignee: query.assignee ?? null,
       noAssignee: query.noAssignee ?? false,
+      project: query.project ?? null,
       review: query.review ?? null,
       checks: query.checks ?? null,
       sort: fallbackSort(query.sort),
@@ -108,6 +114,16 @@ function validationFallbackPulls(
       labels: [],
       users: [],
       milestones: [],
+      projects: [
+        {
+          id: "projects-unavailable",
+          name: "No repository projects",
+          description: "Project links are not modeled for pull requests yet.",
+          count: 0,
+          disabledReason:
+            "Project filters will activate when project links exist.",
+        },
+      ],
       reviewStates: [],
       checkStates: [],
       sortOptions: [],
@@ -155,8 +171,10 @@ export default async function RepositoryPullsPage({
       .map((label) => label.trim())
       .filter(Boolean),
     milestone: query.milestone,
+    noMilestone: query.noMilestone === "true",
     assignee: query.assignee,
     noAssignee: query.noAssignee === "true",
+    project: query.project,
     review: query.review,
     checks: query.checks,
     sort: query.sort,

@@ -418,8 +418,10 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["filters"]["author"], owner.email);
     assert_eq!(body["filters"]["labels"][0], "bug");
     assert_eq!(body["filters"]["milestone"], "Review queue");
+    assert_eq!(body["filters"]["noMilestone"], false);
     assert_eq!(body["filters"]["assignee"], reviewer.email);
     assert_eq!(body["filters"]["noAssignee"], false);
+    assert_eq!(body["filters"]["project"], Value::Null);
     assert_eq!(body["filters"]["review"], "approved");
     assert_eq!(body["filters"]["checks"], "success");
     assert_eq!(body["filters"]["sort"], "updated-desc");
@@ -438,6 +440,15 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
         .expect("milestone options should be an array")
         .iter()
         .any(|milestone| milestone["title"] == "Review queue"));
+    assert!(body["filterOptions"]["projects"]
+        .as_array()
+        .expect("project options should be an array")
+        .iter()
+        .any(|project| {
+            project["name"] == "No repository projects"
+                && project["disabledReason"]
+                    == "Project filters will activate when project links exist."
+        }));
     assert_eq!(body["repository"]["name"], repo_name);
     assert_eq!(body["repository"]["defaultBranch"], "main");
     assert_eq!(body["viewerPermission"], "read");
@@ -452,6 +463,21 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(no_assignee_status, StatusCode::OK);
     assert_eq!(no_assignee_body["filters"]["noAssignee"], true);
     assert_eq!(no_assignee_body["total"], 0);
+
+    let no_milestone_uri = format!(
+        "/api/repos/{}/{}/pulls?q=is%3Apr%20state%3Aclosed%20no%3Amilestone&noMilestone=true&state=closed",
+        owner.email, repo_name
+    );
+    let (no_milestone_status, no_milestone_body) =
+        send_json(app.clone(), &no_milestone_uri, None).await;
+    assert_eq!(no_milestone_status, StatusCode::OK);
+    assert_eq!(no_milestone_body["filters"]["noMilestone"], true);
+    assert_eq!(no_milestone_body["filters"]["milestone"], Value::Null);
+    assert_eq!(no_milestone_body["total"], 1);
+    assert_eq!(
+        no_milestone_body["items"][0]["number"],
+        closed_pr.pull_request.number
+    );
 
     let preference_uri = format!("/api/repos/{}/{}/pulls/preferences", owner.email, repo_name);
     let (anonymous_preference_status, anonymous_preference_body) = patch_json(
@@ -568,6 +594,7 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(typed_filter_body["filters"]["author"], owner.email);
     assert_eq!(typed_filter_body["filters"]["labels"][0], "bug");
     assert_eq!(typed_filter_body["filters"]["milestone"], "Review queue");
+    assert_eq!(typed_filter_body["filters"]["noMilestone"], false);
     assert_eq!(typed_filter_body["filters"]["assignee"], reviewer.email);
     assert_eq!(typed_filter_body["filters"]["review"], "approved");
     assert_eq!(typed_filter_body["filters"]["checks"], "success");
@@ -588,6 +615,22 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     .await;
     assert_eq!(invalid_filter_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(invalid_filter_body["error"]["code"], "validation_failed");
+
+    let (invalid_project_status, invalid_project_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{}/{}/pulls?q=is%3Apr%20is%3Aopen%20project%3Aroadmap",
+            owner.email, repo_name
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(invalid_project_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(invalid_project_body["error"]["code"], "validation_failed");
+    assert_eq!(
+        invalid_project_body["details"]["reason"],
+        "invalid issue filter: project filters are not available until repository project links are modeled"
+    );
 
     let private_uri = format!(
         "/api/repos/{owner}/{private_repo_name}/pulls",
