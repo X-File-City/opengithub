@@ -1030,3 +1030,11 @@
 - Extended repository Issues Playwright coverage with a final signed-session sweep across filter menus, invalid-query recovery, desktop screenshot `ralph/screenshots/build/issues-002-phase5-final-desktop.jpg`, and mobile no-overflow screenshot `ralph/screenshots/build/issues-002-phase5-final-mobile.jpg`.
 - Verification: focused Rust `issue_list_filters_round_trip_urls_and_validate_bad_filters` passed; focused `repository-issues.test.tsx` passed with 11 tests; focused `repository-issues.spec.ts` passed with 7 Playwright tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 124 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 57 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
 - Marked Phase 5 as done in `.qrspi/issues-002/structure.md` and set `issues-002.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - issues-003 structure planning
+
+- Read `BUILD_GUIDE.md`, `build-spec.md`, `web/AGENTS.md`, `build-progress.txt`, the first incomplete `prd.json` entry, `.qrspi/issues-001/structure.md`, `.qrspi/issues-002/structure.md`, current issue-list/create route code, current placeholder `/issues/new` page, Markdown editor/rendering helpers, and the Editorial Issues reference in `design/project/og-screens-4.jsx`.
+- Determined `issues-003` requires structure planning before implementation because `needs_structure: true` and `.qrspi/issues-003/structure.md` did not exist.
+- Added `.qrspi/issues-003/structure.md` with five independently verifiable vertical phases: generic issue composer, template chooser, issue form fields, metadata/attachments/notifications side effects, and final guardrails/QA handoff.
+- Did not change `prd.json`; `issues-003.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact; verified the outline exists and `qa-hints.json` remains valid JSON.

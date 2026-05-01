@@ -1476,5 +1476,16 @@
       "Keyboard guardrails cover focus on open and Escape close; full roving-arrow menu navigation is not implemented for these link-based popovers.",
       "Reaction-based sorting is still out of scope because issue reaction aggregates are not in the issue-list contract yet."
     ]
+  },
+  {
+    "feature_id": "issues-003",
+    "tests_written": [
+      "Structure-only iteration: added `.qrspi/issues-003/structure.md` with vertical implementation phases for generic issue creation, templates, form fields, metadata side effects, attachments, notifications, and final guardrails.",
+      "Verified the feature remains `build_pass: false` in `prd.json` because implementation has not started."
+    ],
+    "needs_deeper_qa": [
+      "No runtime tests were run because this invocation was required to stop after structure planning.",
+      "QA should focus future phases on real signed-session issue creation, required-field validation, Markdown preview, Create more reset behavior, template metadata side effects, attachment honesty, and redirect to issue detail."
+    ]
   }
 ]
