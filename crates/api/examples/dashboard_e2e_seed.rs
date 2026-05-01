@@ -256,6 +256,9 @@ async fn main() -> anyhow::Result<()> {
                 actor_user_id: user.id,
                 title: "Fix dashboard setup workflow".to_owned(),
                 body: None,
+                template_id: None,
+                template_slug: None,
+                field_values: std::collections::HashMap::new(),
                 milestone_id: None,
                 label_ids: vec![],
                 assignee_user_ids: vec![user.id],
@@ -454,6 +457,9 @@ async fn seed_search_documents(
             actor_user_id: user_id,
             title: format!("Investigate {marker} issue search"),
             body: Some(format!("Issue result seeded for {marker}")),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: labels
                 .first()
@@ -598,6 +604,48 @@ async fn seed_issue_templates(
     )
     .bind(template_id)
     .bind(user_id)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        r#"
+        INSERT INTO issue_form_fields (
+            template_id, field_key, label, field_type, description, placeholder, value, required, display_order
+        )
+        VALUES
+            (
+                $1,
+                'steps',
+                'Reproduction steps',
+                'markdown',
+                'Describe the shortest path that reproduces the defect.',
+                '1. Open...\n2. Click...',
+                '',
+                true,
+                1
+            ),
+            (
+                $1,
+                'environment',
+                'Environment',
+                'input',
+                'Browser, OS, or runtime where the issue appears.',
+                'Chrome on macOS',
+                '',
+                false,
+                2
+            )
+        ON CONFLICT (template_id, field_key)
+        DO UPDATE SET
+            label = EXCLUDED.label,
+            field_type = EXCLUDED.field_type,
+            description = EXCLUDED.description,
+            placeholder = EXCLUDED.placeholder,
+            value = EXCLUDED.value,
+            required = EXCLUDED.required,
+            display_order = EXCLUDED.display_order
+        "#,
+    )
+    .bind(template_id)
     .execute(pool)
     .await?;
     Ok(())

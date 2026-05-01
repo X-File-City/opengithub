@@ -42,7 +42,7 @@
 
 ## Phase 3: Issue Form Fields - required template inputs and Markdown sections validate
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Render GitHub-style issue-form fields from `issue_form_fields`: required text inputs, textarea/Markdown sections with Write/Preview tabs, explanatory template body, required markers, validation messages, and Command+Enter submission. This phase makes template forms more than static body prefill.
 

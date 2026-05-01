@@ -94,6 +94,9 @@ struct ListQuery {
 struct CreateIssueRequest {
     title: String,
     body: Option<String>,
+    template_id: Option<Uuid>,
+    template_slug: Option<String>,
+    field_values: Option<std::collections::HashMap<String, String>>,
     milestone_id: Option<Uuid>,
     label_ids: Option<Vec<Uuid>>,
     assignee_user_ids: Option<Vec<Uuid>>,
@@ -468,6 +471,9 @@ async fn create(
             actor_user_id: actor.0.id,
             title: request.title,
             body: request.body,
+            template_id: request.template_id,
+            template_slug: request.template_slug,
+            field_values: request.field_values.unwrap_or_default(),
             milestone_id: request.milestone_id,
             label_ids: request.label_ids.unwrap_or_default(),
             assignee_user_ids: request.assignee_user_ids.unwrap_or_default(),
@@ -672,6 +678,18 @@ pub(crate) fn map_collaboration_error(
                 message.clone(),
                 json!({
                     "field": "q",
+                    "reason": message,
+                }),
+            )
+        }
+        CollaborationError::InvalidIssueField { field_key, message } => {
+            error_response_with_details(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "validation_failed",
+                message.clone(),
+                json!({
+                    "field": format!("fieldValues.{field_key}"),
+                    "fieldKey": field_key,
                     "reason": message,
                 }),
             )

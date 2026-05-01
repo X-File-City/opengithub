@@ -1524,5 +1524,21 @@
       "Attachment upload controls and body-version/notification side effects are still intentionally deferred to Phase 4",
       "Browser proof is Chromium Playwright; QA should later spot-check keyboard focus order and screen-reader announcement flow on the template chooser"
     ]
+  },
+  {
+    "feature_id": "issues-003",
+    "tests_written": [
+      "Implemented Phase 3 structured issue form fields: template fields now render as required inputs or Markdown textareas with Write/Preview tabs, required markers, validation messages, and Command+Enter submit behavior.",
+      "Rust issue creation now accepts templateId/templateSlug plus fieldValues, validates required configured fields server-side, returns field-level validation details, and composes submitted field values into the persisted issue body.",
+      "Vitest coverage verifies required template-field blocking, field Markdown preview, template defaults in the submit payload, and no inert controls.",
+      "Playwright signed-session flow verifies template selection, required-field blocking, field preview, successful template issue creation, and saves ralph/screenshots/build/issues-003-phase3-form-fields.jpg.",
+      "Verification passed: Rust api_repository_issue_templates_contract required-field/body-composition test, web issue-create Vitest suite, repository-issue-create Playwright spec, mandatory Editorial banned-value scan, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 136 frontend tests, and make test-e2e with 59 Playwright tests."
+    ],
+    "needs_deeper_qa": [
+      "Phase 3 composes field values into the issue body; dedicated body-version rows, initial body comments, notifications, and attachment metadata remain Phase 4 work.",
+      "Field preview uses the existing Markdown preview endpoint with Chromium Playwright coverage; QA should later spot-check long required-field content and screen-reader announcement ordering.",
+      "Template default labels/assignees are passed through the form payload, but authorization and side-effect persistence hardening are deferred to Phase 4.",
+      "Final mobile/accessibility/dead-control sweeps remain Phase 5 before issues-003 can be marked build_pass true."
+    ]
   }
 ]

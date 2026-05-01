@@ -44,6 +44,36 @@ const bugTemplate: IssueTemplate = {
   titlePrefill: "[Bug]: ",
   body: "### Expected behavior\n\n### Actual behavior\n",
   issueType: "bug",
+  formFields: [
+    {
+      id: "field-1",
+      templateId: "template-1",
+      fieldKey: "steps",
+      label: "Reproduction steps",
+      fieldType: "markdown",
+      description: "Describe the shortest path that reproduces the defect.",
+      placeholder: "1. Open...",
+      value: "",
+      required: true,
+      displayOrder: 1,
+      createdAt: "2026-05-01T00:00:00Z",
+      updatedAt: "2026-05-01T00:00:00Z",
+    },
+    {
+      id: "field-2",
+      templateId: "template-1",
+      fieldKey: "environment",
+      label: "Environment",
+      fieldType: "input",
+      description: "Browser, OS, or runtime where the issue appears.",
+      placeholder: "Chrome on macOS",
+      value: "",
+      required: false,
+      displayOrder: 2,
+      createdAt: "2026-05-01T00:00:00Z",
+      updatedAt: "2026-05-01T00:00:00Z",
+    },
+  ],
   defaultLabelIds: ["label-1"],
   defaultAssigneeUserIds: ["user-2"],
   createdAt: "2026-05-01T00:00:00Z",
@@ -236,15 +266,24 @@ describe("IssueCreateForm", () => {
         cancelHref="/mona/octo-app/issues"
         defaultAssigneeUserIds={["user-2"]}
         defaultLabelIds={["label-1"]}
+        formFields={bugTemplate.formFields}
         initialBody="Template body"
         initialTitle="[Bug]: "
         owner="mona"
         repo="octo-app"
+        templateId="template-1"
         templateName="Bug report"
+        templateSlug="bug-report"
       />,
     );
 
     expect(screen.getByText(/Using the Bug report template/)).toBeVisible();
+    fireEvent.change(screen.getByPlaceholderText("1. Open..."), {
+      target: { value: "1. Open the issue form" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Chrome on macOS"), {
+      target: { value: "Chrome on macOS" },
+    });
     fireEvent.change(screen.getByLabelText(/Title/), {
       target: { value: "[Bug]: broken preview" },
     });
@@ -257,12 +296,55 @@ describe("IssueCreateForm", () => {
           body: JSON.stringify({
             title: "[Bug]: broken preview",
             body: "Template body",
+            templateId: "template-1",
+            templateSlug: "bug-report",
+            fieldValues: {
+              steps: "1. Open the issue form",
+              environment: "Chrome on macOS",
+            },
             labelIds: ["label-1"],
             assigneeUserIds: ["user-2"],
           }),
         }),
       ),
     );
+  });
+
+  it("validates required template fields and previews field Markdown", async () => {
+    const previewMarkdown = vi
+      .fn()
+      .mockResolvedValueOnce(renderedMarkdown("<p>1. Open the issue form</p>"));
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    render(
+      <IssueCreateForm
+        cancelHref="/mona/octo-app/issues"
+        formFields={bugTemplate.formFields}
+        initialBody={bugTemplate.body}
+        initialTitle="[Bug]: "
+        owner="mona"
+        previewMarkdown={previewMarkdown}
+        repo="octo-app"
+        templateId="template-1"
+        templateName="Bug report"
+        templateSlug="bug-report"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Title/), {
+      target: { value: "[Bug]: required fields" },
+    });
+    expect(screen.getByRole("button", { name: "Create issue" })).toBeDisabled();
+    fireEvent.blur(screen.getByPlaceholderText("1. Open..."));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Reproduction steps is required.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByPlaceholderText("1. Open..."), {
+      target: { value: "1. Open the issue form" },
+    });
+    fireEvent.click(screen.getAllByRole("tab", { name: "Preview" })[0]);
+    expect(await screen.findByText("1. Open the issue form")).toBeVisible();
   });
 });
 

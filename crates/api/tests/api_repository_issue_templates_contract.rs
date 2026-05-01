@@ -110,6 +110,39 @@ async fn get_json(app: axum::Router, uri: &str, cookie: Option<&str>) -> (Status
     (status, value)
 }
 
+async fn post_json(
+    app: axum::Router,
+    uri: &str,
+    cookie: Option<&str>,
+    payload: Value,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    let response = app
+        .oneshot(
+            builder
+                .body(Body::from(payload.to_string()))
+                .expect("request should build"),
+        )
+        .await
+        .expect("request should run");
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body should read");
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("response should be json")
+    };
+    (status, value)
+}
+
 async fn seed_template(pool: &PgPool, repository_id: Uuid, user_id: Uuid) -> Uuid {
     let labels = ensure_default_labels(pool, repository_id)
         .await
@@ -148,6 +181,22 @@ async fn seed_template(pool: &PgPool, repository_id: Uuid, user_id: Uuid) -> Uui
     .execute(pool)
     .await
     .expect("template assignee should insert");
+    sqlx::query(
+        r#"
+        INSERT INTO issue_form_fields (
+            template_id, field_key, label, field_type, description, placeholder, value, required, display_order
+        )
+        VALUES
+            ($1, 'steps', 'Reproduction steps', 'markdown',
+             'Describe the shortest reproduction path.', '1. Open...', '', true, 1),
+            ($1, 'environment', 'Environment', 'input',
+             'Where does this happen?', 'Chrome on macOS', '', false, 2)
+        "#,
+    )
+    .bind(template_id)
+    .execute(pool)
+    .await
+    .expect("template fields should insert");
     template_id
 }
 
@@ -214,4 +263,82 @@ async fn issue_templates_contract_returns_ordered_template_defaults() {
         body["items"][0]["defaultAssigneeUserIds"][0],
         owner.id.to_string()
     );
+    assert_eq!(body["items"][0]["formFields"].as_array().unwrap().len(), 2);
+    assert_eq!(body["items"][0]["formFields"][0]["fieldKey"], "steps");
+    assert_eq!(body["items"][0]["formFields"][0]["required"], true);
+}
+
+#[tokio::test]
+async fn issue_template_required_fields_validate_and_compose_body() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping issue template create scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-template-create-owner").await;
+    let repo_name = format!("issue-template-create-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("repository should create");
+    let template_id = seed_template(&pool, repository.id, owner.id).await;
+    let cookie = cookie_header(&pool, &config, &owner).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let uri = format!(
+        "/api/repos/{}/{}/issues",
+        owner.username.as_deref().unwrap(),
+        repo_name
+    );
+
+    let (status, body) = post_json(
+        app.clone(),
+        &uri,
+        Some(&cookie),
+        json!({
+            "title": "[Bug]: required field",
+            "body": "### Expected behavior\n\nThe form saves.",
+            "templateId": template_id,
+            "templateSlug": "bug-report",
+            "fieldValues": {
+                "environment": "Chrome on macOS"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "validation_failed");
+    assert_eq!(body["details"]["fieldKey"], "steps");
+
+    let (status, body) = post_json(
+        app,
+        &uri,
+        Some(&cookie),
+        json!({
+            "title": "[Bug]: composed body",
+            "body": "### Expected behavior\n\nThe form saves.",
+            "templateSlug": "bug-report",
+            "fieldValues": {
+                "steps": "1. Open the issue form\n2. Submit the template",
+                "environment": "Chrome on macOS"
+            }
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let issue_body = body["body"].as_str().unwrap();
+    assert!(issue_body.contains("### Expected behavior"));
+    assert!(issue_body.contains("### Reproduction steps"));
+    assert!(issue_body.contains("1. Open the issue form"));
+    assert!(issue_body.contains("### Environment"));
+    assert!(issue_body.contains("Chrome on macOS"));
 }

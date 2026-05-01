@@ -7,6 +7,7 @@ import { MarkdownBody } from "@/components/MarkdownBody";
 import type {
   ApiErrorEnvelope,
   CreatedIssue,
+  IssueFormField,
   RenderedMarkdown,
 } from "@/lib/api";
 
@@ -17,7 +18,10 @@ type IssueCreateFormProps = {
   initialBody?: string;
   defaultLabelIds?: string[];
   defaultAssigneeUserIds?: string[];
+  templateId?: string | null;
+  templateSlug?: string | null;
   templateName?: string | null;
+  formFields?: IssueFormField[];
   cancelHref: string;
   onCreated?: (issue: CreatedIssue) => void;
   previewMarkdown?: (markdown: string) => Promise<RenderedMarkdown>;
@@ -65,6 +69,10 @@ function errorMessageFromEnvelope(envelope: ApiErrorEnvelope | null) {
   return envelope?.error.message ?? "Issue could not be created.";
 }
 
+function initialFieldValue(field: IssueFormField) {
+  return field.value ?? "";
+}
+
 export function IssueCreateForm({
   owner,
   repo,
@@ -72,7 +80,10 @@ export function IssueCreateForm({
   initialBody = "",
   defaultLabelIds = [],
   defaultAssigneeUserIds = [],
+  templateId = null,
+  templateSlug = null,
   templateName = null,
+  formFields = [],
   cancelHref,
   onCreated,
   previewMarkdown,
@@ -80,6 +91,30 @@ export function IssueCreateForm({
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
   const [tab, setTab] = useState<"write" | "preview">("write");
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      formFields.map((field) => [field.fieldKey, initialFieldValue(field)]),
+    ),
+  );
+  const [fieldTabs, setFieldTabs] = useState<
+    Record<string, "write" | "preview">
+  >(() =>
+    Object.fromEntries(formFields.map((field) => [field.fieldKey, "write"])),
+  );
+  const [fieldPreviews, setFieldPreviews] = useState<
+    Record<string, RenderedMarkdown>
+  >(() =>
+    Object.fromEntries(
+      formFields.map((field) => [
+        field.fieldKey,
+        defaultRendered(initialFieldValue(field)),
+      ]),
+    ),
+  );
+  const [fieldTouched, setFieldTouched] = useState<Record<string, boolean>>({});
+  const [pendingPreviewKey, setPendingPreviewKey] = useState<string | null>(
+    null,
+  );
   const [createMore, setCreateMore] = useState(false);
   const [rendered, setRendered] = useState<RenderedMarkdown>(
     defaultRendered(initialBody),
@@ -94,7 +129,20 @@ export function IssueCreateForm({
     () => (title.trim() ? null : "Title is required."),
     [title],
   );
-  const canSubmit = !titleError && !isSubmitting;
+  const fieldErrors = useMemo(
+    () =>
+      Object.fromEntries(
+        formFields.map((field) => [
+          field.fieldKey,
+          field.required && !fieldValues[field.fieldKey]?.trim()
+            ? `${field.label} is required.`
+            : null,
+        ]),
+      ) as Record<string, string | null>,
+    [fieldValues, formFields],
+  );
+  const hasFieldErrors = Object.values(fieldErrors).some(Boolean);
+  const canSubmit = !titleError && !hasFieldErrors && !isSubmitting;
   const createEndpoint = `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/new/create`;
 
   async function showPreview(nextBody = body) {
@@ -133,6 +181,47 @@ export function IssueCreateForm({
     }
   }
 
+  async function showFieldPreview(field: IssueFormField) {
+    const value = fieldValues[field.fieldKey] ?? "";
+    setFieldTabs((current) => ({ ...current, [field.fieldKey]: "preview" }));
+    setPendingPreviewKey(field.fieldKey);
+    setError(null);
+    try {
+      const nextRendered =
+        previewMarkdown !== undefined
+          ? await previewMarkdown(value)
+          : await fetch("/markdown/preview", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                markdown: value,
+                owner,
+                repo,
+                enableTaskToggles: true,
+              }),
+            }).then((response) => {
+              if (!response.ok) {
+                throw new Error("Preview failed");
+              }
+              return response.json() as Promise<RenderedMarkdown>;
+            });
+      setFieldPreviews((current) => ({
+        ...current,
+        [field.fieldKey]: value.trim()
+          ? nextRendered
+          : { ...nextRendered, html: EMPTY_PREVIEW },
+      }));
+    } catch {
+      setFieldPreviews((current) => ({
+        ...current,
+        [field.fieldKey]: defaultRendered(value),
+      }));
+      setError("Preview could not be rendered.");
+    } finally {
+      setPendingPreviewKey(null);
+    }
+  }
+
   function applyToolbarAction(action: ToolbarAction) {
     setBody((current) =>
       current
@@ -146,21 +235,32 @@ export function IssueCreateForm({
     setTitleTouched(true);
     setError(null);
     setCreatedIssue(null);
+    setFieldTouched(
+      Object.fromEntries(formFields.map((field) => [field.fieldKey, true])),
+    );
     if (titleError) {
+      return;
+    }
+    if (hasFieldErrors) {
+      setError("Complete the required template fields before creating.");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const requestBody = {
+        title: title.trim(),
+        body: body.trim() ? body : null,
+        ...(templateId ? { templateId } : {}),
+        ...(templateSlug ? { templateSlug } : {}),
+        ...(formFields.length ? { fieldValues } : {}),
+        labelIds: defaultLabelIds,
+        assigneeUserIds: defaultAssigneeUserIds,
+      };
       const response = await fetch(createEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          body: body.trim() ? body : null,
-          labelIds: defaultLabelIds,
-          assigneeUserIds: defaultAssigneeUserIds,
-        }),
+        body: JSON.stringify(requestBody),
       });
       const payload = (await response.json().catch(() => null)) as
         | CreatedIssue
@@ -177,6 +277,20 @@ export function IssueCreateForm({
         setCreatedIssue(issue);
         setTitle("");
         setBody("");
+        setFieldValues(
+          Object.fromEntries(formFields.map((field) => [field.fieldKey, ""])),
+        );
+        setFieldPreviews(
+          Object.fromEntries(
+            formFields.map((field) => [field.fieldKey, defaultRendered("")]),
+          ),
+        );
+        setFieldTabs(
+          Object.fromEntries(
+            formFields.map((field) => [field.fieldKey, "write"]),
+          ),
+        );
+        setFieldTouched({});
         setRendered(defaultRendered(""));
         setTab("write");
         setTitleTouched(false);
@@ -204,6 +318,13 @@ export function IssueCreateForm({
     }
   }
 
+  function handleFieldKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      void submit();
+    }
+  }
+
   return (
     <section aria-labelledby="issue-create-title" className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -224,6 +345,172 @@ export function IssueCreateForm({
           Cancel
         </Link>
       </div>
+
+      {formFields.length ? (
+        <div className="space-y-4">
+          {formFields.map((field) => {
+            const value = fieldValues[field.fieldKey] ?? "";
+            const fieldError = fieldErrors[field.fieldKey];
+            const fieldId = `issue-field-${field.fieldKey}`;
+            const errorId = `${fieldId}-error`;
+            const isMarkdown =
+              field.fieldType === "markdown" || field.fieldType === "textarea";
+            return (
+              <div className="card overflow-hidden" key={field.id}>
+                <div
+                  className="border-b p-4"
+                  style={{ borderColor: "var(--line)" }}
+                >
+                  <label className="t-label" htmlFor={fieldId}>
+                    {field.label}{" "}
+                    {field.required ? <span aria-hidden="true">*</span> : null}
+                  </label>
+                  {field.description ? (
+                    <p className="mt-2 t-sm" style={{ color: "var(--ink-3)" }}>
+                      {field.description}
+                    </p>
+                  ) : null}
+                </div>
+                {isMarkdown ? (
+                  <div>
+                    <div
+                      aria-label={`${field.label} tabs`}
+                      className="tabs px-4 pt-3"
+                      role="tablist"
+                    >
+                      <button
+                        aria-selected={fieldTabs[field.fieldKey] !== "preview"}
+                        className={`tab${
+                          fieldTabs[field.fieldKey] !== "preview"
+                            ? " active"
+                            : ""
+                        }`}
+                        onClick={() =>
+                          setFieldTabs((current) => ({
+                            ...current,
+                            [field.fieldKey]: "write",
+                          }))
+                        }
+                        role="tab"
+                        type="button"
+                      >
+                        Write
+                      </button>
+                      <button
+                        aria-selected={fieldTabs[field.fieldKey] === "preview"}
+                        className={`tab${
+                          fieldTabs[field.fieldKey] === "preview"
+                            ? " active"
+                            : ""
+                        }`}
+                        onClick={() => void showFieldPreview(field)}
+                        role="tab"
+                        type="button"
+                      >
+                        Preview
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      {fieldTabs[field.fieldKey] === "preview" ? (
+                        <div>
+                          <MarkdownBody
+                            html={
+                              fieldPreviews[field.fieldKey]?.html ??
+                              EMPTY_PREVIEW
+                            }
+                          />
+                          {pendingPreviewKey === field.fieldKey ? (
+                            <p
+                              className="mt-3 t-sm"
+                              role="status"
+                              style={{ color: "var(--ink-3)" }}
+                            >
+                              Rendering preview...
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <textarea
+                          aria-describedby={
+                            fieldTouched[field.fieldKey] && fieldError
+                              ? errorId
+                              : undefined
+                          }
+                          aria-invalid={
+                            fieldTouched[field.fieldKey] && fieldError
+                              ? "true"
+                              : "false"
+                          }
+                          className="input min-h-40 w-full resize-y p-3 t-mono leading-6"
+                          id={fieldId}
+                          onBlur={() =>
+                            setFieldTouched((current) => ({
+                              ...current,
+                              [field.fieldKey]: true,
+                            }))
+                          }
+                          onChange={(event) =>
+                            setFieldValues((current) => ({
+                              ...current,
+                              [field.fieldKey]: event.target.value,
+                            }))
+                          }
+                          onKeyDown={handleFieldKeyDown}
+                          placeholder={field.placeholder ?? ""}
+                          required={field.required}
+                          value={value}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4">
+                    <input
+                      aria-describedby={
+                        fieldTouched[field.fieldKey] && fieldError
+                          ? errorId
+                          : undefined
+                      }
+                      aria-invalid={
+                        fieldTouched[field.fieldKey] && fieldError
+                          ? "true"
+                          : "false"
+                      }
+                      className="input w-full"
+                      id={fieldId}
+                      onBlur={() =>
+                        setFieldTouched((current) => ({
+                          ...current,
+                          [field.fieldKey]: true,
+                        }))
+                      }
+                      onChange={(event) =>
+                        setFieldValues((current) => ({
+                          ...current,
+                          [field.fieldKey]: event.target.value,
+                        }))
+                      }
+                      placeholder={field.placeholder ?? ""}
+                      required={field.required}
+                      value={value}
+                    />
+                  </div>
+                )}
+                {fieldTouched[field.fieldKey] && fieldError ? (
+                  <p
+                    className="px-4 pb-4 t-sm"
+                    id={errorId}
+                    role="alert"
+                    style={{ color: "var(--err)" }}
+                  >
+                    {fieldError}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       <div className="card overflow-hidden">
         <div className="border-b p-4" style={{ borderColor: "var(--line)" }}>

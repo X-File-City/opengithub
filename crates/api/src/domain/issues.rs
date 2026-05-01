@@ -237,8 +237,26 @@ pub struct IssueTemplate {
     pub title_prefill: Option<String>,
     pub body: String,
     pub issue_type: Option<String>,
+    pub form_fields: Vec<IssueFormField>,
     pub default_label_ids: Vec<Uuid>,
     pub default_assignee_user_ids: Vec<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueFormField {
+    pub id: Uuid,
+    pub template_id: Uuid,
+    pub field_key: String,
+    pub label: String,
+    pub field_type: String,
+    pub description: Option<String>,
+    pub placeholder: Option<String>,
+    pub value: Option<String>,
+    pub required: bool,
+    pub display_order: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -325,6 +343,9 @@ pub struct CreateIssue {
     pub actor_user_id: Uuid,
     pub title: String,
     pub body: Option<String>,
+    pub template_id: Option<Uuid>,
+    pub template_slug: Option<String>,
+    pub field_values: HashMap<String, String>,
     pub milestone_id: Option<Uuid>,
     pub label_ids: Vec<Uuid>,
     pub assignee_user_ids: Vec<Uuid>,
@@ -404,6 +425,8 @@ pub enum CollaborationError {
     InvalidReaction(String),
     #[error("invalid issue filter: {0}")]
     InvalidIssueFilter(String),
+    #[error("{message}")]
+    InvalidIssueField { field_key: String, message: String },
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
 }
@@ -499,6 +522,7 @@ pub async fn list_issue_templates_for_viewer(
         .map(issue_template_from_row)
         .collect::<Vec<_>>();
     hydrate_issue_template_defaults(pool, &mut templates).await?;
+    hydrate_issue_template_fields(pool, &mut templates).await?;
     Ok(templates)
 }
 
@@ -511,6 +535,7 @@ pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, Co
         RepositoryRole::Write,
     )
     .await?;
+    let input = prepare_issue_create_body(pool, input).await?;
     let number = next_issue_number(pool, input.repository_id).await?;
     let issue = insert_issue_with_number(pool, input, number).await?;
     append_timeline_event(
@@ -525,6 +550,37 @@ pub async fn create_issue(pool: &PgPool, input: CreateIssue) -> Result<Issue, Co
     .await?;
     index_issue_search_document(pool, &issue, actor_user_id).await?;
     Ok(issue)
+}
+
+async fn prepare_issue_create_body(
+    pool: &PgPool,
+    mut input: CreateIssue,
+) -> Result<CreateIssue, CollaborationError> {
+    if input.template_id.is_none()
+        && input
+            .template_slug
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_none()
+    {
+        return Ok(input);
+    }
+
+    let template = issue_template_for_create(
+        pool,
+        input.repository_id,
+        input.template_id,
+        input.template_slug.as_deref(),
+    )
+    .await?;
+    validate_required_issue_fields(&template, &input.field_values)?;
+    input.body = Some(compose_issue_body_from_fields(
+        input.body.as_deref(),
+        &template.form_fields,
+        &input.field_values,
+    ));
+    Ok(input)
 }
 
 pub async fn list_issues(
@@ -1881,11 +1937,113 @@ fn issue_template_from_row(row: sqlx::postgres::PgRow) -> IssueTemplate {
         title_prefill: row.get("title_prefill"),
         body: row.get("body"),
         issue_type: row.get("issue_type"),
+        form_fields: Vec::new(),
         default_label_ids: Vec::new(),
         default_assignee_user_ids: Vec::new(),
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     }
+}
+
+fn issue_form_field_from_row(row: sqlx::postgres::PgRow) -> IssueFormField {
+    IssueFormField {
+        id: row.get("id"),
+        template_id: row.get("template_id"),
+        field_key: row.get("field_key"),
+        label: row.get("label"),
+        field_type: row.get("field_type"),
+        description: row.get("description"),
+        placeholder: row.get("placeholder"),
+        value: row.get("value"),
+        required: row.get("required"),
+        display_order: row.get("display_order"),
+        created_at: row.get("created_at"),
+        updated_at: row.get("updated_at"),
+    }
+}
+
+async fn issue_template_for_create(
+    pool: &PgPool,
+    repository_id: Uuid,
+    template_id: Option<Uuid>,
+    template_slug: Option<&str>,
+) -> Result<IssueTemplate, CollaborationError> {
+    let template_slug = template_slug
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, slug, name, description, title_prefill, body, issue_type,
+               created_at, updated_at
+        FROM issue_templates
+        WHERE repository_id = $1
+          AND (
+              ($2::uuid IS NOT NULL AND id = $2)
+              OR ($2::uuid IS NULL AND $3::text IS NOT NULL AND lower(slug) = lower($3))
+          )
+        "#,
+    )
+    .bind(repository_id)
+    .bind(template_id)
+    .bind(template_slug)
+    .fetch_optional(pool)
+    .await?;
+    let mut template =
+        row.map(issue_template_from_row)
+            .ok_or(CollaborationError::InvalidIssueField {
+                field_key: "template".to_owned(),
+                message: "issue template was not found".to_owned(),
+            })?;
+    hydrate_issue_template_fields(pool, std::slice::from_mut(&mut template)).await?;
+    Ok(template)
+}
+
+fn validate_required_issue_fields(
+    template: &IssueTemplate,
+    field_values: &HashMap<String, String>,
+) -> Result<(), CollaborationError> {
+    for field in &template.form_fields {
+        if field.required {
+            let value = field_values
+                .get(&field.field_key)
+                .or(field.value.as_ref())
+                .map(String::as_str)
+                .unwrap_or("");
+            if value.trim().is_empty() {
+                return Err(CollaborationError::InvalidIssueField {
+                    field_key: field.field_key.clone(),
+                    message: format!("{} is required", field.label),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+fn compose_issue_body_from_fields(
+    base_body: Option<&str>,
+    fields: &[IssueFormField],
+    field_values: &HashMap<String, String>,
+) -> String {
+    let mut sections = Vec::new();
+    if let Some(body) = base_body.map(str::trim).filter(|value| !value.is_empty()) {
+        sections.push(body.to_owned());
+    }
+
+    for field in fields {
+        let value = field_values
+            .get(&field.field_key)
+            .or(field.value.as_ref())
+            .map(String::as_str)
+            .unwrap_or("")
+            .trim();
+        if value.is_empty() {
+            continue;
+        }
+        sections.push(format!("### {}\n\n{}", field.label, value));
+    }
+
+    sections.join("\n\n")
 }
 
 async fn hydrate_issue_template_defaults(
@@ -1944,6 +2102,44 @@ async fn hydrate_issue_template_defaults(
         }
     }
 
+    Ok(())
+}
+
+async fn hydrate_issue_template_fields(
+    pool: &PgPool,
+    templates: &mut [IssueTemplate],
+) -> Result<(), CollaborationError> {
+    if templates.is_empty() {
+        return Ok(());
+    }
+
+    let template_ids = templates
+        .iter()
+        .map(|template| template.id)
+        .collect::<Vec<_>>();
+    let index = templates
+        .iter()
+        .enumerate()
+        .map(|(position, template)| (template.id, position))
+        .collect::<HashMap<_, _>>();
+    let rows = sqlx::query(
+        r#"
+        SELECT id, template_id, field_key, label, field_type, description, placeholder, value,
+               required, display_order, created_at, updated_at
+        FROM issue_form_fields
+        WHERE template_id = ANY($1)
+        ORDER BY display_order ASC, lower(label) ASC
+        "#,
+    )
+    .bind(&template_ids)
+    .fetch_all(pool)
+    .await?;
+    for row in rows {
+        let field = issue_form_field_from_row(row);
+        if let Some(position) = index.get(&field.template_id).copied() {
+            templates[position].form_fields.push(field);
+        }
+    }
     Ok(())
 }
 

@@ -128,8 +128,21 @@ test("signed-in user chooses an issue template before composing", async ({
   await expect(page.getByRole("textbox", { name: "Issue body" })).toHaveValue(
     /Expected behavior/,
   );
+  await expect(page.getByPlaceholder("1. Open...")).toBeVisible();
 
   await page.getByLabel("Title").fill("[Bug]: template chooser works");
+  await expect(
+    page.getByRole("button", { name: "Create issue" }),
+  ).toBeDisabled();
+  await page.getByPlaceholder("1. Open...").focus();
+  await page.getByPlaceholder("1. Open...").blur();
+  await expect(page.getByText("Reproduction steps is required.")).toBeVisible();
+  await page
+    .getByPlaceholder("1. Open...")
+    .fill("1. Open the issue form\n2. Submit the issue template");
+  await page.getByPlaceholder("Chrome on macOS").fill("Chrome on macOS");
+  await page.getByRole("tab", { name: "Preview" }).first().click();
+  await expect(page.getByText("Open the issue form")).toBeVisible();
   await page
     .getByRole("textbox", { name: "Issue body" })
     .fill("### Expected behavior\n\nThe selected template preloads.");
@@ -139,6 +152,6 @@ test("signed-in user chooses an issue template before composing", async ({
 
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/issues-003-phase2-template-chooser.jpg",
+    path: "../ralph/screenshots/build/issues-003-phase3-form-fields.jpg",
   });
 });

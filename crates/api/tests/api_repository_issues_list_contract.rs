@@ -183,6 +183,9 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             actor_user_id: owner.id,
             title: "Issue list keeps search filters".to_owned(),
             body: Some("Labels and milestones should survive pagination.".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: Some(milestone_id),
             label_ids: vec![bug.id],
             assignee_user_ids: vec![owner.id],
@@ -218,6 +221,9 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             actor_user_id: owner.id,
             title: "Closed issue hidden by default".to_owned(),
             body: None,
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -291,27 +297,21 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["filters"]["noAssignee"], false);
     assert_eq!(body["filters"]["project"], Value::Null);
     assert_eq!(body["filters"]["issueType"], Value::Null);
-    assert!(
-        body["filterOptions"]["labels"]
-            .as_array()
-            .expect("label options should be an array")
-            .iter()
-            .any(|label| label["name"] == "bug")
-    );
-    assert!(
-        body["filterOptions"]["users"]
-            .as_array()
-            .expect("user options should be an array")
-            .iter()
-            .any(|user| user["login"] == owner.email)
-    );
-    assert!(
-        body["filterOptions"]["milestones"]
-            .as_array()
-            .expect("milestone options should be an array")
-            .iter()
-            .any(|milestone| milestone["title"] == "MVP")
-    );
+    assert!(body["filterOptions"]["labels"]
+        .as_array()
+        .expect("label options should be an array")
+        .iter()
+        .any(|label| label["name"] == "bug"));
+    assert!(body["filterOptions"]["users"]
+        .as_array()
+        .expect("user options should be an array")
+        .iter()
+        .any(|user| user["login"] == owner.email));
+    assert!(body["filterOptions"]["milestones"]
+        .as_array()
+        .expect("milestone options should be an array")
+        .iter()
+        .any(|milestone| milestone["title"] == "MVP"));
     assert_eq!(body["filterOptions"]["projects"], json!([]));
     assert_eq!(body["filterOptions"]["issueTypes"], json!([]));
     assert_eq!(body["repository"]["name"], repo_name);
@@ -383,6 +383,9 @@ async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
             actor_user_id: owner.id,
             title: "Bug only issue".to_owned(),
             body: None,
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![bug.id],
             assignee_user_ids: vec![],
@@ -397,6 +400,9 @@ async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
             actor_user_id: owner.id,
             title: "Documentation issue".to_owned(),
             body: None,
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![docs.id],
             assignee_user_ids: vec![],
@@ -411,6 +417,9 @@ async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
             actor_user_id: owner.id,
             title: "Unlabeled issue".to_owned(),
             body: None,
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -507,6 +516,9 @@ async fn issue_preferences_persist_contributor_banner_dismissal_per_viewer_repos
             actor_user_id: owner.id,
             title: "Contributor banner preference".to_owned(),
             body: None,
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -601,6 +613,9 @@ async fn private_issue_lists_require_repository_permission_and_redact_errors() {
             actor_user_id: owner.id,
             title: "Private issue".to_owned(),
             body: Some("must not leak".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -670,6 +685,9 @@ async fn anonymous_issue_lists_read_public_repositories_but_not_private_reposito
             actor_user_id: owner.id,
             title: "Anonymous users can read public issues".to_owned(),
             body: Some("Public repository issue list content.".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -684,6 +702,9 @@ async fn anonymous_issue_lists_read_public_repositories_but_not_private_reposito
             actor_user_id: owner.id,
             title: "Private issue should stay hidden".to_owned(),
             body: Some("sensitive private issue body".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -779,6 +800,9 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             actor_user_id: owner.id,
             title: "Filtered issue smoke target".to_owned(),
             body: Some("plain text search should match this body".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: Some(milestone_id),
             label_ids: vec![bug.id],
             assignee_user_ids: vec![owner.id],
@@ -793,6 +817,9 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             actor_user_id: owner.id,
             title: "Enhancement backlog item".to_owned(),
             body: None,
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![enhancement.id],
             assignee_user_ids: vec![],
@@ -817,6 +844,9 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             actor_user_id: owner.id,
             title: "Quiet ordering target".to_owned(),
             body: Some("Sorting coverage without comments".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -831,6 +861,9 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
             actor_user_id: owner.id,
             title: "Busy ordering target".to_owned(),
             body: Some("Sorting coverage with discussion".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
             milestone_id: None,
             label_ids: vec![],
             assignee_user_ids: vec![],
@@ -898,7 +931,10 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     .await;
     assert_eq!(exclude_author_status, StatusCode::OK);
     assert_eq!(exclude_author_body["total"], 0);
-    assert_eq!(exclude_author_body["filters"]["excludedAuthor"], owner.email);
+    assert_eq!(
+        exclude_author_body["filters"]["excludedAuthor"],
+        owner.email
+    );
 
     let (no_assignee_status, no_assignee_body) = send_json(
         app.clone(),
@@ -930,17 +966,18 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     .await;
     assert_eq!(cross_filter_status, StatusCode::OK);
     assert_eq!(cross_filter_body["total"], 2);
-    assert_eq!(cross_filter_body["filters"]["excludedLabels"], json!(["bug"]));
+    assert_eq!(
+        cross_filter_body["filters"]["excludedLabels"],
+        json!(["bug"])
+    );
     assert_eq!(cross_filter_body["filters"]["noAssignee"], true);
     assert_eq!(cross_filter_body["filters"]["sort"], "comments-desc");
     assert_eq!(cross_filter_body["items"][0]["number"], busy_issue.number);
-    assert!(
-        cross_filter_body["items"]
-            .as_array()
-            .expect("items should be an array")
-            .iter()
-            .all(|item| item["number"] != matched.number)
-    );
+    assert!(cross_filter_body["items"]
+        .as_array()
+        .expect("items should be an array")
+        .iter()
+        .all(|item| item["number"] != matched.number));
 
     let (no_label_status, no_label_body) = send_json(
         app.clone(),
@@ -1007,12 +1044,10 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     assert_eq!(bad_sort_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(bad_sort_body["error"]["code"], "validation_failed");
     assert_eq!(bad_sort_body["details"]["field"], "q");
-    assert!(
-        bad_sort_body["details"]["reason"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("sort must be one of")
-    );
+    assert!(bad_sort_body["details"]["reason"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("sort must be one of"));
 
     let (bad_state_status, bad_state_body) = send_json(
         app,
@@ -1023,10 +1058,8 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     assert_eq!(bad_state_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(bad_state_body["error"]["code"], "validation_failed");
     assert_eq!(bad_state_body["details"]["field"], "q");
-    assert!(
-        bad_state_body["error"]["message"]
-            .as_str()
-            .unwrap_or_default()
-            .contains("state filter must be open or closed")
-    );
+    assert!(bad_state_body["error"]["message"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("state filter must be open or closed"));
 }

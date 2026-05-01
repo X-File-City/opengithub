@@ -63,11 +63,14 @@ export default async function NewRepositoryIssuePage({
                 selectedTemplate?.defaultAssigneeUserIds ?? []
               }
               defaultLabelIds={selectedTemplate?.defaultLabelIds ?? []}
+              formFields={selectedTemplate?.formFields ?? []}
               initialBody={query.body ?? selectedTemplate?.body ?? ""}
               initialTitle={query.title ?? selectedTemplate?.titlePrefill ?? ""}
               owner={ownerLogin}
               repo={repositoryName}
+              templateId={selectedTemplate?.id ?? null}
               templateName={selectedTemplate?.name ?? null}
+              templateSlug={selectedTemplate?.slug ?? null}
             />
           )}
         </RepositoryShell>

@@ -647,9 +647,27 @@ export type CreatedIssue = {
 export type CreateIssueRequest = {
   title: string;
   body?: string | null;
+  templateId?: string | null;
+  templateSlug?: string | null;
+  fieldValues?: Record<string, string>;
   milestoneId?: string | null;
   labelIds?: string[];
   assigneeUserIds?: string[];
+};
+
+export type IssueFormField = {
+  id: string;
+  templateId: string;
+  fieldKey: string;
+  label: string;
+  fieldType: "markdown" | "textarea" | "input" | string;
+  description: string | null;
+  placeholder: string | null;
+  value: string | null;
+  required: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type IssueTemplate = {
@@ -661,6 +679,7 @@ export type IssueTemplate = {
   titlePrefill: string | null;
   body: string;
   issueType: string | null;
+  formFields: IssueFormField[];
   defaultLabelIds: string[];
   defaultAssigneeUserIds: string[];
   createdAt: string;
