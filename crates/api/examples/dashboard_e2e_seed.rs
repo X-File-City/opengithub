@@ -186,7 +186,10 @@ async fn main() -> anyhow::Result<()> {
         } else {
             String::new()
         };
-        (format!("/{username}/{tree_repository_name}"), fork_compare_href)
+        (
+            format!("/{username}/{tree_repository_name}"),
+            fork_compare_href,
+        )
     } else {
         (String::new(), String::new())
     };
