@@ -188,7 +188,9 @@ test("final issue creation sweep covers redirect, cancel, required fields, and m
   await page.getByLabel("Title").fill("Final redirect issue");
   await page.getByRole("button", { name: "Create issue" }).click();
   await expect(page).toHaveURL(/\/issues\/\d+$/);
-  await expect(page.getByRole("heading", { name: /Issue #\d+/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Final redirect issue #\d+/ }),
+  ).toBeVisible();
 
   await page.goto(`${seeded.firstRepositoryHref}/issues/new`);
   await page.getByRole("link", { name: "Get started" }).click();
