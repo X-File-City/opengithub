@@ -19,11 +19,11 @@ use crate::{
         issues::CreateComment,
         permissions::RepositoryRole,
         pulls::{
-            add_pull_request_comment, create_pull_request, get_pull_request, pull_request_timeline,
-            pull_sort_options, repository_for_actor_by_name,
-            repository_pull_request_list_view_for_viewer, save_repository_pull_preferences,
-            update_pull_request_state, CreatePullRequest, PullRequestListQuery, PullRequestState,
-            UpdatePullRequestState,
+            add_pull_request_comment, compare_pull_request_refs_for_viewer, create_pull_request,
+            get_pull_request, pull_request_timeline, pull_sort_options,
+            repository_for_actor_by_name, repository_pull_request_list_view_for_viewer,
+            save_repository_pull_preferences, update_pull_request_state, CreatePullRequest,
+            PullRequestListQuery, PullRequestState, UpdatePullRequestState,
         },
         repositories::{get_repository_by_owner_name, RepositoryError},
     },
@@ -34,6 +34,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/repos/:owner/:repo/pulls", get(list).post(create))
+        .route("/api/repos/:owner/:repo/compare/*range", get(compare))
         .route(
             "/api/repos/:owner/:repo/pulls/preferences",
             patch(update_preferences),
@@ -73,6 +74,13 @@ struct ListQuery {
     page: Option<i64>,
     #[serde(alias = "page_size")]
     page_size: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CompareQuery {
+    commits: Option<i64>,
+    files: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,6 +141,36 @@ async fn list(
     Ok(Json(json!(envelope)))
 }
 
+async fn compare(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, range)): Path<(String, String, String)>,
+    Query(query): Query<CompareQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let actor = AuthenticatedUser::optional_from_headers(&state, &headers).await?;
+    let repository = get_repository_by_owner_name(pool, &owner, &repo)
+        .await
+        .map_err(repository_lookup_error)?
+        .ok_or_else(|| {
+            map_collaboration_error(crate::domain::issues::CollaborationError::RepositoryNotFound)
+        })?;
+    let (base, head) = parse_compare_range(&range).map_err(map_collaboration_error)?;
+    let view = compare_pull_request_refs_for_viewer(
+        pool,
+        repository.id,
+        actor.as_ref().map(|user| user.id),
+        &base,
+        &head,
+        query.commits.unwrap_or(100),
+        query.files.unwrap_or(300),
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+
+    Ok(Json(json!(view)))
+}
+
 async fn update_preferences(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -155,6 +193,46 @@ async fn update_preferences(
     .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(preferences)))
+}
+
+fn parse_compare_range(
+    range: &str,
+) -> Result<(String, String), crate::domain::issues::CollaborationError> {
+    let range = range.trim().trim_start_matches('/');
+    let Some((base, head)) = range.split_once("...") else {
+        return Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "compare range must use base...head".to_owned(),
+            ),
+        );
+    };
+    let base = urlencoding_decode(base)?;
+    let head = urlencoding_decode(head)?;
+    if base.trim().is_empty() || head.trim().is_empty() {
+        return Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "compare range must include both base and head refs".to_owned(),
+            ),
+        );
+    }
+    Ok((base, head))
+}
+
+fn urlencoding_decode(value: &str) -> Result<String, crate::domain::issues::CollaborationError> {
+    url::form_urlencoded::parse(value.as_bytes())
+        .next()
+        .map(|(key, value)| {
+            if value.is_empty() {
+                key.into_owned()
+            } else {
+                format!("{}={}", key, value)
+            }
+        })
+        .ok_or_else(|| {
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "compare range contains an invalid ref".to_owned(),
+            )
+        })
 }
 
 fn pull_list_query(

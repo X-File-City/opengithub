@@ -1834,5 +1834,20 @@
       "Reaction ordering is API-tested with seeded reactions, but browser-created PR reactions are not available yet; recheck once PR reaction mutation UI ships.",
       "Team review-request behavior currently infers shared-team semantics through user memberships rather than a dedicated team-request row; revisit after team review requests are modeled."
     ]
+  },
+  {
+    "feature_id": "prs-003",
+    "tests_written": [
+      "Implemented Phase 1 compare API contract for /api/repos/{owner}/{repo}/compare/{base}...{head}.",
+      "Rust contract seeds real repositories, refs, commits, and repository_files, then verifies public compare read, same-ref status, invalid-ref validation, private anonymous denial, and signed owner private access.",
+      "Compare contract resolves short and slash-containing refs, computes ahead/behind from commit parent_oids, returns commit metadata, changed-file summaries, additions/deletions, and concrete recovery hrefs.",
+      "Verification passed: .scratch/prs-003-compare-contract-scenario.sh, focused api_pull_request_compare_contract, TEST_DATABASE_URL-backed make check, TEST_DATABASE_URL-backed make test with Cargo tests plus 151 frontend tests, and Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke was intentionally deferred because Phase 1 is backend/API-only; Phase 2 should verify the Editorial compare page and selector interactions.",
+      "File addition/deletion counts use indexed repository_files snapshots and line-set summaries, not full git patch hunks; QA should revisit diff fidelity when the PR files UI ships.",
+      "Fork comparison is not included in Phase 1 and remains scoped to Phase 5.",
+      "The compare route supports readable same-repository refs first; create form persistence and duplicate PR detection wait for Phases 3-4."
+    ]
   }
 ]

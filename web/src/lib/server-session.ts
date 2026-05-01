@@ -4,6 +4,7 @@ import {
   type GlobalSearchQuery,
   getAppShellContextFromCookie,
   getDashboardSummaryFromCookie,
+  getPullRequestCompareFromCookie,
   getRepositoryBlameFromCookie,
   getRepositoryBlobFromCookie,
   getRepositoryCommitHistoryFromCookie,
@@ -190,6 +191,24 @@ export async function getRepositoryPullRequests(
     owner,
     repo,
     query,
+  );
+}
+
+export async function getPullRequestCompare(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  options: { commits?: number; files?: number } = {},
+) {
+  const requestHeaders = await headers();
+  return getPullRequestCompareFromCookie(
+    requestHeaders.get("cookie"),
+    owner,
+    repo,
+    base,
+    head,
+    options,
   );
 }
 

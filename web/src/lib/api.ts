@@ -850,6 +850,61 @@ export type PullRequestListView = ListEnvelope<PullRequestListItem> & {
   preferences: PullRequestListPreferences;
 };
 
+export type PullRequestCompareStatus =
+  | "same_ref"
+  | "no_diff"
+  | "ahead"
+  | "diverged";
+
+export type PullRequestCompareRef = {
+  name: string;
+  shortName: string;
+  kind: string;
+  oid: string;
+  commitId: string;
+  href: string;
+};
+
+export type PullRequestCompareCommit = {
+  id: string;
+  oid: string;
+  shortOid: string;
+  message: string;
+  authorLogin: string | null;
+  committedAt: string;
+  href: string;
+};
+
+export type PullRequestCompareFile = {
+  path: string;
+  status: "added" | "modified" | "removed";
+  additions: number;
+  deletions: number;
+  byteSize: number;
+  blobOid: string | null;
+  href: string;
+};
+
+export type PullRequestCompareView = {
+  repository: PullRequestListView["repository"];
+  viewerPermission: string | null;
+  base: PullRequestCompareRef;
+  head: PullRequestCompareRef;
+  status: PullRequestCompareStatus;
+  aheadBy: number;
+  behindBy: number;
+  totalCommits: number;
+  totalFiles: number;
+  commits: PullRequestCompareCommit[];
+  files: PullRequestCompareFile[];
+  additions: number;
+  deletions: number;
+  defaultBranchHref: string;
+  pullListHref: string;
+  compareHref: string;
+  swapHref: string;
+};
+
 export type CreatedIssue = {
   id: string;
   repository_id: string;
@@ -1498,6 +1553,75 @@ export async function getRepositoryPullRequestsFromCookie(
   }
 
   return body as PullRequestListView;
+}
+
+export function repositoryPullRequestComparePath(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  options: { commits?: number; files?: number } = {},
+): string {
+  const params = new URLSearchParams();
+  if (options.commits) {
+    params.set("commits", String(options.commits));
+  }
+  if (options.files) {
+    params.set("files", String(options.files));
+  }
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+    repo,
+  )}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}${suffix}`;
+}
+
+export async function getPullRequestCompareFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  base: string,
+  head: string,
+  options: { commits?: number; files?: number } = {},
+): Promise<PullRequestCompareView | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryPullRequestComparePath(
+        owner,
+        repo,
+        base,
+        head,
+        options,
+      )}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Pull request comparison is temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "compare_failed",
+          message: "Pull request comparison could not be loaded.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as PullRequestCompareView;
 }
 
 export async function saveRepositoryPullPreferences(

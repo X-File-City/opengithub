@@ -6,7 +6,7 @@
 
 ## Phase 1: Compare Contract - refs resolve to commits and changed files
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder compare surface with a real permission-aware read contract for `/{owner}/{repo}/compare/{base}...{head}` and `/api/repos/:owner/:repo/compare/:base...:head`. The API resolves base/head refs, supports same-repository comparisons first, computes ahead/behind commit lists from stored commit/ref metadata, returns changed-file summaries from indexed repository file/blob data, detects same-ref/no-diff states, and emits repository-scoped errors for invalid refs.
 

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{PgPool, Row};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use uuid::Uuid;
 
 use crate::api_types::ListEnvelope;
@@ -241,6 +241,80 @@ pub struct PullRequestListView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PullRequestCompareStatus {
+    SameRef,
+    NoDiff,
+    Ahead,
+    Diverged,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CompareRef {
+    pub name: String,
+    pub short_name: String,
+    pub kind: String,
+    pub oid: String,
+    pub commit_id: Uuid,
+    pub href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CompareCommit {
+    pub id: Uuid,
+    pub oid: String,
+    pub short_oid: String,
+    pub message: String,
+    pub author_login: Option<String>,
+    pub committed_at: DateTime<Utc>,
+    pub href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CompareFileStatus {
+    Added,
+    Modified,
+    Removed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct CompareFile {
+    pub path: String,
+    pub status: CompareFileStatus,
+    pub additions: i64,
+    pub deletions: i64,
+    pub byte_size: i64,
+    pub blob_oid: Option<String>,
+    pub href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestCompareView {
+    pub repository: PullRequestListRepository,
+    pub viewer_permission: Option<String>,
+    pub base: CompareRef,
+    pub head: CompareRef,
+    pub status: PullRequestCompareStatus,
+    pub ahead_by: i64,
+    pub behind_by: i64,
+    pub total_commits: i64,
+    pub total_files: i64,
+    pub commits: Vec<CompareCommit>,
+    pub files: Vec<CompareFile>,
+    pub additions: i64,
+    pub deletions: i64,
+    pub default_branch_href: String,
+    pub pull_list_href: String,
+    pub compare_href: String,
+    pub swap_href: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PullRequestListQuery {
     pub query: Option<String>,
     pub state: PullRequestState,
@@ -275,6 +349,114 @@ impl Default for PullRequestListQuery {
             sort: "updated-desc".to_owned(),
         }
     }
+}
+
+pub async fn compare_pull_request_refs_for_viewer(
+    pool: &PgPool,
+    repository_id: Uuid,
+    actor_user_id: Option<Uuid>,
+    base_ref: &str,
+    head_ref: &str,
+    commit_limit: i64,
+    file_limit: i64,
+) -> Result<PullRequestCompareView, CollaborationError> {
+    let repository = get_repository(pool, repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    let viewer_permission = match actor_user_id {
+        Some(user_id) => {
+            repository_viewer_permission(pool, &repository, user_id, RepositoryRole::Read).await?
+        }
+        None if repository.visibility == RepositoryVisibility::Public => Some("read".to_owned()),
+        None => return Err(CollaborationError::RepositoryAccessDenied),
+    };
+
+    let base = resolve_compare_ref(pool, &repository, base_ref).await?;
+    let head = resolve_compare_ref(pool, &repository, head_ref).await?;
+    let commit_limit = commit_limit.clamp(1, 250);
+    let file_limit = file_limit.clamp(1, 500);
+
+    let base_ancestors = commit_ancestor_oids(pool, repository.id, &base.oid).await?;
+    let head_ancestors = commit_ancestor_oids(pool, repository.id, &head.oid).await?;
+    let ahead_oids = head_ancestors
+        .iter()
+        .filter(|oid| !base_ancestors.contains(*oid))
+        .cloned()
+        .collect::<HashSet<_>>();
+    let behind_oids = base_ancestors
+        .iter()
+        .filter(|oid| !head_ancestors.contains(*oid))
+        .cloned()
+        .collect::<HashSet<_>>();
+    let mut commits = compare_commits(pool, &repository, &ahead_oids, commit_limit).await?;
+    commits.sort_by(|left, right| {
+        left.committed_at
+            .cmp(&right.committed_at)
+            .then(left.oid.cmp(&right.oid))
+    });
+    let files = compare_files(pool, &repository, &base, &head, file_limit).await?;
+    let additions = files.iter().map(|file| file.additions).sum();
+    let deletions = files.iter().map(|file| file.deletions).sum();
+    let same_target = base.commit_id == head.commit_id || base.oid == head.oid;
+    let status = if same_target {
+        PullRequestCompareStatus::SameRef
+    } else if ahead_oids.is_empty() && files.is_empty() {
+        PullRequestCompareStatus::NoDiff
+    } else if behind_oids.is_empty() {
+        PullRequestCompareStatus::Ahead
+    } else {
+        PullRequestCompareStatus::Diverged
+    };
+    let compare_href = format!(
+        "/{}/{}/compare/{}...{}",
+        repository.owner_login,
+        repository.name,
+        encode_path_component(&base.short_name),
+        encode_path_component(&head.short_name)
+    );
+    let swap_href = format!(
+        "/{}/{}/compare/{}...{}",
+        repository.owner_login,
+        repository.name,
+        encode_path_component(&head.short_name),
+        encode_path_component(&base.short_name)
+    );
+
+    Ok(PullRequestCompareView {
+        repository: PullRequestListRepository {
+            id: repository.id,
+            owner_login: repository.owner_login.clone(),
+            name: repository.name.clone(),
+            visibility: repository.visibility,
+            default_branch: repository.default_branch.clone(),
+        },
+        viewer_permission,
+        base,
+        head,
+        status,
+        ahead_by: ahead_oids.len() as i64,
+        behind_by: behind_oids.len() as i64,
+        total_commits: ahead_oids.len() as i64,
+        total_files: files.len() as i64,
+        commits,
+        files,
+        additions,
+        deletions,
+        default_branch_href: format!(
+            "/{}/{}/compare/{}...{}",
+            repository.owner_login,
+            repository.name,
+            encode_path_component(&repository.default_branch),
+            encode_path_component(&repository.default_branch)
+        ),
+        pull_list_href: format!("/{}/{}/pulls", repository.owner_login, repository.name),
+        compare_href,
+        swap_href,
+    })
 }
 
 pub async fn create_pull_request(
@@ -1060,6 +1242,306 @@ fn pull_request_from_row(row: sqlx::postgres::PgRow) -> Result<PullRequest, Coll
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
     })
+}
+
+async fn resolve_compare_ref(
+    pool: &PgPool,
+    repository: &Repository,
+    ref_name: &str,
+) -> Result<CompareRef, CollaborationError> {
+    let normalized = normalize_compare_ref(ref_name)?;
+    let branch_name = format!("refs/heads/{normalized}");
+    let tag_name = format!("refs/tags/{normalized}");
+    let row = sqlx::query(
+        r#"
+        SELECT repository_git_refs.name,
+               repository_git_refs.kind,
+               commits.id AS commit_id,
+               commits.oid
+        FROM repository_git_refs
+        JOIN commits ON commits.id = repository_git_refs.target_commit_id
+        WHERE repository_git_refs.repository_id = $1
+          AND repository_git_refs.name IN ($2, $3, $4)
+        ORDER BY CASE
+            WHEN repository_git_refs.name = $2 THEN 0
+            WHEN repository_git_refs.name = $3 THEN 1
+            ELSE 2
+        END
+        LIMIT 1
+        "#,
+    )
+    .bind(repository.id)
+    .bind(&normalized)
+    .bind(&branch_name)
+    .bind(&tag_name)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| {
+        CollaborationError::InvalidIssueFilter(format!("comparison ref `{ref_name}` was not found"))
+    })?;
+    let name: String = row.get("name");
+    let kind: String = row.get("kind");
+    let short_name = short_ref_name(&name);
+
+    Ok(CompareRef {
+        name,
+        short_name: short_name.clone(),
+        kind,
+        oid: row.get("oid"),
+        commit_id: row.get("commit_id"),
+        href: format!(
+            "/{}/{}/tree/{}",
+            repository.owner_login,
+            repository.name,
+            encode_path_component(&short_name)
+        ),
+    })
+}
+
+async fn commit_ancestor_oids(
+    pool: &PgPool,
+    repository_id: Uuid,
+    start_oid: &str,
+) -> Result<HashSet<String>, CollaborationError> {
+    let mut seen = HashSet::new();
+    let mut queue = VecDeque::from([start_oid.to_owned()]);
+
+    while let Some(oid) = queue.pop_front() {
+        if !seen.insert(oid.clone()) {
+            continue;
+        }
+        let parent_oids = sqlx::query_scalar::<_, Vec<String>>(
+            "SELECT parent_oids FROM commits WHERE repository_id = $1 AND oid = $2",
+        )
+        .bind(repository_id)
+        .bind(&oid)
+        .fetch_optional(pool)
+        .await?
+        .unwrap_or_default();
+        for parent_oid in parent_oids {
+            if !seen.contains(&parent_oid) {
+                queue.push_back(parent_oid);
+            }
+        }
+    }
+
+    Ok(seen)
+}
+
+async fn compare_commits(
+    pool: &PgPool,
+    repository: &Repository,
+    ahead_oids: &HashSet<String>,
+    limit: i64,
+) -> Result<Vec<CompareCommit>, CollaborationError> {
+    if ahead_oids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let oids = ahead_oids.iter().cloned().collect::<Vec<_>>();
+    let rows = sqlx::query(
+        r#"
+        SELECT commits.id,
+               commits.oid,
+               commits.message,
+               commits.committed_at,
+               COALESCE(NULLIF(users.username, ''), users.email) AS author_login
+        FROM commits
+        LEFT JOIN users ON users.id = commits.author_user_id
+        WHERE commits.repository_id = $1
+          AND commits.oid = ANY($2)
+        ORDER BY commits.committed_at ASC, commits.created_at ASC
+        LIMIT $3
+        "#,
+    )
+    .bind(repository.id)
+    .bind(&oids)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let oid: String = row.get("oid");
+            CompareCommit {
+                id: row.get("id"),
+                short_oid: oid.chars().take(7).collect(),
+                href: format!(
+                    "/{}/{}/commits/{}",
+                    repository.owner_login, repository.name, oid
+                ),
+                oid,
+                message: row.get("message"),
+                author_login: row.get("author_login"),
+                committed_at: row.get("committed_at"),
+            }
+        })
+        .collect())
+}
+
+async fn compare_files(
+    pool: &PgPool,
+    repository: &Repository,
+    base: &CompareRef,
+    head: &CompareRef,
+    limit: i64,
+) -> Result<Vec<CompareFile>, CollaborationError> {
+    let base_files = files_at_commit(pool, repository.id, base.commit_id).await?;
+    let head_files = files_at_commit(pool, repository.id, head.commit_id).await?;
+    let paths = base_files
+        .keys()
+        .chain(head_files.keys())
+        .cloned()
+        .collect::<HashSet<_>>();
+    let mut files = paths
+        .into_iter()
+        .filter_map(|path| {
+            let base_file = base_files.get(&path);
+            let head_file = head_files.get(&path);
+            match (base_file, head_file) {
+                (None, Some(head_file)) => Some(compare_file_from_parts(
+                    repository,
+                    FileCompareParts {
+                        ref_name: &head.short_name,
+                        path,
+                        status: CompareFileStatus::Added,
+                        old_content: "",
+                        new_content: &head_file.content,
+                        byte_size: head_file.byte_size,
+                        blob_oid: Some(head_file.oid.clone()),
+                    },
+                )),
+                (Some(base_file), None) => Some(compare_file_from_parts(
+                    repository,
+                    FileCompareParts {
+                        ref_name: &head.short_name,
+                        path,
+                        status: CompareFileStatus::Removed,
+                        old_content: &base_file.content,
+                        new_content: "",
+                        byte_size: base_file.byte_size,
+                        blob_oid: Some(base_file.oid.clone()),
+                    },
+                )),
+                (Some(base_file), Some(head_file)) if base_file.oid != head_file.oid => {
+                    Some(compare_file_from_parts(
+                        repository,
+                        FileCompareParts {
+                            ref_name: &head.short_name,
+                            path,
+                            status: CompareFileStatus::Modified,
+                            old_content: &base_file.content,
+                            new_content: &head_file.content,
+                            byte_size: head_file.byte_size,
+                            blob_oid: Some(head_file.oid.clone()),
+                        },
+                    ))
+                }
+                _ => None,
+            }
+        })
+        .collect::<Vec<_>>();
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    files.truncate(limit as usize);
+    Ok(files)
+}
+
+#[derive(Debug, Clone)]
+struct FileSnapshot {
+    oid: String,
+    content: String,
+    byte_size: i64,
+}
+
+struct FileCompareParts<'a> {
+    ref_name: &'a str,
+    path: String,
+    status: CompareFileStatus,
+    old_content: &'a str,
+    new_content: &'a str,
+    byte_size: i64,
+    blob_oid: Option<String>,
+}
+
+async fn files_at_commit(
+    pool: &PgPool,
+    repository_id: Uuid,
+    commit_id: Uuid,
+) -> Result<HashMap<String, FileSnapshot>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT path, content, oid, byte_size
+        FROM repository_files
+        WHERE repository_id = $1 AND commit_id = $2
+        "#,
+    )
+    .bind(repository_id)
+    .bind(commit_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            (
+                row.get("path"),
+                FileSnapshot {
+                    oid: row.get("oid"),
+                    content: row.get("content"),
+                    byte_size: row.get("byte_size"),
+                },
+            )
+        })
+        .collect())
+}
+
+fn compare_file_from_parts(repository: &Repository, parts: FileCompareParts<'_>) -> CompareFile {
+    let old_lines = parts.old_content.lines().collect::<HashSet<_>>();
+    let new_lines = parts.new_content.lines().collect::<HashSet<_>>();
+    let additions = new_lines.difference(&old_lines).count() as i64;
+    let deletions = old_lines.difference(&new_lines).count() as i64;
+
+    CompareFile {
+        href: format!(
+            "/{}/{}/blob/{}/{}",
+            repository.owner_login,
+            repository.name,
+            encode_path_component(parts.ref_name),
+            parts
+                .path
+                .split('/')
+                .map(encode_path_component)
+                .collect::<Vec<_>>()
+                .join("/")
+        ),
+        path: parts.path,
+        status: parts.status,
+        additions,
+        deletions,
+        byte_size: parts.byte_size,
+        blob_oid: parts.blob_oid,
+    }
+}
+
+fn normalize_compare_ref(ref_name: &str) -> Result<String, CollaborationError> {
+    let trimmed = ref_name.trim().trim_start_matches('/');
+    if trimmed.is_empty() || trimmed.contains("..") {
+        return Err(CollaborationError::InvalidIssueFilter(
+            "comparison ref must be a branch or tag name".to_owned(),
+        ));
+    }
+    Ok(trimmed.to_owned())
+}
+
+fn short_ref_name(name: &str) -> String {
+    name.strip_prefix("refs/heads/")
+        .or_else(|| name.strip_prefix("refs/tags/"))
+        .unwrap_or(name)
+        .to_owned()
+}
+
+fn encode_path_component(value: impl AsRef<str>) -> String {
+    url::form_urlencoded::byte_serialize(value.as_ref().as_bytes()).collect()
 }
 
 async fn count_pull_request_list_items(
