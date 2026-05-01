@@ -348,7 +348,9 @@ async fn issue_template_required_fields_validate_and_compose_body() {
 #[tokio::test]
 async fn issue_create_guardrails_redact_private_and_validate_metadata() {
     let Some(pool) = database_pool().await else {
-        eprintln!("skipping issue create guardrail scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        eprintln!(
+            "skipping issue create guardrail scenario; set TEST_DATABASE_URL or DATABASE_URL"
+        );
         return;
     };
 
