@@ -42,7 +42,7 @@
 
 ## Phase 3: Create Form Contract - title, template body, draft, and metadata persist
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Upgrade the Rust create endpoint from a minimal PR insert into the full create contract. Creating a PR validates base/head comparison, prevents duplicate open PRs for the same base/head/head repository, preloads pull request template content, persists draft state, labels, milestone, assignees, reviewers, linked closing keywords, commits/files snapshots, timeline events, notifications, audit records, and returns the canonical `/pull/{number}` href.
 

@@ -534,6 +534,12 @@ async fn dashboard_summary_populates_activity_assignments_and_review_requests() 
             head_ref: "feed-layout".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await

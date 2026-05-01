@@ -205,6 +205,12 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
             head_ref: "feature/pulls-list".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await
@@ -315,6 +321,12 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
             head_ref: "feature/closed".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await
@@ -340,6 +352,12 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
             head_ref: "feature/merged".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await
@@ -380,6 +398,12 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
             head_ref: "feature/private".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await
@@ -615,6 +639,12 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
             head_ref: "feature/rocket-sort".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await

@@ -91,6 +91,12 @@ struct CreatePullRequestRequest {
     head_ref: String,
     base_ref: String,
     head_repository_id: Option<Uuid>,
+    is_draft: Option<bool>,
+    label_ids: Option<Vec<Uuid>>,
+    milestone_id: Option<Uuid>,
+    assignee_user_ids: Option<Vec<Uuid>>,
+    reviewer_user_ids: Option<Vec<Uuid>>,
+    template_slug: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -712,6 +718,12 @@ async fn create(
             head_ref: request.head_ref,
             base_ref: request.base_ref,
             head_repository_id: request.head_repository_id,
+            is_draft: request.is_draft.unwrap_or(false),
+            label_ids: request.label_ids.unwrap_or_default(),
+            milestone_id: request.milestone_id,
+            assignee_user_ids: request.assignee_user_ids.unwrap_or_default(),
+            reviewer_user_ids: request.reviewer_user_ids.unwrap_or_default(),
+            template_slug: request.template_slug,
         },
     )
     .await

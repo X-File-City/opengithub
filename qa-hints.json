@@ -1866,5 +1866,20 @@
       "Compare across forks is currently an affordance that links to fork browsing; fork-aware compare/create behavior remains Phase 5.",
       "The ref selector uses the existing authenticated refs proxy, so anonymous public compare can render the current refs from compare data but may not populate selector options until public refs access is explicitly supported."
     ]
+  },
+  {
+    "feature_id": "prs-003",
+    "tests_written": [
+      "Implemented Phase 3 create API contract for POST /api/repos/{owner}/{repo}/pulls with title, template body fallback, draft state, labels, milestone, assignees, and reviewers.",
+      "Rust contract seeds real refs, commits, files, labels, milestone, reviewer, PR template, and a linked issue, then verifies persisted PR/issue metadata, commit/file snapshots, review request, closing keyword cross-reference, notification, audit event, duplicate prevention, and same-ref validation.",
+      "Updated older Rust fixtures and the dashboard E2E seed helper to pass the richer CreatePullRequest contract while preserving existing list/search/dashboard behavior.",
+      "Verification passed: .scratch/prs-003-create-contract-scenario.sh, focused api_pull_request_create_contract, focused api_repository_pulls_list_contract regression, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 155 frontend tests, and Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "Browser smoke is intentionally deferred to Phase 4 because this phase has no create form UI.",
+      "Direct domain-level test fixtures without indexed refs still create PRs for legacy list/search setup; route-level create is covered with real compare refs and should be the QA source for user-facing validation.",
+      "Fork-aware head repository creation remains Phase 5; this phase validates same-repository create metadata and duplicate detection.",
+      "The PR detail page is still a skeleton, so the returned href is contract-tested but a full post-create detail experience waits for later PR detail phases."
+    ]
   }
 ]

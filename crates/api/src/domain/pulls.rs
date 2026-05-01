@@ -14,6 +14,7 @@ use super::{
         CreateComment, CreateIssue, Issue, IssueListLabel, IssueListMetadataOption,
         IssueListMilestone, IssueListUser, IssueState, TimelineEvent,
     },
+    notifications::{create_notification, CreateNotification},
     permissions::RepositoryRole,
     repositories::{
         get_repository, repository_permission_for_user, Repository, RepositoryVisibility,
@@ -62,6 +63,7 @@ pub struct PullRequest {
     pub title: String,
     pub body: Option<String>,
     pub state: PullRequestState,
+    pub is_draft: bool,
     pub author_user_id: Uuid,
     pub head_ref: String,
     pub base_ref: String,
@@ -84,6 +86,12 @@ pub struct CreatePullRequest {
     pub head_ref: String,
     pub base_ref: String,
     pub head_repository_id: Option<Uuid>,
+    pub is_draft: bool,
+    pub label_ids: Vec<Uuid>,
+    pub milestone_id: Option<Uuid>,
+    pub assignee_user_ids: Vec<Uuid>,
+    pub reviewer_user_ids: Vec<Uuid>,
+    pub template_slug: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,6 +105,7 @@ pub struct UpdatePullRequestState {
 pub struct PullRequestDetail {
     pub pull_request: PullRequest,
     pub issue: Issue,
+    pub href: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -461,10 +470,54 @@ pub async fn compare_pull_request_refs_for_viewer(
 
 pub async fn create_pull_request(
     pool: &PgPool,
-    input: CreatePullRequest,
+    mut input: CreatePullRequest,
 ) -> Result<PullRequestDetail, CollaborationError> {
     require_repository_write(pool, input.repository_id, input.actor_user_id).await?;
+    let repository = get_repository(pool, input.repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    let compare = match compare_pull_request_refs_for_viewer(
+        pool,
+        input.repository_id,
+        Some(input.actor_user_id),
+        &input.base_ref,
+        &input.head_ref,
+        250,
+        500,
+    )
+    .await
+    {
+        Ok(compare) => Some(compare),
+        Err(CollaborationError::InvalidIssueFilter(message))
+            if message.contains("was not found") =>
+        {
+            None
+        }
+        Err(error) => return Err(error),
+    };
+    if compare.as_ref().is_some_and(|view| {
+        matches!(
+            view.status,
+            PullRequestCompareStatus::SameRef | PullRequestCompareStatus::NoDiff
+        )
+    }) {
+        return Err(CollaborationError::InvalidIssueField {
+            field_key: "headRef".to_owned(),
+            message: "base and compare refs do not contain changes".to_owned(),
+        });
+    }
+    reject_duplicate_open_pull_request(pool, &input).await?;
+    validate_pull_request_create_metadata(pool, &repository, &input).await?;
+    apply_pull_request_template(pool, &mut input).await?;
+
     let number = next_issue_number(pool, input.repository_id).await?;
+    let label_ids = input.label_ids.clone();
+    let assignee_user_ids = input.assignee_user_ids.clone();
+    let reviewer_user_ids = input.reviewer_user_ids.clone();
     let issue = insert_issue_with_number(
         pool,
         CreateIssue {
@@ -475,9 +528,9 @@ pub async fn create_pull_request(
             template_id: None,
             template_slug: None,
             field_values: std::collections::HashMap::new(),
-            milestone_id: None,
-            label_ids: vec![],
-            assignee_user_ids: vec![],
+            milestone_id: input.milestone_id,
+            label_ids: label_ids.clone(),
+            assignee_user_ids: assignee_user_ids.clone(),
             attachments: Vec::new(),
         },
         number,
@@ -496,12 +549,13 @@ pub async fn create_pull_request(
             head_ref,
             base_ref,
             head_repository_id,
-            base_repository_id
+            base_repository_id,
+            is_draft
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, $1), $1)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, $1), $1, $10)
         RETURNING id, repository_id, issue_id, number, title, body, state, author_user_id,
                   head_ref, base_ref, head_repository_id, base_repository_id, merge_commit_id,
-                  merged_by_user_id, merged_at, closed_at, created_at, updated_at
+                  merged_by_user_id, merged_at, closed_at, created_at, updated_at, is_draft
         "#,
     )
     .bind(input.repository_id)
@@ -513,9 +567,15 @@ pub async fn create_pull_request(
     .bind(&input.head_ref)
     .bind(&input.base_ref)
     .bind(input.head_repository_id)
+    .bind(input.is_draft)
     .fetch_one(pool)
     .await?;
     let pull_request = pull_request_from_row(row)?;
+    if let Some(compare) = &compare {
+        persist_pull_request_snapshot(pool, &pull_request, compare).await?;
+    }
+    insert_review_requests(pool, &pull_request, input.actor_user_id, &reviewer_user_ids).await?;
+    insert_closing_issue_references(pool, &pull_request, input.actor_user_id).await?;
     append_timeline_event(
         pool,
         input.repository_id,
@@ -526,15 +586,26 @@ pub async fn create_pull_request(
         json!({
             "number": pull_request.number,
             "headRef": pull_request.head_ref,
-            "baseRef": pull_request.base_ref
+            "baseRef": pull_request.base_ref,
+            "draft": pull_request.is_draft,
+            "labels": label_ids.len(),
+            "assignees": assignee_user_ids.len(),
+            "reviewers": reviewer_user_ids.len(),
+            "files": compare.as_ref().map(|view| view.files.len()).unwrap_or(0),
+            "commits": compare.as_ref().map(|view| view.commits.len()).unwrap_or(0)
         }),
     )
     .await?;
+    notify_pull_request_participants(pool, &pull_request, &assignee_user_ids, &reviewer_user_ids)
+        .await?;
+    insert_pull_request_audit_event(pool, &pull_request, input.actor_user_id).await?;
     index_pull_request_search_document(pool, &pull_request, input.actor_user_id).await?;
 
+    let href = pull_request_href(&repository, pull_request.number);
     Ok(PullRequestDetail {
         pull_request,
         issue,
+        href,
     })
 }
 
@@ -569,7 +640,7 @@ pub async fn list_pull_requests(
         r#"
         SELECT id, repository_id, issue_id, number, title, body, state, author_user_id,
                head_ref, base_ref, head_repository_id, base_repository_id, merge_commit_id,
-               merged_by_user_id, merged_at, closed_at, created_at, updated_at
+               merged_by_user_id, merged_at, closed_at, created_at, updated_at, is_draft
         FROM pull_requests
         WHERE repository_id = $1
           AND ($2::text IS NULL OR state = $2)
@@ -984,6 +1055,8 @@ pub async fn get_pull_request(
     let issue = issue_from_row(issue_row)?;
 
     Ok(PullRequestDetail {
+        href: pull_request_href_by_id(pool, pull_request.repository_id, pull_request.number)
+            .await?,
         pull_request,
         issue,
     })
@@ -1230,6 +1303,7 @@ fn pull_request_from_row(row: sqlx::postgres::PgRow) -> Result<PullRequest, Coll
         title: row.get("title"),
         body: row.get("body"),
         state: PullRequestState::try_from(state.as_str())?,
+        is_draft: row.try_get("is_draft").unwrap_or(false),
         author_user_id: row.get("author_user_id"),
         head_ref: row.get("head_ref"),
         base_ref: row.get("base_ref"),
@@ -1523,6 +1597,347 @@ fn compare_file_from_parts(repository: &Repository, parts: FileCompareParts<'_>)
     }
 }
 
+async fn reject_duplicate_open_pull_request(
+    pool: &PgPool,
+    input: &CreatePullRequest,
+) -> Result<(), CollaborationError> {
+    let duplicate = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT number
+        FROM pull_requests
+        WHERE repository_id = $1
+          AND state = 'open'
+          AND base_ref = $2
+          AND head_ref = $3
+          AND COALESCE(head_repository_id, repository_id) = COALESCE($4, $1)
+        LIMIT 1
+        "#,
+    )
+    .bind(input.repository_id)
+    .bind(&input.base_ref)
+    .bind(&input.head_ref)
+    .bind(input.head_repository_id)
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(number) = duplicate {
+        return Err(CollaborationError::InvalidIssueField {
+            field_key: "headRef".to_owned(),
+            message: format!("an open pull request already exists for these refs: #{number}"),
+        });
+    }
+    Ok(())
+}
+
+async fn validate_pull_request_create_metadata(
+    pool: &PgPool,
+    repository: &Repository,
+    input: &CreatePullRequest,
+) -> Result<(), CollaborationError> {
+    for label_id in &input.label_ids {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM labels WHERE id = $1 AND repository_id = $2)",
+        )
+        .bind(label_id)
+        .bind(repository.id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "labelIds".to_owned(),
+                message: "label is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    if let Some(milestone_id) = input.milestone_id {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM milestones WHERE id = $1 AND repository_id = $2)",
+        )
+        .bind(milestone_id)
+        .bind(repository.id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "milestoneId".to_owned(),
+                message: "milestone is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    for user_id in input
+        .assignee_user_ids
+        .iter()
+        .chain(input.reviewer_user_ids.iter())
+    {
+        if let Err(error) =
+            repository_viewer_permission(pool, repository, *user_id, RepositoryRole::Read).await
+        {
+            return Err(match error {
+                CollaborationError::RepositoryAccessDenied => {
+                    CollaborationError::InvalidIssueField {
+                        field_key: "userIds".to_owned(),
+                        message: "requested user is not available for this repository".to_owned(),
+                    }
+                }
+                other => other,
+            });
+        }
+    }
+    Ok(())
+}
+
+async fn apply_pull_request_template(
+    pool: &PgPool,
+    input: &mut CreatePullRequest,
+) -> Result<(), CollaborationError> {
+    let Some(slug) = input
+        .template_slug
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(());
+    };
+    let body = sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT body
+        FROM pull_request_templates
+        WHERE repository_id = $1 AND lower(slug) = lower($2)
+        "#,
+    )
+    .bind(input.repository_id)
+    .bind(slug)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| CollaborationError::InvalidIssueField {
+        field_key: "templateSlug".to_owned(),
+        message: "pull request template was not found".to_owned(),
+    })?;
+    if input
+        .body
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        input.body = Some(body);
+    }
+    Ok(())
+}
+
+async fn persist_pull_request_snapshot(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    compare: &PullRequestCompareView,
+) -> Result<(), CollaborationError> {
+    for (position, commit) in compare.commits.iter().enumerate() {
+        sqlx::query(
+            r#"
+            INSERT INTO pull_request_commits (pull_request_id, commit_id, position)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (pull_request_id, commit_id) DO NOTHING
+            "#,
+        )
+        .bind(pull_request.id)
+        .bind(commit.id)
+        .bind(position as i64)
+        .execute(pool)
+        .await?;
+    }
+
+    for file in &compare.files {
+        sqlx::query(
+            r#"
+            INSERT INTO pull_request_files (
+                pull_request_id, path, status, additions, deletions, blob_oid, byte_size
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (pull_request_id, lower(path)) DO UPDATE SET
+                status = EXCLUDED.status,
+                additions = EXCLUDED.additions,
+                deletions = EXCLUDED.deletions,
+                blob_oid = EXCLUDED.blob_oid,
+                byte_size = EXCLUDED.byte_size
+            "#,
+        )
+        .bind(pull_request.id)
+        .bind(&file.path)
+        .bind(match file.status {
+            CompareFileStatus::Added => "added",
+            CompareFileStatus::Modified => "modified",
+            CompareFileStatus::Removed => "removed",
+        })
+        .bind(file.additions)
+        .bind(file.deletions)
+        .bind(file.blob_oid.as_deref())
+        .bind(file.byte_size)
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+async fn insert_review_requests(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    actor_user_id: Uuid,
+    reviewer_user_ids: &[Uuid],
+) -> Result<(), CollaborationError> {
+    for reviewer_user_id in reviewer_user_ids {
+        if *reviewer_user_id == actor_user_id {
+            continue;
+        }
+        sqlx::query(
+            r#"
+            INSERT INTO pull_request_review_requests (
+                pull_request_id, requested_user_id, requested_by_user_id
+            )
+            VALUES ($1, $2, $3)
+            ON CONFLICT (pull_request_id, requested_user_id) DO NOTHING
+            "#,
+        )
+        .bind(pull_request.id)
+        .bind(reviewer_user_id)
+        .bind(actor_user_id)
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+async fn insert_closing_issue_references(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    actor_user_id: Uuid,
+) -> Result<(), CollaborationError> {
+    let Some(body) = pull_request.body.as_deref() else {
+        return Ok(());
+    };
+    let re = regex::Regex::new(r"(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)")
+        .expect("closing keyword regex should compile");
+    let numbers = re
+        .captures_iter(body)
+        .filter_map(|capture| capture.get(1))
+        .filter_map(|number| number.as_str().parse::<i64>().ok())
+        .collect::<HashSet<_>>();
+    for number in numbers {
+        if number == pull_request.number {
+            continue;
+        }
+        let target_issue_id = sqlx::query_scalar::<_, Uuid>(
+            "SELECT id FROM issues WHERE repository_id = $1 AND number = $2",
+        )
+        .bind(pull_request.repository_id)
+        .bind(number)
+        .fetch_optional(pool)
+        .await?;
+        if let Some(target_issue_id) = target_issue_id {
+            sqlx::query(
+                r#"
+                INSERT INTO issue_cross_references (
+                    source_issue_id, target_issue_id, created_by_user_id
+                )
+                VALUES ($1, $2, $3)
+                ON CONFLICT DO NOTHING
+                "#,
+            )
+            .bind(pull_request.issue_id)
+            .bind(target_issue_id)
+            .bind(actor_user_id)
+            .execute(pool)
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+async fn notify_pull_request_participants(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    assignee_user_ids: &[Uuid],
+    reviewer_user_ids: &[Uuid],
+) -> Result<(), CollaborationError> {
+    let mut recipients = HashSet::new();
+    recipients.extend(assignee_user_ids.iter().copied());
+    recipients.extend(reviewer_user_ids.iter().copied());
+    for user_id in recipients {
+        if user_id == pull_request.author_user_id {
+            continue;
+        }
+        create_notification(
+            pool,
+            CreateNotification {
+                user_id,
+                repository_id: Some(pull_request.repository_id),
+                subject_type: "pull_request".to_owned(),
+                subject_id: Some(pull_request.id),
+                title: format!(
+                    "Pull request #{} needs your attention: {}",
+                    pull_request.number, pull_request.title
+                ),
+                reason: "review_requested".to_owned(),
+            },
+        )
+        .await
+        .map_err(|error| match error {
+            super::notifications::NotificationError::Sqlx(error) => CollaborationError::Sqlx(error),
+            super::notifications::NotificationError::NotFound => {
+                CollaborationError::PullRequestNotFound
+            }
+        })?;
+    }
+    Ok(())
+}
+
+async fn insert_pull_request_audit_event(
+    pool: &PgPool,
+    pull_request: &PullRequest,
+    actor_user_id: Uuid,
+) -> Result<(), CollaborationError> {
+    sqlx::query(
+        r#"
+        INSERT INTO audit_events (actor_user_id, event_type, target_type, target_id, metadata)
+        VALUES ($1, 'pull_request.created', 'pull_request', $2, $3)
+        "#,
+    )
+    .bind(actor_user_id)
+    .bind(pull_request.id.to_string())
+    .bind(json!({
+        "repositoryId": pull_request.repository_id,
+        "number": pull_request.number,
+        "draft": pull_request.is_draft,
+        "headRef": pull_request.head_ref,
+        "baseRef": pull_request.base_ref
+    }))
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+async fn pull_request_href_by_id(
+    pool: &PgPool,
+    repository_id: Uuid,
+    number: i64,
+) -> Result<String, CollaborationError> {
+    let repository = get_repository(pool, repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    Ok(pull_request_href(&repository, number))
+}
+
+fn pull_request_href(repository: &Repository, number: i64) -> String {
+    format!(
+        "/{}/{}/pull/{}",
+        repository.owner_login, repository.name, number
+    )
+}
+
 fn normalize_compare_ref(ref_name: &str) -> Result<String, CollaborationError> {
     let trimmed = ref_name.trim().trim_start_matches('/');
     if trimmed.is_empty() || trimmed.contains("..") {
@@ -1747,7 +2162,7 @@ async fn pull_request_list_items(
                 title: pull_request.title,
                 body: pull_request.body,
                 state: pull_request.state,
-                is_draft: false,
+                is_draft: pull_request.is_draft,
                 author: authors
                     .get(&pull_request.id)
                     .cloned()

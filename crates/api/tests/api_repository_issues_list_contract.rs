@@ -283,6 +283,12 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             head_ref: "feature/issues".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await
@@ -470,6 +476,12 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
             head_ref: "feature/detail".to_owned(),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await

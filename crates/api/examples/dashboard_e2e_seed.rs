@@ -276,6 +276,12 @@ async fn main() -> anyhow::Result<()> {
                 head_ref: "dashboard-feed".to_owned(),
                 base_ref: "main".to_owned(),
                 head_repository_id: None,
+                is_draft: false,
+                label_ids: vec![],
+                milestone_id: None,
+                assignee_user_ids: vec![],
+                reviewer_user_ids: vec![],
+                template_slug: None,
             },
         )
         .await?;
@@ -481,6 +487,12 @@ async fn seed_search_documents(
             head_ref: format!("feature/{marker}"),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await?;

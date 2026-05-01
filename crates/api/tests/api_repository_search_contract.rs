@@ -664,6 +664,12 @@ async fn search_rest_route_indexes_issue_pull_request_and_discussion_tabs() {
             head_ref: format!("feature/{marker}"),
             base_ref: "main".to_owned(),
             head_repository_id: None,
+            is_draft: false,
+            label_ids: vec![],
+            milestone_id: None,
+            assignee_user_ids: vec![],
+            reviewer_user_ids: vec![],
+            template_slug: None,
         },
     )
     .await
