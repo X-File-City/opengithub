@@ -1,0 +1,340 @@
+{
+  "id": "opengithub-onboarding",
+  "title": "opengithub — Codebase Tour",
+  "description": "An autonomous GitHub clone built on a Rust backend and a Next.js frontend. This tour walks through the dual-stack layout, authentication, domain logic, database migrations, and frontend.",
+  "version": "1.0.0",
+  "audience": "New Contributors",
+  "prerequisites": [
+    "Comfort reading Rust and TypeScript",
+    "Familiarity with REST APIs and Next.js app router"
+  ],
+  "steps": [
+    {
+      "id": "step-1-overview",
+      "title": "Project Overview",
+      "description": "opengithub is a GitHub.com clone with a Rust backend and a Next.js frontend, scaffolded by an autonomous build loop. This first view shows the full codebase — note the two top-level worlds, one for the Rust workspace and one for the frontend application.",
+      "estimatedTime": 60,
+      "focusDirectory": "",
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-2-dual-stack",
+      "title": "Dual-Stack Layout",
+      "description": "The repo splits cleanly along stack lines. The Rust API owns auth, domain logic, and the database. The frontend is a thin client that calls the API. A workspace manifest and a top-level build contract glue the two halves together.",
+      "estimatedTime": 90,
+      "focusDirectory": "",
+      "highlightLayers": [
+        {
+          "id": "rust-backend",
+          "name": "Rust Backend (Axum + SQLx)",
+          "color": "#dea584",
+          "items": [
+            { "path": "crates", "type": "directory" },
+            { "path": "Cargo.toml", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "next-frontend",
+          "name": "Next.js Frontend",
+          "color": "#3178c6",
+          "items": [
+            { "path": "web", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "infra-glue",
+          "name": "Build & Infra Glue",
+          "color": "#10b981",
+          "items": [
+            { "path": "Makefile", "type": "file" },
+            { "path": "scripts", "type": "directory" },
+            { "path": "ralph-config.json", "type": "file" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-3-rust-api",
+      "title": "Rust API Service",
+      "description": "The API service is organized into a few clear roles. Entrypoints wire up the application and expose its public interface. The HTTP layer holds route handlers and cross-cutting middleware. A runtime layer owns the database pool, runtime configuration, and background jobs.",
+      "estimatedTime": 120,
+      "focusDirectory": "crates/api/src",
+      "highlightLayers": [
+        {
+          "id": "api-entrypoints",
+          "name": "Entrypoints",
+          "color": "#ef4444",
+          "items": [
+            { "path": "crates/api/src/main.rs", "type": "file" },
+            { "path": "crates/api/src/lib.rs", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "api-http-layer",
+          "name": "HTTP Layer",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "crates/api/src/routes", "type": "directory" },
+            { "path": "crates/api/src/middleware", "type": "directory" },
+            { "path": "crates/api/src/api_types.rs", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "api-runtime",
+          "name": "Runtime & Data Access",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "crates/api/src/db.rs", "type": "file" },
+            { "path": "crates/api/src/config.rs", "type": "file" },
+            { "path": "crates/api/src/jobs", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-4-auth",
+      "title": "Authentication (P1)",
+      "description": "Authentication lives entirely in the backend — the frontend has no auth layer of its own. The Google OAuth flow handles sign-in, signed Postgres-backed sessions keep users logged in, and a request extractor makes the current user available to handlers. The frontend sign-in button simply redirects into the backend flow.",
+      "estimatedTime": 120,
+      "focusDirectory": "crates/api/src/auth",
+      "highlightLayers": [
+        {
+          "id": "auth-oauth",
+          "name": "Google OAuth Flow",
+          "color": "#ea4335",
+          "items": [
+            { "path": "crates/api/src/auth/google.rs", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "auth-sessions",
+          "name": "Sessions & Extractor",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "crates/api/src/auth/session.rs", "type": "file" },
+            { "path": "crates/api/src/auth/extractor.rs", "type": "file" },
+            { "path": "crates/api/src/auth/mod.rs", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes",
+      "resources": [
+        {
+          "title": "Auth design notes (CLAUDE.md)",
+          "url": "CLAUDE.md",
+          "type": "documentation"
+        }
+      ]
+    },
+    {
+      "id": "step-5-domain",
+      "title": "Domain Logic",
+      "description": "Business rules live in the domain layer, with one module per bounded context. Repositories, issues, pull requests, and notifications are the core GitHub primitives; identity, permissions, and tokens enforce access; markdown, search, and syntax highlighting power discovery and rendering.",
+      "estimatedTime": 150,
+      "focusDirectory": "crates/api/src/domain",
+      "highlightLayers": [
+        {
+          "id": "domain-core",
+          "name": "Core GitHub Primitives",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "crates/api/src/domain/repositories.rs", "type": "file" },
+            { "path": "crates/api/src/domain/issues.rs", "type": "file" },
+            { "path": "crates/api/src/domain/pulls.rs", "type": "file" },
+            { "path": "crates/api/src/domain/notifications.rs", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "domain-identity",
+          "name": "Identity & Access",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "crates/api/src/domain/identity.rs", "type": "file" },
+            { "path": "crates/api/src/domain/permissions.rs", "type": "file" },
+            { "path": "crates/api/src/domain/tokens.rs", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "domain-content",
+          "name": "Content & Discovery",
+          "color": "#10b981",
+          "items": [
+            { "path": "crates/api/src/domain/markdown.rs", "type": "file" },
+            { "path": "crates/api/src/domain/search.rs", "type": "file" },
+            { "path": "crates/api/src/domain/highlight.rs", "type": "file" },
+            { "path": "crates/api/src/domain/git_transport.rs", "type": "file" },
+            { "path": "crates/api/src/domain/git_archives.rs", "type": "file" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-6-migrations",
+      "title": "Database Migrations",
+      "description": "Database migrations are append-only and timestamped — read them in order to understand schema evolution. The first migration lays the user, OAuth, and session tables. The next adds the core repository data model. Collaboration follows, introducing issues, pull requests, and reviews. Later migrations add the dashboard, repository imports, archives, and pull request tooling.",
+      "estimatedTime": 120,
+      "focusDirectory": "crates/api/migrations",
+      "colorMode": "git"
+    },
+    {
+      "id": "step-7-frontend",
+      "title": "Next.js Frontend",
+      "description": "The frontend is a Next.js App Router project. The route tree covers the dashboard, sign-in, profile and organization pages, pull requests, issues, and settings. A components layer holds the UI building blocks, and a shared library layer provides client utilities along with the API proxy that talks to the backend.",
+      "estimatedTime": 120,
+      "focusDirectory": "web/src",
+      "highlightLayers": [
+        {
+          "id": "next-routes",
+          "name": "App Router Pages",
+          "color": "#3178c6",
+          "items": [
+            { "path": "web/src/app", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "next-components",
+          "name": "UI Components",
+          "color": "#10b981",
+          "items": [
+            { "path": "web/src/components", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "next-lib",
+          "name": "Client Library & Proxy",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "web/src/lib", "type": "directory" },
+            { "path": "web/src/proxy.ts", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
+    },
+    {
+      "id": "step-8-config-and-infra",
+      "title": "Configuration, Tests & Infra",
+      "description": "The contract files live at the root. A build manifest provides the canonical interface, with targets for type-checking, running tests, and the full pipeline. A stack-configuration file captures the decisions made during onboarding. A preflight script provisions cloud infrastructure, and a top-level tests directory holds cross-cutting checks. Always run the type-check and test targets before committing.",
+      "estimatedTime": 90,
+      "focusDirectory": "",
+      "highlightLayers": [
+        {
+          "id": "infra-build",
+          "name": "Build Contract",
+          "color": "#ef4444",
+          "items": [
+            { "path": "Makefile", "type": "file" },
+            { "path": "Cargo.toml", "type": "file" },
+            { "path": "hack", "type": "directory" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "infra-config",
+          "name": "Stack Configuration",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "ralph-config.json", "type": "file" },
+            { "path": "CLAUDE.md", "type": "file" },
+            { "path": "AGENTS.md", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "infra-scripts",
+          "name": "Provisioning & Scripts",
+          "color": "#10b981",
+          "items": [
+            { "path": "scripts", "type": "directory" },
+            { "path": "tests", "type": "directory" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes",
+      "resources": [
+        {
+          "title": "Project README",
+          "url": "README.md",
+          "type": "documentation"
+        },
+        {
+          "title": "Build Guide",
+          "url": "BUILD_GUIDE.md",
+          "type": "documentation"
+        }
+      ]
+    },
+    {
+      "id": "step-9-wrap-up",
+      "title": "Where to Go Next",
+      "description": "You've seen the whole map: a Rust API — auth, domain, routes, migrations — talking to a Next.js frontend, all built via a single shared build contract. From here, dig into the project conventions document, the build guide for the autonomous build loop, and the schema definitions for API shapes.",
+      "estimatedTime": 60,
+      "focusDirectory": "",
+      "colorMode": "fileTypes",
+      "resources": [
+        {
+          "title": "CLAUDE.md — Project conventions",
+          "url": "CLAUDE.md",
+          "type": "documentation"
+        },
+        {
+          "title": "BUILD_GUIDE.md — Autonomous build loop",
+          "url": "BUILD_GUIDE.md",
+          "type": "documentation"
+        },
+        {
+          "title": "design/ — Architecture notes",
+          "url": "design",
+          "type": "documentation"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "author": "opengithub team",
+    "createdAt": "2026-05-01T00:00:00.000Z",
+    "tags": [
+      "onboarding",
+      "rust",
+      "nextjs",
+      "github-clone",
+      "axum",
+      "architecture"
+    ]
+  }
+}
