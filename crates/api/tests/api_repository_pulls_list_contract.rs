@@ -142,6 +142,7 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     let config = app_config();
     let owner = create_user(&pool, "pull-list-owner").await;
     let reviewer = create_user(&pool, "pull-list-reviewer").await;
+    let outsider = create_user(&pool, "pull-list-outsider").await;
     let repo_name = format!("pulls-contract-{}", Uuid::new_v4().simple());
     let repository = create_repository(
         &pool,
@@ -372,6 +373,7 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     .await
     .expect("private pull should create");
     let owner_cookie = cookie_header(&pool, &config, &owner).await;
+    let outsider_cookie = cookie_header(&pool, &config, &outsider).await;
 
     let app = opengithub_api::build_app_with_config(Some(pool), config);
     let default_uri = format!("/api/repos/{}/{}/pulls", owner.email, repo_name);
@@ -503,6 +505,27 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
             owner.email, repo_name, open_pr.pull_request.number
         )
     );
+    assert_eq!(
+        item["reviewsHref"],
+        format!(
+            "/{}/{}/pull/{}#reviews",
+            owner.email, repo_name, open_pr.pull_request.number
+        )
+    );
+    assert_eq!(
+        item["commentsHref"],
+        format!(
+            "/{}/{}/pull/{}#comments",
+            owner.email, repo_name, open_pr.pull_request.number
+        )
+    );
+    assert_eq!(
+        item["linkedIssuesHref"],
+        format!(
+            "/{}/{}/pull/{}#linked-issues",
+            owner.email, repo_name, open_pr.pull_request.number
+        )
+    );
 
     let typed_filter_uri = format!(
         "/api/repos/{}/{}/pulls?q=is%3Apr%20state%3Aopen%20label%3Abug%20milestone%3A%22Review%20queue%22%20review%3Aapproved%20checks%3Asuccess%20filters&sort=comments-desc",
@@ -542,6 +565,22 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
         send_json(app.clone(), &private_uri, None).await;
     assert_eq!(anonymous_private_status, StatusCode::FORBIDDEN);
     assert_eq!(anonymous_private_body["error"]["code"], "forbidden");
+    assert!(
+        !anonymous_private_body
+            .to_string()
+            .contains("Private pull hidden"),
+        "private pull titles must not leak in forbidden responses"
+    );
+    let (outsider_private_status, outsider_private_body) =
+        send_json(app.clone(), &private_uri, Some(&outsider_cookie)).await;
+    assert_eq!(outsider_private_status, StatusCode::FORBIDDEN);
+    assert_eq!(outsider_private_body["error"]["code"], "forbidden");
+    assert!(
+        !outsider_private_body
+            .to_string()
+            .contains("Private pull hidden"),
+        "private pull titles must not leak to non-members"
+    );
     let (owner_private_status, owner_private_body) =
         send_json(app, &private_uri, Some(&owner_cookie)).await;
     assert_eq!(owner_private_status, StatusCode::OK);

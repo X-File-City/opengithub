@@ -13,6 +13,7 @@ import type {
   RepositoryOverview,
 } from "@/lib/api";
 import {
+  repositoryPullRequestClearFilterHref,
   repositoryPullRequestCompareHref,
   repositoryPullRequestDetailHref,
   repositoryPullRequestPageHref,
@@ -277,6 +278,9 @@ describe("RepositoryPullsPage", () => {
     expect(
       document.querySelectorAll('a[href="#"], a:not([href])'),
     ).toHaveLength(0);
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveAccessibleName();
+    }
   });
 
   it("renders URL-backed filter menus, selected chips, and reset links", () => {
@@ -522,5 +526,61 @@ describe("RepositoryPullsPage", () => {
     ).toBe(
       "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen&state=open&sort=comments-desc",
     );
+    expect(
+      repositoryPullRequestClearFilterHref(
+        "mona",
+        "octo-app",
+        {
+          q: "is:pr state:open label:bug label:review",
+          labels: ["bug", "review"],
+        },
+        "labels",
+        "bug",
+      ),
+    ).toBe(
+      "/mona/octo-app/pulls?q=is%3Apr+state%3Aopen+label%3Areview&labels=review",
+    );
+  });
+
+  it("keeps final guardrail controls accessible and detail anchors concrete", () => {
+    render(
+      <RepositoryPullsPage
+        pulls={pullRequestListView({
+          items: [
+            pullRequestItem({
+              checksHref: "/mona/octo-app/pull/17/checks",
+              commentsHref: "/mona/octo-app/pull/17#comments",
+              linkedIssuesHref: "/mona/octo-app/pull/17#linked-issues",
+              reviewsHref: "/mona/octo-app/pull/17#reviews",
+            }),
+          ],
+        })}
+        query={{ q: "is:pr is:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "3 passing" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/pull/17/checks",
+    );
+    expect(screen.getByRole("link", { name: "Approved" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/pull/17#reviews",
+    );
+    expect(screen.getByRole("link", { name: "1 linked" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/pull/17#linked-issues",
+    );
+    expect(screen.getByRole("link", { name: "4" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/pull/17#comments",
+    );
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveAccessibleName();
+    }
   });
 });

@@ -203,10 +203,45 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   await expect(page.getByLabel("pull-query")).toHaveValue("is:pr is:open");
 
   await expectNoDeadControls(page);
+  await expect(
+    page.getByRole("link", { name: /No checks|passing|failed|checks/ }),
+  ).toHaveAttribute(
+    "href",
+    new RegExp(`/${ownerLogin}/${repoName}/pull/\\d+/checks`),
+  );
+  await expect(
+    page.getByRole("link", {
+      name: /No review|Review required|Approved|requested/,
+    }),
+  ).toHaveAttribute(
+    "href",
+    new RegExp(`/${ownerLogin}/${repoName}/pull/\\d+#reviews`),
+  );
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/prs-001-phase3-filtered-empty.jpg",
   });
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/prs-001-phase5-final-desktop.jpg",
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/${ownerLogin}/${repoName}/pulls`);
+  await expect(
+    page.getByRole("heading", { exact: true, name: "Pull requests" }),
+  ).toBeVisible();
+  const overflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/prs-001-phase5-final-mobile.jpg",
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   await pullLink.click();
   await expect(page).toHaveURL(new RegExp(`/${repoName}/pull/${pullNumber}$`));

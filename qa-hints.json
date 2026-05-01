@@ -1729,5 +1729,22 @@
       "Cross-user and private-repository preference leakage is covered by the read path but should get explicit QA in prs-001 Phase 5",
       "The contributor guidance copy is PR-specific and Editorial-styled; visual QA should compare it with the final pull-list design in Phase 5"
     ]
+  },
+  {
+    "feature_id": "prs-001",
+    "tests_written": [
+      "Completed Phase 5 pull-list guardrails: Rust contract now asserts private PR titles do not leak to anonymous users or non-members, and row hrefs point to concrete checks, reviews, comments, and linked-issue destinations.",
+      "Fixed the pull-list API projection so review and comment indicators navigate to /pull/{number}#reviews and /pull/{number}#comments instead of the PR root.",
+      "Extended RepositoryPullsPage Vitest coverage for accessible button names, concrete detail anchors, no inert links, and selected-filter removal URL behavior.",
+      "Extended signed-session Playwright smoke for default list, filters, tabs, row navigation, New pull request CTA, checks/reviews anchors, banner dismissal persistence, empty state, mobile no-overflow, and final screenshots.",
+      "Saved final screenshots ralph/screenshots/build/prs-001-phase5-final-desktop.jpg and ralph/screenshots/build/prs-001-phase5-final-mobile.jpg.",
+      "Verification passed: .scratch/prs-001-list-contract-scenario.sh via bash, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 150 frontend tests, make test-e2e with 61 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Compare/create remains a concrete landing route only; full branch comparison and PR creation are scoped to prs-003.",
+      "PR detail, review threads, checks pages, file diffs, and mergeability remain skeleton/future surfaces until prs-004 through prs-006.",
+      "Filter toolbar does not yet include author, assignee, projects, or reaction filters; those are scoped to prs-002.",
+      "Dismissal preference was verified with deterministic Rust sessions; repeat with real Google OAuth once the consent/test-user configuration is complete."
+    ]
   }
 ]

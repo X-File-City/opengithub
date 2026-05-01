@@ -76,7 +76,7 @@
 
 ## Phase 5: Pull List Guardrails and QA Handoff - finish prs-001
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Harden accessibility, privacy, visual compliance, query bounds, browser smoke coverage, and bookkeeping. Mark `prs-001` complete only after the repository pull list has real API data, working URL filters, no dead controls, saved banner dismissal, pagination, and browser evidence.
 
