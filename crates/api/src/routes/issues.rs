@@ -17,13 +17,13 @@ use crate::{
     domain::{
         identity::User,
         issues::{
-            add_issue_comment, create_issue, get_issue,
-            issue_comment_timeline_item, issue_timeline_view, list_issue_templates_for_viewer,
+            add_issue_comment, create_issue, get_issue, issue_comment_timeline_item,
+            issue_timeline_view, list_issue_templates_for_viewer,
             repository_issue_detail_view_for_viewer, repository_issue_list_view_for_viewer,
-            save_repository_issue_preferences, toggle_issue_reaction, update_issue_state,
-            update_issue_metadata, update_issue_subscription, CollaborationError,
-            CreateComment, CreateIssue, CreateIssueAttachment, IssueListQuery, IssueState,
-            ReactionContent, UpdateIssueMetadata, UpdateIssueState, UpdateIssueSubscription,
+            save_repository_issue_preferences, toggle_issue_reaction, update_issue_metadata,
+            update_issue_state, update_issue_subscription, CollaborationError, CreateComment,
+            CreateIssue, CreateIssueAttachment, IssueListQuery, IssueState, ReactionContent,
+            UpdateIssueMetadata, UpdateIssueState, UpdateIssueSubscription,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
@@ -619,9 +619,14 @@ async fn update_state(
     )
     .await
     .map_err(map_collaboration_error)?;
-    let detail = repository_issue_detail_view_for_viewer(pool, repository_id, updated.number, Some(actor.0.id))
-        .await
-        .map_err(map_collaboration_error)?;
+    let detail = repository_issue_detail_view_for_viewer(
+        pool,
+        repository_id,
+        updated.number,
+        Some(actor.0.id),
+    )
+    .await
+    .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(detail)))
 }

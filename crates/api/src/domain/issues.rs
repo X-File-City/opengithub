@@ -1375,14 +1375,9 @@ pub async fn update_issue_metadata(
     }
 
     for assignee_user_id in &input.assignee_user_ids {
-        if repository_viewer_permission(
-            pool,
-            &repository,
-            *assignee_user_id,
-            RepositoryRole::Read,
-        )
-        .await?
-        .is_none()
+        if repository_viewer_permission(pool, &repository, *assignee_user_id, RepositoryRole::Read)
+            .await?
+            .is_none()
         {
             return Err(CollaborationError::InvalidIssueField {
                 field_key: "assigneeUserIds".to_owned(),
@@ -1517,7 +1512,13 @@ pub async fn update_issue_subscription(
     input: UpdateIssueSubscription,
 ) -> Result<IssueSubscriptionState, CollaborationError> {
     let repository_id = issue_repository_id(pool, issue_id).await?;
-    require_repository_role(pool, repository_id, input.actor_user_id, RepositoryRole::Read).await?;
+    require_repository_role(
+        pool,
+        repository_id,
+        input.actor_user_id,
+        RepositoryRole::Read,
+    )
+    .await?;
 
     if input.subscribed {
         sqlx::query(
@@ -1802,7 +1803,8 @@ async fn timeline_item_from_row(
                     }
                 }
             })?;
-            let reactions = reaction_summaries(pool, None, Some(comment_id), viewer_user_id).await?;
+            let reactions =
+                reaction_summaries(pool, None, Some(comment_id), viewer_user_id).await?;
             Some(IssueTimelineComment {
                 id: comment_id,
                 body,
@@ -1887,7 +1889,9 @@ async fn reaction_summaries(
             Ok(ReactionSummary {
                 content: ReactionContent::try_from(content.as_str())?,
                 count: row.get("count"),
-                viewer_reacted: row.get::<Option<bool>, _>("viewer_reacted").unwrap_or(false),
+                viewer_reacted: row
+                    .get::<Option<bool>, _>("viewer_reacted")
+                    .unwrap_or(false),
             })
         })
         .collect()

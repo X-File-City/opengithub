@@ -595,7 +595,10 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
     )
     .await;
     assert_eq!(anonymous_metadata_status, StatusCode::UNAUTHORIZED);
-    assert_eq!(anonymous_metadata_body["error"]["code"], "not_authenticated");
+    assert_eq!(
+        anonymous_metadata_body["error"]["code"],
+        "not_authenticated"
+    );
 
     let (subscribe_status, subscribe_body) = patch_json(
         app.clone(),
