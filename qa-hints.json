@@ -1572,5 +1572,17 @@
       "Assignee notifications are covered for direct assignees; watcher/subscription fanout should be revisited when repository watch preferences exist.",
       "Browser proof is Chromium Playwright with desktop and mobile screenshots; QA should still spot-check screen-reader narration for the composed template form."
     ]
+  },
+  {
+    "feature_id": "issues-004",
+    "tests_written": [
+      "Planning-only iteration: added .qrspi/issues-004/structure.md with five vertical slices for issue detail read model, timeline comments, state/reactions/subscriptions, metadata sidebar editing, and final guardrails.",
+      "Read the existing issue list/create structures, current placeholder issue detail route, current Rust issue read/timeline/comment/state/reaction primitives, and Editorial PR/Issues reference screens before writing the outline."
+    ],
+    "needs_deeper_qa": [
+      "No implementation or tests were added in this iteration because issues-004 requires structure planning first.",
+      "Future phases must prove every visible issue-detail control is live: comment submit, close/reopen, reactions, subscribe/customize, metadata edits, and auth-gated write CTAs.",
+      "Future QA should compare the final page against the Editorial reference, not GitHub Primer chrome."
+    ]
   }
 ]
