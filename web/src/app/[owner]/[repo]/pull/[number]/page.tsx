@@ -4,6 +4,7 @@ import { RepositoryUnavailablePage } from "@/components/RepositoryUnavailablePag
 import {
   getRepository,
   getRepositoryPullRequest,
+  getRepositoryPullRequestTimeline,
   getSessionAndShellContext,
 } from "@/lib/server-session";
 
@@ -22,21 +23,32 @@ export default async function PullRequestPage({
   const ownerLogin = decodeURIComponent(owner);
   const repositoryName = decodeURIComponent(repo);
   const pullNumber = Number.parseInt(decodeURIComponent(number), 10);
-  const [{ session, shellContext }, repository, pullRequest] =
+  const [{ session, shellContext }, repository, pullRequest, timeline] =
     await Promise.all([
       getSessionAndShellContext(),
       getRepository(ownerLogin, repositoryName),
       Number.isFinite(pullNumber)
         ? getRepositoryPullRequest(ownerLogin, repositoryName, pullNumber)
         : Promise.resolve(null),
+      Number.isFinite(pullNumber)
+        ? getRepositoryPullRequestTimeline(
+            ownerLogin,
+            repositoryName,
+            pullNumber,
+          )
+        : Promise.resolve([]),
     ]);
 
   return (
     <AppShell session={session} shellContext={shellContext}>
-      {repository && pullRequest && !("error" in pullRequest) ? (
+      {repository &&
+      pullRequest &&
+      !("error" in pullRequest) &&
+      !("error" in timeline) ? (
         <RepositoryPullRequestDetailPage
           pullRequest={pullRequest}
           repository={repository}
+          timeline={timeline}
           viewerAuthenticated={session.authenticated}
         />
       ) : (

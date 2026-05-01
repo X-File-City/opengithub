@@ -1859,7 +1859,7 @@ async fn issue_subscription_state(
     })
 }
 
-async fn reaction_summaries(
+pub(crate) async fn reaction_summaries(
     pool: &PgPool,
     issue_id: Option<Uuid>,
     comment_id: Option<Uuid>,

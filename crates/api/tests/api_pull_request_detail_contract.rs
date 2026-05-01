@@ -8,8 +8,8 @@ use opengithub_api::{
     config::{AppConfig, AuthConfig},
     domain::{
         identity::{upsert_session, upsert_user_by_email, User},
-        issues::{create_issue, ensure_default_labels, CreateIssue},
-        pulls::{create_pull_request, CreatePullRequest},
+        issues::{create_issue, ensure_default_labels, CreateComment, CreateIssue},
+        pulls::{add_pull_request_comment, create_pull_request, CreatePullRequest},
         repositories::{
             create_repository, CreateRepository, RepositoryOwner, RepositoryVisibility,
         },
@@ -87,6 +87,35 @@ async fn get_json(app: axum::Router, uri: &str, cookie: Option<&str>) -> (Status
         builder = builder.header(header::COOKIE, cookie);
     }
     let request = builder.body(Body::empty()).expect("request should build");
+    let response = app.oneshot(request).await.expect("request should run");
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body should read");
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("response should be json")
+    };
+    (status, value)
+}
+
+async fn post_json(
+    app: axum::Router,
+    uri: &str,
+    cookie: Option<&str>,
+    body: Value,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method(Method::POST)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    let request = builder
+        .body(Body::from(body.to_string()))
+        .expect("request should build");
     let response = app.oneshot(request).await.expect("request should run");
     let status = response.status();
     let bytes = to_bytes(response.into_body(), usize::MAX)
@@ -218,19 +247,26 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     .execute(&pool)
     .await
     .expect("linked issue reference should create");
-    sqlx::query(
-        r#"
-        INSERT INTO comments (repository_id, pull_request_id, author_user_id, body)
-        VALUES ($1, $2, $3, 'Looks ready'), ($1, $2, $4, 'Needs final pass')
-        "#,
+    add_pull_request_comment(
+        &pool,
+        pull.pull_request.id,
+        CreateComment {
+            actor_user_id: owner.id,
+            body: "Looks ready".to_owned(),
+        },
     )
-    .bind(repository.id)
-    .bind(pull.pull_request.id)
-    .bind(owner.id)
-    .bind(reviewer.id)
-    .execute(&pool)
     .await
-    .expect("pull comments should create");
+    .expect("owner pull comment should create");
+    add_pull_request_comment(
+        &pool,
+        pull.pull_request.id,
+        CreateComment {
+            actor_user_id: owner.id,
+            body: "Needs final pass".to_owned(),
+        },
+    )
+    .await
+    .expect("reviewer pull comment should create");
     sqlx::query(
         r#"
         INSERT INTO pull_request_reviews (pull_request_id, reviewer_user_id, state, body)
@@ -319,6 +355,33 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     );
     assert_eq!(anonymous_body["subscription"]["subscribed"], false);
 
+    let timeline_uri = format!("{uri}/timeline");
+    let (anonymous_timeline_status, anonymous_timeline_body) =
+        get_json(app.clone(), &timeline_uri, None).await;
+    assert_eq!(
+        anonymous_timeline_status,
+        StatusCode::OK,
+        "timeline response: {anonymous_timeline_body}"
+    );
+    let timeline_items = anonymous_timeline_body
+        .as_array()
+        .expect("timeline should be an array");
+    assert!(
+        timeline_items
+            .iter()
+            .any(|item| item["eventType"] == "opened"),
+        "timeline should include opened event"
+    );
+    let rendered_comment = timeline_items
+        .iter()
+        .find(|item| item["comment"].is_object())
+        .expect("timeline should include rendered comment");
+    assert_eq!(rendered_comment["eventType"], "commented");
+    assert!(rendered_comment["comment"]["bodyHtml"]
+        .as_str()
+        .expect("comment html should be a string")
+        .contains("Looks ready"));
+
     let (owner_status, owner_body) = get_json(app.clone(), &uri, Some(&owner_cookie)).await;
     assert_eq!(owner_status, StatusCode::OK);
     assert_eq!(owner_body["viewerPermission"], "owner");
@@ -327,6 +390,43 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     let (outsider_status, outsider_body) = get_json(app.clone(), &uri, Some(&outsider_cookie)).await;
     assert_eq!(outsider_status, StatusCode::OK);
     assert_eq!(outsider_body["viewerPermission"], "read");
+
+    let (blank_comment_status, blank_comment_body) = post_json(
+        app.clone(),
+        &format!("{uri}/comments"),
+        Some(&owner_cookie),
+        json!({ "body": "   " }),
+    )
+    .await;
+    assert_eq!(blank_comment_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(blank_comment_body["error"]["code"], "validation_failed");
+
+    let (comment_status, comment_body) = post_json(
+        app.clone(),
+        &format!("{uri}/comments"),
+        Some(&owner_cookie),
+        json!({ "body": "Phase 2 **comment** persists." }),
+    )
+    .await;
+    assert_eq!(comment_status, StatusCode::CREATED);
+    assert_eq!(comment_body["eventType"], "commented");
+    assert_eq!(comment_body["actor"]["login"], owner.email);
+    assert!(comment_body["comment"]["bodyHtml"]
+        .as_str()
+        .expect("created comment html should be a string")
+        .contains("<strong>comment</strong>"));
+
+    let (timeline_after_status, timeline_after_body) =
+        get_json(app.clone(), &timeline_uri, Some(&owner_cookie)).await;
+    assert_eq!(timeline_after_status, StatusCode::OK);
+    assert!(
+        timeline_after_body
+            .as_array()
+            .expect("timeline after comment should be an array")
+            .iter()
+            .any(|item| item["comment"]["body"] == "Phase 2 **comment** persists."),
+        "created comment should reload through the timeline"
+    );
 
     let private_repo_name = format!("private-detail-{}", Uuid::new_v4().simple());
     let private_repository = create_repository(
@@ -371,6 +471,14 @@ async fn pull_request_detail_contract_returns_screen_ready_metadata() {
     assert_eq!(anonymous_private_status, StatusCode::FORBIDDEN);
     assert_eq!(
         anonymous_private_body["error"]["code"],
+        "forbidden"
+    );
+
+    let (anonymous_private_timeline_status, anonymous_private_timeline_body) =
+        get_json(app.clone(), &format!("{private_uri}/timeline"), None).await;
+    assert_eq!(anonymous_private_timeline_status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        anonymous_private_timeline_body["error"]["code"],
         "forbidden"
     );
 }

@@ -1932,5 +1932,22 @@
       "Merge readiness is a summary only in Phase 1; close/reopen/ready/merge actions and blocker enforcement remain Phase 4.",
       "Real Google OAuth was not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database."
     ]
+  },
+  {
+    "feature_id": "prs-004",
+    "tests_written": [
+      "Implemented Phase 2 pull request conversation timeline and comment creation for /{owner}/{repo}/pull/{number}.",
+      "Rust API now returns a normalized rendered timeline from GET /api/repos/{owner}/{repo}/pulls/{number}/timeline, allows anonymous timeline reads for public repositories, keeps private timelines forbidden, validates blank comments, and returns the created timeline item from POST /comments.",
+      "Frontend loads PR timeline server-side, renders opened/commented/review events in the Editorial conversation column, shows a signed-in Write/Preview composer, posts comments through a same-origin route, appends created comments immediately, and shows an anonymous sign-in CTA.",
+      "Vitest covers timeline rendering, anonymous CTA, Markdown preview, comment POST payload, appended comment rendering, and concrete controls.",
+      "Playwright smoke creates a real signed-session repository and pull request, opens the PR detail page, previews and posts a real comment through the Rust API, reloads to verify persistence, checks no dead links, and saves ralph/screenshots/build/prs-004-phase2-comment.jpg.",
+      "Verification passed: focused Rust api_pull_request_detail_contract, focused repository-pull-request-detail Vitest, focused Playwright PR detail smoke, TEST_DATABASE_URL-backed make check, make test with Cargo tests plus 160 frontend tests, make test-e2e with 64 Playwright tests, and Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "Review request, subscription, labels, assignees, and milestone mutation flows remain read-only until Phase 3.",
+      "Merge readiness is still summary-only; close/reopen/ready/merge actions and blocker enforcement remain Phase 4.",
+      "Timeline currently covers opened/commented and generic event rendering; richer review-request/base-change/force-push/commit event copy should be rechecked as those events are added in later phases.",
+      "Real Google OAuth was not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database."
+    ]
   }
 ]

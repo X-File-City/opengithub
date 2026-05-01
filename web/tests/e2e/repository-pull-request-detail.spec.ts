@@ -118,10 +118,25 @@ test("signed-in user opens the pull request detail conversation shell", async ({
     page.getByRole("heading", { name: "Merge readiness" }),
   ).toBeVisible();
   await expect(page.getByText("No review requests")).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`${ownerLogin} opened this pull request`)),
+  ).toBeVisible();
+
+  await page
+    .getByRole("textbox", { name: "Comment body" })
+    .fill("Phase 2 browser **comment** works.");
+  await page.getByRole("tab", { name: "Preview" }).click();
+  await expect(page.getByText(/Phase 2 browser/)).toBeVisible();
+  await page.getByRole("tab", { name: "Write" }).click();
+  await page.getByRole("button", { name: "Comment" }).click();
+  await expect(page.getByText("Comment posted.")).toBeVisible();
+  await expect(page.getByText("Phase 2 browser")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Phase 2 browser")).toBeVisible();
   await expect(page.locator('a[href="#"], a:not([href])')).toHaveCount(0);
 
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/prs-004-phase1-detail-read.jpg",
+    path: "../ralph/screenshots/build/prs-004-phase2-comment.jpg",
   });
 });

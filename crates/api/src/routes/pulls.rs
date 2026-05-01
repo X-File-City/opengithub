@@ -20,9 +20,9 @@ use crate::{
         permissions::RepositoryRole,
         pulls::{
             add_pull_request_comment, compare_pull_request_refs_for_viewer_with_head,
-            create_pull_request, get_pull_request, pull_request_detail_view_for_viewer,
-            pull_request_timeline, pull_sort_options, repository_for_actor_by_name,
-            repository_pull_request_list_view_for_viewer,
+            create_pull_request, get_pull_request, pull_request_comment_timeline_item,
+            pull_request_detail_view_for_viewer, pull_request_timeline_view, pull_sort_options,
+            repository_for_actor_by_name, repository_pull_request_list_view_for_viewer,
             save_repository_pull_preferences, update_pull_request_state,
             ComparePullRequestRefsInput, CreatePullRequest, PullRequestListQuery, PullRequestState,
             UpdatePullRequestState,
@@ -883,8 +883,11 @@ async fn comment(
     )
     .await
     .map_err(map_collaboration_error)?;
+    let item = pull_request_comment_timeline_item(pool, comment.id, Some(actor.0.id))
+        .await
+        .map_err(map_collaboration_error)?;
 
-    Ok((StatusCode::CREATED, Json(json!(comment))))
+    Ok((StatusCode::CREATED, Json(json!(item))))
 }
 
 async fn timeline(
@@ -892,18 +895,34 @@ async fn timeline(
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
-    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let actor = AuthenticatedUser::optional_from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
-            .await
-            .map_err(map_collaboration_error)?;
-    let detail = get_pull_request(pool, repository_id, number, actor.0.id)
+    let repository = get_repository_by_owner_name(pool, &owner, &repo)
         .await
-        .map_err(map_collaboration_error)?;
-    let events = pull_request_timeline(pool, detail.pull_request.id, actor.0.id)
-        .await
-        .map_err(map_collaboration_error)?;
+        .map_err(repository_lookup_error)?
+        .ok_or_else(|| {
+            map_collaboration_error(crate::domain::issues::CollaborationError::RepositoryNotFound)
+        })?;
+    let pull_request_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM pull_requests WHERE repository_id = $1 AND number = $2",
+    )
+    .bind(repository.id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| {
+        map_collaboration_error(crate::domain::issues::CollaborationError::Sqlx(error))
+    })?
+    .ok_or_else(|| {
+        map_collaboration_error(crate::domain::issues::CollaborationError::PullRequestNotFound)
+    })?;
+    let events = pull_request_timeline_view(
+        pool,
+        pull_request_id,
+        actor.as_ref().map(|user| user.id),
+    )
+    .await
+    .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(events)))
 }

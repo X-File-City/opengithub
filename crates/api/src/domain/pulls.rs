@@ -10,9 +10,10 @@ use crate::api_types::ListEnvelope;
 use super::{
     issues::{
         append_timeline_event, insert_issue_with_number, issue_from_row, next_issue_number,
-        repository_for_actor, search_error_to_collaboration, user_login, CollaborationError,
+        reaction_summaries, repository_for_actor, search_error_to_collaboration, user_login,
+        CollaborationError,
         CreateComment, CreateIssue, Issue, IssueListLabel, IssueListMetadataOption,
-        IssueListMilestone, IssueListUser, IssueState, TimelineEvent,
+        IssueListMilestone, IssueListUser, IssueState, ReactionSummary, TimelineEvent,
     },
     markdown::{render_markdown, RenderMarkdownInput},
     notifications::{create_notification, CreateNotification},
@@ -342,6 +343,29 @@ pub struct PullRequestDetailView {
     pub closed_at: Option<DateTime<Utc>>,
     pub merged_at: Option<DateTime<Utc>>,
     pub viewer_permission: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestTimelineComment {
+    pub id: Uuid,
+    pub body: String,
+    pub body_html: String,
+    pub is_minimized: bool,
+    pub reactions: Vec<ReactionSummary>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestTimelineItem {
+    pub id: Uuid,
+    pub event_type: String,
+    pub actor: Option<IssueListUser>,
+    pub comment: Option<PullRequestTimelineComment>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1596,10 +1620,49 @@ pub async fn add_pull_request_comment(
     Ok(comment)
 }
 
+pub async fn pull_request_comment_timeline_item(
+    pool: &PgPool,
+    comment_id: Uuid,
+    viewer_user_id: Option<Uuid>,
+) -> Result<PullRequestTimelineItem, CollaborationError> {
+    let row = sqlx::query(
+        r#"
+        SELECT timeline_events.id, timeline_events.event_type, timeline_events.metadata,
+               timeline_events.created_at,
+               comments.id AS comment_id, comments.body, comments.is_minimized,
+               comments.created_at AS comment_created_at, comments.updated_at AS comment_updated_at,
+               users.id AS actor_id, COALESCE(users.username, users.email) AS actor_login,
+               users.display_name AS actor_display_name, users.avatar_url AS actor_avatar_url,
+               repositories.id AS repository_id,
+               COALESCE(NULLIF(owner_user.username, ''), owner_user.email, organizations.slug) AS owner_login,
+               repositories.name,
+               pull_requests.base_ref
+        FROM comments
+        JOIN pull_requests ON pull_requests.id = comments.pull_request_id
+        JOIN repositories ON repositories.id = pull_requests.repository_id
+        LEFT JOIN users AS owner_user ON owner_user.id = repositories.owner_user_id
+        LEFT JOIN organizations ON organizations.id = repositories.owner_organization_id
+        JOIN timeline_events
+          ON timeline_events.pull_request_id = comments.pull_request_id
+         AND timeline_events.event_type = 'commented'
+         AND timeline_events.metadata->>'commentId' = comments.id::text
+        JOIN users ON users.id = comments.author_user_id
+        WHERE comments.id = $1
+        ORDER BY timeline_events.created_at DESC, timeline_events.id DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(comment_id)
+    .fetch_one(pool)
+    .await?;
+
+    pull_timeline_item_from_row(pool, row, viewer_user_id).await
+}
+
 pub async fn pull_request_timeline(
     pool: &PgPool,
     pull_request_id: Uuid,
-    actor_user_id: Uuid,
+    actor_user_id: Option<Uuid>,
 ) -> Result<Vec<TimelineEvent>, CollaborationError> {
     let repository_id =
         sqlx::query_scalar::<_, Uuid>("SELECT repository_id FROM pull_requests WHERE id = $1")
@@ -1607,7 +1670,7 @@ pub async fn pull_request_timeline(
             .fetch_optional(pool)
             .await?
             .ok_or(CollaborationError::PullRequestNotFound)?;
-    require_repository_read(pool, repository_id, actor_user_id).await?;
+    require_repository_read_for_viewer(pool, repository_id, actor_user_id).await?;
     let rows = sqlx::query(
         r#"
         SELECT id, repository_id, issue_id, pull_request_id, actor_user_id, event_type, metadata, created_at
@@ -1624,6 +1687,121 @@ pub async fn pull_request_timeline(
         .into_iter()
         .map(super::issues::timeline_event_from_row)
         .collect())
+}
+
+pub async fn pull_request_timeline_view(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+    actor_user_id: Option<Uuid>,
+) -> Result<Vec<PullRequestTimelineItem>, CollaborationError> {
+    let repository_id =
+        sqlx::query_scalar::<_, Uuid>("SELECT repository_id FROM pull_requests WHERE id = $1")
+            .bind(pull_request_id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or(CollaborationError::PullRequestNotFound)?;
+    require_repository_read_for_viewer(pool, repository_id, actor_user_id).await?;
+    let rows = sqlx::query(
+        r#"
+        SELECT timeline_events.id, timeline_events.event_type, timeline_events.metadata,
+               timeline_events.created_at,
+               comments.id AS comment_id, comments.body, comments.is_minimized,
+               comments.created_at AS comment_created_at, comments.updated_at AS comment_updated_at,
+               users.id AS actor_id, COALESCE(users.username, users.email) AS actor_login,
+               users.display_name AS actor_display_name, users.avatar_url AS actor_avatar_url,
+               repositories.id AS repository_id,
+               COALESCE(NULLIF(owner_user.username, ''), owner_user.email, organizations.slug) AS owner_login,
+               repositories.name,
+               pull_requests.base_ref
+        FROM timeline_events
+        JOIN pull_requests ON pull_requests.id = timeline_events.pull_request_id
+        JOIN repositories ON repositories.id = pull_requests.repository_id
+        LEFT JOIN users AS owner_user ON owner_user.id = repositories.owner_user_id
+        LEFT JOIN organizations ON organizations.id = repositories.owner_organization_id
+        LEFT JOIN comments
+          ON timeline_events.event_type = 'commented'
+         AND timeline_events.metadata->>'commentId' = comments.id::text
+        LEFT JOIN users
+          ON users.id = COALESCE(comments.author_user_id, timeline_events.actor_user_id)
+        WHERE timeline_events.pull_request_id = $1
+        ORDER BY timeline_events.created_at ASC, timeline_events.id ASC
+        "#,
+    )
+    .bind(pull_request_id)
+    .fetch_all(pool)
+    .await?;
+
+    let mut items = Vec::with_capacity(rows.len());
+    for row in rows {
+        items.push(pull_timeline_item_from_row(pool, row, actor_user_id).await?);
+    }
+    Ok(items)
+}
+
+async fn pull_timeline_item_from_row(
+    pool: &PgPool,
+    row: sqlx::postgres::PgRow,
+    viewer_user_id: Option<Uuid>,
+) -> Result<PullRequestTimelineItem, CollaborationError> {
+    let actor_id: Option<Uuid> = row.get("actor_id");
+    let comment_id: Option<Uuid> = row.get("comment_id");
+    let body: Option<String> = row.get("body");
+    let comment = match (comment_id, body) {
+        (Some(comment_id), Some(body)) => {
+            let repository_id: Uuid = row.get("repository_id");
+            let owner: String = row.get("owner_login");
+            let repo: String = row.get("name");
+            let ref_name: String = row.get("base_ref");
+            let rendered = render_markdown(
+                Some(pool),
+                RenderMarkdownInput {
+                    markdown: body.clone(),
+                    repository_id: Some(repository_id),
+                    owner: Some(owner),
+                    repo: Some(repo),
+                    ref_name: Some(ref_name),
+                    enable_task_toggles: Some(false),
+                },
+            )
+            .await
+            .map_err(|error| match error {
+                super::markdown::MarkdownError::Sqlx(error) => CollaborationError::Sqlx(error),
+                super::markdown::MarkdownError::TooLarge
+                | super::markdown::MarkdownError::TaskNotFound => {
+                    CollaborationError::InvalidIssueField {
+                        field_key: "comment".to_owned(),
+                        message: "pull request comment could not be rendered".to_owned(),
+                    }
+                }
+            })?;
+            let reactions =
+                reaction_summaries(pool, None, Some(comment_id), viewer_user_id).await?;
+            Some(PullRequestTimelineComment {
+                id: comment_id,
+                body,
+                body_html: rendered.html,
+                is_minimized: row.get("is_minimized"),
+                reactions,
+                created_at: row.get("comment_created_at"),
+                updated_at: row.get("comment_updated_at"),
+            })
+        }
+        _ => None,
+    };
+
+    Ok(PullRequestTimelineItem {
+        id: row.get("id"),
+        event_type: row.get("event_type"),
+        actor: actor_id.map(|id| IssueListUser {
+            id,
+            login: row.get("actor_login"),
+            display_name: row.get("actor_display_name"),
+            avatar_url: row.get("actor_avatar_url"),
+        }),
+        comment,
+        metadata: row.get("metadata"),
+        created_at: row.get("created_at"),
+    })
 }
 
 pub async fn repository_for_actor_by_name(
@@ -1646,6 +1824,32 @@ async fn require_repository_read(
     user_id: Uuid,
 ) -> Result<(), CollaborationError> {
     require_role(pool, repository_id, user_id, RepositoryRole::Read).await
+}
+
+async fn require_repository_read_for_viewer(
+    pool: &PgPool,
+    repository_id: Uuid,
+    user_id: Option<Uuid>,
+) -> Result<(), CollaborationError> {
+    match user_id {
+        Some(user_id) => require_repository_read(pool, repository_id, user_id).await,
+        None => {
+            let repository = get_repository(pool, repository_id)
+                .await
+                .map_err(|error| match error {
+                    super::repositories::RepositoryError::Sqlx(error) => {
+                        CollaborationError::Sqlx(error)
+                    }
+                    _ => CollaborationError::RepositoryNotFound,
+                })?
+                .ok_or(CollaborationError::RepositoryNotFound)?;
+            if repository.visibility == RepositoryVisibility::Public {
+                Ok(())
+            } else {
+                Err(CollaborationError::RepositoryAccessDenied)
+            }
+        }
+    }
 }
 
 async fn require_repository_write(

@@ -329,7 +329,7 @@ async fn pull_requests_share_issue_numbers_and_timeline_state() {
     assert_eq!(merged.state, PullRequestState::Merged);
     assert_eq!(merged.merged_by_user_id, Some(owner.id));
 
-    let events = pull_request_timeline(&pool, detail.pull_request.id, owner.id)
+    let events = pull_request_timeline(&pool, detail.pull_request.id, Some(owner.id))
         .await
         .expect("pull timeline should load");
     let event_types = events

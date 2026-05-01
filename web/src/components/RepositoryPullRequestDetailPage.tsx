@@ -1,12 +1,18 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { MarkdownBody } from "@/components/MarkdownBody";
+import { PullRequestTimeline } from "@/components/PullRequestTimeline";
 import { RepositoryShell } from "@/components/RepositoryShell";
-import type { PullRequestDetailView, RepositoryOverview } from "@/lib/api";
+import type {
+  PullRequestDetailView,
+  PullRequestTimelineItem,
+  RepositoryOverview,
+} from "@/lib/api";
 
 type RepositoryPullRequestDetailPageProps = {
   repository: RepositoryOverview;
   pullRequest: PullRequestDetailView;
+  timeline: PullRequestTimelineItem[];
   viewerAuthenticated: boolean;
 };
 
@@ -77,6 +83,7 @@ function SidebarSection({
 export function RepositoryPullRequestDetailPage({
   repository,
   pullRequest,
+  timeline,
   viewerAuthenticated,
 }: RepositoryPullRequestDetailPageProps) {
   const bodyLabelId = `pull-request-${pullRequest.number}-body`;
@@ -209,6 +216,17 @@ export function RepositoryPullRequestDetailPage({
                 </div>
               </div>
             </article>
+
+            <div className="mt-6">
+              <PullRequestTimeline
+                initialItems={timeline}
+                loginHref={`/login?next=${encodeURIComponent(activePath)}`}
+                owner={repository.owner_login}
+                pullNumber={pullRequest.number}
+                repo={repository.name}
+                viewerAuthenticated={viewerAuthenticated}
+              />
+            </div>
 
             <section className="card mt-6 overflow-hidden">
               <div

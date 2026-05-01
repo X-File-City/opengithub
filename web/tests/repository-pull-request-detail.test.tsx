@@ -1,7 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RepositoryPullRequestDetailPage } from "@/components/RepositoryPullRequestDetailPage";
-import type { PullRequestDetailView, RepositoryOverview } from "@/lib/api";
+import type {
+  PullRequestDetailView,
+  PullRequestTimelineItem,
+  RepositoryOverview,
+} from "@/lib/api";
 
 function repositoryOverview(): RepositoryOverview {
   return {
@@ -166,12 +170,57 @@ function pullRequestDetail(
   return { ...base, ...overrides };
 }
 
+function pullRequestTimeline(): PullRequestTimelineItem[] {
+  return [
+    {
+      id: "event-opened",
+      eventType: "opened",
+      actor: {
+        id: "user-2",
+        login: "hubot",
+        displayName: "Hubot",
+        avatarUrl: null,
+      },
+      comment: null,
+      metadata: {},
+      createdAt: "2026-05-01T00:00:00Z",
+    },
+    {
+      id: "event-comment-1",
+      eventType: "commented",
+      actor: {
+        id: "user-4",
+        login: "ashley",
+        displayName: "Ashley",
+        avatarUrl: null,
+      },
+      comment: {
+        id: "comment-1",
+        body: "Looks **ready** to review.",
+        bodyHtml:
+          '<div class="markdown-body"><p>Looks <strong>ready</strong> to review.</p></div>',
+        isMinimized: false,
+        reactions: [],
+        createdAt: "2026-05-01T00:08:00Z",
+        updatedAt: "2026-05-01T00:08:00Z",
+      },
+      metadata: { commentId: "comment-1" },
+      createdAt: "2026-05-01T00:08:00Z",
+    },
+  ];
+}
+
 describe("RepositoryPullRequestDetailPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders the pull request conversation shell and sidebar metadata", () => {
     render(
       <RepositoryPullRequestDetailPage
         pullRequest={pullRequestDetail()}
         repository={repositoryOverview()}
+        timeline={pullRequestTimeline()}
         viewerAuthenticated={true}
       />,
     );
@@ -186,13 +235,18 @@ describe("RepositoryPullRequestDetailPage", () => {
       "/mona/octo-app/pull/42/files",
     );
     expect(screen.getByText("Routes are split by resource.")).toBeVisible();
-    expect(screen.getByText("ashley")).toBeVisible();
+    expect(screen.getAllByText("ashley").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("mira")).toBeVisible();
     expect(screen.getByText("Review queue")).toBeVisible();
     expect(screen.getByRole("link", { name: "#12 · open" })).toHaveAttribute(
       "href",
       "/mona/octo-app/issues/12",
     );
+    expect(screen.getByText(/hubot opened this pull request/)).toBeVisible();
+    expect(screen.getByText(/Looks/)).toBeVisible();
+    expect(screen.getByText("ready")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Comment body" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Comment" })).toBeDisabled();
   });
 
   it("shows a concrete sign-in CTA for anonymous public readers", () => {
@@ -200,6 +254,7 @@ describe("RepositoryPullRequestDetailPage", () => {
       <RepositoryPullRequestDetailPage
         pullRequest={pullRequestDetail()}
         repository={repositoryOverview()}
+        timeline={pullRequestTimeline()}
         viewerAuthenticated={false}
       />,
     );
@@ -207,5 +262,83 @@ describe("RepositoryPullRequestDetailPage", () => {
     expect(
       screen.getByRole("link", { name: "Sign in to participate" }),
     ).toHaveAttribute("href", "/login?next=%2Fmona%2Focto-app%2Fpull%2F42");
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login?next=%2Fmona%2Focto-app%2Fpull%2F42",
+    );
+  });
+
+  it("previews markdown and posts pull request comments", async () => {
+    const createdComment: PullRequestTimelineItem = {
+      id: "event-comment-2",
+      eventType: "commented",
+      actor: {
+        id: "user-1",
+        login: "mona",
+        displayName: "Mona",
+        avatarUrl: null,
+      },
+      comment: {
+        id: "comment-2",
+        body: "New **review** note",
+        bodyHtml:
+          '<div class="markdown-body"><p>New <strong>review</strong> note</p></div>',
+        isMinimized: false,
+        reactions: [],
+        createdAt: "2026-05-01T00:12:00Z",
+        updatedAt: "2026-05-01T00:12:00Z",
+      },
+      metadata: { commentId: "comment-2" },
+      createdAt: "2026-05-01T00:12:00Z",
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/markdown/preview") {
+        return {
+          ok: true,
+          json: async () => ({
+            html: '<div class="markdown-body"><p>Preview <strong>works</strong></p></div>',
+          }),
+        };
+      }
+      if (url.endsWith("/comments")) {
+        return { ok: true, json: async () => createdComment };
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RepositoryPullRequestDetailPage
+        pullRequest={pullRequestDetail()}
+        repository={repositoryOverview()}
+        timeline={pullRequestTimeline()}
+        viewerAuthenticated={true}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Comment body" }), {
+      target: { value: "New **review** note" },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Preview" }));
+    expect(await screen.findByText("Preview")).toBeVisible();
+    expect(await screen.findByText("works")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Write" }));
+    fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/pull/42/comments",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ body: "New **review** note" }),
+        }),
+      );
+    });
+    expect(await screen.findByText("Comment posted.")).toBeVisible();
+    expect(
+      (await screen.findAllByText("review")).length,
+    ).toBeGreaterThanOrEqual(1);
   });
 });

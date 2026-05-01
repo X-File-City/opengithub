@@ -24,7 +24,7 @@
 
 ## Phase 2: Conversation Timeline and Comments - load events and create comments
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Turn the Conversation tab into a real pull request timeline. Opened/commented/committed/review-requested/label/base-change/force-push/ready-for-review/review events render in chronological order, existing comments show Markdown, and signed-in users can post comments with Write/Preview, success/error feedback, and reload persistence. Anonymous public readers can read but see a concrete sign-in CTA for commenting.
 

@@ -674,6 +674,17 @@ export type IssueTimelineItem = {
   createdAt: string;
 };
 
+export type PullRequestTimelineComment = IssueTimelineComment;
+
+export type PullRequestTimelineItem = {
+  id: string;
+  eventType: string;
+  actor: IssueListUser | null;
+  comment: PullRequestTimelineComment | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type IssueListFilters = {
   query: string;
   state: IssueState;
@@ -1719,6 +1730,47 @@ export async function getRepositoryPullRequestFromCookie(
   return body as PullRequestDetailView;
 }
 
+export async function getRepositoryPullRequestTimelineFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  number: number | string,
+): Promise<PullRequestTimelineItem[] | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryPullRequestPath(owner, repo, number)}/timeline`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Pull request timeline is temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "timeline_failed",
+          message: "Pull request timeline could not be loaded.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as PullRequestTimelineItem[];
+}
+
 export function repositoryPullRequestComparePath(
   owner: string,
   repo: string,
@@ -1833,6 +1885,38 @@ export async function createPullRequestFromCookie(
   }
 
   return payload as CreatedPullRequest;
+}
+
+export async function createRepositoryPullRequestCommentFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  number: number | string,
+  body: string,
+): Promise<PullRequestTimelineItem> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryPullRequestPath(owner, repo, number)}/comments`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ body }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(envelope?.error.message ?? "Comment could not be posted", {
+      cause: envelope,
+    });
+  }
+
+  return (await response.json()) as PullRequestTimelineItem;
 }
 
 export async function saveRepositoryPullPreferences(
