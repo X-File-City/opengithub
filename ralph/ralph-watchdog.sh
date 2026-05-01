@@ -23,7 +23,7 @@ RUN_STATUS_REASON=""
 log() { echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG_FILE"; }
 
 # Global time budget (hours) — prevents unbounded runs
-MAX_WALL_CLOCK_HOURS="${MAX_WALL_CLOCK_HOURS:-12}"
+MAX_WALL_CLOCK_HOURS="${MAX_WALL_CLOCK_HOURS:-24}"
 START_EPOCH=$(date +%s)
 
 # Resolve Python: prefer `uv run python3` if uv is available, fall back to bare python3
