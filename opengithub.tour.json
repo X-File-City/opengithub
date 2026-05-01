@@ -196,10 +196,73 @@
     {
       "id": "step-6-migrations",
       "title": "Database Migrations",
-      "description": "Database migrations are append-only and timestamped — read them in order to understand schema evolution. The first migration lays the user, OAuth, and session tables. The next adds the core repository data model. Collaboration follows, introducing issues, pull requests, and reviews. Later migrations add the dashboard, repository imports, archives, and pull request tooling.",
+      "description": "Migrations are append-only and timestamped — read them in order to follow the schema's evolution. Identity foundations come first, then repositories, then collaboration. Later migrations layer on the dashboard, imports, and pull request tooling.",
       "estimatedTime": 120,
       "focusDirectory": "crates/api/migrations",
-      "colorMode": "git"
+      "highlightLayers": [
+        {
+          "id": "migrations-foundation",
+          "name": "Foundation",
+          "color": "#8b5cf6",
+          "items": [
+            { "path": "crates/api/migrations/202604300001_identity_foundation.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300002_repositories.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300003_collaboration.up.sql", "type": "file" }
+          ],
+          "opacity": 0.8,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "migrations-platform",
+          "name": "Platform Services",
+          "color": "#f59e0b",
+          "items": [
+            { "path": "crates/api/migrations/202604300004_automation_delivery.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300005_search_and_observability.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300008_rendered_markdown_cache.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300009_file_tokens.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300016_git_transport.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300017_repository_archives.up.sql", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "migrations-dashboard",
+          "name": "Dashboard & Imports",
+          "color": "#10b981",
+          "items": [
+            { "path": "crates/api/migrations/202604300006_dashboard_onboarding.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300007_dashboard_repository_metadata.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300010_dashboard_feed_events.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300011_dashboard_feed_preferences.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300012_repository_creation_options.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300013_repository_bootstrap_content.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300014_repository_imports.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202604300015_repository_files_per_commit.up.sql", "type": "file" }
+          ],
+          "opacity": 0.6,
+          "renderStrategy": "border"
+        },
+        {
+          "id": "migrations-issues-and-pulls",
+          "name": "Issues & Pull Requests",
+          "color": "#3b82f6",
+          "items": [
+            { "path": "crates/api/migrations/202604300018_repository_issue_preferences.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202605010019_issue_templates.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202605010020_issue_create_side_effects.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202605010021_issue_detail_interactions.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202605010022_pull_request_list_metadata.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202605010024_pull_request_detail_interactions.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202605010027_pull_request_compare_snapshots.up.sql", "type": "file" },
+            { "path": "crates/api/migrations/202605010028_pull_request_create_metadata.up.sql", "type": "file" }
+          ],
+          "opacity": 0.7,
+          "renderStrategy": "border"
+        }
+      ],
+      "colorMode": "fileTypes"
     },
     {
       "id": "step-7-frontend",
