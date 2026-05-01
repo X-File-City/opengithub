@@ -15,7 +15,9 @@ use super::{
         IssueState, TimelineEvent,
     },
     permissions::RepositoryRole,
-    repositories::{get_repository, repository_permission_for_user, Repository, RepositoryVisibility},
+    repositories::{
+        get_repository, repository_permission_for_user, Repository, RepositoryVisibility,
+    },
     search::{upsert_search_document, SearchDocumentKind, UpsertSearchDocument},
 };
 
@@ -1064,13 +1066,12 @@ async fn pull_request_list_items(
                     .get(&pull_request.id)
                     .cloned()
                     .unwrap_or_else(default_checks_summary),
-                task_progress: tasks
-                    .get(&pull_request.id)
-                    .cloned()
-                    .unwrap_or(PullRequestTaskProgress {
+                task_progress: tasks.get(&pull_request.id).cloned().unwrap_or(
+                    PullRequestTaskProgress {
                         completed: 0,
                         total: 0,
-                    }),
+                    },
+                ),
                 head_ref: pull_request.head_ref,
                 base_ref: pull_request.base_ref,
                 checks_href: format!("{href}/checks"),
@@ -1499,8 +1500,7 @@ async fn repository_pull_preferences(
     .await?;
     Ok(match row {
         Some(row) => {
-            let dismissed_at: Option<DateTime<Utc>> =
-                row.get("dismissed_contributor_banner_at");
+            let dismissed_at: Option<DateTime<Utc>> = row.get("dismissed_contributor_banner_at");
             PullRequestListPreferences {
                 dismissed_contributor_banner: dismissed_at.is_some(),
                 dismissed_contributor_banner_at: dismissed_at,
@@ -1511,6 +1511,35 @@ async fn repository_pull_preferences(
             dismissed_contributor_banner_at: None,
         },
     })
+}
+
+pub async fn save_repository_pull_preferences(
+    pool: &PgPool,
+    repository_id: Uuid,
+    user_id: Uuid,
+    dismissed_contributor_banner: bool,
+) -> Result<PullRequestListPreferences, CollaborationError> {
+    require_repository_read(pool, repository_id, user_id).await?;
+    let dismissed_at = dismissed_contributor_banner.then(Utc::now);
+    sqlx::query(
+        r#"
+        INSERT INTO repository_pull_preferences (
+            repository_id,
+            user_id,
+            dismissed_contributor_banner_at
+        )
+        VALUES ($1, $2, $3)
+        ON CONFLICT (repository_id, user_id)
+        DO UPDATE SET dismissed_contributor_banner_at = EXCLUDED.dismissed_contributor_banner_at
+        "#,
+    )
+    .bind(repository_id)
+    .bind(user_id)
+    .bind(dismissed_at)
+    .execute(pool)
+    .await?;
+
+    repository_pull_preferences(pool, repository_id, user_id).await
 }
 
 fn default_review_summary() -> PullRequestReviewSummary {

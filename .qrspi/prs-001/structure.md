@@ -59,7 +59,7 @@
 
 ## Phase 4: Contributor Banner and Preference Persistence - viewer dismissal sticks
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the dismissible contributor guidance banner for pull requests and persist dismissal per signed-in viewer/repository. The banner appears on first view, hides immediately on dismiss, stays hidden after reload for that viewer/repository, and never blocks public read-only PR browsing.
 

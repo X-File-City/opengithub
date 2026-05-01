@@ -158,6 +158,24 @@ test("signed-in repository Pull requests tab renders real PRs and concrete navig
   await expect(
     page.getByRole("link", { name: "New pull request" }).first(),
   ).toHaveAttribute("href", `/${ownerLogin}/${repoName}/compare`);
+  await expect(
+    page.getByRole("region", { name: "Contributor guidance" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Compare changes" }),
+  ).toHaveAttribute("href", `/${ownerLogin}/${repoName}/compare`);
+  await page.getByRole("button", { name: "Dismiss" }).click();
+  await expect(
+    page.getByRole("region", { name: "Contributor guidance" }),
+  ).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole("region", { name: "Contributor guidance" }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/prs-001-phase4-banner-dismissed.jpg",
+  });
 
   await page.getByLabel("pull-query").fill(`is:pr is:open ${pullTitle}`);
   await page.getByRole("button", { name: "Search" }).click();

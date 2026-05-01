@@ -103,6 +103,35 @@ async fn send_json(app: axum::Router, uri: &str, cookie: Option<&str>) -> (Statu
     (status, value)
 }
 
+async fn patch_json(
+    app: axum::Router,
+    uri: &str,
+    cookie: Option<&str>,
+    body: Value,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method(Method::PATCH)
+        .uri(uri)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    let request = builder
+        .body(Body::from(body.to_string()))
+        .expect("request should build");
+    let response = app.oneshot(request).await.expect("request should run");
+    let status = response.status();
+    let bytes = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("body should read");
+    let value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).expect("response should be json")
+    };
+    (status, value)
+}
+
 #[tokio::test]
 async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     let Some(pool) = database_pool().await else {
@@ -392,6 +421,50 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["viewerPermission"], "read");
     assert_eq!(body["preferences"]["dismissedContributorBanner"], false);
 
+    let preference_uri = format!("/api/repos/{}/{}/pulls/preferences", owner.email, repo_name);
+    let (anonymous_preference_status, anonymous_preference_body) = patch_json(
+        app.clone(),
+        &preference_uri,
+        None,
+        json!({ "dismissedContributorBanner": true }),
+    )
+    .await;
+    assert_eq!(anonymous_preference_status, StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        anonymous_preference_body["error"]["code"],
+        "not_authenticated"
+    );
+
+    let (preference_status, preference_body) = patch_json(
+        app.clone(),
+        &preference_uri,
+        Some(&owner_cookie),
+        json!({ "dismissedContributorBanner": true }),
+    )
+    .await;
+    assert_eq!(preference_status, StatusCode::OK);
+    assert_eq!(preference_body["dismissedContributorBanner"], true);
+    assert!(preference_body["dismissedContributorBannerAt"].is_string());
+
+    let (dismissed_status, dismissed_body) =
+        send_json(app.clone(), &default_uri, Some(&owner_cookie)).await;
+    assert_eq!(dismissed_status, StatusCode::OK);
+    assert_eq!(
+        dismissed_body["preferences"]["dismissedContributorBanner"],
+        true
+    );
+
+    let (restore_status, restore_body) = patch_json(
+        app.clone(),
+        &preference_uri,
+        Some(&owner_cookie),
+        json!({ "dismissedContributorBanner": false }),
+    )
+    .await;
+    assert_eq!(restore_status, StatusCode::OK);
+    assert_eq!(restore_body["dismissedContributorBanner"], false);
+    assert_eq!(restore_body["dismissedContributorBannerAt"], Value::Null);
+
     let item = &body["items"][0];
     assert_eq!(item["number"], open_pr.pull_request.number);
     assert_eq!(item["title"], "Fix pull list filters");
@@ -405,7 +478,10 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(item["review"]["state"], "approved");
     assert_eq!(item["review"]["required"], true);
     assert_eq!(item["review"]["reviewerCount"], 1);
-    assert_eq!(item["review"]["requestedReviewers"][0]["login"], reviewer.email);
+    assert_eq!(
+        item["review"]["requestedReviewers"][0]["login"],
+        reviewer.email
+    );
     assert_eq!(item["checks"]["status"], "completed");
     assert_eq!(item["checks"]["conclusion"], "success");
     assert_eq!(item["checks"]["totalCount"], 4);
@@ -458,7 +534,10 @@ async fn pull_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(invalid_filter_status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(invalid_filter_body["error"]["code"], "validation_failed");
 
-    let private_uri = format!("/api/repos/{owner}/{private_repo_name}/pulls", owner = owner.email);
+    let private_uri = format!(
+        "/api/repos/{owner}/{private_repo_name}/pulls",
+        owner = owner.email
+    );
     let (anonymous_private_status, anonymous_private_body) =
         send_json(app.clone(), &private_uri, None).await;
     assert_eq!(anonymous_private_status, StatusCode::FORBIDDEN);

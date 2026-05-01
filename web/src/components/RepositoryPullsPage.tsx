@@ -7,6 +7,7 @@ import {
   IssueSortMenu,
   type IssueSortOption,
 } from "@/components/IssueSortMenu";
+import { PullRequestContributorBanner } from "@/components/PullRequestContributorBanner";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
   ApiErrorEnvelope,
@@ -443,26 +444,11 @@ export function RepositoryPullsPage({
           </div>
         ) : null}
 
-        {!pulls.preferences.dismissedContributorBanner ? (
-          <div className="card flex flex-wrap items-start justify-between gap-4 p-4">
-            <div>
-              <p className="t-label" style={{ color: "var(--accent)" }}>
-                Contributor guidance
-              </p>
-              <p className="t-sm mt-1" style={{ color: "var(--ink-2)" }}>
-                Open a pull request when a branch is ready for review. Keep the
-                branch narrow, describe the intent, and watch checks before
-                requesting merge attention.
-              </p>
-            </div>
-            <Link
-              className="btn sm"
-              href={repositoryPullRequestCompareHref(owner, repo)}
-            >
-              Compare changes
-            </Link>
-          </div>
-        ) : null}
+        <PullRequestContributorBanner
+          dismissed={pulls.preferences.dismissedContributorBanner}
+          owner={owner}
+          repo={repo}
+        />
 
         <form
           action={`/${owner}/${repo}/pulls`}

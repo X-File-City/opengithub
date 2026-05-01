@@ -1463,6 +1463,34 @@ export async function getRepositoryPullRequestsFromCookie(
   return body as PullRequestListView;
 }
 
+export async function saveRepositoryPullPreferences(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  preferences: Pick<PullRequestListPreferences, "dismissedContributorBanner">,
+): Promise<PullRequestListPreferences> {
+  const response = await fetch(
+    `${apiBaseUrl()}/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+      repo,
+    )}/pulls/preferences`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(preferences),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Pull request preferences failed to save");
+  }
+
+  return (await response.json()) as PullRequestListPreferences;
+}
+
 export function repositoryIssuePath(
   owner: string,
   repo: string,

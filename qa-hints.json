@@ -1715,5 +1715,19 @@
       "The compare page is still a concrete landing route only; full branch comparison and PR creation flow remain later PR creation work.",
       "Review/check chips link to concrete PR detail anchors/routes, but those detail pages are still skeletons until PR detail/checks features ship."
     ]
+  },
+  {
+    "feature_id": "prs-001",
+    "tests_written": [
+      "Rust contract test covers PATCH /api/repos/:owner/:repo/pulls/preferences anonymous rejection, signed-session dismissal, list-view persistence, and restore behavior",
+      "Vitest covers PR contributor banner dismissal success, save failure feedback, and already-dismissed server state",
+      "Playwright pulls smoke covers signed-session banner dismissal, reload persistence, concrete Compare changes link, and saved screenshot evidence",
+      "make check, make test, and make test-e2e passed against TEST_DATABASE_URL-backed Postgres"
+    ],
+    "needs_deeper_qa": [
+      "Verify the dismissal preference with a real Google-created browser session once OAuth test-user configuration is available",
+      "Cross-user and private-repository preference leakage is covered by the read path but should get explicit QA in prs-001 Phase 5",
+      "The contributor guidance copy is PR-specific and Editorial-styled; visual QA should compare it with the final pull-list design in Phase 5"
+    ]
   }
 ]

@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    routing::get,
+    routing::{get, patch},
     Json, Router,
 };
 use serde::Deserialize;
@@ -21,8 +21,9 @@ use crate::{
         pulls::{
             add_pull_request_comment, create_pull_request, get_pull_request, pull_request_timeline,
             pull_sort_options, repository_for_actor_by_name,
-            repository_pull_request_list_view_for_viewer, update_pull_request_state,
-            CreatePullRequest, PullRequestListQuery, PullRequestState, UpdatePullRequestState,
+            repository_pull_request_list_view_for_viewer, save_repository_pull_preferences,
+            update_pull_request_state, CreatePullRequest, PullRequestListQuery, PullRequestState,
+            UpdatePullRequestState,
         },
         repositories::{get_repository_by_owner_name, RepositoryError},
     },
@@ -33,6 +34,10 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/repos/:owner/:repo/pulls", get(list).post(create))
+        .route(
+            "/api/repos/:owner/:repo/pulls/preferences",
+            patch(update_preferences),
+        )
         .route(
             "/api/repos/:owner/:repo/pulls/:number",
             get(read).patch(update_state),
@@ -86,6 +91,12 @@ struct CreateCommentRequest {
     body: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdatePullPreferencesRequest {
+    dismissed_contributor_banner: bool,
+}
+
 async fn list(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -97,7 +108,9 @@ async fn list(
     let repository = get_repository_by_owner_name(pool, &owner, &repo)
         .await
         .map_err(repository_lookup_error)?
-        .ok_or_else(|| map_collaboration_error(crate::domain::issues::CollaborationError::RepositoryNotFound))?;
+        .ok_or_else(|| {
+            map_collaboration_error(crate::domain::issues::CollaborationError::RepositoryNotFound)
+        })?;
     let pagination = normalize_pagination(query.page, query.page_size);
     let envelope = repository_pull_request_list_view_for_viewer(
         pool,
@@ -111,6 +124,30 @@ async fn list(
     .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(envelope)))
+}
+
+async fn update_preferences(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo)): Path<(String, String)>,
+    RestJson(request): RestJson<UpdatePullPreferencesRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_collaboration_error)?;
+    let preferences = save_repository_pull_preferences(
+        pool,
+        repository_id,
+        actor.0.id,
+        request.dismissed_contributor_banner,
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+
+    Ok(Json(json!(preferences)))
 }
 
 fn pull_list_query(
@@ -143,7 +180,10 @@ fn pull_list_query(
 
     Ok(PullRequestListQuery {
         query: Some(q.chars().take(240).collect()),
-        state: query.state.clone().unwrap_or_else(|| pull_state_from_query(q)),
+        state: query
+            .state
+            .clone()
+            .unwrap_or_else(|| pull_state_from_query(q)),
         labels: labels_from_query(q, query.labels.as_deref()),
         milestone: query
             .milestone
@@ -159,8 +199,7 @@ fn pull_list_query(
             .filter(|value| !value.is_empty())
             .map(|value| normalize_actor_alias(value, actor))
             .or_else(|| {
-                qualifier_from_query(q, "review:")
-                    .map(|value| normalize_actor_alias(&value, actor))
+                qualifier_from_query(q, "review:").map(|value| normalize_actor_alias(&value, actor))
             })
             .map(validate_review_filter)
             .transpose()?,
@@ -191,24 +230,38 @@ fn validate_pull_query(query: &str) -> Result<(), crate::domain::issues::Collabo
     for term in pull_query_terms(query) {
         if let Some(value) = term.strip_prefix("state:") {
             if !matches!(value, "open" | "closed" | "merged") {
-                return Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
-                    "state filter must be open, closed, or merged".to_owned(),
-                ));
+                return Err(
+                    crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                        "state filter must be open, closed, or merged".to_owned(),
+                    ),
+                );
             }
         }
         if let Some(value) = term.strip_prefix("is:") {
             if !matches!(value, "pr" | "pull-request" | "open" | "closed" | "merged") {
-                return Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
-                    "is filter must be pr, open, closed, or merged".to_owned(),
-                ));
+                return Err(
+                    crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                        "is filter must be pr, open, closed, or merged".to_owned(),
+                    ),
+                );
             }
         }
-        for prefix in ["label:", "milestone:", "review:", "checks:", "sort:", "order:"] {
+        for prefix in [
+            "label:",
+            "milestone:",
+            "review:",
+            "checks:",
+            "sort:",
+            "order:",
+        ] {
             if let Some(value) = term.strip_prefix(prefix) {
                 if value.trim().trim_matches('"').is_empty() {
-                    return Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
-                        format!("{} filters require a value", prefix.trim_end_matches(':')),
-                    ));
+                    return Err(
+                        crate::domain::issues::CollaborationError::InvalidIssueFilter(format!(
+                            "{} filters require a value",
+                            prefix.trim_end_matches(':')
+                        )),
+                    );
                 }
             }
         }
@@ -252,9 +305,11 @@ fn normalize_pull_sort(
 ) -> Result<String, crate::domain::issues::CollaborationError> {
     let order = order.unwrap_or("desc").to_lowercase();
     if !matches!(order.as_str(), "asc" | "desc") {
-        return Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
-            "order must be asc or desc".to_owned(),
-        ));
+        return Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "order must be asc or desc".to_owned(),
+            ),
+        );
     }
     let normalized = match sort.to_lowercase().as_str() {
         "updated" | "recently-updated" => format!("updated-{order}"),
@@ -282,26 +337,35 @@ fn validate_review_filter(
     ) {
         Ok(value)
     } else {
-        Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
-            "review must be required, approved, changes_requested, or commented".to_owned(),
-        ))
+        Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "review must be required, approved, changes_requested, or commented".to_owned(),
+            ),
+        )
     }
 }
 
 fn validate_checks_filter(
     value: String,
 ) -> Result<String, crate::domain::issues::CollaborationError> {
-    if matches!(value.as_str(), "success" | "failure" | "pending" | "running") {
+    if matches!(
+        value.as_str(),
+        "success" | "failure" | "pending" | "running"
+    ) {
         Ok(value)
     } else {
-        Err(crate::domain::issues::CollaborationError::InvalidIssueFilter(
-            "checks must be success, failure, pending, or running".to_owned(),
-        ))
+        Err(
+            crate::domain::issues::CollaborationError::InvalidIssueFilter(
+                "checks must be success, failure, pending, or running".to_owned(),
+            ),
+        )
     }
 }
 
 fn qualifier_from_query(query: &str, prefix: &str) -> Option<String> {
-    qualifier_values_from_query(query, prefix).into_iter().next()
+    qualifier_values_from_query(query, prefix)
+        .into_iter()
+        .next()
 }
 
 fn qualifier_values_from_query(query: &str, prefix: &str) -> Vec<String> {

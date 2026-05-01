@@ -1,5 +1,11 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { RepositoryPullsPage } from "@/components/RepositoryPullsPage";
 import type {
   PullRequestListItem,
@@ -351,6 +357,91 @@ describe("RepositoryPullsPage", () => {
     expect(
       screen.getByRole("link", { name: "checks:success" }),
     ).toHaveAttribute("href", expect.not.stringContaining("checks="));
+  });
+
+  it("dismisses the contributor banner through the preferences endpoint", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            dismissedContributorBanner: true,
+            dismissedContributorBannerAt: "2026-05-01T00:00:00Z",
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RepositoryPullsPage
+        pulls={pullRequestListView()}
+        query={{ q: "is:pr is:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("region", { name: "Contributor guidance" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", { name: "Contributor guidance" }),
+      ).toBeNull(),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/mona/octo-app/pulls/preferences",
+      expect.objectContaining({
+        body: JSON.stringify({ dismissedContributorBanner: true }),
+        method: "PATCH",
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it("shows pull contributor banner save failures without hiding the guidance", async () => {
+    const fetchMock = vi.fn(async () => new Response("nope", { status: 502 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RepositoryPullsPage
+        pulls={pullRequestListView()}
+        query={{ q: "is:pr is:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+    expect(
+      await screen.findByText("This preference could not be saved. Try again."),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Contributor guidance" }),
+    ).toBeVisible();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("hides the contributor banner when the server preference is already dismissed", () => {
+    render(
+      <RepositoryPullsPage
+        pulls={pullRequestListView({
+          preferences: {
+            dismissedContributorBanner: true,
+            dismissedContributorBannerAt: "2026-05-01T00:00:00Z",
+          },
+        })}
+        query={{ q: "is:pr is:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Contributor guidance" }),
+    ).toBeNull();
   });
 
   it("builds pull request list navigation hrefs", () => {
