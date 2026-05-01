@@ -6,7 +6,7 @@
 
 ## Phase 1: Label Filter Menu - searchable label options mutate the issue query
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Add the first real compact dropdown menu to the repository Issues toolbar: Labels. Opening the menu focuses a combobox, typing narrows repository labels, selecting a label adds `label:<name>` to the URL-backed query, selecting No labels adds the no-label qualifier, and Alt-clicking a label creates an exclusion qualifier without losing existing filters.
 

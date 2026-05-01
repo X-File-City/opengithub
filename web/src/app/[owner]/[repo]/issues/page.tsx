@@ -13,6 +13,8 @@ type RepositoryIssuesPageProps = {
     q?: string;
     state?: "open" | "closed";
     labels?: string;
+    excludedLabels?: string;
+    noLabels?: string;
     milestone?: string;
     assignee?: string;
     sort?: string;
@@ -37,6 +39,11 @@ export default async function RepositoryIssuesPage({
       ?.split(",")
       .map((label) => label.trim())
       .filter(Boolean),
+    excludedLabels: query.excludedLabels
+      ?.split(",")
+      .map((label) => label.trim())
+      .filter(Boolean),
+    noLabels: query.noLabels === "true",
     milestone: query.milestone,
     assignee: query.assignee,
     sort: query.sort,

@@ -1394,5 +1394,22 @@
       "Mobile QA verified no horizontal overflow in Chromium at 390px; QA should spot-check Safari/mobile assistive technology.",
       "Issue creation, labels, milestones, rich issue timelines, and advanced query-builder grammar remain follow-on issues features."
     ]
+  },
+  {
+    "feature_id": "issues-002",
+    "tests_written": [
+      "Implemented Phase 1 label filter menus: repository issue lists now expose all repository label options, active included labels, excluded labels, and no-label state.",
+      "Added API contract coverage for label:bug inclusion, -label:bug exclusion, no:label filtering, label option metadata, and invalid empty label filter validation against real Postgres.",
+      "Added an accessible Editorial Labels popover with focused search combobox, listbox options, label color swatches, No labels option, selected/excluded state chips, and Alt-click exclusion navigation.",
+      "Added URL helpers and Vitest coverage for adding, excluding, clearing, and no-label qualifiers while preserving state/sort/query context.",
+      "Added Playwright coverage for signed-session label-menu include, Alt-click exclude, No labels filtering, dead-control checks, and screenshot ralph/screenshots/build/issues-002-phase1-label-menu.jpg.",
+      "Verification passed: focused Rust contract test, focused repository-issues Vitest, TEST_DATABASE_URL-backed make check, TEST_DATABASE_URL-backed make test with 120 frontend tests plus cargo tests, TEST_DATABASE_URL-backed make test-e2e with 56 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Only the Labels menu is complete in this phase; Author, Projects, Milestones, Assignees, Types, Sort by, and invalid-query inline warnings remain later issues-002 phases.",
+      "Alt-click exclusion is covered in Chromium Playwright; QA should spot-check physical keyboard/mouse modifier behavior in Safari and Firefox.",
+      "No-label filtering uses no:label/noLabels URL state; richer GitHub-compatible query grammar remains bounded until the final invalid-query phase.",
+      "Label option colors currently reflect stored repository label colors; QA should verify contrast for custom label colors once label management ships."
+    ]
   }
 ]

@@ -283,6 +283,15 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
     assert_eq!(body["counts"]["open"], 1);
     assert_eq!(body["filters"]["state"], "open");
     assert_eq!(body["filters"]["labels"][0], "bug");
+    assert_eq!(body["filters"]["excludedLabels"], json!([]));
+    assert_eq!(body["filters"]["noLabels"], false);
+    assert!(
+        body["filterOptions"]["labels"]
+            .as_array()
+            .expect("label options should be an array")
+            .iter()
+            .any(|label| label["name"] == "bug")
+    );
     assert_eq!(body["repository"]["name"], repo_name);
     assert_eq!(body["viewerPermission"], "read");
     assert_eq!(body["preferences"]["dismissedContributorBanner"], false);
@@ -309,6 +318,139 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
             owner.email, repo_name, open_issue.number
         )
     );
+}
+
+#[tokio::test]
+async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping issue label filter scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-label-menu-owner").await;
+    let repo_name = format!("issue-label-menu-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("repository should create");
+    let labels = ensure_default_labels(&pool, repository.id)
+        .await
+        .expect("labels should exist");
+    let bug = labels
+        .iter()
+        .find(|label| label.name == "bug")
+        .expect("bug label should exist");
+    let docs = labels
+        .iter()
+        .find(|label| label.name == "documentation")
+        .expect("documentation label should exist");
+    let bug_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Bug only issue".to_owned(),
+            body: None,
+            milestone_id: None,
+            label_ids: vec![bug.id],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("bug issue should create");
+    let docs_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Documentation issue".to_owned(),
+            body: None,
+            milestone_id: None,
+            label_ids: vec![docs.id],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("documentation issue should create");
+    let unlabeled_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Unlabeled issue".to_owned(),
+            body: None,
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("unlabeled issue should create");
+
+    let cookie = cookie_header(&pool, &config, &owner).await;
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let owner_path = owner.email.replace('@', "%40");
+    let base = format!("/api/repos/{owner_path}/{repo_name}/issues");
+
+    let (include_status, include_body) = send_json(
+        app.clone(),
+        &format!("{base}?q=is%3Aissue%20state%3Aopen%20label%3Abug"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(include_status, StatusCode::OK);
+    assert_eq!(include_body["total"], 1);
+    assert_eq!(include_body["items"][0]["number"], bug_issue.number);
+    assert_eq!(include_body["filters"]["labels"], json!(["bug"]));
+
+    let (exclude_status, exclude_body) = send_json(
+        app.clone(),
+        &format!("{base}?q=is%3Aissue%20state%3Aopen%20-label%3Abug"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(exclude_status, StatusCode::OK);
+    assert_eq!(exclude_body["total"], 2);
+    assert_eq!(exclude_body["filters"]["excludedLabels"], json!(["bug"]));
+    let exclude_numbers = exclude_body["items"]
+        .as_array()
+        .expect("items should be an array")
+        .iter()
+        .map(|item| item["number"].as_i64().expect("number"))
+        .collect::<Vec<_>>();
+    assert!(exclude_numbers.contains(&docs_issue.number));
+    assert!(exclude_numbers.contains(&unlabeled_issue.number));
+    assert!(!exclude_numbers.contains(&bug_issue.number));
+
+    let (no_label_status, no_label_body) = send_json(
+        app.clone(),
+        &format!("{base}?q=is%3Aissue%20state%3Aopen%20no%3Alabel"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(no_label_status, StatusCode::OK);
+    assert_eq!(no_label_body["total"], 1);
+    assert_eq!(no_label_body["items"][0]["number"], unlabeled_issue.number);
+    assert_eq!(no_label_body["filters"]["noLabels"], true);
+
+    let (bad_label_status, bad_label_body) = send_json(
+        app,
+        &format!("{base}?q=is%3Aissue%20state%3Aopen%20label%3A"),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(bad_label_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(bad_label_body["error"]["code"], "validation_failed");
 }
 
 #[tokio::test]

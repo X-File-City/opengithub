@@ -63,6 +63,10 @@ struct ListQuery {
     state: Option<IssueState>,
     q: Option<String>,
     labels: Option<String>,
+    #[serde(alias = "excluded_labels")]
+    excluded_labels: Option<String>,
+    #[serde(alias = "no_labels", alias = "noLabels")]
+    no_labels: Option<bool>,
     milestone: Option<String>,
     assignee: Option<String>,
     sort: Option<String>,
@@ -150,6 +154,8 @@ fn issue_list_query(
     filters.query = Some(q.chars().take(240).collect());
     filters.state = query.state.clone().unwrap_or_else(|| state_from_query(q));
     filters.labels = labels_from_query(q, query.labels.as_deref());
+    filters.excluded_labels = excluded_labels_from_query(q, query.excluded_labels.as_deref());
+    filters.no_labels = query.no_labels.unwrap_or(false) || no_labels_from_query(q);
     filters.milestone = query
         .milestone
         .as_deref()
@@ -200,6 +206,26 @@ fn validate_issue_query(query: &str) -> Result<(), CollaborationError> {
                 ));
             }
         }
+        if matches!(term, "no:labels" | "no:label") {
+            continue;
+        }
+        for prefix in ["label:", "-label:"] {
+            if let Some(value) = term.strip_prefix(prefix) {
+                let normalized = value.trim().trim_matches('"');
+                if normalized.is_empty() {
+                    return Err(CollaborationError::InvalidIssueFilter(
+                        "label filters require a label name".to_owned(),
+                    ));
+                }
+            }
+        }
+        if let Some(value) = term.strip_prefix("no:") {
+            if value != "label" && value != "labels" {
+                return Err(CollaborationError::InvalidIssueFilter(
+                    "no filter must be label".to_owned(),
+                ));
+            }
+        }
     }
     Ok(())
 }
@@ -233,6 +259,30 @@ fn labels_from_query(query: &str, explicit_labels: Option<&str>) -> Vec<String> 
     labels
 }
 
+fn excluded_labels_from_query(query: &str, explicit_labels: Option<&str>) -> Vec<String> {
+    let mut labels = explicit_labels
+        .into_iter()
+        .flat_map(|value| value.split(','))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    labels.extend(
+        qualifier_values_from_query(query, "-label:")
+            .into_iter()
+            .filter(|value| !value.is_empty()),
+    );
+    labels.sort_by_key(|value| value.to_lowercase());
+    labels.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    labels
+}
+
+fn no_labels_from_query(query: &str) -> bool {
+    query
+        .split_whitespace()
+        .any(|term| matches!(term, "no:label" | "no:labels"))
+}
+
 fn qualifier_from_query(query: &str, prefix: &str) -> Option<String> {
     qualifier_values_from_query(query, prefix)
         .into_iter()
@@ -243,6 +293,10 @@ fn qualifier_values_from_query(query: &str, prefix: &str) -> Vec<String> {
     let mut values = Vec::new();
     let mut rest = query;
     while let Some(index) = rest.find(prefix) {
+        if prefix == "label:" && index > 0 && rest.as_bytes()[index - 1] == b'-' {
+            rest = &rest[index + prefix.len()..];
+            continue;
+        }
         let after_prefix = &rest[index + prefix.len()..];
         let trimmed = after_prefix.trim_start();
         if let Some(quoted) = trimmed.strip_prefix('"') {

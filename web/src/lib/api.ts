@@ -562,6 +562,8 @@ export type IssueListFilters = {
   query: string;
   state: IssueState;
   labels: string[];
+  excludedLabels: string[];
+  noLabels: boolean;
   milestone: string | null;
   assignee: string | null;
   sort: string;
@@ -580,6 +582,9 @@ export type IssueListView = ListEnvelope<IssueListItem> & {
     closed: number;
   };
   filters: IssueListFilters;
+  filterOptions: {
+    labels: IssueListLabel[];
+  };
   viewerPermission: string | null;
   repository: {
     id: string;
@@ -594,6 +599,8 @@ export type RepositoryIssueListQuery = {
   q?: string;
   state?: IssueState;
   labels?: string[];
+  excludedLabels?: string[];
+  noLabels?: boolean;
   milestone?: string;
   assignee?: string;
   sort?: string;
@@ -963,6 +970,12 @@ export function repositoryIssuesPath(
   }
   if (query.labels?.length) {
     params.set("labels", query.labels.join(","));
+  }
+  if (query.excludedLabels?.length) {
+    params.set("excludedLabels", query.excludedLabels.join(","));
+  }
+  if (query.noLabels) {
+    params.set("noLabels", "true");
   }
   if (query.milestone?.trim()) {
     params.set("milestone", query.milestone.trim());

@@ -13,8 +13,11 @@ import type {
   RepositoryOverview,
 } from "@/lib/api";
 import {
+  repositoryIssueAddLabelHref,
   repositoryIssueClearFilterHref,
   repositoryIssueDetailHref,
+  repositoryIssueExcludeLabelHref,
+  repositoryIssueNoLabelsHref,
   repositoryIssueSortHref,
   repositoryIssueStateHref,
   repositoryIssuesHref,
@@ -135,9 +138,27 @@ function issueListView(overrides: Partial<IssueListView> = {}): IssueListView {
       query: "is:issue state:open",
       state: "open",
       labels: [],
+      excludedLabels: [],
+      noLabels: false,
       milestone: null,
       assignee: null,
       sort: "updated-desc",
+    },
+    filterOptions: {
+      labels: [
+        {
+          id: "label-1",
+          name: "bug",
+          color: "var(--err)",
+          description: "Something is not working",
+        },
+        {
+          id: "label-2",
+          name: "documentation",
+          color: "var(--info)",
+          description: "Improvements or additions to documentation",
+        },
+      ],
     },
     viewerPermission: "owner",
     repository: {
@@ -179,10 +200,7 @@ describe("RepositoryIssuesPage", () => {
       "href",
       "/mona/octo-app/issues/new",
     );
-    expect(screen.getByRole("link", { name: /Labels/ })).toHaveAttribute(
-      "href",
-      "/mona/octo-app/labels",
-    );
+    expect(screen.getByRole("button", { name: /Labels/ })).toBeVisible();
     expect(screen.getByRole("link", { name: /Milestones/ })).toHaveAttribute(
       "href",
       "/mona/octo-app/milestones",
@@ -334,6 +352,70 @@ describe("RepositoryIssuesPage", () => {
     ).toBe(
       "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&labels=docs&milestone=MVP",
     );
+    expect(
+      repositoryIssueAddLabelHref(
+        "mona",
+        "octo-app",
+        { q: "is:issue state:open", state: "open", page: 3 },
+        "good first issue",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+label%3A%22good+first+issue%22&state=open&labels=good+first+issue",
+    );
+    expect(
+      repositoryIssueExcludeLabelHref(
+        "mona",
+        "octo-app",
+        {
+          q: "is:issue state:open label:bug",
+          labels: ["bug"],
+          state: "open",
+        },
+        "bug",
+      ),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+-label%3Abug&state=open&excludedLabels=bug",
+    );
+    expect(
+      repositoryIssueNoLabelsHref("mona", "octo-app", {
+        q: "is:issue state:open label:bug -label:docs",
+        labels: ["bug"],
+        excludedLabels: ["docs"],
+        state: "open",
+      }),
+    ).toBe(
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+no%3Alabel&state=open&noLabels=true",
+    );
+  });
+
+  it("opens the label filter menu, focuses search, narrows options, and exposes label actions", async () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView()}
+        query={{ q: "is:issue state:open", state: "open" }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Labels/ }));
+    const search = screen.getByRole("combobox", { name: "Filter labels" });
+    await waitFor(() => expect(search).toHaveFocus());
+    expect(screen.getByRole("dialog", { name: "Labels filter" })).toBeVisible();
+    expect(screen.getByRole("option", { name: /No labels/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+no%3Alabel&state=open&noLabels=true&sort=updated-desc",
+    );
+
+    fireEvent.change(search, { target: { value: "doc" } });
+    expect(
+      screen.getByRole("option", { name: /documentation/ }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+label%3Adocumentation&state=open&labels=documentation&sort=updated-desc",
+    );
+    expect(
+      screen.queryByRole("option", { name: /bug/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders filtered controls, closed state, and clear-query affordance", () => {
@@ -349,6 +431,8 @@ describe("RepositoryIssuesPage", () => {
             query: "is:issue state:closed label:missing",
             state: "closed",
             labels: ["missing"],
+            excludedLabels: ["wontfix"],
+            noLabels: false,
             milestone: null,
             assignee: "hubot",
             sort: "created-asc",
@@ -370,11 +454,15 @@ describe("RepositoryIssuesPage", () => {
     );
     expect(screen.getByTitle("Remove label:missing")).toHaveAttribute(
       "href",
-      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed&state=closed&assignee=hubot&sort=created-asc",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed&state=closed&excludedLabels=wontfix&assignee=hubot&sort=created-asc",
     );
     expect(screen.getByTitle("Remove assignee:hubot")).toHaveAttribute(
       "href",
-      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed+label%3Amissing&state=closed&labels=missing&sort=created-asc",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed+label%3Amissing&state=closed&labels=missing&excludedLabels=wontfix&sort=created-asc",
+    );
+    expect(screen.getByTitle("Remove -label:wontfix")).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aclosed+label%3Amissing&state=closed&labels=missing&assignee=hubot&sort=created-asc",
     );
     expect(screen.getByRole("link", { name: "Clear query" })).toHaveAttribute(
       "href",

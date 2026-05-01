@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IssueContributorBanner } from "@/components/IssueContributorBanner";
+import { IssueFilterMenu } from "@/components/IssueFilterMenu";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
   IssueListItem,
@@ -8,8 +9,11 @@ import type {
 } from "@/lib/api";
 import {
   type RepositoryIssueHrefQuery,
+  repositoryIssueAddLabelHref,
   repositoryIssueClearFilterHref,
   repositoryIssueDetailHref,
+  repositoryIssueExcludeLabelHref,
+  repositoryIssueNoLabelsHref,
   repositoryIssueSortHref,
   repositoryIssueStateHref,
   repositoryIssuesHref,
@@ -183,6 +187,8 @@ export function RepositoryIssuesPage({
     q: issues.filters.query,
     state: activeState,
     labels: issues.filters.labels,
+    excludedLabels: issues.filters.excludedLabels,
+    noLabels: issues.filters.noLabels,
     milestone: issues.filters.milestone,
     assignee: issues.filters.assignee,
     sort: issues.filters.sort,
@@ -247,6 +253,16 @@ export function RepositoryIssuesPage({
               value={issues.filters.labels.join(",")}
             />
           ) : null}
+          {issues.filters.excludedLabels.length ? (
+            <input
+              name="excludedLabels"
+              type="hidden"
+              value={issues.filters.excludedLabels.join(",")}
+            />
+          ) : null}
+          {issues.filters.noLabels ? (
+            <input name="noLabels" type="hidden" value="true" />
+          ) : null}
           {issues.filters.milestone ? (
             <input
               name="milestone"
@@ -264,9 +280,32 @@ export function RepositoryIssuesPage({
           <button className="btn" type="submit">
             Search
           </button>
-          <Link className="btn ghost" href={`/${owner}/${repo}/labels`}>
-            Labels
-          </Link>
+          <IssueFilterMenu
+            buttonLabel="Labels"
+            labelOptions={issues.filterOptions.labels.map((label) => ({
+              ...label,
+              selected: issues.filters.labels.some(
+                (value) => value.toLowerCase() === label.name.toLowerCase(),
+              ),
+              excluded: issues.filters.excludedLabels.some(
+                (value) => value.toLowerCase() === label.name.toLowerCase(),
+              ),
+              includeHref: repositoryIssueAddLabelHref(
+                owner,
+                repo,
+                baseQuery,
+                label.name,
+              ),
+              excludeHref: repositoryIssueExcludeLabelHref(
+                owner,
+                repo,
+                baseQuery,
+                label.name,
+              ),
+            }))}
+            noLabelsHref={repositoryIssueNoLabelsHref(owner, repo, baseQuery)}
+            noLabelsSelected={issues.filters.noLabels}
+          />
           <Link className="btn ghost" href={`/${owner}/${repo}/milestones`}>
             Milestones
           </Link>
@@ -329,6 +368,36 @@ export function RepositoryIssuesPage({
                   label:{label}
                 </Link>
               ))}
+              {issues.filters.excludedLabels.map((label) => (
+                <Link
+                  className="chip err"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "excludedLabels",
+                    label,
+                  )}
+                  key={label}
+                  title={`Remove -label:${label}`}
+                >
+                  -label:{label}
+                </Link>
+              ))}
+              {issues.filters.noLabels ? (
+                <Link
+                  className="chip soft"
+                  href={repositoryIssueClearFilterHref(
+                    owner,
+                    repo,
+                    baseQuery,
+                    "noLabels",
+                  )}
+                  title="Remove no:label"
+                >
+                  no:label
+                </Link>
+              ) : null}
               {issues.filters.milestone ? (
                 <Link
                   className="chip soft"

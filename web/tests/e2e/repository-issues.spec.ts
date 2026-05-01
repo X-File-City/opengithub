@@ -9,8 +9,20 @@ type SeededSession = {
 };
 
 type CreatedIssue = {
+  id: string;
   number: number;
   title: string;
+};
+
+type IssueLabelOption = {
+  id: string;
+  name: string;
+};
+
+type IssueListResponse = {
+  filterOptions: {
+    labels: IssueLabelOption[];
+  };
 };
 
 type CurrentUser = {
@@ -70,6 +82,13 @@ async function expectNoDeadControls(page: Page) {
   for (const button of await page.locator("button:visible").all()) {
     await expect(button).toHaveAccessibleName(/.+/);
   }
+}
+
+async function openLabelsMenu(page: Page) {
+  await page.getByRole("button", { name: /Labels/ }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter labels" }),
+  ).toBeFocused();
 }
 
 test.skip(
@@ -233,6 +252,107 @@ test("signed-in repository Issues filters update URL, results, and empty states"
   await page.screenshot({
     fullPage: true,
     path: "../ralph/screenshots/build/issues-001-phase3-filtered-empty.jpg",
+  });
+});
+
+test("signed-in repository Issues label menu filters, excludes, and finds unlabeled issues", async ({
+  page,
+}) => {
+  const seeded = seedSession();
+  await signIn(page, seeded);
+  const repositoryName = `issues labels ${Date.now().toString(36)}`;
+  const cookie = `${seeded.cookieName}=${seeded.cookieValue}`;
+  const currentUserResponse = await page.request.get(
+    "http://localhost:3016/api/auth/current-user",
+    { headers: { cookie } },
+  );
+  expect(currentUserResponse.status()).toBe(200);
+  const currentUser = (await currentUserResponse.json()) as CurrentUser;
+  const repositoryResponse = await page.request.post(
+    "http://localhost:3016/api/repos",
+    {
+      headers: { cookie },
+      data: {
+        ownerType: "user",
+        ownerId: currentUser.id,
+        name: repositoryName,
+        visibility: "public",
+        initializeReadme: false,
+      },
+    },
+  );
+  expect(repositoryResponse.status()).toBe(201);
+  const repository = (await repositoryResponse.json()) as CreatedRepository;
+  const ownerLogin = repository.owner_login;
+  const repoName = repository.name;
+  const unlabeledTitle = `Unlabeled menu issue ${Date.now().toString(36)}`;
+  const unlabeledResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/issues`,
+    {
+      headers: { cookie },
+      data: {
+        title: unlabeledTitle,
+        body: "This issue intentionally has no labels.",
+      },
+    },
+  );
+  expect(unlabeledResponse.status()).toBe(201);
+
+  const optionsResponse = await page.request.get(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/issues`,
+    { headers: { cookie } },
+  );
+  expect(optionsResponse.status()).toBe(200);
+  const optionsBody = (await optionsResponse.json()) as IssueListResponse;
+  const bugLabel = optionsBody.filterOptions.labels.find(
+    (label) => label.name === "bug",
+  );
+  if (!bugLabel) {
+    throw new Error("bug label option should be present");
+  }
+  const bugTitle = `Bug menu issue ${Date.now().toString(36)}`;
+  const bugResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${ownerLogin}/${repoName}/issues`,
+    {
+      headers: { cookie },
+      data: {
+        title: bugTitle,
+        body: "This issue should be selected by the label menu.",
+        labelIds: [bugLabel.id],
+      },
+    },
+  );
+  expect(bugResponse.status()).toBe(201);
+
+  await page.goto(`/${ownerLogin}/${repoName}/issues`);
+  const issuesPath = `/${ownerLogin}/${repoName}/issues`;
+
+  await openLabelsMenu(page);
+  await page.getByRole("combobox", { name: "Filter labels" }).fill("bug");
+  await expect(page.getByRole("option", { name: /bug/ })).toBeVisible();
+  await page.getByRole("option", { name: /bug/ }).click();
+  await expect(page).toHaveURL(/labels=bug/);
+  await expect(page.getByRole("link", { name: bugTitle })).toBeVisible();
+  await expect(page.getByRole("link", { name: unlabeledTitle })).toHaveCount(0);
+
+  await page.goto(issuesPath);
+  await openLabelsMenu(page);
+  await page.getByRole("combobox", { name: "Filter labels" }).fill("bug");
+  await page.getByRole("option", { name: /bug/ }).click({ modifiers: ["Alt"] });
+  await expect(page).toHaveURL(/excludedLabels=bug/);
+  await expect(page.getByRole("link", { name: unlabeledTitle })).toBeVisible();
+  await expect(page.getByRole("link", { name: bugTitle })).toHaveCount(0);
+
+  await page.goto(issuesPath);
+  await openLabelsMenu(page);
+  await page.getByRole("option", { name: /No labels/ }).click();
+  await expect(page).toHaveURL(/noLabels=true/);
+  await expect(page.getByRole("link", { name: unlabeledTitle })).toBeVisible();
+  await expect(page.getByRole("link", { name: bugTitle })).toHaveCount(0);
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-002-phase1-label-menu.jpg",
   });
 });
 

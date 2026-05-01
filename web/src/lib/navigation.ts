@@ -619,6 +619,8 @@ export type RepositoryIssueHrefQuery = {
   q?: string | null;
   state?: string | null;
   labels?: string[] | null;
+  excludedLabels?: string[] | null;
+  noLabels?: boolean | null;
   milestone?: string | null;
   assignee?: string | null;
   sort?: string | null;
@@ -639,6 +641,12 @@ export function repositoryIssuesHref(
   }
   if (query.labels?.length) {
     params.set("labels", query.labels.join(","));
+  }
+  if (query.excludedLabels?.length) {
+    params.set("excludedLabels", query.excludedLabels.join(","));
+  }
+  if (query.noLabels) {
+    params.set("noLabels", "true");
   }
   if (query.milestone?.trim()) {
     params.set("milestone", query.milestone.trim());
@@ -696,7 +704,7 @@ export function repositoryIssueClearFilterHref(
   owner: string,
   repo: string,
   current: RepositoryIssueHrefQuery,
-  filter: "labels" | "milestone" | "assignee",
+  filter: "labels" | "excludedLabels" | "noLabels" | "milestone" | "assignee",
   value?: string,
 ) {
   const next = { ...current, page: null };
@@ -707,6 +715,16 @@ export function repositoryIssueClearFilterHref(
         )
       : [];
     next.q = removeIssueFilterFromQuery(current.q, "label", value);
+  } else if (filter === "excludedLabels") {
+    next.excludedLabels = value
+      ? current.excludedLabels?.filter(
+          (label) => label.toLowerCase() !== value.toLowerCase(),
+        )
+      : [];
+    next.q = removeIssueFilterFromQuery(current.q, "-label", value);
+  } else if (filter === "noLabels") {
+    next.noLabels = false;
+    next.q = removeNoLabelFilterFromQuery(current.q);
   } else if (filter === "milestone") {
     next.milestone = null;
     next.q = removeIssueFilterFromQuery(current.q, "milestone");
@@ -715,6 +733,89 @@ export function repositoryIssueClearFilterHref(
     next.q = removeIssueFilterFromQuery(current.q, "assignee");
   }
   return repositoryIssuesHref(owner, repo, next);
+}
+
+export function repositoryIssueAddLabelHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  label: string,
+) {
+  const labels = uniqueIssueValues([...(current.labels ?? []), label]);
+  const excludedLabels = (current.excludedLabels ?? []).filter(
+    (value) => value.toLowerCase() !== label.toLowerCase(),
+  );
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    labels,
+    excludedLabels,
+    noLabels: false,
+    q: addIssueQualifier(
+      removeIssueFilterFromQuery(
+        removeNoLabelFilterFromQuery(current.q),
+        "-label",
+        label,
+      ),
+      "label",
+      label,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryIssueExcludeLabelHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+  label: string,
+) {
+  const excludedLabels = uniqueIssueValues([
+    ...(current.excludedLabels ?? []),
+    label,
+  ]);
+  const labels = (current.labels ?? []).filter(
+    (value) => value.toLowerCase() !== label.toLowerCase(),
+  );
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    labels,
+    excludedLabels,
+    noLabels: false,
+    q: addIssueQualifier(
+      removeIssueFilterFromQuery(
+        removeNoLabelFilterFromQuery(current.q),
+        "label",
+        label,
+      ),
+      "-label",
+      label,
+    ),
+    page: null,
+  });
+}
+
+export function repositoryIssueNoLabelsHref(
+  owner: string,
+  repo: string,
+  current: RepositoryIssueHrefQuery,
+) {
+  return repositoryIssuesHref(owner, repo, {
+    ...current,
+    labels: [],
+    excludedLabels: [],
+    noLabels: true,
+    q: addIssueQualifier(
+      removeNoLabelFilterFromQuery(
+        removeIssueFilterFromQuery(
+          removeIssueFilterFromQuery(current.q, "label"),
+          "-label",
+        ),
+      ),
+      "no",
+      "label",
+    ),
+    page: null,
+  });
 }
 
 function issueQueryWithState(
@@ -739,7 +840,7 @@ function issueQueryWithState(
 
 function removeIssueFilterFromQuery(
   query: string | null | undefined,
-  filter: "label" | "milestone" | "assignee",
+  filter: "label" | "-label" | "milestone" | "assignee",
   value?: string,
 ) {
   const normalizedValue = value?.toLowerCase();
@@ -758,6 +859,49 @@ function removeIssueFilterFromQuery(
       );
     })
     .join(" ");
+}
+
+function removeNoLabelFilterFromQuery(query: string | null | undefined) {
+  return issueQueryTerms(query?.trim() || "")
+    .filter((term) => term !== "no:label" && term !== "no:labels")
+    .join(" ");
+}
+
+function addIssueQualifier(
+  query: string | null | undefined,
+  filter: "label" | "-label" | "no",
+  value: string,
+) {
+  const terms = issueQueryTerms(query?.trim() || "");
+  const normalized = value.trim();
+  if (!normalized) {
+    return terms.join(" ");
+  }
+  const next = `${filter}:${quoteIssueQualifierValue(normalized)}`;
+  if (
+    !terms.some(
+      (term) => term.replaceAll('"', "").toLowerCase() === next.toLowerCase(),
+    )
+  ) {
+    terms.push(next);
+  }
+  return terms.join(" ").trim();
+}
+
+function quoteIssueQualifierValue(value: string) {
+  return /\s/.test(value) ? `"${value.replaceAll('"', '\\"')}"` : value;
+}
+
+function uniqueIssueValues(values: string[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = value.toLowerCase();
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 function issueQueryTerms(query: string) {

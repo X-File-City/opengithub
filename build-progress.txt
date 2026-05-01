@@ -986,4 +986,13 @@
 - Determined `issues-002` requires structure planning before implementation because `needs_structure: true` and `.qrspi/issues-002/structure.md` did not exist.
 - Added `.qrspi/issues-002/structure.md` with five independently verifiable vertical phases: label filter menu, people/metadata menus, sort radio menu, invalid advanced-query feedback, and final guardrails/QA handoff.
 - Did not change `prd.json`; `issues-002.build_pass` remains `false` until all implementation phases pass verification.
+
+2026-05-01 - issues-002 phase 1 label filter menu
+
+- Implemented Phase 1 from `.qrspi/issues-002/structure.md`: repository issue lists now support included labels, excluded labels, no-label filtering, and return all repository label options for the screen.
+- Added `web/src/components/IssueFilterMenu.tsx` with an Editorial Labels popover, focused combobox, searchable listbox, label swatches, selected/excluded chips, No labels option, Escape/outside-close behavior, and Alt-click exclusion navigation.
+- Extended issue-list URL/query helpers, Next.js issue page query parsing, and typed API DTOs for `excludedLabels`, `noLabels`, and `filterOptions.labels`.
+- Added Rust API contract coverage for `label:`, `-label:`, `no:label`, label option metadata, and invalid empty label filters; added Vitest and Playwright coverage for label menu focus, narrowing, include/exclude/no-label URLs, no dead controls, and screenshot `ralph/screenshots/build/issues-002-phase1-label-menu.jpg`.
+- Verification: focused Rust label-filter contract passed; focused `repository-issues.test.tsx` passed; focused Playwright label-menu test passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 120 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 56 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
+- Marked Phase 1 as done in `.qrspi/issues-002/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
 - Tests not run because this iteration only created the required planning artifact.
