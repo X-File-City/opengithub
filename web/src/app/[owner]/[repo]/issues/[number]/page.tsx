@@ -1,4 +1,11 @@
-import { RepositoryFeaturePage } from "@/components/RepositoryFeaturePage";
+import { AppShell } from "@/components/AppShell";
+import { RepositoryIssueDetailPage } from "@/components/RepositoryIssueDetailPage";
+import { RepositoryUnavailablePage } from "@/components/RepositoryUnavailablePage";
+import {
+  getRepository,
+  getRepositoryIssue,
+  getSessionAndShellContext,
+} from "@/lib/server-session";
 
 type IssuePageProps = {
   params: Promise<{
@@ -10,19 +17,24 @@ type IssuePageProps = {
 
 export default async function IssuePage({ params }: IssuePageProps) {
   const { owner, repo, number } = await params;
-  const base = `/${decodeURIComponent(owner)}/${decodeURIComponent(repo)}`;
+  const ownerLogin = decodeURIComponent(owner);
+  const repositoryName = decodeURIComponent(repo);
+  const issueNumber = Number.parseInt(decodeURIComponent(number), 10);
+  const [{ session, shellContext }, repository, issue] = await Promise.all([
+    getSessionAndShellContext(),
+    getRepository(ownerLogin, repositoryName),
+    Number.isFinite(issueNumber)
+      ? getRepositoryIssue(ownerLogin, repositoryName, issueNumber)
+      : Promise.resolve(null),
+  ]);
 
   return (
-    <RepositoryFeaturePage
-      actions={[
-        { href: `${base}/issues`, label: "All issues" },
-        { href: "/issues", label: "Global issues" },
-      ]}
-      activePath={`${base}/issues/${decodeURIComponent(number)}`}
-      description={`Issue #${decodeURIComponent(number)} timelines, comments, labels, and state controls are coming in the issue detail feature. This route keeps activity links navigable with repository context.`}
-      owner={owner}
-      repo={repo}
-      title={`Issue #${decodeURIComponent(number)}`}
-    />
+    <AppShell session={session} shellContext={shellContext}>
+      {repository && issue && !("error" in issue) ? (
+        <RepositoryIssueDetailPage issue={issue} repository={repository} />
+      ) : (
+        <RepositoryUnavailablePage owner={ownerLogin} repo={repositoryName} />
+      )}
+    </AppShell>
   );
 }

@@ -163,8 +163,18 @@ test("signed-in repository Issues tab renders real issues and row navigation", a
     new RegExp(`/${repoName}/issues/${issue.number}$`),
   );
   await expect(
-    page.getByRole("heading", { name: `Issue #${issue.number}` }),
+    page.getByRole("heading", { name: new RegExp(issueTitle) }),
   ).toBeVisible();
+  await expect(
+    page.getByText("Created through the real Rust API"),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Assignees" })).toBeVisible();
+  await expect(page.getByText("No milestone")).toBeVisible();
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-004-phase1-detail-read.jpg",
+  });
 });
 
 test("signed-in repository Issues filters update URL, results, and empty states", async ({

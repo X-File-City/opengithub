@@ -6,7 +6,7 @@
 
 ## Phase 1: Detail Read Model - render issue header, body, and sidebar shell
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder `/{owner}/{repo}/issues/{number}` route with a real permission-aware issue detail page. The page should load repository context, issue title/body/state/author/counts/labels/assignees/milestone/linked PR hints, render Markdown, keep repository tabs, and show the Editorial two-column timeline/sidebar layout. Mutation controls can be visually present only when they already have concrete hrefs or handlers in this phase.
 

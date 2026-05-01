@@ -11,6 +11,7 @@ import {
   getRepositoryFileFinderFromCookie,
   getRepositoryFromCookie,
   getRepositoryImportFromCookie,
+  getRepositoryIssueFromCookie,
   getRepositoryIssuesFromCookie,
   getRepositoryIssueTemplatesFromCookie,
   getRepositoryPathFromCookie,
@@ -172,5 +173,19 @@ export async function getRepositoryIssues(
     owner,
     repo,
     query,
+  );
+}
+
+export async function getRepositoryIssue(
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+) {
+  const requestHeaders = await headers();
+  return getRepositoryIssueFromCookie(
+    requestHeaders.get("cookie"),
+    owner,
+    repo,
+    issueNumber,
   );
 }

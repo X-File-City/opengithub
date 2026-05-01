@@ -1,0 +1,223 @@
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { RepositoryIssueDetailPage } from "@/components/RepositoryIssueDetailPage";
+import type { IssueDetailView, RepositoryOverview } from "@/lib/api";
+
+function repositoryOverview(
+  overrides: Partial<RepositoryOverview> = {},
+): RepositoryOverview {
+  const base: RepositoryOverview = {
+    id: "repo-1",
+    owner_user_id: "user-1",
+    owner_organization_id: null,
+    owner_login: "mona",
+    name: "octo-app",
+    description: "Issue detail test repository",
+    visibility: "public",
+    default_branch: "main",
+    is_archived: false,
+    created_by_user_id: "user-1",
+    created_at: "2026-04-30T00:00:00Z",
+    updated_at: "2026-04-30T00:00:00Z",
+    viewerPermission: "owner",
+    branchCount: 1,
+    tagCount: 0,
+    defaultBranchRef: null,
+    latestCommit: null,
+    rootEntries: [],
+    files: [],
+    readme: null,
+    sidebar: {
+      about: null,
+      websiteUrl: null,
+      topics: [],
+      starsCount: 0,
+      watchersCount: 0,
+      forksCount: 0,
+      releasesCount: 0,
+      deploymentsCount: 0,
+      contributorsCount: 1,
+      languages: [],
+    },
+    viewerState: {
+      starred: false,
+      watching: false,
+      forkedRepositoryHref: null,
+    },
+    cloneUrls: {
+      https: "https://opengithub.namuh.co/mona/octo-app.git",
+      git: "git@opengithub.namuh.co:mona/octo-app.git",
+      zip: "/mona/octo-app/archive/refs/heads/main.zip",
+    },
+  };
+  return { ...base, ...overrides };
+}
+
+function issueDetail(
+  overrides: Partial<IssueDetailView> = {},
+): IssueDetailView {
+  const base: IssueDetailView = {
+    id: "issue-1",
+    repositoryId: "repo-1",
+    repositoryOwner: "mona",
+    repositoryName: "octo-app",
+    number: 42,
+    title: "Fix `runner` queue backoff",
+    body: "Investigate **retry** windows.",
+    bodyHtml:
+      '<div class="markdown-body"><p>Investigate <strong>retry</strong> windows.</p></div>',
+    state: "open",
+    author: {
+      id: "user-1",
+      login: "mona",
+      displayName: "Mona",
+      avatarUrl: null,
+    },
+    labels: [
+      {
+        id: "label-1",
+        name: "bug",
+        color: "var(--err)",
+        description: "Something is not working",
+      },
+    ],
+    milestone: {
+      id: "milestone-1",
+      title: "MVP",
+      state: "open",
+    },
+    assignees: [
+      {
+        id: "user-2",
+        login: "hubot",
+        displayName: "Hubot",
+        avatarUrl: null,
+      },
+    ],
+    participants: [
+      {
+        id: "user-1",
+        login: "mona",
+        displayName: "Mona",
+        avatarUrl: null,
+      },
+      {
+        id: "user-2",
+        login: "hubot",
+        displayName: "Hubot",
+        avatarUrl: null,
+      },
+    ],
+    attachments: [
+      {
+        id: "attachment-1",
+        fileName: "trace.txt",
+        byteSize: 1536,
+        contentType: "text/plain",
+        storageStatus: "metadata_only",
+        createdAt: "2026-04-30T00:05:00Z",
+      },
+    ],
+    commentCount: 3,
+    linkedPullRequest: {
+      number: 7,
+      state: "open",
+      href: "/mona/octo-app/pull/7",
+    },
+    href: "/mona/octo-app/issues/42",
+    locked: false,
+    createdAt: "2026-04-30T00:00:00Z",
+    updatedAt: "2026-04-30T01:00:00Z",
+    closedAt: null,
+    viewerPermission: "owner",
+    repository: {
+      id: "repo-1",
+      ownerLogin: "mona",
+      name: "octo-app",
+      visibility: "public",
+    },
+    subscription: {
+      subscribed: false,
+      reason: "not_subscribed",
+    },
+  };
+  return { ...base, ...overrides };
+}
+
+describe("RepositoryIssueDetailPage", () => {
+  it("renders the issue header, body, and sidebar read model", () => {
+    render(
+      <RepositoryIssueDetailPage
+        issue={issueDetail()}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: /Fix `runner` queue backoff #42/,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("Open")).toBeVisible();
+    expect(screen.getByText("opened this issue.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "All issues" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?state=open",
+    );
+    expect(screen.getByRole("link", { name: "New issue" })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues/new",
+    );
+    expect(screen.getByText("retry")).toBeVisible();
+    expect(screen.getByText("opened this issue.")).toBeVisible();
+
+    expect(screen.getByRole("heading", { name: "Assignees" })).toBeVisible();
+    expect(screen.getByText("hubot")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Labels" })).toBeVisible();
+    expect(screen.getByText("bug")).toHaveAttribute(
+      "title",
+      "Something is not working",
+    );
+    expect(screen.getByText("MVP")).toBeVisible();
+    expect(screen.getByRole("link", { name: /PR #7/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/pull/7",
+    );
+    expect(screen.getByText("trace.txt")).toBeVisible();
+    expect(screen.getByText(/1.5 KB/)).toBeVisible();
+    expect(screen.getByText("Not subscribed")).toBeVisible();
+  });
+
+  it("keeps controls concrete and shows honest empty sidebar states", () => {
+    render(
+      <RepositoryIssueDetailPage
+        issue={issueDetail({
+          assignees: [],
+          labels: [],
+          milestone: null,
+          attachments: [],
+          linkedPullRequest: null,
+          participants: [],
+          state: "closed",
+          closedAt: "2026-04-30T03:00:00Z",
+        })}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    expect(screen.getByText("Closed")).toBeVisible();
+    expect(screen.getByText("No one assigned")).toBeVisible();
+    expect(screen.getByText("No labels")).toBeVisible();
+    expect(screen.getByText("No milestone")).toBeVisible();
+    expect(screen.getByText("No linked pull requests")).toBeVisible();
+    expect(screen.getByText("No attachments")).toBeVisible();
+    expect(screen.getByText("No participants yet")).toBeVisible();
+    for (const link of screen.getAllByRole("link")) {
+      expect(link).toHaveAttribute("href");
+      expect(link.getAttribute("href")).not.toBe("#");
+    }
+    for (const button of screen.queryAllByRole("button")) {
+      expect(button).toHaveAccessibleName(/.+/);
+    }
+  });
+});

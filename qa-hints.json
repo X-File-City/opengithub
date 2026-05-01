@@ -1584,5 +1584,20 @@
       "Future phases must prove every visible issue-detail control is live: comment submit, close/reopen, reactions, subscribe/customize, metadata edits, and auth-gated write CTAs.",
       "Future QA should compare the final page against the Editorial reference, not GitHub Primer chrome."
     ]
+  },
+  {
+    "feature_id": "issues-004",
+    "tests_written": [
+      "Implemented Phase 1 issue detail read model: GET /api/repos/{owner}/{repo}/issues/{number} now returns public-readable, private-redacted issue detail data with author, labels, milestone, assignees, participants, attachments, linked PR hint, rendered Markdown body, viewer permission, repository summary, and subscription default state.",
+      "Replaced the placeholder /{owner}/{repo}/issues/{number} route with a server-rendered Editorial issue detail page inside the repository shell, including issue header, body card, timeline seed event, New issue/All issues links, and metadata sidebar sections.",
+      "Added typed frontend issue-detail fetch helpers plus Vitest coverage for header/body/sidebar rendering, empty states, accessible concrete links/buttons, and no href=\"#\" controls.",
+      "Extended the signed-in repository Issues Playwright smoke to click from the issue list into the real detail page, verify the Markdown body/sidebar, assert no dead controls, and save ralph/screenshots/build/issues-004-phase1-detail-read.jpg."
+    ],
+    "needs_deeper_qa": [
+      "Phase 1 intentionally keeps comments, reactions, close/reopen, subscriptions, and metadata editing read-only or absent until later issues-004 phases wire real mutations.",
+      "Subscription state is currently the default not_subscribed read model; real subscribe/customize behavior is Phase 3.",
+      "Attachment rows are metadata-only from issues-003; binary download/upload behavior remains future storage work.",
+      "Browser proof is Chromium Playwright; QA should later repeat mobile/a11y sweeps once comments and action controls are present."
+    ]
   }
 ]

@@ -345,6 +345,190 @@ async fn issue_list_contract_returns_screen_ready_rows_counts_and_filters() {
 }
 
 #[tokio::test]
+async fn issue_detail_contract_returns_public_read_model_and_redacts_private_access() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping issue detail contract scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-detail-owner").await;
+    let repo_name = format!("issue-detail-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: repo_name.clone(),
+            description: Some("Issue detail repository".to_owned()),
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("repository should create");
+    let labels = ensure_default_labels(&pool, repository.id)
+        .await
+        .expect("labels should exist");
+    let bug = labels
+        .iter()
+        .find(|label| label.name == "bug")
+        .expect("bug label should exist");
+    let milestone_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO milestones (repository_id, title, description, created_by_user_id)
+        VALUES ($1, 'Phase 1', 'Detail read model', $2)
+        RETURNING id
+        "#,
+    )
+    .bind(repository.id)
+    .bind(owner.id)
+    .fetch_one(&pool)
+    .await
+    .expect("milestone should create");
+    let issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Render issue detail read model".to_owned(),
+            body: Some("Tracks `body` rendering and **metadata**.".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
+            milestone_id: Some(milestone_id),
+            label_ids: vec![bug.id],
+            assignee_user_ids: vec![owner.id],
+            attachments: vec![],
+        },
+    )
+    .await
+    .expect("issue should create");
+    add_issue_comment(
+        &pool,
+        issue.id,
+        CreateComment {
+            actor_user_id: owner.id,
+            body: "Participant comment".to_owned(),
+        },
+    )
+    .await
+    .expect("comment should create");
+    sqlx::query(
+        r#"
+        INSERT INTO issue_attachments (
+            issue_id, uploader_user_id, file_name, byte_size, content_type, storage_status
+        )
+        VALUES ($1, $2, 'trace.txt', 42, 'text/plain', 'metadata_only')
+        "#,
+    )
+    .bind(issue.id)
+    .bind(owner.id)
+    .execute(&pool)
+    .await
+    .expect("attachment metadata should create");
+    let linked_pr = create_pull_request(
+        &pool,
+        CreatePullRequest {
+            repository_id: repository.id,
+            actor_user_id: owner.id,
+            title: "Close issue detail gap".to_owned(),
+            body: Some("References detail read model.".to_owned()),
+            head_ref: "feature/detail".to_owned(),
+            base_ref: "main".to_owned(),
+            head_repository_id: None,
+        },
+    )
+    .await
+    .expect("pull request should create");
+    sqlx::query(
+        r#"
+        INSERT INTO issue_cross_references (source_issue_id, target_issue_id, created_by_user_id)
+        VALUES ($1, $2, $3)
+        "#,
+    )
+    .bind(linked_pr.issue.id)
+    .bind(issue.id)
+    .bind(owner.id)
+    .execute(&pool)
+    .await
+    .expect("linked PR reference should create");
+
+    let private_repo_name = format!("private-detail-{}", Uuid::new_v4().simple());
+    let private_repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: private_repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("private repository should create");
+    let private_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: private_repository.id,
+            actor_user_id: owner.id,
+            title: "Private detail should be hidden".to_owned(),
+            body: Some("secret body".to_owned()),
+            template_id: None,
+            template_slug: None,
+            field_values: std::collections::HashMap::new(),
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![],
+            attachments: vec![],
+        },
+    )
+    .await
+    .expect("private issue should create");
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let uri = format!(
+        "/api/repos/{}/{}/issues/{}",
+        owner.email, repo_name, issue.number
+    );
+    let (status, body) = send_json(app.clone(), &uri, None).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["number"], issue.number);
+    assert_eq!(body["title"], "Render issue detail read model");
+    assert_eq!(body["state"], "open");
+    assert_eq!(body["author"]["login"], owner.email);
+    assert_eq!(body["labels"][0]["name"], "bug");
+    assert_eq!(body["milestone"]["title"], "Phase 1");
+    assert_eq!(body["assignees"][0]["login"], owner.email);
+    assert_eq!(body["participants"][0]["login"], owner.email);
+    assert_eq!(body["attachments"][0]["fileName"], "trace.txt");
+    assert_eq!(body["attachments"][0]["byteSize"], 42);
+    assert_eq!(body["commentCount"], 1);
+    assert_eq!(
+        body["linkedPullRequest"]["number"],
+        linked_pr.pull_request.number
+    );
+    assert_eq!(body["viewerPermission"], "read");
+    assert_eq!(body["repository"]["name"], repo_name);
+    assert_eq!(body["subscription"]["subscribed"], false);
+    assert!(body["bodyHtml"]
+        .as_str()
+        .expect("body html should be a string")
+        .contains("<strong>metadata</strong>"));
+
+    let private_uri = format!(
+        "/api/repos/{}/{}/issues/{}",
+        owner.email, private_repo_name, private_issue.number
+    );
+    let (private_status, private_body) = send_json(app, &private_uri, None).await;
+    assert_eq!(private_status, StatusCode::FORBIDDEN);
+    assert_eq!(private_body["error"]["code"], "forbidden");
+    assert!(!private_body.to_string().contains("secret body"));
+}
+
+#[tokio::test]
 async fn issue_label_filters_support_include_exclude_and_no_label_queries() {
     let Some(pool) = database_pool().await else {
         eprintln!("skipping issue label filter scenario; set TEST_DATABASE_URL or DATABASE_URL");

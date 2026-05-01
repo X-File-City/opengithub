@@ -580,6 +580,53 @@ export type IssueListItem = {
   closedAt: string | null;
 };
 
+export type IssueAttachmentMetadata = {
+  id: string;
+  fileName: string;
+  byteSize: number;
+  contentType: string | null;
+  storageStatus: string;
+  createdAt: string;
+};
+
+export type IssueSubscriptionState = {
+  subscribed: boolean;
+  reason: string;
+};
+
+export type IssueDetailView = {
+  id: string;
+  repositoryId: string;
+  repositoryOwner: string;
+  repositoryName: string;
+  number: number;
+  title: string;
+  body: string | null;
+  bodyHtml: string;
+  state: IssueState;
+  author: IssueListUser;
+  labels: IssueListLabel[];
+  milestone: IssueListMilestone | null;
+  assignees: IssueListUser[];
+  participants: IssueListUser[];
+  attachments: IssueAttachmentMetadata[];
+  commentCount: number;
+  linkedPullRequest: LinkedPullRequestHint | null;
+  href: string;
+  locked: boolean;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  viewerPermission: string | null;
+  repository: {
+    id: string;
+    ownerLogin: string;
+    name: string;
+    visibility: RepositoryVisibility;
+  };
+  subscription: IssueSubscriptionState;
+};
+
 export type IssueListFilters = {
   query: string;
   state: IssueState;
@@ -1161,6 +1208,55 @@ export async function getRepositoryIssuesFromCookie(
   }
 
   return body as IssueListView;
+}
+
+export function repositoryIssuePath(
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+): string {
+  return `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(String(issueNumber))}`;
+}
+
+export async function getRepositoryIssueFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+): Promise<IssueDetailView | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryIssuePath(owner, repo, issueNumber)}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Issue is temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "issue_failed",
+          message: "Issue could not be loaded.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as IssueDetailView;
 }
 
 export async function saveRepositoryIssuePreferences(

@@ -1099,3 +1099,12 @@
 - Added `.qrspi/issues-004/structure.md` with five independently verifiable vertical phases: detail read model, timeline comments, state/reactions/notifications, metadata sidebar editing, and final guardrails/QA handoff.
 - Did not change `prd.json`; `issues-004.build_pass` remains `false` until all implementation phases pass verification.
 - Tests not run because this iteration only created the required planning artifact; verified the outline exists and `qa-hints.json` remains valid JSON.
+
+2026-05-01 - issues-004 phase 1 detail read model
+
+- Implemented Phase 1 from `.qrspi/issues-004/structure.md`: repository issue detail now has a permission-aware Rust read model and `GET /api/repos/{owner}/{repo}/issues/{number}` returns public-readable, private-redacted screen data.
+- Added the detail payload with rendered Markdown body, author, labels, milestone, assignees, participants, attachment metadata, linked pull request hint, comment count, repository summary, viewer permission, and default subscription state.
+- Replaced the placeholder `/{owner}/{repo}/issues/{number}` page with an Editorial repository-shell detail page showing the title/status, body card, seeded timeline event, New issue/All issues links, and metadata sidebar with honest empty states and no inert controls.
+- Added typed frontend issue-detail fetch helpers, Vitest detail-page coverage, Rust API contract coverage, and a signed-in Playwright smoke from the Issues list into the detail page with screenshot `ralph/screenshots/build/issues-004-phase1-detail-read.jpg`.
+- Verification: focused Rust `issue_detail_contract_returns_public_read_model_and_redacts_private_access` passed; focused `repository-issue-detail.test.tsx` passed; focused signed-session Playwright row-navigation/detail smoke passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `make test` passed with cargo tests and 140 frontend tests; `make test-e2e` passed with 60 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
+- Marked Phase 1 as done in `.qrspi/issues-004/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.

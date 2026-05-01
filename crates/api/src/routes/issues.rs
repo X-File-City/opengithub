@@ -18,10 +18,10 @@ use crate::{
         identity::User,
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
-            list_issue_templates_for_viewer, repository_issue_list_view_for_viewer,
-            save_repository_issue_preferences, update_issue_state, CollaborationError,
-            CreateComment, CreateIssue, CreateIssueAttachment, IssueListQuery, IssueState,
-            ReactionContent, UpdateIssueState,
+            list_issue_templates_for_viewer, repository_issue_detail_view_for_viewer,
+            repository_issue_list_view_for_viewer, save_repository_issue_preferences,
+            update_issue_state, CollaborationError, CreateComment, CreateIssue,
+            CreateIssueAttachment, IssueListQuery, IssueState, ReactionContent, UpdateIssueState,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
@@ -552,13 +552,18 @@ async fn read(
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
-    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
-            .await
-            .map_err(map_collaboration_error)?;
-    let issue = get_issue(pool, repository_id, number, actor.0.id)
+    let actor = AuthenticatedUser::optional_from_headers(&state, &headers).await?;
+    let repository = get_repository_by_owner_name(pool, &owner, &repo)
+        .await
+        .map_err(repository_lookup_error)?
+        .ok_or_else(|| map_collaboration_error(CollaborationError::RepositoryNotFound))?;
+    let issue = repository_issue_detail_view_for_viewer(
+        pool,
+        repository.id,
+        number,
+        actor.as_ref().map(|user| user.id),
+    )
         .await
         .map_err(map_collaboration_error)?;
 

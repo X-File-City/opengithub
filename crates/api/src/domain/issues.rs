@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::api_types::ListEnvelope;
 
 use super::{
+    markdown::{render_markdown, RenderMarkdownInput},
     notifications::{create_notification, CreateNotification},
     permissions::RepositoryRole,
     repositories::{
@@ -146,6 +147,54 @@ pub struct IssueListItem {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueAttachmentMetadata {
+    pub id: Uuid,
+    pub file_name: String,
+    pub byte_size: i64,
+    pub content_type: Option<String>,
+    pub storage_status: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueSubscriptionState {
+    pub subscribed: bool,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueDetailView {
+    pub id: Uuid,
+    pub repository_id: Uuid,
+    pub repository_owner: String,
+    pub repository_name: String,
+    pub number: i64,
+    pub title: String,
+    pub body: Option<String>,
+    pub body_html: String,
+    pub state: IssueState,
+    pub author: IssueListUser,
+    pub labels: Vec<IssueListLabel>,
+    pub milestone: Option<IssueListMilestone>,
+    pub assignees: Vec<IssueListUser>,
+    pub participants: Vec<IssueListUser>,
+    pub attachments: Vec<IssueAttachmentMetadata>,
+    pub comment_count: i64,
+    pub linked_pull_request: Option<LinkedPullRequestHint>,
+    pub href: String,
+    pub locked: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub closed_at: Option<DateTime<Utc>>,
+    pub viewer_permission: Option<String>,
+    pub repository: IssueListRepository,
+    pub subscription: IssueSubscriptionState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1099,6 +1148,118 @@ pub async fn get_issue(
     issue_from_row(row)
 }
 
+pub async fn repository_issue_detail_view_for_viewer(
+    pool: &PgPool,
+    repository_id: Uuid,
+    number: i64,
+    actor_user_id: Option<Uuid>,
+) -> Result<IssueDetailView, CollaborationError> {
+    let repository = get_repository(pool, repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    let viewer_permission = match actor_user_id {
+        Some(user_id) => {
+            repository_viewer_permission(pool, &repository, user_id, RepositoryRole::Read).await?
+        }
+        None if repository.visibility == RepositoryVisibility::Public => Some("read".to_owned()),
+        None => return Err(CollaborationError::RepositoryAccessDenied),
+    };
+
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, number, title, body, state, author_user_id, milestone_id,
+               locked, closed_by_user_id, closed_at, created_at, updated_at
+        FROM issues
+        WHERE repository_id = $1 AND number = $2
+          AND NOT EXISTS (
+              SELECT 1 FROM pull_requests WHERE pull_requests.issue_id = issues.id
+          )
+        "#,
+    )
+    .bind(repository_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(CollaborationError::IssueNotFound)?;
+    let issue = issue_from_row(row)?;
+    let issue_ids = vec![issue.id];
+    let authors = issue_list_users(pool, &issue_ids, "author").await?;
+    let labels = issue_list_labels(pool, &issue_ids).await?;
+    let milestones = issue_list_milestones(pool, &issue_ids).await?;
+    let assignees = issue_list_assignees(pool, &issue_ids).await?;
+    let comment_counts = issue_comment_counts(pool, &issue_ids).await?;
+    let linked_pull_requests = linked_pull_request_hints(pool, &issue_ids, &repository).await?;
+    let participants = issue_detail_participants(pool, issue.id).await?;
+    let attachments = issue_detail_attachments(pool, issue.id).await?;
+    let rendered = render_markdown(
+        Some(pool),
+        RenderMarkdownInput {
+            markdown: issue.body.clone().unwrap_or_default(),
+            repository_id: Some(repository_id),
+            owner: Some(repository.owner_login.clone()),
+            repo: Some(repository.name.clone()),
+            ref_name: None,
+            enable_task_toggles: Some(false),
+        },
+    )
+    .await
+    .map_err(|error| match error {
+        super::markdown::MarkdownError::Sqlx(error) => CollaborationError::Sqlx(error),
+        super::markdown::MarkdownError::TooLarge | super::markdown::MarkdownError::TaskNotFound => {
+            CollaborationError::InvalidIssueField {
+                field_key: "body".to_owned(),
+                message: "issue body could not be rendered".to_owned(),
+            }
+        }
+    })?;
+
+    Ok(IssueDetailView {
+        id: issue.id,
+        repository_id: issue.repository_id,
+        repository_owner: repository.owner_login.clone(),
+        repository_name: repository.name.clone(),
+        number: issue.number,
+        title: issue.title,
+        body: issue.body,
+        body_html: rendered.html,
+        state: issue.state,
+        author: authors
+            .get(&issue.id)
+            .cloned()
+            .unwrap_or_else(|| fallback_issue_user(issue.author_user_id)),
+        labels: labels.get(&issue.id).cloned().unwrap_or_default(),
+        milestone: milestones.get(&issue.id).cloned(),
+        assignees: assignees.get(&issue.id).cloned().unwrap_or_default(),
+        participants,
+        attachments,
+        comment_count: *comment_counts.get(&issue.id).unwrap_or(&0),
+        linked_pull_request: linked_pull_requests.get(&issue.id).cloned(),
+        href: format!(
+            "/{}/{}/issues/{}",
+            repository.owner_login, repository.name, issue.number
+        ),
+        locked: issue.locked,
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        closed_at: issue.closed_at,
+        viewer_permission,
+        repository: IssueListRepository {
+            id: repository.id,
+            owner_login: repository.owner_login,
+            name: repository.name,
+            visibility: repository.visibility,
+        },
+        subscription: IssueSubscriptionState {
+            subscribed: false,
+            reason: "not_subscribed".to_owned(),
+        },
+    })
+}
+
 pub async fn update_issue_state(
     pool: &PgPool,
     issue_id: Uuid,
@@ -2009,6 +2170,73 @@ async fn linked_pull_request_hints(
         });
     }
     Ok(hints)
+}
+
+async fn issue_detail_participants(
+    pool: &PgPool,
+    issue_id: Uuid,
+) -> Result<Vec<IssueListUser>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT DISTINCT ON (users.id)
+               users.id, COALESCE(users.username, users.email) AS login,
+               users.display_name, users.avatar_url
+        FROM users
+        WHERE users.id IN (
+            SELECT author_user_id FROM issues WHERE id = $1
+            UNION
+            SELECT user_id FROM issue_assignees WHERE issue_id = $1
+            UNION
+            SELECT author_user_id FROM comments WHERE issue_id = $1
+            UNION
+            SELECT actor_user_id FROM timeline_events
+            WHERE issue_id = $1 AND actor_user_id IS NOT NULL
+        )
+        ORDER BY users.id, lower(COALESCE(users.username, users.email))
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| IssueListUser {
+            id: row.get("id"),
+            login: row.get("login"),
+            display_name: row.get("display_name"),
+            avatar_url: row.get("avatar_url"),
+        })
+        .collect())
+}
+
+async fn issue_detail_attachments(
+    pool: &PgPool,
+    issue_id: Uuid,
+) -> Result<Vec<IssueAttachmentMetadata>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT id, file_name, byte_size, content_type, storage_status, created_at
+        FROM issue_attachments
+        WHERE issue_id = $1
+        ORDER BY created_at ASC, file_name ASC
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| IssueAttachmentMetadata {
+            id: row.get("id"),
+            file_name: row.get("file_name"),
+            byte_size: row.get("byte_size"),
+            content_type: row.get("content_type"),
+            storage_status: row.get("storage_status"),
+            created_at: row.get("created_at"),
+        })
+        .collect())
 }
 
 fn search_text_from_issue_query(query: &str) -> String {
