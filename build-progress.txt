@@ -979,3 +979,11 @@
 - Verification: focused `api_repository_issues_list_contract` passed with 5 tests; focused `repository-issues.test.tsx` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with cargo tests and 119 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 55 Playwright tests; mandatory Editorial banned-value scan passed with zero matches.
 - `.scratch/issues-001-list-contract-scenario.sh` is not present in this checkout; equivalent API behavior is covered by the TEST_DATABASE_URL-backed Rust contract tests.
 - Marked Phase 5 as done in `.qrspi/issues-001/structure.md` and set `issues-001.build_pass` to `true` in `prd.json`; `qa_pass` remains `false` for the QA agent.
+
+2026-05-01 - issues-002 structure planning
+
+- Read `BUILD_GUIDE.md`, `build-spec.md`, `web/AGENTS.md`, `build-progress.txt`, the first incomplete `prd.json` entry, `.qrspi/issues-001/structure.md`, current Issues page UI, current issue-list API/parser code, and the Editorial Issues reference in `design/project/og-screens-4.jsx`.
+- Determined `issues-002` requires structure planning before implementation because `needs_structure: true` and `.qrspi/issues-002/structure.md` did not exist.
+- Added `.qrspi/issues-002/structure.md` with five independently verifiable vertical phases: label filter menu, people/metadata menus, sort radio menu, invalid advanced-query feedback, and final guardrails/QA handoff.
+- Did not change `prd.json`; `issues-002.build_pass` remains `false` until all implementation phases pass verification.
+- Tests not run because this iteration only created the required planning artifact.
