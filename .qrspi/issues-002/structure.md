@@ -79,7 +79,7 @@
 
 ## Phase 5: Filter Menu Guardrails and QA Handoff - finish issues-002
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Harden keyboard behavior, accessibility, visual compliance, browser smoke coverage, and bookkeeping. Mark `issues-002` complete only after every compact dropdown menu is live, query mutations are URL-backed, invalid query feedback is inline, and no menu/button is inert.
 

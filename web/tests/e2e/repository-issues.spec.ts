@@ -357,6 +357,7 @@ test("signed-in repository Issues label menu filters, excludes, and finds unlabe
 });
 
 test("signed-in repository Issues people and metadata menus update filters", async ({
+  browser,
   page,
 }) => {
   const seeded = seedSession();
@@ -454,9 +455,7 @@ test("signed-in repository Issues people and metadata menus update filters", asy
   );
   await expect(
     page.locator('div[role="alert"]').filter({ hasText: "Query warning" }),
-  ).toContainText(
-    "state filter must be open or closed",
-  );
+  ).toContainText("state filter must be open or closed");
   await expect(page.getByLabel("issue-query")).toHaveValue(
     "is:issue state:merged",
   );
@@ -466,10 +465,34 @@ test("signed-in repository Issues people and metadata menus update filters", asy
   await expect(page).toHaveURL(/q=is%3Aissue\+state%3Aopen/);
   await expect(page.getByRole("link", { name: issueTitle })).toBeVisible();
   await expectNoDeadControls(page);
+  await page.getByRole("button", { name: /Labels/ }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Filter labels" }),
+  ).toBeFocused();
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/issues-002-phase4-invalid-query.jpg",
+    path: "../ralph/screenshots/build/issues-002-phase5-final-desktop.jpg",
   });
+
+  const mobilePage = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+  });
+  await signIn(mobilePage, seeded);
+  await mobilePage.goto(issuesUrl);
+  await mobilePage.getByRole("button", { name: /Sort by/ }).click();
+  await expect(
+    mobilePage.getByRole("menu", { name: "Sort issues" }),
+  ).toBeVisible();
+  const overflow = await mobilePage.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(overflow).toBe(false);
+  await expectNoDeadControls(mobilePage);
+  await mobilePage.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-002-phase5-final-mobile.jpg",
+  });
+  await mobilePage.close();
 });
 
 test("signed-in repository Issues contributor banner dismissal persists on reload", async ({

@@ -22,6 +22,7 @@ export function IssueSortMenu({ activeLabel, options }: IssueSortMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const firstOptionRef = useRef<HTMLAnchorElement>(null);
+  const menuId = "issue-sort-menu";
 
   useEffect(() => {
     if (open) {
@@ -66,6 +67,7 @@ export function IssueSortMenu({ activeLabel, options }: IssueSortMenuProps) {
   return (
     <div className="relative" ref={containerRef}>
       <button
+        aria-controls={open ? menuId : undefined}
         aria-expanded={open}
         aria-haspopup="menu"
         className="btn ghost"
@@ -81,6 +83,7 @@ export function IssueSortMenu({ activeLabel, options }: IssueSortMenuProps) {
         <div
           aria-label="Sort issues"
           className="card absolute right-0 z-20 mt-2 w-[min(360px,calc(100vw-2rem))] p-3 shadow-md"
+          id={menuId}
           role="menu"
           style={{ background: "var(--surface)" }}
         >

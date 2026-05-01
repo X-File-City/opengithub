@@ -612,6 +612,137 @@ describe("RepositoryIssuesPage", () => {
     );
   });
 
+  it("keeps every issue filter menu accessible, closable, and query preserving", async () => {
+    render(
+      <RepositoryIssuesPage
+        issues={issueListView({
+          filters: {
+            ...issueListView().filters,
+            labels: ["bug"],
+            excludedLabels: ["documentation"],
+            sort: "updated-desc",
+          },
+        })}
+        query={{
+          labels: ["bug"],
+          excludedLabels: ["documentation"],
+          q: "is:issue state:open label:bug -label:documentation",
+          state: "open",
+          sort: "updated-desc",
+          page: 4,
+        }}
+        repository={repositoryOverview()}
+      />,
+    );
+
+    const labelsButton = screen.getByRole("button", { name: /Labels/ });
+    expect(labelsButton).toHaveAttribute("aria-haspopup", "dialog");
+    expect(labelsButton).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(labelsButton);
+    const labelDialog = screen.getByRole("dialog", { name: "Labels filter" });
+    expect(labelsButton).toHaveAttribute(
+      "aria-controls",
+      "issue-label-filter-dialog",
+    );
+    expect(labelDialog).toBeVisible();
+    expect(
+      screen.getByRole("combobox", { name: "Filter labels" }),
+    ).toHaveFocus();
+    expect(screen.getByRole("listbox")).toHaveAttribute(
+      "id",
+      "issue-label-options",
+    );
+    expect(screen.getByRole("option", { name: /bug/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      screen.getByRole("option", { name: /documentation/ }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("option", { name: /bug/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+label%3Abug&state=open&labels=bug&excludedLabels=documentation&sort=updated-desc",
+    );
+    fireEvent.pointerDown(document.body);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Labels filter" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Author/ }));
+    const authorSearch = screen.getByRole("combobox", {
+      name: "Filter authors",
+    });
+    await waitFor(() => expect(authorSearch).toHaveFocus());
+    expect(authorSearch).toHaveAttribute("id", "author-filter-search");
+    expect(authorSearch).toHaveAttribute(
+      "aria-controls",
+      "author-filter-options",
+    );
+    fireEvent.change(authorSearch, { target: { value: "hub" } });
+    expect(screen.getByRole("option", { name: /hubot/ })).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen+author%3Ahubot&state=open&author=hubot&labels=bug&excludedLabels=documentation&sort=updated-desc",
+    );
+    expect(
+      screen.queryByRole("option", { name: /^Mona/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Author filter" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Projects/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Filter projects" }),
+      ).toHaveFocus(),
+    );
+    expect(
+      screen.getByRole("option", { name: /No repository projects/ }),
+    ).toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Types/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Filter types" }),
+      ).toHaveFocus(),
+    );
+    expect(
+      screen.getByRole("option", { name: /No issue types/ }),
+    ).toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    const sortButton = screen.getByRole("button", { name: /Sort by/ });
+    fireEvent.click(sortButton);
+    expect(sortButton).toHaveAttribute("aria-controls", "issue-sort-menu");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("menuitemradio", { name: /Recently updated/ }),
+      ).toHaveFocus(),
+    );
+    expect(
+      screen.getByRole("menuitemradio", { name: /Least recently updated/ }),
+    ).toHaveAttribute(
+      "href",
+      "/mona/octo-app/issues?q=is%3Aissue+state%3Aopen&state=open&labels=bug&excludedLabels=documentation&sort=updated-asc",
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("menu", { name: "Sort issues" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    expect(
+      document.querySelectorAll('a[href="#"], a:not([href])'),
+    ).toHaveLength(0);
+  });
+
   it("renders filtered controls, closed state, and clear-query affordance", () => {
     render(
       <RepositoryIssuesPage

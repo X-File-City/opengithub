@@ -50,6 +50,13 @@ function labelColor(color: string) {
   return `#${trimmed}`;
 }
 
+function domId(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 export function IssueFilterMenu({
   buttonLabel,
   labelOptions,
@@ -60,6 +67,8 @@ export function IssueFilterMenu({
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dialogId = "issue-label-filter-dialog";
+  const listboxId = "issue-label-options";
 
   useEffect(() => {
     if (open) {
@@ -106,6 +115,7 @@ export function IssueFilterMenu({
   return (
     <div className="relative" ref={containerRef}>
       <button
+        aria-controls={open ? dialogId : undefined}
         aria-expanded={open}
         aria-haspopup="dialog"
         className="btn ghost"
@@ -121,13 +131,14 @@ export function IssueFilterMenu({
         <div
           aria-label="Labels filter"
           className="card absolute left-0 z-20 mt-2 w-[min(360px,calc(100vw-2rem))] p-3 shadow-md"
+          id={dialogId}
           role="dialog"
           style={{ background: "var(--surface)" }}
         >
           <label className="input w-full" htmlFor="issue-label-filter">
             <span aria-hidden="true">⌕</span>
             <input
-              aria-controls="issue-label-options"
+              aria-controls={listboxId}
               aria-expanded={open}
               aria-label="Filter labels"
               id="issue-label-filter"
@@ -141,7 +152,7 @@ export function IssueFilterMenu({
           </label>
           <div
             className="mt-3 max-h-72 overflow-auto"
-            id="issue-label-options"
+            id={listboxId}
             role="listbox"
           >
             <Link
@@ -236,6 +247,10 @@ export function IssuePickerMenu({
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const stableId = domId(dialogLabel);
+  const dialogId = `${stableId}-dialog`;
+  const searchId = `${stableId}-search`;
+  const listboxId = `${stableId}-options`;
 
   useEffect(() => {
     if (open) {
@@ -282,6 +297,7 @@ export function IssuePickerMenu({
   return (
     <div className="relative" ref={containerRef}>
       <button
+        aria-controls={open ? dialogId : undefined}
         aria-expanded={open}
         aria-haspopup="dialog"
         className="btn ghost"
@@ -297,16 +313,17 @@ export function IssuePickerMenu({
         <div
           aria-label={dialogLabel}
           className="card absolute left-0 z-20 mt-2 w-[min(340px,calc(100vw-2rem))] p-3 shadow-md"
+          id={dialogId}
           role="dialog"
           style={{ background: "var(--surface)" }}
         >
-          <label className="input w-full" htmlFor={`${dialogLabel}-search`}>
+          <label className="input w-full" htmlFor={searchId}>
             <span aria-hidden="true">⌕</span>
             <input
-              aria-controls={`${dialogLabel}-options`}
+              aria-controls={listboxId}
               aria-expanded={open}
               aria-label={searchLabel}
-              id={`${dialogLabel}-search`}
+              id={searchId}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={searchPlaceholder}
               ref={inputRef}
@@ -317,7 +334,7 @@ export function IssuePickerMenu({
           </label>
           <div
             className="mt-3 max-h-72 overflow-auto"
-            id={`${dialogLabel}-options`}
+            id={listboxId}
             role="listbox"
           >
             {noValueOption ? <PickerOption option={noValueOption} /> : null}

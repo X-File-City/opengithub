@@ -1459,5 +1459,22 @@
       "Browser verification is Chromium Playwright; QA should spot-check route-announcer behavior and screen-reader announcement order in Safari/Firefox.",
       "Final keyboard/accessibility guardrails and build_pass=true remain Phase 5 work."
     ]
+  },
+  {
+    "feature_id": "issues-002",
+    "tests_written": [
+      "Completed Phase 5 guardrails for repository issue filter menus and marked issues-002 build_pass true after verification.",
+      "Stabilized shared filter/sort menu ARIA IDs and controls so Labels, Author, Projects, Milestones, Assignees, Types, and Sort by expose dialog/menu relationships, focused search/radio targets, listbox/menu roles, selected state, and Escape/outside-close behavior.",
+      "Added Vitest coverage for accessible menu names, combobox focus, listbox IDs, selected/disabled states, query preservation across active labels/excluded labels/sort, and no placeholder links.",
+      "Added Rust API cross-filter coverage for excluded labels combined with no-assignee, no-label sorting, comment sorting, validation envelopes, and no leakage of filtered private results.",
+      "Extended Playwright repository Issues coverage with a signed-session sweep across all filter menus, invalid-query recovery, no-dead-control checks, final desktop screenshot ralph/screenshots/build/issues-002-phase5-final-desktop.jpg, and mobile no-overflow screenshot ralph/screenshots/build/issues-002-phase5-final-mobile.jpg.",
+      "Verification passed: focused Rust contract, focused repository-issues Vitest, focused repository-issues Playwright, TEST_DATABASE_URL-backed make check, make test with 124 frontend tests plus cargo tests, make test-e2e with 57 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Projects and Types remain honest disabled empty states until project links and issue types are modeled in later features.",
+      "Alt-click exclusion is covered in Chromium for labels; QA should spot-check modifier-click behavior for labels/author in Safari and Firefox.",
+      "Keyboard guardrails cover focus on open and Escape close; full roving-arrow menu navigation is not implemented for these link-based popovers.",
+      "Reaction-based sorting is still out of scope because issue reaction aggregates are not in the issue-list contract yet."
+    ]
   }
 ]

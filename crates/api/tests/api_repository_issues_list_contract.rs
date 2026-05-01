@@ -920,6 +920,42 @@ async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     assert_eq!(no_milestone_body["total"], 2);
     assert_eq!(no_milestone_body["filters"]["noMilestone"], true);
 
+    let (cross_filter_status, cross_filter_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20-label%3Abug%20no%3Aassignee&sort=comments-desc"
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(cross_filter_status, StatusCode::OK);
+    assert_eq!(cross_filter_body["total"], 2);
+    assert_eq!(cross_filter_body["filters"]["excludedLabels"], json!(["bug"]));
+    assert_eq!(cross_filter_body["filters"]["noAssignee"], true);
+    assert_eq!(cross_filter_body["filters"]["sort"], "comments-desc");
+    assert_eq!(cross_filter_body["items"][0]["number"], busy_issue.number);
+    assert!(
+        cross_filter_body["items"]
+            .as_array()
+            .expect("items should be an array")
+            .iter()
+            .all(|item| item["number"] != matched.number)
+    );
+
+    let (no_label_status, no_label_body) = send_json(
+        app.clone(),
+        &format!(
+            "/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20no%3Alabel&sort=comments-asc"
+        ),
+        Some(&cookie),
+    )
+    .await;
+    assert_eq!(no_label_status, StatusCode::OK);
+    assert_eq!(no_label_body["total"], 2);
+    assert_eq!(no_label_body["filters"]["noLabels"], true);
+    assert_eq!(no_label_body["filters"]["sort"], "comments-asc");
+    assert_eq!(no_label_body["items"][0]["number"], quiet_issue.number);
+
     let (project_status, project_body) = send_json(
         app.clone(),
         &format!("/api/repos/{owner_path}/{repo_name}/issues?q=is%3Aissue%20state%3Aopen%20project%3ARoadmap"),
