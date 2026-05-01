@@ -30,6 +30,7 @@ type IssueCreateFormProps = {
 
 type ToolbarAction = {
   label: string;
+  ariaLabel: string;
   prefix: string;
   suffix: string;
   placeholder: string;
@@ -40,17 +41,48 @@ type LocalIssueAttachment = IssueAttachmentInput & {
 };
 
 const TOOLBAR_ACTIONS: ToolbarAction[] = [
-  { label: "B", prefix: "**", suffix: "**", placeholder: "bold" },
-  { label: "I", prefix: "_", suffix: "_", placeholder: "italic" },
-  { label: "Code", prefix: "`", suffix: "`", placeholder: "code" },
+  {
+    label: "B",
+    ariaLabel: "Bold",
+    prefix: "**",
+    suffix: "**",
+    placeholder: "bold",
+  },
+  {
+    label: "I",
+    ariaLabel: "Italic",
+    prefix: "_",
+    suffix: "_",
+    placeholder: "italic",
+  },
+  {
+    label: "Code",
+    ariaLabel: "Code",
+    prefix: "`",
+    suffix: "`",
+    placeholder: "code",
+  },
   {
     label: "Link",
+    ariaLabel: "Link",
     prefix: "[",
     suffix: "](https://example.com)",
     placeholder: "link",
   },
-  { label: "Task", prefix: "- [ ] ", suffix: "", placeholder: "task" },
-  { label: "Quote", prefix: "> ", suffix: "", placeholder: "quote" },
+  {
+    label: "Task",
+    ariaLabel: "Task list",
+    prefix: "- [ ] ",
+    suffix: "",
+    placeholder: "task",
+  },
+  {
+    label: "Quote",
+    ariaLabel: "Quote",
+    prefix: "> ",
+    suffix: "",
+    placeholder: "quote",
+  },
 ];
 
 const EMPTY_PREVIEW = "<p>Nothing to preview</p>";
@@ -385,6 +417,10 @@ export function IssueCreateForm({
             const fieldError = fieldErrors[field.fieldKey];
             const fieldId = `issue-field-${field.fieldKey}`;
             const errorId = `${fieldId}-error`;
+            const writeTabId = `${fieldId}-write-tab`;
+            const previewTabId = `${fieldId}-preview-tab`;
+            const writePanelId = `${fieldId}-write-panel`;
+            const previewPanelId = `${fieldId}-preview-panel`;
             const isMarkdown =
               field.fieldType === "markdown" || field.fieldType === "textarea";
             return (
@@ -411,12 +447,14 @@ export function IssueCreateForm({
                       role="tablist"
                     >
                       <button
+                        aria-controls={writePanelId}
                         aria-selected={fieldTabs[field.fieldKey] !== "preview"}
                         className={`tab${
                           fieldTabs[field.fieldKey] !== "preview"
                             ? " active"
                             : ""
                         }`}
+                        id={writeTabId}
                         onClick={() =>
                           setFieldTabs((current) => ({
                             ...current,
@@ -429,12 +467,14 @@ export function IssueCreateForm({
                         Write
                       </button>
                       <button
+                        aria-controls={previewPanelId}
                         aria-selected={fieldTabs[field.fieldKey] === "preview"}
                         className={`tab${
                           fieldTabs[field.fieldKey] === "preview"
                             ? " active"
                             : ""
                         }`}
+                        id={previewTabId}
                         onClick={() => void showFieldPreview(field)}
                         role="tab"
                         type="button"
@@ -444,7 +484,11 @@ export function IssueCreateForm({
                     </div>
                     <div className="p-4">
                       {fieldTabs[field.fieldKey] === "preview" ? (
-                        <div>
+                        <div
+                          aria-labelledby={previewTabId}
+                          id={previewPanelId}
+                          role="tabpanel"
+                        >
                           <MarkdownBody
                             html={
                               fieldPreviews[field.fieldKey]?.html ??
@@ -462,36 +506,43 @@ export function IssueCreateForm({
                           ) : null}
                         </div>
                       ) : (
-                        <textarea
-                          aria-describedby={
-                            fieldTouched[field.fieldKey] && fieldError
-                              ? errorId
-                              : undefined
-                          }
-                          aria-invalid={
-                            fieldTouched[field.fieldKey] && fieldError
-                              ? "true"
-                              : "false"
-                          }
-                          className="input min-h-40 w-full resize-y p-3 t-mono leading-6"
-                          id={fieldId}
-                          onBlur={() =>
-                            setFieldTouched((current) => ({
-                              ...current,
-                              [field.fieldKey]: true,
-                            }))
-                          }
-                          onChange={(event) =>
-                            setFieldValues((current) => ({
-                              ...current,
-                              [field.fieldKey]: event.target.value,
-                            }))
-                          }
-                          onKeyDown={handleFieldKeyDown}
-                          placeholder={field.placeholder ?? ""}
-                          required={field.required}
-                          value={value}
-                        />
+                        <div
+                          aria-labelledby={writeTabId}
+                          id={writePanelId}
+                          role="tabpanel"
+                        >
+                          <textarea
+                            aria-describedby={
+                              fieldTouched[field.fieldKey] && fieldError
+                                ? errorId
+                                : undefined
+                            }
+                            aria-invalid={
+                              fieldTouched[field.fieldKey] && fieldError
+                                ? "true"
+                                : "false"
+                            }
+                            aria-required={field.required}
+                            className="input min-h-40 w-full resize-y p-3 t-mono leading-6"
+                            id={fieldId}
+                            onBlur={() =>
+                              setFieldTouched((current) => ({
+                                ...current,
+                                [field.fieldKey]: true,
+                              }))
+                            }
+                            onChange={(event) =>
+                              setFieldValues((current) => ({
+                                ...current,
+                                [field.fieldKey]: event.target.value,
+                              }))
+                            }
+                            onKeyDown={handleFieldKeyDown}
+                            placeholder={field.placeholder ?? ""}
+                            required={field.required}
+                            value={value}
+                          />
+                        </div>
                       )}
                     </div>
                   </div>
@@ -508,6 +559,7 @@ export function IssueCreateForm({
                           ? "true"
                           : "false"
                       }
+                      aria-required={field.required}
                       className="input w-full"
                       id={fieldId}
                       onBlur={() =>
@@ -571,6 +623,7 @@ export function IssueCreateForm({
               titleTouched && titleError ? "title-error" : undefined
             }
             aria-invalid={titleTouched && titleError ? "true" : "false"}
+            aria-required="true"
             className="input mt-2 w-full"
             id="issue-title"
             onBlur={() => setTitleTouched(true)}
@@ -606,6 +659,7 @@ export function IssueCreateForm({
             >
               {TOOLBAR_ACTIONS.map((action) => (
                 <button
+                  aria-label={action.ariaLabel}
                   className="btn ghost sm"
                   key={action.label}
                   onClick={() => applyToolbarAction(action)}
@@ -623,8 +677,10 @@ export function IssueCreateForm({
             role="tablist"
           >
             <button
+              aria-controls="issue-body-write-panel"
               aria-selected={tab === "write"}
               className={`tab${tab === "write" ? " active" : ""}`}
+              id="issue-body-write-tab"
               onClick={() => setTab("write")}
               role="tab"
               type="button"
@@ -632,8 +688,10 @@ export function IssueCreateForm({
               Write
             </button>
             <button
+              aria-controls="issue-body-preview-panel"
               aria-selected={tab === "preview"}
               className={`tab${tab === "preview" ? " active" : ""}`}
+              id="issue-body-preview-tab"
               onClick={() => void showPreview()}
               role="tab"
               type="button"
@@ -643,7 +701,11 @@ export function IssueCreateForm({
           </div>
           <div className="p-4">
             {tab === "write" ? (
-              <div>
+              <div
+                aria-labelledby="issue-body-write-tab"
+                id="issue-body-write-panel"
+                role="tabpanel"
+              >
                 <label className="sr-only" htmlFor="issue-body">
                   Issue body
                 </label>
@@ -661,7 +723,11 @@ export function IssueCreateForm({
                 </p>
               </div>
             ) : (
-              <div>
+              <div
+                aria-labelledby="issue-body-preview-tab"
+                id="issue-body-preview-panel"
+                role="tabpanel"
+              >
                 <MarkdownBody html={rendered.html} />
                 {isPreviewPending ? (
                   <p

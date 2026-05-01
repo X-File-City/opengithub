@@ -76,7 +76,7 @@
 
 ## Phase 5: Issue Creation Guardrails and QA Handoff - finish issues-003
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Harden accessibility, query-prefill edge cases, visual compliance, dead-control checks, mobile layout, privacy/redaction, and final bookkeeping. Mark `issues-003` complete only after generic creation, template chooser, required fields, Markdown preview, metadata side effects, attachment affordances, Cancel, Create more, and redirect flows are all verified.
 

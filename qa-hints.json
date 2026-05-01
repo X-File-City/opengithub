@@ -1556,5 +1556,21 @@
       "Issue type from templates is not yet a first-class issue column, so type is limited to template context until issue types are modeled.",
       "Final accessibility, mobile no-overflow, redirect, Cancel, Create more, and privacy/redaction sweeps remain Phase 5 before issues-003 can be marked build_pass true."
     ]
+  },
+  {
+    "feature_id": "issues-003",
+    "tests_written": [
+      "Implemented Phase 5 guardrails: IssueCreateForm now exposes named Markdown toolbar buttons, aria-linked Write/Preview tabs and panels, explicit required-field semantics, and preserves title/body/template query parameters through the login redirect.",
+      "Added Rust API guardrails for anonymous create denial, signed private-repository outsider denial without repository-name leakage, required template-field validation details, invalid metadata rejection, and repeated Create-more-style issue creation producing distinct issue rows.",
+      "Added Vitest coverage for accessible controls, required markers, tab relationships, no inert links, Create more reset behavior across template fields and attachments, and attachment empty state recovery.",
+      "Added Playwright final sweep for generic create redirect to issue detail, Cancel href, empty Markdown preview, toolbar action, template required-field blocking, no dead controls, mobile no-overflow, and final screenshots ralph/screenshots/build/issues-003-phase5-final-desktop.jpg and ralph/screenshots/build/issues-003-phase5-final-mobile.jpg.",
+      "Verification passed: .scratch/issues-003-create-scenario.sh, focused Rust guardrail test, focused issue-create Vitest, focused repository-issue-create Playwright final sweep, TEST_DATABASE_URL-backed make check, make test with 138 frontend tests plus cargo tests, make test-e2e with 60 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Attachment binary upload remains metadata-only until the S3 upload feature lands; QA should verify the UI remains honest about that limitation.",
+      "Issue detail is still a placeholder route owned by issues-004; Phase 5 only verifies the create flow redirects to a concrete repository issue URL.",
+      "Assignee notifications are covered for direct assignees; watcher/subscription fanout should be revisited when repository watch preferences exist.",
+      "Browser proof is Chromium Playwright with desktop and mobile screenshots; QA should still spot-check screen-reader narration for the composed template form."
+    ]
   }
 ]

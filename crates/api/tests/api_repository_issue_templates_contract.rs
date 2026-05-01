@@ -346,6 +346,154 @@ async fn issue_template_required_fields_validate_and_compose_body() {
 }
 
 #[tokio::test]
+async fn issue_create_guardrails_redact_private_and_validate_metadata() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping issue create guardrail scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-create-guard-owner").await;
+    let outsider = create_user(&pool, "issue-create-guard-outsider").await;
+    let repo_name = format!("issue-create-guard-{}", Uuid::new_v4().simple());
+    let repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("private repository should create");
+    let other_repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: format!("issue-create-labels-{}", Uuid::new_v4().simple()),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("other repository should create");
+    let other_labels = ensure_default_labels(&pool, other_repository.id)
+        .await
+        .expect("other labels should seed");
+    let unrelated_label = other_labels
+        .iter()
+        .find(|label| label.name == "bug")
+        .expect("bug label should exist");
+    let template_id = seed_template(&pool, repository.id, owner.id).await;
+
+    let owner_cookie = cookie_header(&pool, &config, &owner).await;
+    let outsider_cookie = cookie_header(&pool, &config, &outsider).await;
+    let app = opengithub_api::build_app_with_config(Some(pool.clone()), config);
+    let uri = format!(
+        "/api/repos/{}/{}/issues",
+        owner.username.as_deref().unwrap(),
+        repo_name
+    );
+
+    let (status, body) = post_json(
+        app.clone(),
+        &uri,
+        None,
+        json!({
+            "title": "anonymous create is blocked"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert!(!body.to_string().contains(&repo_name));
+
+    let (status, body) = post_json(
+        app.clone(),
+        &uri,
+        Some(&outsider_cookie),
+        json!({
+            "title": "outsider create is blocked"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error"]["code"], "forbidden");
+    assert!(!body.to_string().contains(&repo_name));
+
+    let (status, body) = post_json(
+        app.clone(),
+        &uri,
+        Some(&owner_cookie),
+        json!({
+            "title": "[Bug]: missing required field",
+            "templateId": template_id,
+            "fieldValues": {
+                "steps": "   "
+            }
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "validation_failed");
+    assert_eq!(body["details"]["fieldKey"], "steps");
+    assert!(!body.to_string().contains("test-session-secret"));
+
+    let (status, body) = post_json(
+        app.clone(),
+        &uri,
+        Some(&owner_cookie),
+        json!({
+            "title": "invalid metadata is rejected",
+            "labelIds": [unrelated_label.id],
+            "attachments": [
+                {
+                    "fileName": "bad.bin",
+                    "byteSize": -1,
+                    "contentType": "application/octet-stream"
+                }
+            ]
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"]["code"], "validation_failed");
+    assert_eq!(body["details"]["fieldKey"], "labelIds");
+
+    let (status, first) = post_json(
+        app.clone(),
+        &uri,
+        Some(&owner_cookie),
+        json!({
+            "title": "create more issue",
+            "body": "first"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let (status, second) = post_json(
+        app,
+        &uri,
+        Some(&owner_cookie),
+        json!({
+            "title": "create more issue",
+            "body": "second"
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_ne!(first["id"], second["id"]);
+    assert_eq!(
+        first["number"].as_i64().unwrap() + 1,
+        second["number"].as_i64().unwrap()
+    );
+}
+
+#[tokio::test]
 async fn issue_create_applies_template_side_effects_and_attachment_metadata() {
     let Some(pool) = database_pool().await else {
         eprintln!("skipping issue side-effect scenario; set TEST_DATABASE_URL or DATABASE_URL");

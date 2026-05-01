@@ -25,9 +25,20 @@ export default async function NewRepositoryIssuePage({
   const ownerLogin = decodeURIComponent(owner);
   const repositoryName = decodeURIComponent(repo);
   const base = `/${ownerLogin}/${repositoryName}`;
+  const nextSearch = new URLSearchParams();
+  if (query.template) {
+    nextSearch.set("template", query.template);
+  }
+  if (query.title) {
+    nextSearch.set("title", query.title);
+  }
+  if (query.body) {
+    nextSearch.set("body", query.body);
+  }
+  const nextPath = `${base}/issues/new${nextSearch.size ? `?${nextSearch.toString()}` : ""}`;
 
   if (!session.authenticated || !session.user) {
-    redirect(`/login?next=${encodeURIComponent(`${base}/issues/new`)}`);
+    redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
 
   const [repository, templates] = await Promise.all([

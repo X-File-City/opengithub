@@ -107,6 +107,22 @@ describe("IssueCreateForm", () => {
     for (const button of screen.getAllByRole("button")) {
       expect(button).toHaveAccessibleName(/.+/);
     }
+    expect(screen.getByRole("button", { name: "Bold" })).toHaveTextContent("B");
+    expect(screen.getByRole("button", { name: "Italic" })).toHaveTextContent(
+      "I",
+    );
+    expect(screen.getByLabelText(/Title/)).toHaveAttribute(
+      "aria-required",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "Write" })).toHaveAttribute(
+      "aria-controls",
+      "issue-body-write-panel",
+    );
+    expect(screen.getByRole("tab", { name: "Preview" })).toHaveAttribute(
+      "aria-controls",
+      "issue-body-preview-panel",
+    );
   });
 
   it("blocks create until the required title is present", async () => {
@@ -405,6 +421,71 @@ describe("IssueCreateForm", () => {
     });
     fireEvent.click(screen.getAllByRole("tab", { name: "Preview" })[0]);
     expect(await screen.findByText("1. Open the issue form")).toBeVisible();
+  });
+
+  it("keeps template fields accessible and resets all create-more state", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(createdIssue), {
+        status: 201,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const { container } = render(
+      <IssueCreateForm
+        cancelHref="/mona/octo-app/issues"
+        defaultAssigneeUserIds={["user-2"]}
+        defaultLabelIds={["label-1"]}
+        formFields={bugTemplate.formFields}
+        initialBody="Template body"
+        initialTitle="[Bug]: "
+        owner="mona"
+        repo="octo-app"
+        templateId="template-1"
+        templateName="Bug report"
+        templateSlug="bug-report"
+      />,
+    );
+
+    const requiredField = screen.getByPlaceholderText("1. Open...");
+    expect(requiredField).toHaveAttribute("aria-required", "true");
+    for (const tab of screen.getAllByRole("tab", { name: "Write" })) {
+      expect(tab.getAttribute("aria-controls")).toBeTruthy();
+    }
+    expect(
+      screen.getAllByRole("link").map((link) => link.getAttribute("href")),
+    ).not.toContain("#");
+
+    fireEvent.change(screen.getByLabelText(/Title/), {
+      target: { value: "[Bug]: reset state" },
+    });
+    fireEvent.change(requiredField, {
+      target: { value: "1. Open\n2. Submit" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Chrome on macOS"), {
+      target: { value: "Firefox on Linux" },
+    });
+    const attachmentInput = container.querySelector("#issue-attachments");
+    expect(attachmentInput).toBeInstanceOf(HTMLInputElement);
+    fireEvent.change(attachmentInput as HTMLInputElement, {
+      target: {
+        files: [
+          new File(["log"], "debug.log", {
+            type: "text/plain",
+          }),
+        ],
+      },
+    });
+    fireEvent.click(screen.getByLabelText("Create more"));
+    fireEvent.click(screen.getByRole("button", { name: "Create issue" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Created issue #12",
+    );
+    expect(screen.getByLabelText(/Title/)).toHaveValue("");
+    expect(screen.getByPlaceholderText("1. Open...")).toHaveValue("");
+    expect(screen.getByPlaceholderText("Chrome on macOS")).toHaveValue("");
+    expect(screen.queryByText("debug.log")).not.toBeInTheDocument();
+    expect(screen.getByText("No attachments selected.")).toBeVisible();
   });
 });
 

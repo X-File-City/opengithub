@@ -163,3 +163,67 @@ test("signed-in user chooses an issue template before composing", async ({
     path: "../ralph/screenshots/build/issues-003-phase4-side-effects.jpg",
   });
 });
+
+test("final issue creation sweep covers redirect, cancel, required fields, and mobile", async ({
+  browser,
+  page,
+}) => {
+  const seeded = seedRepository();
+  await signIn(page, seeded);
+
+  await page.goto(`${seeded.firstRepositoryHref}/issues/new?template=blank`);
+  await expect(
+    page.getByRole("heading", { name: "Create new issue" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Cancel" }).first(),
+  ).toHaveAttribute("href", `${seeded.firstRepositoryHref}/issues`);
+  await page.getByRole("tab", { name: "Preview" }).click();
+  await expect(page.getByText("Nothing to preview")).toBeVisible();
+  await page.getByRole("tab", { name: "Write" }).click();
+  await page.getByRole("button", { name: "Bold" }).click();
+  await expect(page.getByRole("textbox", { name: "Issue body" })).toHaveValue(
+    "**bold**",
+  );
+  await page.getByLabel("Title").fill("Final redirect issue");
+  await page.getByRole("button", { name: "Create issue" }).click();
+  await expect(page).toHaveURL(/\/issues\/\d+$/);
+  await expect(page.getByRole("heading", { name: /Issue #\d+/ })).toBeVisible();
+
+  await page.goto(`${seeded.firstRepositoryHref}/issues/new`);
+  await page.getByRole("link", { name: "Get started" }).click();
+  await page.getByLabel("Title").fill("[Bug]: required field guardrail");
+  await expect(
+    page.getByRole("button", { name: "Create issue" }),
+  ).toBeDisabled();
+  await page.getByPlaceholder("1. Open...").focus();
+  await page.getByPlaceholder("1. Open...").blur();
+  await expect(page.getByText("Reproduction steps is required.")).toBeVisible();
+  await expectNoDeadControls(page);
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-003-phase5-final-desktop.jpg",
+  });
+
+  const mobilePage = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+  });
+  await signIn(mobilePage, seeded);
+  await mobilePage.goto(
+    `${seeded.firstRepositoryHref}/issues/new?template=blank&title=Mobile%20issue&body=Mobile%20body`,
+  );
+  await expect(
+    mobilePage.getByRole("heading", { name: "Create new issue" }),
+  ).toBeVisible();
+  await expect(mobilePage.getByLabel("Title")).toHaveValue("Mobile issue");
+  const mobileOverflow = await mobilePage.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth + 1,
+  );
+  expect(mobileOverflow).toBe(false);
+  await expectNoDeadControls(mobilePage);
+  await mobilePage.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-003-phase5-final-mobile.jpg",
+  });
+  await mobilePage.close();
+});
