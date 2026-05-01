@@ -594,6 +594,22 @@ export type IssueSubscriptionState = {
   reason: string;
 };
 
+export type ReactionContent =
+  | "thumbs_up"
+  | "thumbs_down"
+  | "laugh"
+  | "hooray"
+  | "confused"
+  | "heart"
+  | "rocket"
+  | "eyes";
+
+export type ReactionSummary = {
+  content: ReactionContent;
+  count: number;
+  viewerReacted: boolean;
+};
+
 export type IssueDetailView = {
   id: string;
   repositoryId: string;
@@ -625,6 +641,18 @@ export type IssueDetailView = {
     visibility: RepositoryVisibility;
   };
   subscription: IssueSubscriptionState;
+  reactions: ReactionSummary[];
+  metadataOptions: {
+    labels: IssueListLabel[];
+    assignees: IssueListUser[];
+    milestones: IssueListMilestone[];
+  };
+};
+
+export type UpdateIssueMetadataRequest = {
+  labelIds: string[];
+  assigneeUserIds: string[];
+  milestoneId: string | null;
 };
 
 export type IssueTimelineComment = {
@@ -632,6 +660,7 @@ export type IssueTimelineComment = {
   body: string;
   bodyHtml: string;
   isMinimized: boolean;
+  reactions: ReactionSummary[];
   createdAt: string;
   updatedAt: string;
 };
@@ -1348,6 +1377,143 @@ export async function createRepositoryIssueCommentFromCookie(
   }
 
   return (await response.json()) as IssueTimelineItem;
+}
+
+export async function updateRepositoryIssueStateFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+  state: IssueState,
+): Promise<IssueDetailView> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryIssuePath(owner, repo, issueNumber)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ state }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ?? "Issue state could not be updated",
+      {
+        cause: envelope,
+      },
+    );
+  }
+
+  return (await response.json()) as IssueDetailView;
+}
+
+export async function toggleRepositoryIssueReactionFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+  content: ReactionContent,
+): Promise<ReactionSummary[]> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryIssuePath(owner, repo, issueNumber)}/reactions`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ content }),
+      cache: "no-store",
+    },
+  );
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const envelope = payload as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ?? "Reaction could not be updated",
+      {
+        cause: envelope,
+      },
+    );
+  }
+
+  return ((payload as { summaries?: ReactionSummary[] } | null)?.summaries ??
+    []) as ReactionSummary[];
+}
+
+export async function updateRepositoryIssueSubscriptionFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+  subscribed: boolean,
+): Promise<IssueSubscriptionState> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryIssuePath(owner, repo, issueNumber)}/subscription`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify({ subscribed }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ??
+        "Notification subscription could not be updated",
+      { cause: envelope },
+    );
+  }
+
+  return (await response.json()) as IssueSubscriptionState;
+}
+
+export async function updateRepositoryIssueMetadataFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  issueNumber: number | string,
+  request: UpdateIssueMetadataRequest,
+): Promise<IssueDetailView> {
+  const response = await fetch(
+    `${apiBaseUrl()}${repositoryIssuePath(owner, repo, issueNumber)}/metadata`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(request),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const envelope = (await response
+      .json()
+      .catch(() => null)) as ApiErrorEnvelope | null;
+    throw new Error(
+      envelope?.error.message ?? "Issue metadata could not be updated",
+      { cause: envelope },
+    );
+  }
+
+  return (await response.json()) as IssueDetailView;
 }
 
 export async function saveRepositoryIssuePreferences(

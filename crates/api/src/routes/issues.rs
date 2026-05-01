@@ -17,12 +17,13 @@ use crate::{
     domain::{
         identity::User,
         issues::{
-            add_issue_comment, add_issue_reaction, create_issue, get_issue,
+            add_issue_comment, create_issue, get_issue,
             issue_comment_timeline_item, issue_timeline_view, list_issue_templates_for_viewer,
             repository_issue_detail_view_for_viewer, repository_issue_list_view_for_viewer,
-            save_repository_issue_preferences, update_issue_state, CollaborationError,
+            save_repository_issue_preferences, toggle_issue_reaction, update_issue_state,
+            update_issue_metadata, update_issue_subscription, CollaborationError,
             CreateComment, CreateIssue, CreateIssueAttachment, IssueListQuery, IssueState,
-            ReactionContent, UpdateIssueState,
+            ReactionContent, UpdateIssueMetadata, UpdateIssueState, UpdateIssueSubscription,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
@@ -54,6 +55,14 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/repos/:owner/:repo/issues/:number/reactions",
             post_reaction_route(),
+        )
+        .route(
+            "/api/repos/:owner/:repo/issues/:number/subscription",
+            patch(update_subscription),
+        )
+        .route(
+            "/api/repos/:owner/:repo/issues/:number/metadata",
+            patch(update_metadata),
         )
 }
 
@@ -128,6 +137,20 @@ struct CreateCommentRequest {
 #[serde(rename_all = "camelCase")]
 struct ReactionRequest {
     content: ReactionContent,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateIssueSubscriptionRequest {
+    subscribed: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateIssueMetadataRequest {
+    label_ids: Option<Vec<Uuid>>,
+    assignee_user_ids: Option<Vec<Uuid>>,
+    milestone_id: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -596,8 +619,11 @@ async fn update_state(
     )
     .await
     .map_err(map_collaboration_error)?;
+    let detail = repository_issue_detail_view_for_viewer(pool, repository_id, updated.number, Some(actor.0.id))
+        .await
+        .map_err(map_collaboration_error)?;
 
-    Ok(Json(json!(updated)))
+    Ok(Json(json!(detail)))
 }
 
 async fn comment(
@@ -681,11 +707,81 @@ async fn reaction(
     let issue = get_issue(pool, repository_id, number, actor.0.id)
         .await
         .map_err(map_collaboration_error)?;
-    let reaction = add_issue_reaction(pool, issue.id, actor.0.id, request.content)
+    let summaries = toggle_issue_reaction(pool, issue.id, actor.0.id, request.content)
         .await
         .map_err(map_collaboration_error)?;
 
-    Ok((StatusCode::CREATED, Json(json!(reaction))))
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({
+            "user_id": actor.0.id,
+            "summaries": summaries,
+        })),
+    ))
+}
+
+async fn update_subscription(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, number)): Path<(String, String, i64)>,
+    RestJson(request): RestJson<UpdateIssueSubscriptionRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_collaboration_error)?;
+    let issue = get_issue(pool, repository_id, number, actor.0.id)
+        .await
+        .map_err(map_collaboration_error)?;
+    let subscription = update_issue_subscription(
+        pool,
+        issue.id,
+        UpdateIssueSubscription {
+            actor_user_id: actor.0.id,
+            subscribed: request.subscribed,
+        },
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+
+    Ok(Json(json!(subscription)))
+}
+
+async fn update_metadata(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((owner, repo, number)): Path<(String, String, i64)>,
+    RestJson(request): RestJson<UpdateIssueMetadataRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
+    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
+    let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
+    let repository_id =
+        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
+            .await
+            .map_err(map_collaboration_error)?;
+    let issue = get_issue(pool, repository_id, number, actor.0.id)
+        .await
+        .map_err(map_collaboration_error)?;
+    update_issue_metadata(
+        pool,
+        issue.id,
+        UpdateIssueMetadata {
+            actor_user_id: actor.0.id,
+            label_ids: request.label_ids.unwrap_or_default(),
+            assignee_user_ids: request.assignee_user_ids.unwrap_or_default(),
+            milestone_id: request.milestone_id,
+        },
+    )
+    .await
+    .map_err(map_collaboration_error)?;
+
+    let detail =
+        repository_issue_detail_view_for_viewer(pool, repository_id, number, Some(actor.0.id))
+            .await
+            .map_err(map_collaboration_error)?;
+    Ok(Json(json!(detail)))
 }
 
 pub(crate) fn map_collaboration_error(

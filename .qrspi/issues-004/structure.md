@@ -42,7 +42,7 @@
 
 ## Phase 3: State, Reactions, and Notifications - live conversation actions
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Wire the primary issue-detail actions: close/reopen, comment-and-close, issue/comment reactions, and subscribe/unsubscribe notification state. Every visible button in the header, timeline cards, composer, reaction toolbar, and Notifications sidebar must either perform a real action or be absent. State changes and reactions must update the timeline/read model and persist through reload.
 
@@ -60,7 +60,7 @@
 
 ## Phase 4: Metadata Sidebar Editing - labels, assignees, milestone, relationships, and participants
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Make the metadata sidebar useful without overbuilding unsupported project/type fields. Authorized viewers can update labels, assignees, milestone, and relationship links where the current data model supports them; unsupported Type/Fields/Projects sections must show honest empty or disabled states. Changes write timeline events, update notifications/search where applicable, and the issue detail page reflects updates after reload.
 

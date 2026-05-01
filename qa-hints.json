@@ -1615,5 +1615,38 @@
       "Attachment binary upload/download remains metadata-only until storage-backed attachments land.",
       "QA should later repeat mobile no-overflow, keyboard focus order, and screen-reader narration once action controls and metadata menus are present."
     ]
+  },
+  {
+    "feature_id": "issues-004",
+    "tests_written": [
+      "Implemented Phase 3 issue detail actions: close/reopen now returns an updated issue detail read model, issue reaction toggles persist through the Rust API, and issue subscription state persists per viewer.",
+      "Added issue_subscriptions migration and Rust contract coverage for subscribe, reaction summary viewer state, close state, notification-safe timeline side effects, and detail reload state.",
+      "Added same-origin Next.js routes for state, reactions, and subscription mutations, plus live Editorial controls in the issue header, body reaction toolbar, composer, and Notifications sidebar.",
+      "Extended RepositoryIssueDetailPage Vitest coverage for action controls and reaction state, and extended the signed-in Playwright repository Issues flow to subscribe, react, close, reopen, assert no dead controls, and save ralph/screenshots/build/issues-004-phase3-actions.jpg.",
+      "Verification passed: focused Rust issue-detail contract, focused repository-issue-detail Vitest, focused Playwright action smoke, TEST_DATABASE_URL-backed make check, make test with 140 frontend tests plus cargo tests, make test-e2e with 60 Playwright tests, and mandatory Editorial banned-value scan with zero matches."
+    ],
+    "needs_deeper_qa": [
+      "Phase 3 wires issue-level reactions; comment reaction summaries render when present, but comment reaction mutation controls remain for a later dedicated route.",
+      "Comment-and-close is covered as separate comment and state actions, not as a combined split button yet.",
+      "Subscription is subscribe/unsubscribe only; customize notification routing remains future notification-settings work.",
+      "Metadata sidebar editing for labels, assignees, milestones, relationships, and unsupported Type/Fields/Projects states remains Phase 4."
+    ]
+  },
+  {
+    "feature_id": "issues-004",
+    "tests_written": [
+      "Implemented Phase 4 metadata sidebar editing: PATCH /api/repos/{owner}/{repo}/issues/{number}/metadata replaces supported labels, assignees, and milestone fields after repository permission and repository-owned metadata validation.",
+      "Issue detail read models now include metadataOptions for label, assignee, and milestone popovers; unsupported Type, Fields, and Projects sections render honest empty states instead of inert controls.",
+      "Added a same-origin Next.js metadata route and live Editorial sidebar controls that update issue metadata, emit success/error feedback, and refresh the detail read model in-place.",
+      "Extended Rust contract coverage for metadata options, metadata updates, timeline events, and private redaction; extended RepositoryIssueDetailPage Vitest coverage for metadata popovers and payloads.",
+      "Extended the signed-in Playwright repository issue detail smoke to add a label and assignee through the visible sidebar, assert no dead controls, and save ralph/screenshots/build/issues-004-phase4-metadata.jpg.",
+      "Verification passed: focused Rust issue-detail contract, focused repository-issue-detail Vitest, TEST_DATABASE_URL-backed make check, make test with 141 frontend tests plus cargo tests, make test-e2e with 60 Playwright tests, and mandatory Editorial banned-value scan with zero matches using rg -e because this ripgrep rejects rg -E as an encoding flag."
+    ],
+    "needs_deeper_qa": [
+      "Phase 4 supports labels, assignees, and milestone only; relationship editing, Development links beyond linked PR display, issue types, custom fields, and projects remain honest empty/unsupported states until their data models exist.",
+      "Metadata writes are full-replacement updates; QA should stress concurrent edits from two sessions before collaboration conflict handling exists.",
+      "Attachment binary upload/download remains metadata-only until storage-backed attachments land.",
+      "Final Phase 5 still needs mobile no-overflow, keyboard/a11y, auth-gated write CTA, event ordering, and final desktop/mobile screenshots before issues-004 can be marked build_pass true."
+    ]
   }
 ]

@@ -1,5 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { RepositoryIssueDetailPage } from "@/components/RepositoryIssueDetailPage";
 import type {
   IssueDetailView,
@@ -144,6 +150,55 @@ function issueDetail(
       subscribed: false,
       reason: "not_subscribed",
     },
+    reactions: [
+      {
+        content: "thumbs_up",
+        count: 2,
+        viewerReacted: true,
+      },
+    ],
+    metadataOptions: {
+      labels: [
+        {
+          id: "label-1",
+          name: "bug",
+          color: "var(--err)",
+          description: "Something is not working",
+        },
+        {
+          id: "label-2",
+          name: "enhancement",
+          color: "var(--accent)",
+          description: "New feature or request",
+        },
+      ],
+      assignees: [
+        {
+          id: "user-1",
+          login: "mona",
+          displayName: "Mona",
+          avatarUrl: null,
+        },
+        {
+          id: "user-2",
+          login: "hubot",
+          displayName: "Hubot",
+          avatarUrl: null,
+        },
+      ],
+      milestones: [
+        {
+          id: "milestone-1",
+          title: "MVP",
+          state: "open",
+        },
+        {
+          id: "milestone-2",
+          title: "Launch",
+          state: "open",
+        },
+      ],
+    },
   };
   return { ...base, ...overrides };
 }
@@ -178,6 +233,7 @@ function issueTimeline(): IssueTimelineItem[] {
         bodyHtml:
           '<div class="markdown-body"><p>I can reproduce this with <code>cargo test</code>.</p></div>',
         isMinimized: false,
+        reactions: [],
         createdAt: "2026-04-30T00:10:00Z",
         updatedAt: "2026-04-30T00:10:00Z",
       },
@@ -188,6 +244,10 @@ function issueTimeline(): IssueTimelineItem[] {
 }
 
 describe("RepositoryIssueDetailPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders the issue header, body, and sidebar read model", () => {
     render(
       <RepositoryIssueDetailPage
@@ -229,9 +289,26 @@ describe("RepositoryIssueDetailPage", () => {
     expect(screen.getByText("trace.txt")).toBeVisible();
     expect(screen.getByText(/1.5 KB/)).toBeVisible();
     expect(screen.getByText("Not subscribed")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Type" })).toBeVisible();
+    expect(screen.getByText("Issue types are not configured.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Fields" })).toBeVisible();
+    expect(
+      screen.getByText("No custom issue fields are configured."),
+    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeVisible();
+    expect(screen.getByText("No project fields are connected.")).toBeVisible();
     expect(screen.getByText(/mona opened this issue/)).toBeVisible();
     expect(screen.getAllByText("hubot").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/I can reproduce this with/)).toBeVisible();
+    expect(
+      screen.getAllByRole("button", { name: /Close issue/ }).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole("toolbar", { name: "Issue reactions" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /thumbs up 2/i }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("textbox", { name: "Comment body" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Comment" })).toBeDisabled();
   });
@@ -262,6 +339,9 @@ describe("RepositoryIssueDetailPage", () => {
     expect(screen.getByText("No linked pull requests")).toBeVisible();
     expect(screen.getByText("No attachments")).toBeVisible();
     expect(screen.getByText("No participants yet")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Sign in to subscribe" }),
+    ).toHaveAttribute("href", "/login?next=/mona/octo-app/issues/42");
     expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
       "href",
       "/login?next=%2Fmona%2Focto-app%2Fissues%2F42",
@@ -273,5 +353,60 @@ describe("RepositoryIssueDetailPage", () => {
     for (const button of screen.queryAllByRole("button")) {
       expect(button).toHaveAccessibleName(/.+/);
     }
+  });
+
+  it("updates metadata through live sidebar controls", async () => {
+    const updatedIssue = issueDetail({
+      labels: [
+        ...issueDetail().labels,
+        {
+          id: "label-2",
+          name: "enhancement",
+          color: "var(--accent)",
+          description: "New feature or request",
+        },
+      ],
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => updatedIssue,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <RepositoryIssueDetailPage
+        issue={issueDetail()}
+        repository={repositoryOverview()}
+        timeline={issueTimeline()}
+        viewerAuthenticated={true}
+      />,
+    );
+
+    const labelSection = screen
+      .getByRole("heading", { name: "Labels" })
+      .closest("section");
+    expect(labelSection).not.toBeNull();
+    fireEvent.click(
+      within(labelSection as HTMLElement).getByRole("button", {
+        name: "Edit",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add enhancement" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/mona/octo-app/issues/42/metadata",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            labelIds: ["label-1", "label-2"],
+            assigneeUserIds: ["user-2"],
+            milestoneId: "milestone-1",
+          }),
+        }),
+      );
+    });
+    expect(await screen.findByText("Issue metadata updated.")).toBeVisible();
+    expect(screen.getByText("enhancement")).toBeVisible();
   });
 });

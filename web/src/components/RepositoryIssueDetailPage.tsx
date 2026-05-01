@@ -1,11 +1,19 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { IssueTimeline } from "@/components/IssueTimeline";
+import { useState } from "react";
+import { IssueTimeline, ReactionToolbar } from "@/components/IssueTimeline";
 import { MarkdownBody } from "@/components/MarkdownBody";
 import { RepositoryShell } from "@/components/RepositoryShell";
 import type {
+  ApiErrorEnvelope,
   IssueDetailView,
+  IssueListLabel,
+  IssueListMilestone,
+  IssueListUser,
   IssueTimelineItem,
+  ReactionContent,
   RepositoryOverview,
 } from "@/lib/api";
 import {
@@ -78,6 +86,10 @@ function SidebarSection({
   );
 }
 
+function optionSelected(id: string, selectedIds: string[]) {
+  return selectedIds.includes(id);
+}
+
 export function RepositoryIssueDetailPage({
   repository,
   issue,
@@ -95,7 +107,161 @@ export function RepositoryIssueDetailPage({
     { state: issue.state },
   );
   const bodyLabelId = `issue-${issue.number}-body`;
-  const stateOpen = issue.state === "open";
+  const [currentIssue, setCurrentIssue] = useState(issue);
+  const [reactions, setReactions] = useState(issue.reactions);
+  const [subscription, setSubscription] = useState(issue.subscription);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
+  const [openMetadataMenu, setOpenMetadataMenu] = useState<
+    "assignees" | "labels" | "milestone" | null
+  >(null);
+  const stateOpen = currentIssue.state === "open";
+  const canEditMetadata =
+    viewerAuthenticated && currentIssue.viewerPermission !== null;
+
+  async function saveMetadata(next: {
+    labels?: IssueListLabel[];
+    assignees?: IssueListUser[];
+    milestone?: IssueListMilestone | null;
+  }) {
+    setMessage(null);
+    setIsMutating(true);
+    try {
+      const nextLabels = next.labels ?? currentIssue.labels;
+      const nextAssignees = next.assignees ?? currentIssue.assignees;
+      const nextMilestone =
+        "milestone" in next ? next.milestone : currentIssue.milestone;
+      const response = await fetch(`${issueHref}/metadata`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          labelIds: nextLabels.map((label) => label.id),
+          assigneeUserIds: nextAssignees.map((assignee) => assignee.id),
+          milestoneId: nextMilestone?.id ?? null,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const envelope = payload as ApiErrorEnvelope | null;
+        throw new Error(
+          envelope?.error.message ?? "Issue metadata could not be updated.",
+        );
+      }
+      setCurrentIssue(payload as IssueDetailView);
+      setOpenMetadataMenu(null);
+      setMessage("Issue metadata updated.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Issue metadata could not be updated.",
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
+  function toggleLabel(label: IssueListLabel) {
+    const selectedIds = currentIssue.labels.map((item) => item.id);
+    const labels = optionSelected(label.id, selectedIds)
+      ? currentIssue.labels.filter((item) => item.id !== label.id)
+      : [...currentIssue.labels, label];
+    void saveMetadata({ labels });
+  }
+
+  function toggleAssignee(assignee: IssueListUser) {
+    const selectedIds = currentIssue.assignees.map((item) => item.id);
+    const assignees = optionSelected(assignee.id, selectedIds)
+      ? currentIssue.assignees.filter((item) => item.id !== assignee.id)
+      : [...currentIssue.assignees, assignee];
+    void saveMetadata({ assignees });
+  }
+
+  async function updateState(nextState: "open" | "closed") {
+    setMessage(null);
+    setIsMutating(true);
+    try {
+      const response = await fetch(`${issueHref}/state`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ state: nextState }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const envelope = payload as ApiErrorEnvelope | null;
+        throw new Error(
+          envelope?.error.message ?? "Issue state could not be updated.",
+        );
+      }
+      setCurrentIssue(payload as IssueDetailView);
+      setMessage(nextState === "closed" ? "Issue closed." : "Issue reopened.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Issue state could not be updated.",
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  }
+
+  async function toggleReaction(content: ReactionContent) {
+    setMessage(null);
+    try {
+      const response = await fetch(`${issueHref}/reactions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const envelope = payload as ApiErrorEnvelope | null;
+        throw new Error(
+          envelope?.error.message ?? "Reaction could not be updated.",
+        );
+      }
+      setReactions(payload);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Reaction could not be updated.",
+      );
+    }
+  }
+
+  async function toggleSubscription() {
+    setMessage(null);
+    setIsMutating(true);
+    try {
+      const response = await fetch(`${issueHref}/subscription`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subscribed: !subscription.subscribed }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const envelope = payload as ApiErrorEnvelope | null;
+        throw new Error(
+          envelope?.error.message ??
+            "Notification subscription could not be updated.",
+        );
+      }
+      setSubscription(payload);
+      setMessage(
+        payload.subscribed ? "Subscribed to notifications." : "Unsubscribed.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Notification subscription could not be updated.",
+      );
+    } finally {
+      setIsMutating(false);
+    }
+  }
 
   return (
     <RepositoryShell
@@ -118,9 +284,9 @@ export function RepositoryIssueDetailPage({
               </Link>
             </div>
             <h1 className="t-h1 break-words">
-              {issue.title}{" "}
+              {currentIssue.title}{" "}
               <span className="t-num" style={{ color: "var(--ink-4)" }}>
-                #{issue.number}
+                #{currentIssue.number}
               </span>
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -129,21 +295,48 @@ export function RepositoryIssueDetailPage({
               </span>
               <p className="t-sm" style={{ color: "var(--ink-3)" }}>
                 <strong style={{ color: "var(--ink-1)" }}>
-                  {issue.author.login}
+                  {currentIssue.author.login}
                 </strong>{" "}
-                opened this issue {relativeTime(issue.createdAt)} ·{" "}
-                <span className="t-num">{issue.commentCount}</span>{" "}
-                {issue.commentCount === 1 ? "comment" : "comments"}
+                opened this issue {relativeTime(currentIssue.createdAt)} ·{" "}
+                <span className="t-num">{currentIssue.commentCount}</span>{" "}
+                {currentIssue.commentCount === 1 ? "comment" : "comments"}
               </p>
             </div>
+            {message ? (
+              <p
+                className="mt-3 t-sm"
+                role={message.includes("could not") ? "alert" : "status"}
+                style={{
+                  color: message.includes("could not")
+                    ? "var(--err)"
+                    : "var(--ok)",
+                }}
+              >
+                {message}
+              </p>
+            ) : null}
           </div>
+          {viewerAuthenticated ? (
+            <button
+              className="btn"
+              disabled={isMutating}
+              onClick={() => void updateState(stateOpen ? "closed" : "open")}
+              type="button"
+            >
+              {isMutating
+                ? "Updating..."
+                : stateOpen
+                  ? "Close issue"
+                  : "Reopen issue"}
+            </button>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)_296px] gap-8 max-lg:grid-cols-1">
           <div className="min-w-0">
             <article className="flex gap-4">
               <div className="av lg shrink-0" aria-hidden="true">
-                {avatarLabel(issue.author.login)}
+                {avatarLabel(currentIssue.author.login)}
               </div>
               <div className="card min-w-0 flex-1 overflow-hidden">
                 <div
@@ -154,17 +347,17 @@ export function RepositoryIssueDetailPage({
                   }}
                 >
                   <h2 className="t-sm font-semibold" id={bodyLabelId}>
-                    {issue.author.login}
+                    {currentIssue.author.login}
                   </h2>
                   <span className="t-xs">
-                    opened {relativeTime(issue.createdAt)}
+                    opened {relativeTime(currentIssue.createdAt)}
                   </span>
                   <span className="chip soft ml-auto">author</span>
                 </div>
                 <div className="p-5">
-                  {issue.body?.trim() ? (
+                  {currentIssue.body?.trim() ? (
                     <MarkdownBody
-                      html={issue.bodyHtml}
+                      html={currentIssue.bodyHtml}
                       labelledBy={bodyLabelId}
                     />
                   ) : (
@@ -172,6 +365,13 @@ export function RepositoryIssueDetailPage({
                       No description provided.
                     </p>
                   )}
+                  {viewerAuthenticated ? (
+                    <ReactionToolbar
+                      label="Issue reactions"
+                      onToggle={(content) => void toggleReaction(content)}
+                      reactions={reactions}
+                    />
+                  ) : null}
                 </div>
               </div>
             </article>
@@ -179,8 +379,12 @@ export function RepositoryIssueDetailPage({
             <div className="mt-6">
               <IssueTimeline
                 initialItems={timeline}
+                issueState={currentIssue.state}
                 issueNumber={issue.number}
                 loginHref={`/login?next=${encodeURIComponent(issueHref)}`}
+                onStateChanged={(state) =>
+                  setCurrentIssue((current) => ({ ...current, state }))
+                }
                 owner={repository.owner_login}
                 repo={repository.name}
                 viewerAuthenticated={viewerAuthenticated}
@@ -190,9 +394,54 @@ export function RepositoryIssueDetailPage({
 
           <aside className="min-w-0">
             <SidebarSection title="Assignees">
-              {issue.assignees.length ? (
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="t-xs">People responsible for this issue.</span>
+                {canEditMetadata ? (
+                  <button
+                    aria-expanded={openMetadataMenu === "assignees"}
+                    className="btn sm"
+                    disabled={isMutating}
+                    onClick={() =>
+                      setOpenMetadataMenu(
+                        openMetadataMenu === "assignees" ? null : "assignees",
+                      )
+                    }
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              {openMetadataMenu === "assignees" ? (
+                <div className="card mb-3 p-2" role="menu">
+                  {currentIssue.metadataOptions.assignees.length ? (
+                    currentIssue.metadataOptions.assignees.map((assignee) => {
+                      const selected = currentIssue.assignees.some(
+                        (item) => item.id === assignee.id,
+                      );
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className="btn ghost sm w-full justify-start"
+                          key={assignee.id}
+                          onClick={() => toggleAssignee(assignee)}
+                          type="button"
+                        >
+                          <span className="av sm" aria-hidden="true">
+                            {avatarLabel(assignee.login)}
+                          </span>
+                          {selected ? "Remove" : "Assign"} {assignee.login}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="t-xs p-2">No assignable collaborators.</p>
+                  )}
+                </div>
+              ) : null}
+              {currentIssue.assignees.length ? (
                 <div className="flex flex-col gap-2">
-                  {issue.assignees.map((assignee) => (
+                  {currentIssue.assignees.map((assignee) => (
                     <div className="row gap-2" key={assignee.id}>
                       <div className="av sm" aria-hidden="true">
                         {avatarLabel(assignee.login)}
@@ -207,9 +456,52 @@ export function RepositoryIssueDetailPage({
             </SidebarSection>
 
             <SidebarSection title="Labels">
-              {issue.labels.length ? (
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="t-xs">Classify and triage this issue.</span>
+                {canEditMetadata ? (
+                  <button
+                    aria-expanded={openMetadataMenu === "labels"}
+                    className="btn sm"
+                    disabled={isMutating}
+                    onClick={() =>
+                      setOpenMetadataMenu(
+                        openMetadataMenu === "labels" ? null : "labels",
+                      )
+                    }
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              {openMetadataMenu === "labels" ? (
+                <div className="card mb-3 p-2" role="menu">
+                  {currentIssue.metadataOptions.labels.map((label) => {
+                    const selected = currentIssue.labels.some(
+                      (item) => item.id === label.id,
+                    );
+                    return (
+                      <button
+                        aria-pressed={selected}
+                        className="btn ghost sm w-full justify-start"
+                        key={label.id}
+                        onClick={() => toggleLabel(label)}
+                        type="button"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="inline-block h-2 w-2 rounded-full"
+                          style={{ background: label.color }}
+                        />
+                        {selected ? "Remove" : "Add"} {label.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {currentIssue.labels.length ? (
                 <div className="flex flex-wrap gap-2">
-                  {issue.labels.map((label) => (
+                  {currentIssue.labels.map((label) => (
                     <span
                       className="chip soft"
                       key={label.id}
@@ -230,18 +522,78 @@ export function RepositoryIssueDetailPage({
             </SidebarSection>
 
             <SidebarSection title="Milestone">
-              {issue.milestone ? (
-                <span className="chip soft">{issue.milestone.title}</span>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="t-xs">
+                  Track this issue against a release.
+                </span>
+                {canEditMetadata ? (
+                  <button
+                    aria-expanded={openMetadataMenu === "milestone"}
+                    className="btn sm"
+                    disabled={isMutating}
+                    onClick={() =>
+                      setOpenMetadataMenu(
+                        openMetadataMenu === "milestone" ? null : "milestone",
+                      )
+                    }
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              {openMetadataMenu === "milestone" ? (
+                <div className="card mb-3 p-2" role="menu">
+                  <button
+                    aria-pressed={currentIssue.milestone === null}
+                    className="btn ghost sm w-full justify-start"
+                    onClick={() => void saveMetadata({ milestone: null })}
+                    type="button"
+                  >
+                    No milestone
+                  </button>
+                  {currentIssue.metadataOptions.milestones.map((milestone) => (
+                    <button
+                      aria-pressed={currentIssue.milestone?.id === milestone.id}
+                      className="btn ghost sm w-full justify-start"
+                      key={milestone.id}
+                      onClick={() => void saveMetadata({ milestone })}
+                      type="button"
+                    >
+                      {milestone.title}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {currentIssue.milestone ? (
+                <span className="chip soft">
+                  {currentIssue.milestone.title}
+                </span>
               ) : (
                 <p className="t-xs">No milestone</p>
               )}
             </SidebarSection>
 
+            <SidebarSection title="Type">
+              <p className="t-xs">Issue types are not configured.</p>
+            </SidebarSection>
+
+            <SidebarSection title="Fields">
+              <p className="t-xs">No custom issue fields are configured.</p>
+            </SidebarSection>
+
+            <SidebarSection title="Projects">
+              <p className="t-xs">No project fields are connected.</p>
+            </SidebarSection>
+
             <SidebarSection title="Development">
-              {issue.linkedPullRequest ? (
-                <Link className="chip soft" href={issue.linkedPullRequest.href}>
-                  PR #{issue.linkedPullRequest.number} ·{" "}
-                  {issue.linkedPullRequest.state}
+              {currentIssue.linkedPullRequest ? (
+                <Link
+                  className="chip soft"
+                  href={currentIssue.linkedPullRequest.href}
+                >
+                  PR #{currentIssue.linkedPullRequest.number} ·{" "}
+                  {currentIssue.linkedPullRequest.state}
                 </Link>
               ) : (
                 <p className="t-xs">No linked pull requests</p>
@@ -249,9 +601,9 @@ export function RepositoryIssueDetailPage({
             </SidebarSection>
 
             <SidebarSection title="Attachments">
-              {issue.attachments.length ? (
+              {currentIssue.attachments.length ? (
                 <div className="flex flex-col gap-2">
-                  {issue.attachments.map((attachment) => (
+                  {currentIssue.attachments.map((attachment) => (
                     <div className="card p-3" key={attachment.id}>
                       <p className="t-sm font-medium">{attachment.fileName}</p>
                       <p className="t-xs">
@@ -268,16 +620,30 @@ export function RepositoryIssueDetailPage({
 
             <SidebarSection title="Notifications">
               <p className="t-xs">
-                {issue.subscription.subscribed
-                  ? `Subscribed: ${issue.subscription.reason}`
+                {subscription.subscribed
+                  ? `Subscribed: ${subscription.reason}`
                   : "Not subscribed"}
               </p>
+              {viewerAuthenticated ? (
+                <button
+                  className="btn sm mt-3"
+                  disabled={isMutating}
+                  onClick={() => void toggleSubscription()}
+                  type="button"
+                >
+                  {subscription.subscribed ? "Unsubscribe" : "Subscribe"}
+                </button>
+              ) : (
+                <Link className="btn sm mt-3" href={`/login?next=${issueHref}`}>
+                  Sign in to subscribe
+                </Link>
+              )}
             </SidebarSection>
 
             <SidebarSection title="Participants">
-              {issue.participants.length ? (
+              {currentIssue.participants.length ? (
                 <div className="flex flex-wrap gap-1">
-                  {issue.participants.map((participant) => (
+                  {currentIssue.participants.map((participant) => (
                     <span
                       className="av sm"
                       key={participant.id}

@@ -170,10 +170,43 @@ test("signed-in repository Issues tab renders real issues and row navigation", a
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Assignees" })).toBeVisible();
   await expect(page.getByText("No milestone")).toBeVisible();
+  await page.getByRole("button", { name: "Subscribe" }).click();
+  await expect(page.getByText("Subscribed to notifications.")).toBeVisible();
+  await expect(page.getByText("Subscribed: subscribed")).toBeVisible();
+  await page.getByRole("button", { name: "Thumbs up 0" }).click();
+  await expect(
+    page.getByRole("button", { name: "Thumbs up 1" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Close issue" }).first().click();
+  await expect(page.getByText("Issue closed.")).toBeVisible();
+  await expect(page.locator(".chip", { hasText: "Closed" })).toBeVisible();
+  await page.getByRole("button", { name: "Reopen issue" }).first().click();
+  await expect(page.getByText("Issue reopened.")).toBeVisible();
+  await expect(page.locator(".chip", { hasText: "Open" })).toBeVisible();
+  const labelsSection = page.locator("section", {
+    has: page.getByRole("heading", { name: "Labels" }),
+  });
+  await labelsSection.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: /Add bug/ }).click();
+  await expect(page.getByText("Issue metadata updated.")).toBeVisible();
+  await expect(page.locator(".chip", { hasText: "bug" })).toBeVisible();
+  const assigneesSection = page.locator("section", {
+    has: page.getByRole("heading", { name: "Assignees" }),
+  });
+  await assigneesSection.getByRole("button", { name: "Edit" }).click();
+  await page
+    .getByRole("button", { name: new RegExp(`Assign ${ownerLogin}`) })
+    .click();
+  await expect(page.getByText("Issue metadata updated.")).toBeVisible();
+  await expect(assigneesSection.getByText(ownerLogin)).toBeVisible();
   await expectNoDeadControls(page);
   await page.screenshot({
     fullPage: true,
-    path: "../ralph/screenshots/build/issues-004-phase1-detail-read.jpg",
+    path: "../ralph/screenshots/build/issues-004-phase3-actions.jpg",
+  });
+  await page.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-004-phase4-metadata.jpg",
   });
 });
 

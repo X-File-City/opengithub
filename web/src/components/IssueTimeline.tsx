@@ -6,6 +6,8 @@ import { MarkdownBody } from "@/components/MarkdownBody";
 import type {
   ApiErrorEnvelope,
   IssueTimelineItem,
+  ReactionContent,
+  ReactionSummary,
   RenderedMarkdown,
 } from "@/lib/api";
 
@@ -14,9 +16,22 @@ type IssueTimelineProps = {
   repo: string;
   issueNumber: number;
   initialItems: IssueTimelineItem[];
+  issueState: "open" | "closed";
   viewerAuthenticated: boolean;
   loginHref: string;
+  onStateChanged: (state: "open" | "closed") => void;
 };
+
+const reactionLabels: Array<{
+  content: ReactionContent;
+  label: string;
+  glyph: string;
+}> = [
+  { content: "thumbs_up", label: "Thumbs up", glyph: "+1" },
+  { content: "heart", label: "Heart", glyph: "heart" },
+  { content: "rocket", label: "Rocket", glyph: "rocket" },
+  { content: "eyes", label: "Eyes", glyph: "eyes" },
+];
 
 function relativeTime(value: string) {
   const timestamp = new Date(value).getTime();
@@ -63,6 +78,48 @@ function eventText(item: IssueTimelineItem) {
   }
 }
 
+export function ReactionToolbar({
+  disabled = false,
+  label,
+  onToggle,
+  reactions,
+}: {
+  disabled?: boolean;
+  label: string;
+  onToggle: (content: ReactionContent) => void;
+  reactions: ReactionSummary[];
+}) {
+  const byContent = new Map(
+    reactions.map((reaction) => [reaction.content, reaction]),
+  );
+
+  return (
+    <div
+      aria-label={label}
+      className="mt-4 flex flex-wrap gap-2"
+      role="toolbar"
+    >
+      {reactionLabels.map((reaction) => {
+        const summary = byContent.get(reaction.content);
+        return (
+          <button
+            aria-label={`${reaction.label} ${summary?.count ?? 0}`}
+            aria-pressed={summary?.viewerReacted ?? false}
+            className={`chip ${summary?.viewerReacted ? "active" : "soft"}`}
+            disabled={disabled}
+            key={reaction.content}
+            onClick={() => onToggle(reaction.content)}
+            type="button"
+          >
+            <span className="t-mono-sm">{reaction.glyph}</span>
+            <span className="t-num">{summary?.count ?? 0}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function TimelineEvent({ item }: { item: IssueTimelineItem }) {
   if (item.comment) {
     const actor = item.actor?.login ?? "unknown";
@@ -94,7 +151,24 @@ function TimelineEvent({ item }: { item: IssueTimelineItem }) {
                 This comment is minimized.
               </p>
             ) : (
-              <MarkdownBody html={item.comment.bodyHtml} labelledBy={titleId} />
+              <>
+                <MarkdownBody
+                  html={item.comment.bodyHtml}
+                  labelledBy={titleId}
+                />
+                {item.comment.reactions.length ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.comment.reactions.map((reaction) => (
+                      <span className="chip soft" key={reaction.content}>
+                        <span className="t-mono-sm">
+                          {reaction.content.replaceAll("_", " ")}
+                        </span>
+                        <span className="t-num">{reaction.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </>
             )}
           </div>
         </div>
@@ -124,21 +198,26 @@ function TimelineEvent({ item }: { item: IssueTimelineItem }) {
 }
 
 function CommentComposer({
+  issueState,
   owner,
   repo,
   issueNumber,
   onCreated,
+  onStateChanged,
 }: {
+  issueState: "open" | "closed";
   owner: string;
   repo: string;
   issueNumber: number;
   onCreated: (item: IssueTimelineItem) => void;
+  onStateChanged: (state: "open" | "closed") => void;
 }) {
   const [body, setBody] = useState("");
   const [tab, setTab] = useState<"write" | "preview">("write");
   const [preview, setPreview] = useState<RenderedMarkdown | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChangingState, setIsChangingState] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const canSubmit = body.trim().length > 0 && !isSubmitting;
 
@@ -201,6 +280,38 @@ function CommentComposer({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function changeState(nextState: "open" | "closed") {
+    setMessage(null);
+    setIsChangingState(true);
+    try {
+      const response = await fetch(
+        `/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}/state`,
+        {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ state: nextState }),
+        },
+      );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const envelope = payload as ApiErrorEnvelope | null;
+        throw new Error(
+          envelope?.error.message ?? "Issue state could not be updated.",
+        );
+      }
+      onStateChanged(nextState);
+      setMessage(nextState === "closed" ? "Issue closed." : "Issue reopened.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Issue state could not be updated.",
+      );
+    } finally {
+      setIsChangingState(false);
     }
   }
 
@@ -288,6 +399,20 @@ function CommentComposer({
           >
             {isSubmitting ? "Posting..." : "Comment"}
           </button>
+          <button
+            className="btn"
+            disabled={isChangingState}
+            onClick={() =>
+              void changeState(issueState === "open" ? "closed" : "open")
+            }
+            type="button"
+          >
+            {isChangingState
+              ? "Updating..."
+              : issueState === "open"
+                ? "Close issue"
+                : "Reopen issue"}
+          </button>
         </div>
       </div>
     </section>
@@ -299,8 +424,10 @@ export function IssueTimeline({
   repo,
   issueNumber,
   initialItems,
+  issueState,
   viewerAuthenticated,
   loginHref,
+  onStateChanged,
 }: IssueTimelineProps) {
   const [items, setItems] = useState(initialItems);
   const sortedItems = useMemo(
@@ -326,8 +453,10 @@ export function IssueTimeline({
         ))}
         {viewerAuthenticated ? (
           <CommentComposer
+            issueState={issueState}
             issueNumber={issueNumber}
             onCreated={(item) => setItems((current) => [...current, item])}
+            onStateChanged={onStateChanged}
             owner={owner}
             repo={repo}
           />

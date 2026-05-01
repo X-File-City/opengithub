@@ -403,6 +403,10 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
         .iter()
         .find(|label| label.name == "bug")
         .expect("bug label should exist");
+    let documentation = labels
+        .iter()
+        .find(|label| label.name == "documentation")
+        .expect("documentation label should exist");
     let milestone_id = sqlx::query_scalar::<_, Uuid>(
         r#"
         INSERT INTO milestones (repository_id, title, description, created_by_user_id)
@@ -543,10 +547,78 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
     assert_eq!(body["viewerPermission"], "read");
     assert_eq!(body["repository"]["name"], repo_name);
     assert_eq!(body["subscription"]["subscribed"], false);
+    assert_eq!(body["reactions"], json!([]));
+    assert!(body["metadataOptions"]["labels"]
+        .as_array()
+        .expect("label options should be an array")
+        .iter()
+        .any(|label| label["name"] == "documentation"));
+    assert!(body["metadataOptions"]["assignees"]
+        .as_array()
+        .expect("assignee options should be an array")
+        .iter()
+        .any(|user| user["login"] == owner.email));
+    assert!(body["metadataOptions"]["milestones"]
+        .as_array()
+        .expect("milestone options should be an array")
+        .iter()
+        .any(|milestone| milestone["title"] == "Phase 1"));
     assert!(body["bodyHtml"]
         .as_str()
         .expect("body html should be a string")
         .contains("<strong>metadata</strong>"));
+
+    let (subscribe_status, subscribe_body) = patch_json(
+        app.clone(),
+        &format!("{uri}/subscription"),
+        Some(&owner_cookie),
+        json!({ "subscribed": true }),
+    )
+    .await;
+    assert_eq!(subscribe_status, StatusCode::OK);
+    assert_eq!(subscribe_body["subscribed"], true);
+    assert_eq!(subscribe_body["reason"], "subscribed");
+
+    let (react_status, react_body) = post_json(
+        app.clone(),
+        &format!("{uri}/reactions"),
+        Some(&owner_cookie),
+        json!({ "content": "thumbs_up" }),
+    )
+    .await;
+    assert_eq!(react_status, StatusCode::CREATED);
+    assert_eq!(react_body["user_id"], owner.id.to_string());
+    assert_eq!(react_body["summaries"][0]["content"], "thumbs_up");
+    assert_eq!(react_body["summaries"][0]["count"], 1);
+    assert_eq!(react_body["summaries"][0]["viewerReacted"], true);
+
+    let (closed_status, closed_body) = patch_json(
+        app.clone(),
+        &uri,
+        Some(&owner_cookie),
+        json!({ "state": "closed" }),
+    )
+    .await;
+    assert_eq!(closed_status, StatusCode::OK);
+    assert_eq!(closed_body["state"], "closed");
+    assert_eq!(closed_body["subscription"]["subscribed"], true);
+    assert_eq!(closed_body["reactions"][0]["content"], "thumbs_up");
+
+    let (metadata_status, metadata_body) = patch_json(
+        app.clone(),
+        &format!("{uri}/metadata"),
+        Some(&owner_cookie),
+        json!({
+            "labelIds": [documentation.id],
+            "assigneeUserIds": [],
+            "milestoneId": null
+        }),
+    )
+    .await;
+    assert_eq!(metadata_status, StatusCode::OK);
+    assert_eq!(metadata_body["labels"][0]["name"], "documentation");
+    assert_eq!(metadata_body["assignees"], json!([]));
+    assert_eq!(metadata_body["milestone"], Value::Null);
 
     let timeline_uri = format!("{uri}/timeline");
     let (timeline_status, timeline_body) = send_json(app.clone(), &timeline_uri, None).await;
@@ -557,6 +629,9 @@ async fn issue_detail_contract_returns_public_read_model_and_redacts_private_acc
     assert!(timeline_items
         .iter()
         .any(|item| item["eventType"] == "opened"));
+    assert!(timeline_items
+        .iter()
+        .any(|item| item["eventType"] == "metadata_changed"));
     let comment_item = timeline_items
         .iter()
         .find(|item| item["eventType"] == "commented")

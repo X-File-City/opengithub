@@ -169,6 +169,14 @@ pub struct IssueSubscriptionState {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ReactionSummary {
+    pub content: ReactionContent,
+    pub count: i64,
+    pub viewer_reacted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueDetailView {
     pub id: Uuid,
     pub repository_id: Uuid,
@@ -195,6 +203,16 @@ pub struct IssueDetailView {
     pub viewer_permission: Option<String>,
     pub repository: IssueListRepository,
     pub subscription: IssueSubscriptionState,
+    pub reactions: Vec<ReactionSummary>,
+    pub metadata_options: IssueDetailMetadataOptions,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueDetailMetadataOptions {
+    pub labels: Vec<IssueListLabel>,
+    pub assignees: Vec<IssueListUser>,
+    pub milestones: Vec<IssueListMilestone>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -215,6 +233,7 @@ pub struct IssueTimelineComment {
     pub body: String,
     pub body_html: String,
     pub is_minimized: bool,
+    pub reactions: Vec<ReactionSummary>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -435,6 +454,20 @@ pub struct CreateIssueAttachment {
 pub struct UpdateIssueState {
     pub actor_user_id: Uuid,
     pub state: IssueState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateIssueSubscription {
+    pub actor_user_id: Uuid,
+    pub subscribed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateIssueMetadata {
+    pub actor_user_id: Uuid,
+    pub label_ids: Vec<Uuid>,
+    pub assignee_user_ids: Vec<Uuid>,
+    pub milestone_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1217,6 +1250,13 @@ pub async fn repository_issue_detail_view_for_viewer(
     let linked_pull_requests = linked_pull_request_hints(pool, &issue_ids, &repository).await?;
     let participants = issue_detail_participants(pool, issue.id).await?;
     let attachments = issue_detail_attachments(pool, issue.id).await?;
+    let subscription = issue_subscription_state(pool, issue.id, actor_user_id).await?;
+    let reactions = reaction_summaries(pool, Some(issue.id), None, actor_user_id).await?;
+    let metadata_options = IssueDetailMetadataOptions {
+        labels: issue_list_label_options(pool, repository_id).await?,
+        assignees: issue_list_user_options(pool, repository_id).await?,
+        milestones: issue_list_milestone_options(pool, repository_id).await?,
+    };
     let rendered = render_markdown(
         Some(pool),
         RenderMarkdownInput {
@@ -1275,11 +1315,143 @@ pub async fn repository_issue_detail_view_for_viewer(
             name: repository.name,
             visibility: repository.visibility,
         },
-        subscription: IssueSubscriptionState {
-            subscribed: false,
-            reason: "not_subscribed".to_owned(),
-        },
+        subscription,
+        reactions,
+        metadata_options,
     })
+}
+
+pub async fn update_issue_metadata(
+    pool: &PgPool,
+    issue_id: Uuid,
+    input: UpdateIssueMetadata,
+) -> Result<Issue, CollaborationError> {
+    let issue = issue_by_id(pool, issue_id).await?;
+    let repository = get_repository(pool, issue.repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    require_repository_role(
+        pool,
+        issue.repository_id,
+        input.actor_user_id,
+        RepositoryRole::Write,
+    )
+    .await?;
+
+    for label_id in &input.label_ids {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM labels WHERE id = $1 AND repository_id = $2)",
+        )
+        .bind(label_id)
+        .bind(issue.repository_id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "labelIds".to_owned(),
+                message: "label is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    if let Some(milestone_id) = input.milestone_id {
+        let exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM milestones WHERE id = $1 AND repository_id = $2)",
+        )
+        .bind(milestone_id)
+        .bind(issue.repository_id)
+        .fetch_one(pool)
+        .await?;
+        if !exists {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "milestoneId".to_owned(),
+                message: "milestone is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    for assignee_user_id in &input.assignee_user_ids {
+        if repository_viewer_permission(
+            pool,
+            &repository,
+            *assignee_user_id,
+            RepositoryRole::Read,
+        )
+        .await?
+        .is_none()
+        {
+            return Err(CollaborationError::InvalidIssueField {
+                field_key: "assigneeUserIds".to_owned(),
+                message: "assignee is not available for this repository".to_owned(),
+            });
+        }
+    }
+
+    sqlx::query("UPDATE issues SET milestone_id = $2 WHERE id = $1")
+        .bind(issue_id)
+        .bind(input.milestone_id)
+        .execute(pool)
+        .await?;
+
+    sqlx::query("DELETE FROM issue_labels WHERE issue_id = $1")
+        .bind(issue_id)
+        .execute(pool)
+        .await?;
+    for label_id in &input.label_ids {
+        sqlx::query(
+            r#"
+            INSERT INTO issue_labels (issue_id, label_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(issue_id)
+        .bind(label_id)
+        .execute(pool)
+        .await?;
+    }
+
+    sqlx::query("DELETE FROM issue_assignees WHERE issue_id = $1")
+        .bind(issue_id)
+        .execute(pool)
+        .await?;
+    for assignee_user_id in &input.assignee_user_ids {
+        sqlx::query(
+            r#"
+            INSERT INTO issue_assignees (issue_id, user_id, assigned_by_user_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT DO NOTHING
+            "#,
+        )
+        .bind(issue_id)
+        .bind(assignee_user_id)
+        .bind(input.actor_user_id)
+        .execute(pool)
+        .await?;
+    }
+
+    append_timeline_event(
+        pool,
+        issue.repository_id,
+        Some(issue.id),
+        None,
+        Some(input.actor_user_id),
+        "metadata_changed",
+        json!({
+            "labelIds": input.label_ids,
+            "assigneeUserIds": input.assignee_user_ids,
+            "milestoneId": input.milestone_id,
+        }),
+    )
+    .await?;
+    notify_issue_assignees(pool, &issue, &input.assignee_user_ids).await?;
+    index_issue_search_document(pool, &issue, input.actor_user_id).await?;
+
+    issue_by_id(pool, issue_id).await
 }
 
 pub async fn update_issue_state(
@@ -1313,18 +1485,62 @@ pub async fn update_issue_state(
     .fetch_one(pool)
     .await?;
     let issue = issue_from_row(row)?;
+    let event_type = match issue.state {
+        IssueState::Open => "reopened",
+        IssueState::Closed => "closed",
+    };
     append_timeline_event(
         pool,
         issue.repository_id,
         Some(issue.id),
         None,
         Some(input.actor_user_id),
-        input.state.as_str(),
+        event_type,
         json!({ "number": issue.number }),
+    )
+    .await?;
+    notify_issue_participants(
+        pool,
+        &issue,
+        input.actor_user_id,
+        event_type,
+        format!("Issue #{} was {}", issue.number, event_type),
     )
     .await?;
     index_issue_search_document(pool, &issue, input.actor_user_id).await?;
     Ok(issue)
+}
+
+pub async fn update_issue_subscription(
+    pool: &PgPool,
+    issue_id: Uuid,
+    input: UpdateIssueSubscription,
+) -> Result<IssueSubscriptionState, CollaborationError> {
+    let repository_id = issue_repository_id(pool, issue_id).await?;
+    require_repository_role(pool, repository_id, input.actor_user_id, RepositoryRole::Read).await?;
+
+    if input.subscribed {
+        sqlx::query(
+            r#"
+            INSERT INTO issue_subscriptions (issue_id, user_id, reason)
+            VALUES ($1, $2, 'subscribed')
+            ON CONFLICT (issue_id, user_id)
+            DO UPDATE SET reason = EXCLUDED.reason
+            "#,
+        )
+        .bind(issue_id)
+        .bind(input.actor_user_id)
+        .execute(pool)
+        .await?;
+    } else {
+        sqlx::query("DELETE FROM issue_subscriptions WHERE issue_id = $1 AND user_id = $2")
+            .bind(issue_id)
+            .bind(input.actor_user_id)
+            .execute(pool)
+            .await?;
+    }
+
+    issue_subscription_state(pool, issue_id, Some(input.actor_user_id)).await
 }
 
 pub async fn add_issue_comment(
@@ -1396,7 +1612,7 @@ pub async fn issue_comment_timeline_item(
     .fetch_one(pool)
     .await?;
 
-    timeline_item_from_row(pool, row).await
+    timeline_item_from_row(pool, row, None).await
 }
 
 pub async fn add_issue_reaction(
@@ -1425,6 +1641,49 @@ pub async fn add_issue_reaction(
     .await?;
 
     reaction_from_row(row)
+}
+
+pub async fn toggle_issue_reaction(
+    pool: &PgPool,
+    issue_id: Uuid,
+    user_id: Uuid,
+    content: ReactionContent,
+) -> Result<Vec<ReactionSummary>, CollaborationError> {
+    let repository_id = issue_repository_id(pool, issue_id).await?;
+    require_repository_role(pool, repository_id, user_id, RepositoryRole::Read).await?;
+
+    let deleted = sqlx::query(
+        r#"
+        DELETE FROM reactions
+        WHERE issue_id = $1 AND user_id = $2 AND content = $3
+        "#,
+    )
+    .bind(issue_id)
+    .bind(user_id)
+    .bind(content.as_str())
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if deleted == 0 {
+        sqlx::query(
+            r#"
+            INSERT INTO reactions (repository_id, issue_id, user_id, content)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (issue_id, user_id, content)
+            WHERE issue_id IS NOT NULL
+            DO NOTHING
+            "#,
+        )
+        .bind(repository_id)
+        .bind(issue_id)
+        .bind(user_id)
+        .bind(content.as_str())
+        .execute(pool)
+        .await?;
+    }
+
+    reaction_summaries(pool, Some(issue_id), None, Some(user_id)).await
 }
 
 pub async fn issue_timeline(
@@ -1478,7 +1737,7 @@ pub async fn issue_timeline_view(
 
     let mut items = Vec::with_capacity(rows.len());
     for row in rows {
-        items.push(timeline_item_from_row(pool, row).await?);
+        items.push(timeline_item_from_row(pool, row, actor_user_id).await?);
     }
     Ok(items)
 }
@@ -1514,6 +1773,7 @@ async fn require_issue_read_access(
 async fn timeline_item_from_row(
     pool: &PgPool,
     row: sqlx::postgres::PgRow,
+    viewer_user_id: Option<Uuid>,
 ) -> Result<IssueTimelineItem, CollaborationError> {
     let actor_id: Option<Uuid> = row.get("actor_id");
     let comment_id: Option<Uuid> = row.get("comment_id");
@@ -1542,11 +1802,13 @@ async fn timeline_item_from_row(
                     }
                 }
             })?;
+            let reactions = reaction_summaries(pool, None, Some(comment_id), viewer_user_id).await?;
             Some(IssueTimelineComment {
                 id: comment_id,
                 body,
                 body_html: rendered.html,
                 is_minimized: row.get("is_minimized"),
+                reactions,
                 created_at: row.get("comment_created_at"),
                 updated_at: row.get("comment_updated_at"),
             })
@@ -1567,6 +1829,116 @@ async fn timeline_item_from_row(
         metadata: row.get("metadata"),
         created_at: row.get("created_at"),
     })
+}
+
+async fn issue_subscription_state(
+    pool: &PgPool,
+    issue_id: Uuid,
+    actor_user_id: Option<Uuid>,
+) -> Result<IssueSubscriptionState, CollaborationError> {
+    let Some(user_id) = actor_user_id else {
+        return Ok(IssueSubscriptionState {
+            subscribed: false,
+            reason: "anonymous".to_owned(),
+        });
+    };
+
+    let reason = sqlx::query_scalar::<_, String>(
+        "SELECT reason FROM issue_subscriptions WHERE issue_id = $1 AND user_id = $2",
+    )
+    .bind(issue_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(IssueSubscriptionState {
+        subscribed: reason.is_some(),
+        reason: reason.unwrap_or_else(|| "not_subscribed".to_owned()),
+    })
+}
+
+async fn reaction_summaries(
+    pool: &PgPool,
+    issue_id: Option<Uuid>,
+    comment_id: Option<Uuid>,
+    actor_user_id: Option<Uuid>,
+) -> Result<Vec<ReactionSummary>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT content,
+               count(*)::bigint AS count,
+               bool_or(user_id = $3) AS viewer_reacted
+        FROM reactions
+        WHERE (($1::uuid IS NOT NULL AND issue_id = $1)
+            OR ($2::uuid IS NOT NULL AND comment_id = $2))
+        GROUP BY content
+        ORDER BY content
+        "#,
+    )
+    .bind(issue_id)
+    .bind(comment_id)
+    .bind(actor_user_id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter()
+        .map(|row| {
+            let content: String = row.get("content");
+            Ok(ReactionSummary {
+                content: ReactionContent::try_from(content.as_str())?,
+                count: row.get("count"),
+                viewer_reacted: row.get::<Option<bool>, _>("viewer_reacted").unwrap_or(false),
+            })
+        })
+        .collect()
+}
+
+async fn notify_issue_participants(
+    pool: &PgPool,
+    issue: &Issue,
+    actor_user_id: Uuid,
+    reason: &str,
+    title: String,
+) -> Result<(), CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT DISTINCT user_id
+        FROM (
+            SELECT author_user_id AS user_id FROM issues WHERE id = $1
+            UNION
+            SELECT author_user_id AS user_id FROM comments WHERE issue_id = $1
+            UNION
+            SELECT user_id FROM issue_subscriptions WHERE issue_id = $1
+        ) participants
+        WHERE user_id <> $2
+        "#,
+    )
+    .bind(issue.id)
+    .bind(actor_user_id)
+    .fetch_all(pool)
+    .await?;
+
+    for row in rows {
+        let user_id: Uuid = row.get("user_id");
+        create_notification(
+            pool,
+            CreateNotification {
+                user_id,
+                repository_id: Some(issue.repository_id),
+                subject_type: "issue".to_owned(),
+                subject_id: Some(issue.id),
+                title: title.clone(),
+                reason: reason.to_owned(),
+            },
+        )
+        .await
+        .map_err(|error| match error {
+            super::notifications::NotificationError::Sqlx(error) => CollaborationError::Sqlx(error),
+            super::notifications::NotificationError::NotFound => CollaborationError::IssueNotFound,
+        })?;
+    }
+
+    Ok(())
 }
 
 pub async fn repository_for_actor(
@@ -1778,6 +2150,26 @@ async fn issue_repository_id(pool: &PgPool, issue_id: Uuid) -> Result<Uuid, Coll
         .fetch_optional(pool)
         .await?
         .ok_or(CollaborationError::IssueNotFound)
+}
+
+async fn issue_by_id(pool: &PgPool, issue_id: Uuid) -> Result<Issue, CollaborationError> {
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, number, title, body, state, author_user_id, milestone_id,
+               locked, closed_by_user_id, closed_at, created_at, updated_at
+        FROM issues
+        WHERE id = $1
+          AND NOT EXISTS (
+              SELECT 1 FROM pull_requests WHERE pull_requests.issue_id = issues.id
+          )
+        "#,
+    )
+    .bind(issue_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(CollaborationError::IssueNotFound)?;
+
+    issue_from_row(row)
 }
 
 async fn require_repository_role(
