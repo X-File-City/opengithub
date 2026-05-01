@@ -42,13 +42,10 @@ export default async function RepositoryIssuesPage({
     sort: query.sort,
     page: Number.isFinite(page) ? page : 1,
   };
-  const [repository, issues] =
-    session.authenticated && session.user
-      ? await Promise.all([
-          getRepository(ownerLogin, repositoryName),
-          getRepositoryIssues(ownerLogin, repositoryName, issueQuery),
-        ])
-      : [null, null];
+  const [repository, issues] = await Promise.all([
+    getRepository(ownerLogin, repositoryName),
+    getRepositoryIssues(ownerLogin, repositoryName, issueQuery),
+  ]);
 
   return (
     <AppShell session={session} shellContext={shellContext}>

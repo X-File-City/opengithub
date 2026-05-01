@@ -463,6 +463,105 @@ async fn private_issue_lists_require_repository_permission_and_redact_errors() {
 }
 
 #[tokio::test]
+async fn anonymous_issue_lists_read_public_repositories_but_not_private_repositories() {
+    let Some(pool) = database_pool().await else {
+        eprintln!("skipping anonymous issue list scenario; set TEST_DATABASE_URL or DATABASE_URL");
+        return;
+    };
+
+    let config = app_config();
+    let owner = create_user(&pool, "issue-anonymous-owner").await;
+    let public_repo_name = format!("public-issues-{}", Uuid::new_v4().simple());
+    let private_repo_name = format!("hidden-issues-{}", Uuid::new_v4().simple());
+    let public_repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: public_repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Public,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("public repository should create");
+    let private_repository = create_repository(
+        &pool,
+        CreateRepository {
+            owner: RepositoryOwner::User { id: owner.id },
+            name: private_repo_name.clone(),
+            description: None,
+            visibility: RepositoryVisibility::Private,
+            default_branch: None,
+            created_by_user_id: owner.id,
+        },
+    )
+    .await
+    .expect("private repository should create");
+    let public_issue = create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: public_repository.id,
+            actor_user_id: owner.id,
+            title: "Anonymous users can read public issues".to_owned(),
+            body: Some("Public repository issue list content.".to_owned()),
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("public issue should create");
+    create_issue(
+        &pool,
+        CreateIssue {
+            repository_id: private_repository.id,
+            actor_user_id: owner.id,
+            title: "Private issue should stay hidden".to_owned(),
+            body: Some("sensitive private issue body".to_owned()),
+            milestone_id: None,
+            label_ids: vec![],
+            assignee_user_ids: vec![],
+        },
+    )
+    .await
+    .expect("private issue should create");
+
+    let app = opengithub_api::build_app_with_config(Some(pool), config);
+    let owner_path = owner.email.replace('@', "%40");
+    let (public_status, public_body) = send_json(
+        app.clone(),
+        &format!("/api/repos/{owner_path}/{public_repo_name}/issues"),
+        None,
+    )
+    .await;
+    assert_eq!(public_status, StatusCode::OK);
+    assert_eq!(public_body["viewerPermission"], "read");
+    assert_eq!(
+        public_body["preferences"]["dismissedContributorBanner"],
+        false
+    );
+    assert_eq!(public_body["items"][0]["number"], public_issue.number);
+    assert_eq!(
+        public_body["items"][0]["title"],
+        "Anonymous users can read public issues"
+    );
+
+    let (private_status, private_body) = send_json(
+        app,
+        &format!("/api/repos/{owner_path}/{private_repo_name}/issues"),
+        None,
+    )
+    .await;
+    assert_eq!(private_status, StatusCode::FORBIDDEN);
+    assert_eq!(private_body["error"]["code"], "forbidden");
+    let serialized = private_body.to_string();
+    assert!(!serialized.contains("Private issue should stay hidden"));
+    assert!(!serialized.contains("sensitive private issue body"));
+}
+
+#[tokio::test]
 async fn issue_list_filters_round_trip_urls_and_validate_bad_filters() {
     let Some(pool) = database_pool().await else {
         eprintln!("skipping issue list filter scenario; set TEST_DATABASE_URL or DATABASE_URL");

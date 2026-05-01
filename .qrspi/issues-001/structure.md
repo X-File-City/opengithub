@@ -73,7 +73,7 @@
 
 ## Phase 5: Issue List Guardrails and QA Handoff - finish issues-001
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Harden accessibility, privacy, query bounds, visual compliance, and bookkeeping. Mark `issues-001` complete only after the repository issue list has real API data, working URL filters, no dead controls, saved banner dismissal, and browser evidence.
 

@@ -828,6 +828,20 @@ pub async fn repository_overview_for_actor_by_owner_name(
     ))
 }
 
+pub async fn repository_overview_for_viewer_by_owner_name(
+    pool: &PgPool,
+    actor_user_id: Option<Uuid>,
+    owner_login: &str,
+    name: &str,
+) -> Result<Option<RepositoryOverview>, RepositoryError> {
+    let Some(repository) = get_repository_by_owner_name(pool, owner_login, name).await? else {
+        return Ok(None);
+    };
+    repository_overview_for_viewer(pool, repository, actor_user_id)
+        .await
+        .map(Some)
+}
+
 pub async fn repository_refs_for_actor_by_owner_name(
     pool: &PgPool,
     actor_user_id: Uuid,
@@ -999,6 +1013,14 @@ pub async fn repository_overview_for_actor(
     repository: Repository,
     actor_user_id: Uuid,
 ) -> Result<RepositoryOverview, RepositoryError> {
+    repository_overview_for_viewer(pool, repository, Some(actor_user_id)).await
+}
+
+pub async fn repository_overview_for_viewer(
+    pool: &PgPool,
+    repository: Repository,
+    actor_user_id: Option<Uuid>,
+) -> Result<RepositoryOverview, RepositoryError> {
     let files = match resolve_repository_ref(pool, &repository, None).await {
         Ok(resolved_ref) => {
             list_repository_files_for_resolved_ref(pool, repository.id, &resolved_ref).await?
@@ -1010,16 +1032,23 @@ pub async fn repository_overview_for_actor(
         .iter()
         .find(|file| file.path.eq_ignore_ascii_case("README.md"))
         .cloned();
-    let viewer_permission = repository_permission_for_user(pool, repository.id, actor_user_id)
-        .await?
-        .map(|permission| permission.role.as_str().to_owned())
-        .or_else(|| {
-            if repository.visibility == RepositoryVisibility::Public {
-                Some("read".to_owned())
-            } else {
-                None
-            }
-        });
+    let viewer_permission = match actor_user_id {
+        Some(user_id) => repository_permission_for_user(pool, repository.id, user_id)
+            .await?
+            .map(|permission| permission.role.as_str().to_owned())
+            .or_else(|| {
+                if repository.visibility == RepositoryVisibility::Public {
+                    Some("read".to_owned())
+                } else {
+                    None
+                }
+            }),
+        None if repository.visibility == RepositoryVisibility::Public => Some("read".to_owned()),
+        None => None,
+    };
+    if viewer_permission.is_none() {
+        return Err(RepositoryError::PermissionDenied);
+    }
     let branch_count = count_repository_refs(pool, repository.id, "branch").await?;
     let tag_count = count_repository_refs(pool, repository.id, "tag").await?;
     let default_branch_ref = get_repository_ref(
@@ -1031,7 +1060,14 @@ pub async fn repository_overview_for_actor(
     let latest_commit = latest_commit_for_repository(pool, &repository).await?;
     let root_entries = repository_root_entries(&repository, &files, latest_commit.as_ref());
     let sidebar = repository_sidebar_metadata(pool, &repository).await?;
-    let viewer_state = repository_viewer_state(pool, &repository, actor_user_id).await?;
+    let viewer_state = match actor_user_id {
+        Some(user_id) => repository_viewer_state(pool, &repository, user_id).await?,
+        None => RepositoryViewerState {
+            starred: false,
+            watching: false,
+            forked_repository_href: None,
+        },
+    };
     let clone_urls = repository_clone_urls(&repository);
     Ok(RepositoryOverview {
         repository,

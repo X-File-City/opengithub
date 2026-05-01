@@ -25,6 +25,26 @@ impl AuthenticatedUser {
     pub fn into_auth_user(self) -> AuthUser {
         AuthUser::from(self.0)
     }
+
+    pub async fn optional_from_headers(
+        state: &AppState,
+        headers: &HeaderMap,
+    ) -> Result<Option<User>, (axum::http::StatusCode, Json<ErrorEnvelope>)> {
+        let Some(pool) = state.db.as_ref() else {
+            return Ok(None);
+        };
+        match session::current_user_from_headers(pool, &state.config, headers).await {
+            Ok(user) => Ok(user),
+            Err(
+                session::SessionError::MissingConfig
+                | session::SessionError::InvalidCookie
+                | session::SessionError::Signing,
+            ) => Ok(None),
+            Err(session::SessionError::Database(error)) => Err(map_verification_error(
+                session::SessionVerificationError::Database(error),
+            )),
+        }
+    }
 }
 
 pub fn map_verification_error(

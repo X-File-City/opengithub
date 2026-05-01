@@ -17,12 +17,13 @@ use crate::{
         identity::User,
         issues::{
             add_issue_comment, add_issue_reaction, create_issue, get_issue, issue_timeline,
-            repository_issue_list_view, save_repository_issue_preferences, update_issue_state,
-            CollaborationError, CreateComment, CreateIssue, IssueListQuery, IssueState,
-            ReactionContent, UpdateIssueState,
+            repository_issue_list_view_for_viewer, save_repository_issue_preferences,
+            update_issue_state, CollaborationError, CreateComment, CreateIssue, IssueListQuery,
+            IssueState, ReactionContent, UpdateIssueState,
         },
         permissions::RepositoryRole,
         pulls::repository_for_actor_by_name,
+        repositories::{get_repository_by_owner_name, RepositoryError},
     },
     AppState,
 };
@@ -110,18 +111,18 @@ async fn list(
     Path((owner, repo)): Path<(String, String)>,
     Query(query): Query<ListQuery>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
-    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
-            .await
-            .map_err(map_collaboration_error)?;
+    let actor = AuthenticatedUser::optional_from_headers(&state, &headers).await?;
+    let repository = get_repository_by_owner_name(pool, &owner, &repo)
+        .await
+        .map_err(repository_lookup_error)?
+        .ok_or_else(|| map_collaboration_error(CollaborationError::RepositoryNotFound))?;
     let pagination = normalize_pagination(query.page, query.page_size);
-    let envelope = repository_issue_list_view(
+    let envelope = repository_issue_list_view_for_viewer(
         pool,
-        repository_id,
-        actor.0.id,
-        issue_list_query(&query, &actor.0).map_err(map_collaboration_error)?,
+        repository.id,
+        actor.as_ref().map(|user| user.id),
+        issue_list_query(&query, actor.as_ref()).map_err(map_collaboration_error)?,
         pagination.page,
         pagination.page_size,
     )
@@ -133,7 +134,10 @@ async fn list(
 
 const ISSUE_SORTS: &[&str] = &["updated-desc", "updated-asc", "created-desc", "created-asc"];
 
-fn issue_list_query(query: &ListQuery, actor: &User) -> Result<IssueListQuery, CollaborationError> {
+fn issue_list_query(
+    query: &ListQuery,
+    actor: Option<&User>,
+) -> Result<IssueListQuery, CollaborationError> {
     let mut filters = IssueListQuery::default();
     let q = query
         .q
@@ -258,14 +262,17 @@ fn qualifier_values_from_query(query: &str, prefix: &str) -> Vec<String> {
     values
 }
 
-fn normalize_assignee_filter(value: &str, actor: &User) -> String {
+fn normalize_assignee_filter(value: &str, actor: Option<&User>) -> String {
     let normalized = value.trim().trim_start_matches('@');
     if normalized.eq_ignore_ascii_case("me") {
         actor
-            .username
-            .as_deref()
-            .unwrap_or(actor.email.as_str())
-            .to_owned()
+            .map(|user| {
+                user.username
+                    .as_deref()
+                    .unwrap_or(user.email.as_str())
+                    .to_owned()
+            })
+            .unwrap_or_else(|| "@me".to_owned())
     } else {
         normalized.to_owned()
     }
@@ -493,5 +500,12 @@ pub(crate) fn map_collaboration_error(
             "internal_error",
             "collaboration operation failed".to_owned(),
         ),
+    }
+}
+
+fn repository_lookup_error(error: RepositoryError) -> (StatusCode, Json<ErrorEnvelope>) {
+    match error {
+        RepositoryError::Sqlx(error) => map_collaboration_error(CollaborationError::Sqlx(error)),
+        _ => map_collaboration_error(CollaborationError::RepositoryNotFound),
     }
 }

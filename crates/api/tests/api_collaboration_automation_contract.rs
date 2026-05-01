@@ -159,9 +159,9 @@ async fn collaboration_and_automation_routes_use_session_auth_and_standard_envel
         None,
     )
     .await;
-    assert_eq!(anonymous_status, StatusCode::UNAUTHORIZED);
+    assert_eq!(anonymous_status, StatusCode::FORBIDDEN);
     assert_json(&anonymous_headers);
-    assert_eq!(anonymous_body["error"]["code"], "not_authenticated");
+    assert_eq!(anonymous_body["error"]["code"], "forbidden");
 
     let (forbidden_status, _forbidden_headers, forbidden_body) = send_json(
         app.clone(),

@@ -284,3 +284,84 @@ test("signed-in repository Issues contributor banner dismissal persists on reloa
     path: "../ralph/screenshots/build/issues-001-phase4-banner-dismissed.jpg",
   });
 });
+
+test("public repository Issues are readable anonymously and fit mobile", async ({
+  browser,
+  page,
+}) => {
+  const seeded = seedSession();
+  await signIn(page, seeded);
+  const repositoryName = `issues public ${Date.now().toString(36)}`;
+  const cookie = `${seeded.cookieName}=${seeded.cookieValue}`;
+  const currentUserResponse = await page.request.get(
+    "http://localhost:3016/api/auth/current-user",
+    { headers: { cookie } },
+  );
+  expect(currentUserResponse.status()).toBe(200);
+  const currentUser = (await currentUserResponse.json()) as CurrentUser;
+  const repositoryResponse = await page.request.post(
+    "http://localhost:3016/api/repos",
+    {
+      headers: { cookie },
+      data: {
+        ownerType: "user",
+        ownerId: currentUser.id,
+        name: repositoryName,
+        visibility: "public",
+        initializeReadme: false,
+      },
+    },
+  );
+  expect(repositoryResponse.status()).toBe(201);
+  const repository = (await repositoryResponse.json()) as CreatedRepository;
+  const issueTitle = `Anonymous public issue ${Date.now().toString(36)}`;
+  const issueResponse = await page.request.post(
+    `http://localhost:3016/api/repos/${repository.owner_login}/${repository.name}/issues`,
+    {
+      headers: { cookie },
+      data: {
+        title: issueTitle,
+        body: "Anonymous readers should see this public repository issue.",
+      },
+    },
+  );
+  expect(issueResponse.status()).toBe(201);
+
+  const anonymousPage = await browser.newPage();
+  await anonymousPage.goto(
+    `/${repository.owner_login}/${repository.name}/issues`,
+  );
+  await expect(
+    anonymousPage.getByRole("heading", { exact: true, name: "Issues" }),
+  ).toBeVisible();
+  await expect(
+    anonymousPage.getByRole("link", { name: issueTitle }),
+  ).toBeVisible();
+  await expect(
+    anonymousPage.getByRole("button", { name: "Dismiss" }),
+  ).toBeVisible();
+  await expectNoDeadControls(anonymousPage);
+  await anonymousPage.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-001-phase5-public-anonymous.jpg",
+  });
+  await anonymousPage.close();
+
+  const mobilePage = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+  });
+  await mobilePage.goto(`/${repository.owner_login}/${repository.name}/issues`);
+  await expect(
+    mobilePage.getByRole("link", { name: issueTitle }),
+  ).toBeVisible();
+  const overflow = await mobilePage.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(overflow).toBe(false);
+  await expectNoDeadControls(mobilePage);
+  await mobilePage.screenshot({
+    fullPage: true,
+    path: "../ralph/screenshots/build/issues-001-phase5-mobile.jpg",
+  });
+  await mobilePage.close();
+});

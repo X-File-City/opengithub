@@ -21,7 +21,7 @@ use crate::{
         repository_blame_for_actor_by_owner_name, repository_blob_for_actor_by_owner_name,
         repository_commit_history_for_actor_by_owner_name, repository_creation_options,
         repository_file_finder_for_actor_by_owner_name, repository_name_availability,
-        repository_overview_for_actor_by_owner_name,
+        repository_overview_for_viewer_by_owner_name,
         repository_path_overview_for_actor_by_owner_name, repository_refs_for_actor_by_owner_name,
         set_repository_star_by_owner_name, set_repository_watch_by_owner_name, CreateRepository,
         RepositoryBootstrapRequest, RepositoryCommitHistoryQuery, RepositoryError,
@@ -226,18 +226,23 @@ async fn read(
     headers: HeaderMap,
     Path((owner, repo)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
-    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository = repository_overview_for_actor_by_owner_name(pool, actor.0.id, &owner, &repo)
-        .await
-        .map_err(map_repository_error)?
-        .ok_or_else(|| {
-            error_response(
-                StatusCode::NOT_FOUND,
-                "not_found",
-                "repository was not found".to_owned(),
-            )
-        })?;
+    let actor = AuthenticatedUser::optional_from_headers(&state, &headers).await?;
+    let repository = repository_overview_for_viewer_by_owner_name(
+        pool,
+        actor.map(|user| user.id),
+        &owner,
+        &repo,
+    )
+    .await
+    .map_err(map_repository_error)?
+    .ok_or_else(|| {
+        error_response(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            "repository was not found".to_owned(),
+        )
+    })?;
 
     Ok(Json(json!(repository)))
 }

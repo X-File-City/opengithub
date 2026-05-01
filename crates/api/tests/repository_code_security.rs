@@ -163,8 +163,8 @@ async fn repository_code_routes_reject_auth_bypass_and_private_access() {
             Method::GET,
             overview_uri.as_str(),
             None,
-            StatusCode::UNAUTHORIZED,
-            "not_authenticated",
+            StatusCode::FORBIDDEN,
+            "forbidden",
         ),
         (
             Method::GET,

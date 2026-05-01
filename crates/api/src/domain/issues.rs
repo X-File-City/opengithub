@@ -496,6 +496,25 @@ pub async fn repository_issue_list_view(
     page: i64,
     page_size: i64,
 ) -> Result<IssueListView, CollaborationError> {
+    repository_issue_list_view_for_viewer(
+        pool,
+        repository_id,
+        Some(actor_user_id),
+        filters,
+        page,
+        page_size,
+    )
+    .await
+}
+
+pub async fn repository_issue_list_view_for_viewer(
+    pool: &PgPool,
+    repository_id: Uuid,
+    actor_user_id: Option<Uuid>,
+    filters: IssueListQuery,
+    page: i64,
+    page_size: i64,
+) -> Result<IssueListView, CollaborationError> {
     let repository = get_repository(pool, repository_id)
         .await
         .map_err(|error| match error {
@@ -503,9 +522,13 @@ pub async fn repository_issue_list_view(
             _ => CollaborationError::RepositoryNotFound,
         })?
         .ok_or(CollaborationError::RepositoryNotFound)?;
-    let viewer_permission =
-        repository_viewer_permission(pool, &repository, actor_user_id, RepositoryRole::Read)
-            .await?;
+    let viewer_permission = match actor_user_id {
+        Some(user_id) => {
+            repository_viewer_permission(pool, &repository, user_id, RepositoryRole::Read).await?
+        }
+        None if repository.visibility == RepositoryVisibility::Public => Some("read".to_owned()),
+        None => return Err(CollaborationError::RepositoryAccessDenied),
+    };
     let page = page.max(1);
     let page_size = page_size.clamp(1, 100);
     let offset = (page - 1) * page_size;
@@ -620,7 +643,13 @@ pub async fn repository_issue_list_view(
         .map(issue_from_row)
         .collect::<Result<Vec<_>, _>>()?;
     let items = issue_list_items_for_issues(pool, &repository, issues).await?;
-    let preferences = get_repository_issue_preferences(pool, repository_id, actor_user_id).await?;
+    let preferences = match actor_user_id {
+        Some(user_id) => get_repository_issue_preferences(pool, repository_id, user_id).await?,
+        None => IssueListPreferences {
+            dismissed_contributor_banner: false,
+            dismissed_contributor_banner_at: None,
+        },
+    };
 
     Ok(IssueListView {
         items,
