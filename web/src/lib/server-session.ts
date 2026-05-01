@@ -17,6 +17,7 @@ import {
   getRepositoryIssueTemplatesFromCookie,
   getRepositoryIssueTimelineFromCookie,
   getRepositoryPathFromCookie,
+  getRepositoryPullRequestFromCookie,
   getRepositoryPullRequestsFromCookie,
   getRepositoryRefsFromCookie,
   getSessionFromHeaders,
@@ -191,6 +192,20 @@ export async function getRepositoryPullRequests(
     owner,
     repo,
     query,
+  );
+}
+
+export async function getRepositoryPullRequest(
+  owner: string,
+  repo: string,
+  number: number | string,
+) {
+  const requestHeaders = await headers();
+  return getRepositoryPullRequestFromCookie(
+    requestHeaders.get("cookie"),
+    owner,
+    repo,
+    number,
   );
 }
 

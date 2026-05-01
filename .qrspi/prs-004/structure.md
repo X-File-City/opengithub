@@ -6,7 +6,7 @@
 
 ## Phase 1: Detail Read Model - header, tabs, original body, and sidebar shell
 
-**Done**: [ ]
+**Done**: [x]
 
 **Scope**: Replace the placeholder `/{owner}/{repo}/pull/{number}` page with a real permission-aware pull request detail read surface. The API returns title, number, state, draft/merged/closed flags, author, base/head refs, commit/file/comment/review/check counts, repository context, viewer permission, labels, milestone, assignees, requested reviewers, linked issues, participants, and subscription defaults. The UI renders the Editorial PR conversation shell with repository tabs, Conversation/Commits/Checks/Files changed tabs, original body card, right metadata sidebar, and no inert controls.
 

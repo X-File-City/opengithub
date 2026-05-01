@@ -934,6 +934,61 @@ export type PullRequestCompareView = {
   createOptions: PullRequestCreateOptions;
 };
 
+export type PullRequestDetailView = {
+  id: string;
+  issueId: string;
+  repository: PullRequestListView["repository"];
+  number: number;
+  title: string;
+  body: string | null;
+  bodyHtml: string;
+  state: PullRequestState;
+  isDraft: boolean;
+  author: IssueListUser;
+  authorRole: string;
+  headRef: string;
+  baseRef: string;
+  labels: IssueListLabel[];
+  milestone: IssueListMilestone | null;
+  assignees: IssueListUser[];
+  requestedReviewers: IssueListUser[];
+  latestReviews: Array<{
+    reviewer: IssueListUser;
+    state: string;
+    submittedAt: string;
+  }>;
+  linkedIssues: LinkedIssueHint[];
+  participants: IssueListUser[];
+  review: PullRequestReviewSummary;
+  checks: PullRequestChecksSummary;
+  taskProgress: PullRequestTaskProgress;
+  stats: {
+    commits: number;
+    files: number;
+    additions: number;
+    deletions: number;
+    comments: number;
+  };
+  subscription: {
+    subscribed: boolean;
+    reason: string;
+  };
+  metadataOptions: {
+    labels: IssueListLabel[];
+    assignees: IssueListUser[];
+    milestones: IssueListMilestone[];
+  };
+  href: string;
+  commitsHref: string;
+  checksHref: string;
+  filesHref: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  mergedAt: string | null;
+  viewerPermission: string | null;
+};
+
 export type CreatePullRequestRequest = {
   title: string;
   body?: string | null;
@@ -1613,6 +1668,55 @@ export async function getRepositoryPullRequestsFromCookie(
   }
 
   return body as PullRequestListView;
+}
+
+export function repositoryPullRequestPath(
+  owner: string,
+  repo: string,
+  number: number | string,
+): string {
+  return `/api/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(String(number))}`;
+}
+
+export async function getRepositoryPullRequestFromCookie(
+  cookie: string | null | undefined,
+  owner: string,
+  repo: string,
+  number: number | string,
+): Promise<PullRequestDetailView | ApiErrorEnvelope> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${apiBaseUrl()}${repositoryPullRequestPath(owner, repo, number)}`,
+      {
+        headers: cookie ? { cookie } : undefined,
+        cache: "no-store",
+      },
+    );
+  } catch {
+    return {
+      error: {
+        code: "network_error",
+        message: "Pull request is temporarily unavailable.",
+      },
+      status: 503,
+    };
+  }
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return (
+      (body as ApiErrorEnvelope | null) ?? {
+        error: {
+          code: "pull_request_failed",
+          message: "Pull request could not be loaded.",
+        },
+        status: response.status,
+      }
+    );
+  }
+
+  return body as PullRequestDetailView;
 }
 
 export function repositoryPullRequestComparePath(

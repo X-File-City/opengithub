@@ -14,6 +14,7 @@ use super::{
         CreateComment, CreateIssue, Issue, IssueListLabel, IssueListMetadataOption,
         IssueListMilestone, IssueListUser, IssueState, TimelineEvent,
     },
+    markdown::{render_markdown, RenderMarkdownInput},
     notifications::{create_notification, CreateNotification},
     permissions::RepositoryRole,
     repositories::{
@@ -258,6 +259,89 @@ pub struct PullRequestListView {
     pub viewer_permission: Option<String>,
     pub repository: PullRequestListRepository,
     pub preferences: PullRequestListPreferences,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestDetailRepository {
+    pub id: Uuid,
+    pub owner_login: String,
+    pub name: String,
+    pub visibility: RepositoryVisibility,
+    pub default_branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestDetailStats {
+    pub commits: i64,
+    pub files: i64,
+    pub additions: i64,
+    pub deletions: i64,
+    pub comments: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestReviewStatus {
+    pub reviewer: IssueListUser,
+    pub state: String,
+    pub submitted_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestSubscriptionState {
+    pub subscribed: bool,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestDetailMetadataOptions {
+    pub labels: Vec<IssueListLabel>,
+    pub assignees: Vec<IssueListUser>,
+    pub milestones: Vec<IssueListMilestone>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequestDetailView {
+    pub id: Uuid,
+    pub issue_id: Uuid,
+    pub repository: PullRequestDetailRepository,
+    pub number: i64,
+    pub title: String,
+    pub body: Option<String>,
+    pub body_html: String,
+    pub state: PullRequestState,
+    pub is_draft: bool,
+    pub author: IssueListUser,
+    pub author_role: String,
+    pub head_ref: String,
+    pub base_ref: String,
+    pub labels: Vec<IssueListLabel>,
+    pub milestone: Option<IssueListMilestone>,
+    pub assignees: Vec<IssueListUser>,
+    pub requested_reviewers: Vec<IssueListUser>,
+    pub latest_reviews: Vec<PullRequestReviewStatus>,
+    pub linked_issues: Vec<LinkedIssueHint>,
+    pub participants: Vec<IssueListUser>,
+    pub review: PullRequestReviewSummary,
+    pub checks: PullRequestChecksSummary,
+    pub task_progress: PullRequestTaskProgress,
+    pub stats: PullRequestDetailStats,
+    pub subscription: PullRequestSubscriptionState,
+    pub metadata_options: PullRequestDetailMetadataOptions,
+    pub href: String,
+    pub commits_href: String,
+    pub checks_href: String,
+    pub files_href: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub closed_at: Option<DateTime<Utc>>,
+    pub merged_at: Option<DateTime<Utc>>,
+    pub viewer_permission: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1239,6 +1323,166 @@ pub async fn get_pull_request(
             .await?,
         pull_request,
         issue,
+    })
+}
+
+pub async fn pull_request_detail_view_for_viewer(
+    pool: &PgPool,
+    repository_id: Uuid,
+    number: i64,
+    actor_user_id: Option<Uuid>,
+) -> Result<PullRequestDetailView, CollaborationError> {
+    let repository = get_repository(pool, repository_id)
+        .await
+        .map_err(|error| match error {
+            super::repositories::RepositoryError::Sqlx(error) => CollaborationError::Sqlx(error),
+            _ => CollaborationError::RepositoryNotFound,
+        })?
+        .ok_or(CollaborationError::RepositoryNotFound)?;
+    let viewer_permission = match actor_user_id {
+        Some(user_id) => {
+            repository_viewer_permission(pool, &repository, user_id, RepositoryRole::Read).await?
+        }
+        None if repository.visibility == RepositoryVisibility::Public => Some("read".to_owned()),
+        None => return Err(CollaborationError::RepositoryAccessDenied),
+    };
+
+    let row = sqlx::query(
+        r#"
+        SELECT id, repository_id, issue_id, number, title, body, state, author_user_id,
+               head_ref, base_ref, head_repository_id, base_repository_id, merge_commit_id,
+               merged_by_user_id, merged_at, closed_at, created_at, updated_at, is_draft
+        FROM pull_requests
+        WHERE repository_id = $1 AND number = $2
+        "#,
+    )
+    .bind(repository_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(CollaborationError::PullRequestNotFound)?;
+    let pull_request = pull_request_from_row(row)?;
+    let pull_ids = vec![pull_request.id];
+    let issue_ids = vec![pull_request.issue_id];
+    let authors = pull_list_authors(pool, &pull_ids).await?;
+    let labels = pull_list_labels(pool, &issue_ids).await?;
+    let milestones = pull_list_milestones(pool, &issue_ids).await?;
+    let assignees = pull_list_assignees(pool, &issue_ids).await?;
+    let linked_issues = linked_issue_hints(pool, &issue_ids, &repository).await?;
+    let reviews = pull_review_summaries(pool, &pull_ids).await?;
+    let checks = pull_check_summaries(pool, &pull_ids).await?;
+    let tasks = pull_task_progress(pool, &pull_ids).await?;
+    let roles = pull_author_roles(pool, repository_id, &pull_ids).await?;
+    let comments = pull_comment_counts(pool, &pull_ids).await?;
+    let stats = pull_request_detail_stats(pool, pull_request.id, *comments.get(&pull_request.id).unwrap_or(&0)).await?;
+    let participants = pull_request_detail_participants(pool, pull_request.id).await?;
+    let latest_reviews = pull_request_latest_reviews(pool, pull_request.id).await?;
+    let rendered = render_markdown(
+        Some(pool),
+        RenderMarkdownInput {
+            markdown: pull_request.body.clone().unwrap_or_default(),
+            repository_id: Some(repository_id),
+            owner: Some(repository.owner_login.clone()),
+            repo: Some(repository.name.clone()),
+            ref_name: Some(pull_request.base_ref.clone()),
+            enable_task_toggles: Some(false),
+        },
+    )
+    .await
+    .map_err(|error| match error {
+        super::markdown::MarkdownError::Sqlx(error) => CollaborationError::Sqlx(error),
+        super::markdown::MarkdownError::TooLarge | super::markdown::MarkdownError::TaskNotFound => {
+            CollaborationError::InvalidIssueField {
+                field_key: "body".to_owned(),
+                message: "pull request body could not be rendered".to_owned(),
+            }
+        }
+    })?;
+    let href = format!(
+        "/{}/{}/pull/{}",
+        repository.owner_login, repository.name, pull_request.number
+    );
+
+    Ok(PullRequestDetailView {
+        id: pull_request.id,
+        issue_id: pull_request.issue_id,
+        repository: PullRequestDetailRepository {
+            id: repository.id,
+            owner_login: repository.owner_login.clone(),
+            name: repository.name.clone(),
+            visibility: repository.visibility,
+            default_branch: repository.default_branch.clone(),
+        },
+        number: pull_request.number,
+        title: pull_request.title,
+        body: pull_request.body,
+        body_html: rendered.html,
+        state: pull_request.state,
+        is_draft: pull_request.is_draft,
+        author: authors
+            .get(&pull_request.id)
+            .cloned()
+            .unwrap_or_else(|| fallback_user(pull_request.author_user_id)),
+        author_role: roles
+            .get(&pull_request.id)
+            .cloned()
+            .unwrap_or_else(|| "contributor".to_owned()),
+        head_ref: pull_request.head_ref,
+        base_ref: pull_request.base_ref,
+        labels: labels
+            .get(&pull_request.issue_id)
+            .cloned()
+            .unwrap_or_default(),
+        milestone: milestones.get(&pull_request.issue_id).cloned(),
+        assignees: assignees
+            .get(&pull_request.issue_id)
+            .cloned()
+            .unwrap_or_default(),
+        requested_reviewers: reviews
+            .get(&pull_request.id)
+            .map(|review| review.requested_reviewers.clone())
+            .unwrap_or_default(),
+        latest_reviews,
+        linked_issues: linked_issues
+            .get(&pull_request.issue_id)
+            .cloned()
+            .unwrap_or_default(),
+        participants,
+        review: reviews
+            .get(&pull_request.id)
+            .cloned()
+            .unwrap_or_else(default_review_summary),
+        checks: checks
+            .get(&pull_request.id)
+            .cloned()
+            .unwrap_or_else(default_checks_summary),
+        task_progress: tasks
+            .get(&pull_request.id)
+            .cloned()
+            .unwrap_or(PullRequestTaskProgress { completed: 0, total: 0 }),
+        stats,
+        subscription: PullRequestSubscriptionState {
+            subscribed: actor_user_id.is_some(),
+            reason: if actor_user_id.is_some() {
+                "participating".to_owned()
+            } else {
+                "anonymous".to_owned()
+            },
+        },
+        metadata_options: PullRequestDetailMetadataOptions {
+            labels: pull_list_label_options(pool, repository_id).await?,
+            assignees: pull_list_user_options(pool, repository_id).await?,
+            milestones: pull_list_milestone_options(pool, repository_id).await?,
+        },
+        commits_href: format!("{href}/commits"),
+        checks_href: format!("{href}/checks"),
+        files_href: format!("{href}/files"),
+        href,
+        created_at: pull_request.created_at,
+        updated_at: pull_request.updated_at,
+        closed_at: pull_request.closed_at,
+        merged_at: pull_request.merged_at,
+        viewer_permission,
     })
 }
 
@@ -2632,6 +2876,41 @@ async fn pull_list_labels(
     Ok(by_issue)
 }
 
+async fn pull_list_assignees(
+    pool: &PgPool,
+    issue_ids: &[Uuid],
+) -> Result<HashMap<Uuid, Vec<IssueListUser>>, CollaborationError> {
+    let mut by_issue: HashMap<Uuid, Vec<IssueListUser>> = HashMap::new();
+    if issue_ids.is_empty() {
+        return Ok(by_issue);
+    }
+    let rows = sqlx::query(
+        r#"
+        SELECT issue_assignees.issue_id, users.id, COALESCE(users.username, users.email) AS login,
+               users.display_name, users.avatar_url
+        FROM issue_assignees
+        JOIN users ON users.id = issue_assignees.user_id
+        WHERE issue_assignees.issue_id = ANY($1)
+        ORDER BY lower(COALESCE(users.username, users.email))
+        "#,
+    )
+    .bind(issue_ids)
+    .fetch_all(pool)
+    .await?;
+    for row in rows {
+        by_issue
+            .entry(row.get("issue_id"))
+            .or_default()
+            .push(IssueListUser {
+                id: row.get("id"),
+                login: row.get("login"),
+                display_name: row.get("display_name"),
+                avatar_url: row.get("avatar_url"),
+            });
+    }
+    Ok(by_issue)
+}
+
 async fn pull_list_label_options(
     pool: &PgPool,
     repository_id: Uuid,
@@ -2982,6 +3261,107 @@ async fn pull_comment_counts(
     Ok(rows
         .into_iter()
         .map(|row| (row.get("pull_request_id"), row.get("count")))
+        .collect())
+}
+
+async fn pull_request_detail_stats(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+    comments: i64,
+) -> Result<PullRequestDetailStats, CollaborationError> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            (SELECT count(*) FROM pull_request_commits WHERE pull_request_id = $1) AS commits,
+            (SELECT count(*) FROM pull_request_files WHERE pull_request_id = $1) AS files,
+            COALESCE((SELECT sum(additions) FROM pull_request_files WHERE pull_request_id = $1), 0)::bigint AS additions,
+            COALESCE((SELECT sum(deletions) FROM pull_request_files WHERE pull_request_id = $1), 0)::bigint AS deletions
+        "#,
+    )
+    .bind(pull_request_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(PullRequestDetailStats {
+        commits: row.get("commits"),
+        files: row.get("files"),
+        additions: row.get("additions"),
+        deletions: row.get("deletions"),
+        comments,
+    })
+}
+
+async fn pull_request_detail_participants(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+) -> Result<Vec<IssueListUser>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT DISTINCT ON (users.id)
+               users.id, COALESCE(users.username, users.email) AS login,
+               users.display_name, users.avatar_url
+        FROM users
+        WHERE users.id IN (
+            SELECT author_user_id FROM pull_requests WHERE id = $1
+            UNION
+            SELECT requested_user_id FROM pull_request_review_requests WHERE pull_request_id = $1
+            UNION
+            SELECT reviewer_user_id FROM pull_request_reviews WHERE pull_request_id = $1
+            UNION
+            SELECT author_user_id FROM comments WHERE pull_request_id = $1
+            UNION
+            SELECT actor_user_id FROM timeline_events
+            WHERE pull_request_id = $1 AND actor_user_id IS NOT NULL
+        )
+        ORDER BY users.id, lower(COALESCE(users.username, users.email))
+        "#,
+    )
+    .bind(pull_request_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| IssueListUser {
+            id: row.get("id"),
+            login: row.get("login"),
+            display_name: row.get("display_name"),
+            avatar_url: row.get("avatar_url"),
+        })
+        .collect())
+}
+
+async fn pull_request_latest_reviews(
+    pool: &PgPool,
+    pull_request_id: Uuid,
+) -> Result<Vec<PullRequestReviewStatus>, CollaborationError> {
+    let rows = sqlx::query(
+        r#"
+        SELECT DISTINCT ON (reviews.reviewer_user_id)
+               users.id, COALESCE(users.username, users.email) AS login,
+               users.display_name, users.avatar_url, reviews.state, reviews.submitted_at
+        FROM pull_request_reviews reviews
+        JOIN users ON users.id = reviews.reviewer_user_id
+        WHERE reviews.pull_request_id = $1
+        ORDER BY reviews.reviewer_user_id, reviews.submitted_at DESC
+        "#,
+    )
+    .bind(pull_request_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| PullRequestReviewStatus {
+            reviewer: IssueListUser {
+                id: row.get("id"),
+                login: row.get("login"),
+                display_name: row.get("display_name"),
+                avatar_url: row.get("avatar_url"),
+            },
+            state: row.get("state"),
+            submitted_at: row.get("submitted_at"),
+        })
         .collect())
 }
 

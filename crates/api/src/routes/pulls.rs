@@ -20,8 +20,9 @@ use crate::{
         permissions::RepositoryRole,
         pulls::{
             add_pull_request_comment, compare_pull_request_refs_for_viewer_with_head,
-            create_pull_request, get_pull_request, pull_request_timeline, pull_sort_options,
-            repository_for_actor_by_name, repository_pull_request_list_view_for_viewer,
+            create_pull_request, get_pull_request, pull_request_detail_view_for_viewer,
+            pull_request_timeline, pull_sort_options, repository_for_actor_by_name,
+            repository_pull_request_list_view_for_viewer,
             save_repository_pull_preferences, update_pull_request_state,
             ComparePullRequestRefsInput, CreatePullRequest, PullRequestListQuery, PullRequestState,
             UpdatePullRequestState,
@@ -800,14 +801,21 @@ async fn read(
     headers: HeaderMap,
     Path((owner, repo, number)): Path<(String, String, i64)>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorEnvelope>)> {
-    let actor = AuthenticatedUser::from_headers(&state, &headers).await?;
     let pool = state.db.as_ref().ok_or_else(database_unavailable)?;
-    let repository_id =
-        repository_for_actor_by_name(pool, &owner, &repo, actor.0.id, RepositoryRole::Read)
-            .await
-            .map_err(map_collaboration_error)?;
-    let detail = get_pull_request(pool, repository_id, number, actor.0.id)
+    let actor = AuthenticatedUser::optional_from_headers(&state, &headers).await?;
+    let repository = get_repository_by_owner_name(pool, &owner, &repo)
         .await
+        .map_err(repository_lookup_error)?
+        .ok_or_else(|| {
+            map_collaboration_error(crate::domain::issues::CollaborationError::RepositoryNotFound)
+        })?;
+    let detail = pull_request_detail_view_for_viewer(
+        pool,
+        repository.id,
+        number,
+        actor.as_ref().map(|user| user.id),
+    )
+    .await
         .map_err(map_collaboration_error)?;
 
     Ok(Json(json!(detail)))

@@ -1915,5 +1915,22 @@
       "Base metadata controls are intentionally withheld for public fork contributors without base write access; QA should verify that this reads as an authorization boundary, not a missing form.",
       "The post-create PR detail route is still a skeleton, so browser smoke verifies redirect reachability while full PR conversation/files review waits for prs-004/prs-005."
     ]
+  },
+  {
+    "feature_id": "prs-004",
+    "tests_written": [
+      "Implemented Phase 1 pull request detail read model for GET /api/repos/{owner}/{repo}/pulls/{number} with permission-aware public/private reads, rendered Markdown body, state/draft flags, refs, stats, labels, milestone, assignees, requested reviewers, latest reviews, linked issues, participants, checks, subscription defaults, metadata options, and concrete hrefs.",
+      "Added the Editorial /{owner}/{repo}/pull/{number} conversation shell with repository tabs, Conversation/Commits/Checks/Files changed tabs, original PR body card, merge-readiness summary, sidebar metadata, anonymous sign-in CTA, and no dead links.",
+      "Added Rust API contract coverage for anonymous public read, owner read, private anonymous denial, Markdown rendering, sidebar metadata, counts, files href, and subscription defaults.",
+      "Added Vitest rendering coverage for the PR detail shell/sidebar and anonymous sign-in CTA.",
+      "Added Playwright PR detail smoke that creates a real signed-session repository and draft pull request through the Rust API, opens the detail page, verifies tabs/sidebar/merge readiness/no dead links, and saves ralph/screenshots/build/prs-004-phase1-detail-read.jpg.",
+      "Verification passed: focused Rust api_pull_request_detail_contract, focused repository-pull-request-detail Vitest, focused Playwright PR detail smoke, TEST_DATABASE_URL-backed make check, TEST_DATABASE_URL-backed make test with 159 frontend tests, make test-e2e with 64 Playwright tests, and Editorial banned-value scan with zero matches using the local rg-compatible form."
+    ],
+    "needs_deeper_qa": [
+      "Conversation timeline events and comment creation are intentionally deferred to Phase 2; this phase renders only the original PR body plus read-model metadata.",
+      "Review request, subscription, labels, assignees, and milestone controls are read-only in Phase 1; mutation flows remain Phase 3.",
+      "Merge readiness is a summary only in Phase 1; close/reopen/ready/merge actions and blocker enforcement remain Phase 4.",
+      "Real Google OAuth was not used; browser smoke used deterministic Rust-signed Playwright sessions against the local Postgres test database."
+    ]
   }
 ]

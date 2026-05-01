@@ -258,6 +258,16 @@
 
 2026-05-01 - layout-001 structure planning
 
+2026-05-01 - prs-004 phase 1 pull request detail read model
+
+- Implemented Phase 1 from `.qrspi/prs-004/structure.md`: the pull request detail route now has a permission-aware screen-ready API read model and an Editorial conversation detail shell.
+- Added `PullRequestDetailView` and supporting repository/stats/review/subscription/metadata DTOs in `crates/api/src/domain/pulls.rs`; `GET /api/repos/{owner}/{repo}/pulls/{number}` now returns rendered Markdown body, state/draft flags, refs, counts, labels, milestone, assignees, requested reviewers, latest reviews, linked issues, participants, checks, metadata options, and concrete hrefs.
+- Updated the Next.js detail page at `web/src/app/[owner]/[repo]/pull/[number]/page.tsx`, server fetch helpers, and new `RepositoryPullRequestDetailPage` component to render repository tabs, Conversation/Commits/Checks/Files changed tabs, original body card, merge-readiness summary, right metadata sidebar, and anonymous sign-in CTA without dead links.
+- Added Rust contract coverage in `crates/api/tests/api_pull_request_detail_contract.rs`, Vitest coverage in `web/tests/repository-pull-request-detail.test.tsx`, and Playwright smoke coverage in `web/tests/e2e/repository-pull-request-detail.spec.ts`.
+- Browser smoke used a real Rust-signed Playwright session against local Postgres, created a repository and draft PR through the app/API, verified the detail page, and saved `ralph/screenshots/build/prs-004-phase1-detail-read.jpg`.
+- Verification: focused Rust contract passed; focused Vitest passed; focused Playwright PR detail smoke passed; Editorial banned-value scan found no matches; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make check` passed; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test` passed with 159 frontend tests; `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/opengithub_identity_test make test-e2e` passed with 64 Playwright tests.
+- Marked Phase 1 as done in `.qrspi/prs-004/structure.md`; `prd.json` remains `build_pass: false` because Phases 2-5 remain.
+
 - Read `ralph-config.json`, `BUILD_GUIDE.md`, `build-spec.md`, `CLAUDE.md`, `build-progress.txt`, the first incomplete `prd.json` entry, existing QRSPI outlines, current app shell/dashboard/repository code, and inspect screenshot inventory.
 - Determined `layout-001` requires structure planning before implementation because `needs_structure: true` and `.qrspi/layout-001/structure.md` did not exist.
 - Added `.qrspi/layout-001/structure.md` with four independently verifiable vertical phases: shell context data contract, desktop header interactions, mobile drawer/responsive frame, and cross-page polish/QA handoff.

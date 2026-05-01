@@ -1,4 +1,11 @@
-import { RepositoryFeaturePage } from "@/components/RepositoryFeaturePage";
+import { AppShell } from "@/components/AppShell";
+import { RepositoryPullRequestDetailPage } from "@/components/RepositoryPullRequestDetailPage";
+import { RepositoryUnavailablePage } from "@/components/RepositoryUnavailablePage";
+import {
+  getRepository,
+  getRepositoryPullRequest,
+  getSessionAndShellContext,
+} from "@/lib/server-session";
 
 type PullRequestPageProps = {
   params: Promise<{
@@ -12,19 +19,36 @@ export default async function PullRequestPage({
   params,
 }: PullRequestPageProps) {
   const { owner, repo, number } = await params;
-  const base = `/${decodeURIComponent(owner)}/${decodeURIComponent(repo)}`;
+  const ownerLogin = decodeURIComponent(owner);
+  const repositoryName = decodeURIComponent(repo);
+  const pullNumber = Number.parseInt(decodeURIComponent(number), 10);
+  const [{ session, shellContext }, repository, pullRequest] =
+    await Promise.all([
+      getSessionAndShellContext(),
+      getRepository(ownerLogin, repositoryName),
+      Number.isFinite(pullNumber)
+        ? getRepositoryPullRequest(ownerLogin, repositoryName, pullNumber)
+        : Promise.resolve(null),
+    ]);
 
   return (
-    <RepositoryFeaturePage
-      actions={[
-        { href: `${base}/pull/${number}/files`, label: "Files changed" },
-        { href: `${base}/pulls`, label: "All pull requests" },
-      ]}
-      activePath={`${base}/pull/${decodeURIComponent(number)}`}
-      description={`Pull request #${decodeURIComponent(number)} conversations, checks, and mergeability will be connected in the pull request detail feature. This skeleton keeps review links navigable with repository context.`}
-      owner={owner}
-      repo={repo}
-      title={`Pull request #${decodeURIComponent(number)}`}
-    />
+    <AppShell session={session} shellContext={shellContext}>
+      {repository && pullRequest && !("error" in pullRequest) ? (
+        <RepositoryPullRequestDetailPage
+          pullRequest={pullRequest}
+          repository={repository}
+          viewerAuthenticated={session.authenticated}
+        />
+      ) : (
+        <>
+          {Number.isFinite(pullNumber) ? (
+            <section className="mx-auto max-w-6xl px-6 pt-8">
+              <h1 className="t-label">Pull request #{pullNumber}</h1>
+            </section>
+          ) : null}
+          <RepositoryUnavailablePage owner={ownerLogin} repo={repositoryName} />
+        </>
+      )}
+    </AppShell>
   );
 }
